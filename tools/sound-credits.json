@@ -61,5 +61,68 @@
     "license": "Public Domain Mark 1.0 (http://creativecommons.org/publicdomain/mark/1.0/)",
     "source_url": "https://archive.org/download/aporee_47702_54212/bakerycoffeegrinder2020.mp3",
     "item_url": "https://archive.org/details/aporee_47702_54212"
+  },
+  "cup_clinks": {
+    "title": "Szwedzka 6A, 61-285 Poznan, Poland - ringing cups near coffee machine (radio aporee field recording, trimmed 73.8s-78.3s segment with distinct cup clinks)",
+    "creator": "maciej janasik",
+    "license": "Public Domain Mark 1.0 (https://creativecommons.org/publicdomain/mark/1.0/)",
+    "source_url": "https://archive.org/download/aporee_66247_76596/ringingcoffee.mp3",
+    "item_url": "https://archive.org/details/aporee_66247_76596"
+  },
+  "door_bell": {
+    "title": "R04-62-Shop Bell (Red Library: Bells, Horns, Whistles)",
+    "creator": "USC Cinema / Sunset Editorial Collection (Red Library sound effects, USC Sound Effect Archive)",
+    "license": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://archive.org/download/Red_Library_Bells_Horns_Whistles/R04-62-Shop%20Bell.mp3",
+    "item_url": "https://archive.org/details/Red_Library_Bells_Horns_Whistles"
+  },
+  "door_open": {
+    "title": "Closing an old door",
+    "creator": "ezwa",
+    "license": "Public domain",
+    "source_url": "https://upload.wikimedia.org/wikipedia/commons/6/62/Closing_an_old_door.ogg",
+    "item_url": "https://commons.wikimedia.org/wiki/File:Closing_an_old_door.ogg"
+  },
+  "register": {
+    "title": "Cha Ching Register (cash register bell + drawer)",
+    "creator": "Mike Koenig",
+    "license": "CC BY 3.0 (Attribution 3.0)",
+    "source_url": "http://soundbible.com/grab.php?id=1997&type=mp3",
+    "item_url": "https://soundbible.com/1997-Cash-Register.html"
+  },
+  "thunder": {
+    "title": "THUN_Thunder; long distant rolling sound (SSE Library: WEATHER)",
+    "creator": "SSE Library (Citizen DJ / USC sound effects collection, archive.org item SSE_Library_WEATHER)",
+    "license": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://archive.org/download/SSE_Library_WEATHER/THUNDER/THUN_Thunder%3B%20long%20distant%20rolling%20sound_CS_USC.mp3",
+    "item_url": "https://archive.org/details/SSE_Library_WEATHER"
+  },
+  "typing": {
+    "title": "Typing on a laptop keyboard (from \"Office Sound Effects\" collection)",
+    "creator": "peacefl0wer",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://archive.org/download/office-sound-effects/mixkit-typing-on-a-laptop-keyboard-2531.mp3",
+    "item_url": "https://archive.org/details/office-sound-effects"
+  },
+  "pour": {
+    "title": "Pouring Water in Mug in Sink",
+    "creator": "earthcalling",
+    "license": "Public domain (released by author via pdsounds.org)",
+    "source_url": "https://upload.wikimedia.org/wikipedia/commons/1/15/Pouring_water_in_mug_in_sink.ogg",
+    "item_url": "https://commons.wikimedia.org/wiki/File:Pouring_water_in_mug_in_sink.ogg"
+  },
+  "page_turn": {
+    "title": "Turning a page (hard-cover book page turn)",
+    "creator": "planish",
+    "license": "Public domain (released into the public domain by the author via pdsounds.org)",
+    "source_url": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Turning_a_page.ogg",
+    "item_url": "https://commons.wikimedia.org/wiki/File:Turning_a_page.ogg"
+  },
+  "chair_scrape": {
+    "title": "R21-40a - Bed or Chair Movement (Red Library: Foley Props 2)",
+    "creator": "Red Library (foley sound effects collection, archive.org)",
+    "license": "CC0 1.0 (public domain) \u2014 https://creativecommons.org/publicdomain/zero/1.0/",
+    "source_url": "https://archive.org/download/Red_Library_Foley_Props_2/R21-40a-Bed%20or%20Chair%20Movement.mp3",
+    "item_url": "https://archive.org/details/Red_Library_Foley_Props_2"
   }
 }

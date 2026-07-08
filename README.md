@@ -27,12 +27,14 @@ seat, look around, listen to the room, and get things done.
   bass at midnight. Songs have real structure (intro / sections / outro), then the
   needle lifts, and a new one starts in a new key and tempo. All synthesized live —
   including a Karplus-Strong plucked string
-- **Positional, layered café sound** — a procedural convolution reverb puts every sound
-  in the room, and 3D panning puts it in its *place*: the espresso ritual (portafilter
-  knocks, grinder, pump, steam-wand sputter, milk screech) comes from the machine, the
-  chime from the door, clinks and keyboard typing from the actual tables where people
-  sit. Rain is three layers plus individual droplets ticking on the glass and distant
-  thunder. No audio files — everything is WebAudio
+- **Real recorded café sound, positioned in 3D** — 18 Creative-Commons / public-domain
+  field recordings (see `CREDITS.md`): real crowd chatter, espresso grinding, milk
+  steaming, cup clinks, footsteps, a shop door bell, a cash register, rain on the
+  window, day & night street traffic, and single cars that audibly drive past outside.
+  A procedural convolution reverb puts every sound in the room, and 3D panning puts it
+  in its *place* — the machine sounds come from the counter, typing from the actual
+  laptop users, footsteps from whoever is walking past you. Every recording has a
+  synthesized fallback, so the app still works fully offline/asset-free
 - **Focus timer** — a built-in 25/5 pomodoro with a gentle chime
 
 Everything — geometry, textures, music, sound — is generated in code.
