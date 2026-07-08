@@ -14,14 +14,25 @@ seat, look around, listen to the room, and get things done.
   - 🌅 **Golden Hour Café** — warm wood, late-afternoon sun, plants everywhere
   - 🏙️ **Downtown Roastery** — concrete and steel, big windows onto a bright city street
   - 🌧️ **Midnight Jazz Corner** — rain on the glass, warm lamps, a neon glow
-- **Sit anywhere** — click any free chair or window stool to move there, drag to look around
-- **A living café** — customers walk in (door chime included), order at the counter,
-  sit with their coffee, and eventually head back out; a barista putters behind the bar
-- **Procedurally generated lo-fi music** — an endless, never-repeating chord loop with
-  vinyl crackle, synthesized live in your browser. Turn it off to keep just the room sound,
-  exactly like the "no music, ambience only" videos
-- **Synthesized café ambience** — crowd murmur, espresso machine, cup clinks,
-  rain against the windows at night. No audio files, everything is WebAudio
+- **Sit anywhere, or walk around** — click any free chair or window stool to move there,
+  drag to look around, or press **WASD** to stand up and stroll through the café
+  (with real collision against tables and the counter)
+- **A living café** — customers walk in (door chime included), join the queue, order at
+  the register, wait at pickup while the barista actually brews their drink, then settle
+  in with a laptop, a book, or their phone. Pairs arrive together and chat, taking turns
+  talking and nodding. Walkers steer around each other, and pedestrians pass by outside
+  the windows (with umbrellas when it rains)
+- **Generative music, a different record in every café** — lo-fi hip-hop in the golden
+  hour, bossa-flavored plucked guitar downtown, slow brushed-drum jazz with a walking
+  bass at midnight. Songs have real structure (intro / sections / outro), then the
+  needle lifts, and a new one starts in a new key and tempo. All synthesized live —
+  including a Karplus-Strong plucked string
+- **Positional, layered café sound** — a procedural convolution reverb puts every sound
+  in the room, and 3D panning puts it in its *place*: the espresso ritual (portafilter
+  knocks, grinder, pump, steam-wand sputter, milk screech) comes from the machine, the
+  chime from the door, clinks and keyboard typing from the actual tables where people
+  sit. Rain is three layers plus individual droplets ticking on the glass and distant
+  thunder. No audio files — everything is WebAudio
 - **Focus timer** — a built-in 25/5 pomodoro with a gentle chime
 
 Everything — geometry, textures, music, sound — is generated in code.
@@ -43,7 +54,8 @@ Then open the printed URL (usually http://localhost:5173), click
 | Action | How |
 | --- | --- |
 | Look around | drag with the mouse |
-| Change table | click any free chair (red ring = taken) |
+| Walk around | WASD / arrow keys (or the "stand up & walk" button) |
+| Take a seat | click any free chair (red ring = taken) |
 | Change location | buttons in the top-left panel |
 | Music on/off, volumes | bottom bar |
 | Focus timer | bottom-right of the bar (▶ / ↺) |

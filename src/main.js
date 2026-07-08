@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { THEMES, buildCafe } from './cafe.js';
+import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
 
@@ -25,8 +25,13 @@ let cafe = null;
 let crowd = null;
 let currentThemeIndex = 0;
 let seatIndex = -1;
+let mode = 'seated'; // 'seated' | 'walking'
+const walkPos = new THREE.Vector3();
+let walkBob = 0;
+const keys = new Set();
 
 const EYE_HEIGHT = 1.16;
+const STAND_EYE = 1.55;
 const view = { yaw: 0, pitch: 0 };
 const tween = { active: false, t: 0, dur: 1.4, fromPos: new THREE.Vector3(), toPos: new THREE.Vector3(), fromQ: new THREE.Quaternion(), toQ: new THREE.Quaternion() };
 
@@ -61,11 +66,11 @@ function applyView() {
 
 function sitAt(index, instant = false) {
   const seat = cafe.seats[index];
-  if (crowd) {
-    if (seatIndex >= 0) crowd.setPlayerSeat(index);
-    else crowd.setPlayerSeat(index);
-  }
+  if (crowd) crowd.setPlayerSeat(index);
   seatIndex = index;
+  mode = 'seated';
+  updateWalkBtn();
+  if (!instant && audio.started) audio.playChairScrape(seat.pos);
 
   const eye = seatEye(seat);
   const a = anglesFromLook(eye, seat.look);
@@ -126,6 +131,9 @@ function loadTheme(index) {
   renderer.toneMappingExposure = theme.exposure;
 
   crowd = new CrowdSim(cafe, audio);
+  audio.setAnchors({ counter: cafe.nav.machineWorld, door: cafe.nav.door });
+  audio.setClinkSpots([]);
+  audio.setTypingSpots([]);
   audio.setTheme(theme);
 
   const s = defaultSeat();
@@ -137,6 +145,61 @@ function loadTheme(index) {
   });
   document.getElementById('blurb').textContent = theme.blurb;
 }
+
+// ---------- walk mode ----------
+
+function standUp() {
+  if (mode === 'walking' || tween.active || !cafe) return;
+  mode = 'walking';
+  seatIndex = -1;
+  if (crowd) crowd.setPlayerSeat(-1);
+  walkPos.set(camera.position.x, 0, camera.position.z);
+  resolveCollisions(walkPos);
+  updateWalkBtn();
+}
+
+function updateWalkBtn() {
+  const b = document.getElementById('walk-btn');
+  if (b) b.textContent = mode === 'walking' ? 'click a chair to sit' : 'stand up & walk';
+}
+
+function resolveCollisions(p) {
+  p.x = THREE.MathUtils.clamp(p.x, -ROOM.W / 2 + 0.45, ROOM.W / 2 - 0.45);
+  p.z = THREE.MathUtils.clamp(p.z, -ROOM.D / 2 + 0.5, ROOM.D / 2 - 0.5);
+  if (!cafe) return;
+  for (const c of cafe.colliders) {
+    if (c.rect) {
+      const r = c.rect, m = 0.3;
+      if (p.x > r.x0 - m && p.x < r.x1 + m && p.z > r.z0 - m && p.z < r.z1 + m) {
+        const dxl = p.x - (r.x0 - m), dxr = (r.x1 + m) - p.x;
+        const dzl = p.z - (r.z0 - m), dzr = (r.z1 + m) - p.z;
+        const min = Math.min(dxl, dxr, dzl, dzr);
+        if (min === dxl) p.x = r.x0 - m;
+        else if (min === dxr) p.x = r.x1 + m;
+        else if (min === dzl) p.z = r.z0 - m;
+        else p.z = r.z1 + m;
+      }
+    }
+    if (c.r) {
+      const dx = p.x - c.x, dz = p.z - c.z;
+      const d = Math.hypot(dx, dz);
+      if (d < c.r && d > 0.001) {
+        p.x = c.x + (dx / d) * c.r;
+        p.z = c.z + (dz / d) * c.r;
+      }
+    }
+  }
+}
+
+const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+window.addEventListener('keydown', (e) => {
+  if (!MOVE_KEYS.includes(e.code)) return;
+  e.preventDefault();
+  keys.add(e.code);
+  if (mode === 'seated') standUp();
+});
+window.addEventListener('keyup', (e) => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
 
 // ---------- input: drag to look, click chair to move ----------
 
@@ -210,6 +273,11 @@ document.querySelectorAll('.loc-btn').forEach((b, i) => {
   });
 });
 
+document.getElementById('walk-btn').addEventListener('click', () => {
+  if (mode === 'seated') standUp();
+  else toast('Click any free chair to sit back down ☕');
+});
+
 const musicToggle = document.getElementById('music-toggle');
 musicToggle.addEventListener('click', () => {
   const on = musicToggle.classList.toggle('on');
@@ -263,6 +331,7 @@ window.addEventListener('resize', () => {
 
 const clock = new THREE.Clock();
 let elapsed = 0;
+let lastListenerSync = 0;
 
 function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 
@@ -286,6 +355,27 @@ function frame() {
       tween.active = false;
       applyView();
     }
+  } else if (mode === 'walking' && cafe) {
+    // first-person stroll
+    const fwd = new THREE.Vector3(-Math.sin(view.yaw), 0, -Math.cos(view.yaw));
+    const right = new THREE.Vector3(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
+    const move = new THREE.Vector3();
+    if (keys.has('KeyW') || keys.has('ArrowUp')) move.add(fwd);
+    if (keys.has('KeyS') || keys.has('ArrowDown')) move.sub(fwd);
+    if (keys.has('KeyD') || keys.has('ArrowRight')) move.add(right);
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) move.sub(right);
+    const moving = move.lengthSq() > 0;
+    if (moving) {
+      move.normalize();
+      walkPos.addScaledVector(move, dt * 2.0);
+      resolveCollisions(walkPos);
+      walkBob += dt * 8;
+    }
+    camera.position.set(
+      walkPos.x,
+      STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : Math.sin(elapsed * 1.1) * 0.008),
+      walkPos.z
+    );
   } else if (seatIndex >= 0 && cafe) {
     // subtle breathing sway while seated
     const seat = cafe.seats[seatIndex];
@@ -295,6 +385,13 @@ function frame() {
       eye.y + Math.sin(elapsed * 1.1) * 0.008,
       eye.z + Math.cos(elapsed * 0.43) * 0.006
     );
+  }
+
+  // keep the audio engine's ears where the eyes are (throttled)
+  if (audio.started && elapsed - lastListenerSync > 0.08) {
+    lastListenerSync = elapsed;
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    audio.setListener(camera.position, fwd);
   }
 
   // hover highlight

@@ -28,7 +28,7 @@ export const THEMES = [
       { x: 3.4, z: 1.5, type: 'square' }, { x: 3.7, z: -1.5, type: 'round' },
       { x: 1.9, z: 3.1, type: 'round' }, { x: -1.9, z: 3.2, type: 'square' },
     ],
-    windowBar: true, plants: 6,
+    windowBar: true, plants: 6, crowd: 10, shafts: true, stringLights: true,
   },
   {
     id: 'roastery',
@@ -49,7 +49,7 @@ export const THEMES = [
       { x: 3.4, z: 1.6, type: 'square' }, { x: 3.6, z: -1.4, type: 'square' },
       { x: 1.8, z: 3.2, type: 'round' }, { x: -1.9, z: 3.2, type: 'round' },
     ],
-    windowBar: true, plants: 3,
+    windowBar: true, plants: 3, crowd: 12, fan: true,
   },
   {
     id: 'midnight',
@@ -70,7 +70,7 @@ export const THEMES = [
       { x: 3.5, z: 1.4, type: 'round' }, { x: 3.7, z: -1.6, type: 'square' },
       { x: -1.9, z: 3.2, type: 'round' }, { x: 1.9, z: 3.1, type: 'round' },
     ],
-    windowBar: true, plants: 4,
+    windowBar: true, plants: 4, crowd: 8, candles: true,
   },
 ];
 
@@ -333,7 +333,7 @@ export function buildCafe(theme) {
   const floorTex = track(woodFloorTexture(theme.floor, theme.floorLine));
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(W, D),
-    new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 })
+    new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8, bumpMap: floorTex, bumpScale: 0.015 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -687,6 +687,162 @@ export function buildCafe(theme) {
   rug.receiveShadow = true;
   group.add(rug);
 
+  // ---------- grounding & set dressing ----------
+
+  // soft contact shadows under furniture
+  const blobTex = track(canvasTexture(64, 64, (g) => {
+    const grad = g.createRadialGradient(32, 32, 4, 32, 32, 30);
+    grad.addColorStop(0, 'rgba(0,0,0,0.55)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+  }));
+  function contactShadow(x, z, size) {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, opacity: 0.7 })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.012, z);
+    group.add(m);
+  }
+  for (const t of theme.tables) contactShadow(t.x, t.z, t.type === 'long' ? 3.4 : 2.4);
+  contactShadow(-0.6, -D / 2 + 1.3, 7.5);
+
+  // table clutter: napkin holders, sugar jars, candles at night
+  const candleFlames = [];
+  theme.tables.forEach((tt, ti) => {
+    const topY = tt.type === 'round' ? 0.805 : 0.81;
+    if (ti % 2 === 0) {
+      const napkins = box(0.09, 0.07, 0.05, metalMat);
+      napkins.position.set(tt.x + 0.24, topY + 0.035, tt.z - 0.12);
+      group.add(napkins);
+    }
+    const sugar = cyl(0.03, 0.03, 0.08, new THREE.MeshStandardMaterial({ color: 0xd9d3c4, roughness: 0.4 }), 10);
+    sugar.position.set(tt.x + 0.28, topY + 0.04, tt.z + 0.08);
+    group.add(sugar);
+    if (theme.candles) {
+      const candle = cyl(0.022, 0.025, 0.05, new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.8 }), 8);
+      candle.position.set(tt.x - 0.05, topY + 0.025, tt.z - 0.22);
+      group.add(candle);
+      const flame = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: steamTexture(), color: 0xffa33e, transparent: true, opacity: 0.9, depthWrite: false,
+      }));
+      flame.scale.setScalar(0.06);
+      flame.position.set(tt.x - 0.05, topY + 0.075, tt.z - 0.22);
+      group.add(flame);
+      candleFlames.push(flame);
+    }
+  });
+
+  // a working wall clock on the right wall
+  const clockGroup = new THREE.Group();
+  {
+    const face = cyl(0.28, 0.28, 0.04, new THREE.MeshStandardMaterial({ color: 0xefe8da, roughness: 0.5 }), 24);
+    face.rotation.x = Math.PI / 2;
+    clockGroup.add(face);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.02, 8, 24), woodDarkMat);
+    clockGroup.add(rim);
+    const mkHand = (len, w) => {
+      const h = new THREE.Mesh(new THREE.BoxGeometry(w, len, 0.01), woodDarkMat);
+      h.geometry.translate(0, len / 2, 0);
+      h.position.z = 0.03;
+      clockGroup.add(h);
+      return h;
+    };
+    clockGroup.userData.hourHand = mkHand(0.14, 0.02);
+    clockGroup.userData.minHand = mkHand(0.2, 0.014);
+    clockGroup.position.set(W / 2 - 0.12, 2.55, 2.2);
+    clockGroup.rotation.y = -Math.PI / 2;
+    group.add(clockGroup);
+  }
+
+  // ceiling fan for the roastery
+  let fan = null;
+  if (theme.fan) {
+    fan = new THREE.Group();
+    const pole = cyl(0.02, 0.02, 0.5, woodDarkMat, 8);
+    pole.position.y = H - 0.25;
+    group.add(pole);
+    for (let b = 0; b < 4; b++) {
+      const blade = box(1.0, 0.02, 0.14, woodMat);
+      blade.position.x = 0.55;
+      const holder = new THREE.Group();
+      holder.rotation.y = (b / 4) * Math.PI * 2;
+      holder.add(blade);
+      fan.add(holder);
+    }
+    fan.position.set(0, H - 0.52, 0);
+    group.add(fan);
+  }
+
+  // string lights along the window header
+  if (theme.stringLights) {
+    const bulbMat2 = new THREE.MeshBasicMaterial({ color: 0xffcf8a });
+    for (let i = 0; i < 22; i++) {
+      const x = -W / 2 + 0.6 + (i / 21) * (W - 1.2);
+      const sag = Math.sin((i / 21) * Math.PI * 6) * 0.05;
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), bulbMat2);
+      b.position.set(x, headY + 0.12 + sag, D / 2 - 0.2);
+      group.add(b);
+    }
+  }
+
+  // sunbeam shafts through the front windows
+  if (theme.shafts) {
+    const shaftTex = track(canvasTexture(64, 256, (g, w, h) => {
+      const grad = g.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, 'rgba(255,205,140,0.55)');
+      grad.addColorStop(1, 'rgba(255,205,140,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+    }));
+    for (const sx of [-3.4, 2.6, 4.6]) {
+      const shaft = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.7, 5.2),
+        new THREE.MeshBasicMaterial({
+          map: shaftTex, transparent: true, opacity: 0.16,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+        })
+      );
+      shaft.position.set(sx, headY - 1.1, D / 2 - 1.9);
+      shaft.rotation.x = 0.62;
+      group.add(shaft);
+    }
+  }
+
+  // rain streaks running down the glass at night
+  let glassStreaks = null;
+  if (theme.rain) {
+    const streakTex = track(canvasTexture(256, 256, (g, w, h) => {
+      for (let i = 0; i < 90; i++) {
+        const x = rand(0, w), y = rand(0, h), len = rand(8, 42);
+        g.strokeStyle = `rgba(200,220,255,${rand(0.08, 0.3)})`;
+        g.lineWidth = rand(0.5, 1.6);
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-2, 2), y + len); g.stroke();
+      }
+    }));
+    streakTex.wrapS = streakTex.wrapT = THREE.RepeatWrapping;
+    glassStreaks = [];
+    const streakMat = new THREE.MeshBasicMaterial({
+      map: streakTex, transparent: true, opacity: 0.35, depthWrite: false,
+    });
+    for (const s of [-1, 1]) {
+      const half = (W - doorW) / 2;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(half - 1.1, winH), streakMat);
+      m.position.set(s * (doorW / 2 + half / 2), sillY + winH / 2, D / 2 - 0.1);
+      m.rotation.y = Math.PI;
+      group.add(m);
+      glassStreaks.push(m);
+    }
+    const mL = new THREE.Mesh(new THREE.PlaneGeometry(D - 1.1, winH), streakMat);
+    mL.position.set(-W / 2 + 0.1, sillY + winH / 2, 0);
+    mL.rotation.y = Math.PI / 2;
+    group.add(mL);
+    glassStreaks.push(mL);
+    glassStreaks.tex = streakTex;
+  }
+
   // ---------- lights ----------
   const hemi = new THREE.HemisphereLight(theme.hemi[0], theme.hemi[1], theme.hemi[2]);
   group.add(hemi);
@@ -793,10 +949,24 @@ export function buildCafe(theme) {
   const nav = {
     door: new THREE.Vector3(0, 0, D / 2 - 0.4),
     doorInside: new THREE.Vector3(0, 0, D / 2 - 1.4),
-    counter: new THREE.Vector3(-0.6, 0, -D / 2 + 2.1),
-    baristaHome: new THREE.Vector3(-1.8, 0, -D / 2 + 0.6),
+    counter: new THREE.Vector3(1.4, 0, -D / 2 + 2.2),   // register spot (queue forms here)
+    pickup: new THREE.Vector3(-0.7, 0, -D / 2 + 2.2),   // wait for your drink
+    baristaHome: new THREE.Vector3(-1.0, 0, -D / 2 + 0.6),
+    baristaRegister: new THREE.Vector3(1.4, 0, -D / 2 + 0.6),
+    baristaMachine: new THREE.Vector3(-2.2, 0, -D / 2 + 0.6),
+    machineWorld: new THREE.Vector3(-2.2, 1.1, -D / 2 + 1.15), // where espresso sounds come from
     corridorX: 0, // the clear vertical aisle
   };
+
+  // circles the player can't walk through (walk mode)
+  const colliders = theme.tables.map((tt) => ({
+    x: tt.x, z: tt.z, r: tt.type === 'long' ? 1.5 : 1.05,
+  }));
+  colliders.push({ x: -0.6, z: -D / 2 + 1.15, r: 0, rect: { x0: -4.2, x1: 3.0, z0: -D / 2, z1: -D / 2 + 1.8 } });
+  if (theme.windowBar) {
+    colliders.push({ rect: { x0: -W / 2, x1: -doorW / 2 - 0.3, z0: D / 2 - 0.9, z1: D / 2 } });
+    colliders.push({ rect: { x0: doorW / 2 + 0.3, x1: W / 2, z0: D / 2 - 0.9, z1: D / 2 } });
+  }
 
   // ---------- per-frame animation ----------
   let t = 0;
@@ -836,6 +1006,18 @@ export function buildCafe(theme) {
     lampLights.forEach((pl, i) => {
       pl.intensity = theme.lampIntensity * (1 + Math.sin(t * 7 + i * 2) * 0.03);
     });
+    // the clock keeps real time
+    const now = new Date();
+    const mins = now.getMinutes() + now.getSeconds() / 60;
+    const hrs = (now.getHours() % 12) + mins / 60;
+    clockGroup.userData.minHand.rotation.z = -(mins / 60) * Math.PI * 2;
+    clockGroup.userData.hourHand.rotation.z = -(hrs / 12) * Math.PI * 2;
+    if (fan) fan.rotation.y += dt * 2.4;
+    candleFlames.forEach((f, i) => {
+      f.material.opacity = 0.7 + Math.sin(t * 11 + i * 3) * 0.18 + Math.sin(t * 23 + i) * 0.08;
+      f.scale.setScalar(0.055 + Math.sin(t * 9 + i * 2) * 0.008);
+    });
+    if (glassStreaks) glassStreaks.tex.offset.y -= dt * 0.045;
   }
 
   function dispose() {
@@ -849,5 +1031,5 @@ export function buildCafe(theme) {
     disposables.forEach((d) => d.dispose());
   }
 
-  return { group, seats, seatMeshes, nav, theme, animate, dispose, woodMat, cushionMat };
+  return { group, seats, seatMeshes, nav, colliders, theme, animate, dispose, woodMat, cushionMat };
 }

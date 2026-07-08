@@ -53,13 +53,14 @@
     input[type='range'] {
       width: 86px; accent-color: #c98e4e; cursor: pointer;
     }
-    #music-toggle {
+    #music-toggle, #walk-btn {
       font-family: inherit; font-size: 12.5px; cursor: pointer;
       color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
       border: 1px solid rgba(240, 230, 212, 0.18);
       border-radius: 999px; padding: 6px 12px;
       transition: all 0.2s;
     }
+    #walk-btn:hover { background: rgba(240, 230, 212, 0.16); }
     #music-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
     .divider { width: 1px; height: 22px; background: rgba(240, 230, 212, 0.15); }
 
@@ -132,9 +133,10 @@
     </div>
   </div>
 
-  <div id="hint">drag to look around · click any free chair to move there</div>
+  <div id="hint">drag to look around · WASD to walk · click any free chair to sit</div>
 
   <div id="hud-bottom" class="panel">
+    <button id="walk-btn">stand up &amp; walk</button>
     <button id="music-toggle" class="on">♪ music on</button>
     <div class="ctl">
       <label>music</label>
