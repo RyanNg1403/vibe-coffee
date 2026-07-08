@@ -436,3 +436,13 @@ function frame() {
 
 loadTheme(0);
 frame();
+
+// tiny debug handle for automated visual tests: place the camera anywhere
+window.__vibe = {
+  place(x, z, yaw, pitch = 0) {
+    standUp();
+    walkPos.set(x, 0, z);
+    view.yaw = yaw; view.pitch = pitch;
+    applyView();
+  },
+};

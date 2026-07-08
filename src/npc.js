@@ -7,6 +7,7 @@
 // the machine (synced with the espresso sound), and putters when idle.
 
 import * as THREE from 'three';
+import { ROOM } from './cafe.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -16,6 +17,8 @@ const SHIRT = [0x7a5c8f, 0x4a7a6f, 0xa85751, 0x4f6d9c, 0xb08d4f, 0x5a5f66, 0x8a4
 const PANTS = [0x37414f, 0x4a4038, 0x2f3438, 0x5a4a5f, 0x39504a, 0x54452f];
 const HAIR = [0x241a12, 0x3f2a17, 0x6b4a26, 0x8a8a8a, 0x151515, 0x743e21, 0x4a3b32];
 
+const EYE_MAT = new THREE.MeshStandardMaterial({ color: 0x1c1410, roughness: 0.3 });
+
 export function makePerson(tint = 1) {
   const g = new THREE.Group();
   const dim = (c) => new THREE.Color(c).multiplyScalar(tint);
@@ -23,21 +26,30 @@ export function makePerson(tint = 1) {
   const shirt = new THREE.MeshStandardMaterial({ color: dim(pick(SHIRT)), roughness: 0.95 });
   const pants = new THREE.MeshStandardMaterial({ color: dim(pick(PANTS)), roughness: 0.95 });
   const hair = new THREE.MeshStandardMaterial({ color: dim(pick(HAIR)), roughness: 0.95 });
+  const shoeMat = new THREE.MeshStandardMaterial({ color: dim(pick([0x2a2118, 0x1e1e22, 0x4a3a2a, 0x50505a])), roughness: 0.8 });
 
+  // body-shape variety: slim to broad
+  const build = rand(0.88, 1.14);
   const parts = {};
 
   for (const side of [-1, 1]) {
     const hip = new THREE.Group();
-    hip.position.set(side * 0.09, 0.5, 0);
+    hip.position.set(side * 0.09 * build, 0.5, 0);
     const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.36, 3, 8), pants);
     leg.position.y = -0.24;
     leg.castShadow = true;
     hip.add(leg);
+    // a proper foot sells the walk cycle
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.15), shoeMat);
+    foot.position.set(0, -0.47, 0.035);
+    foot.castShadow = true;
+    hip.add(foot);
     g.add(hip);
     parts[side === -1 ? 'legL' : 'legR'] = hip;
   }
 
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.34, 4, 10), shirt);
+  torso.scale.x = build;
   torso.position.y = 0.82;
   torso.castShadow = true;
   g.add(torso);
@@ -45,7 +57,7 @@ export function makePerson(tint = 1) {
 
   for (const side of [-1, 1]) {
     const shoulder = new THREE.Group();
-    shoulder.position.set(side * 0.2, 0.98, 0);
+    shoulder.position.set(side * 0.2 * build, 0.98, 0);
     const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.3, 3, 8), shirt);
     arm.position.y = -0.19;
     arm.castShadow = true;
@@ -57,17 +69,73 @@ export function makePerson(tint = 1) {
     parts[side === -1 ? 'armL' : 'armR'] = shoulder;
   }
 
+  // neck connects head to shoulders instead of a floating head
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.09, 8), skin);
+  neck.position.y = 1.1;
+  g.add(neck);
+
   const headG = new THREE.Group();
   headG.position.y = 1.22;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 12, 10), skin);
+  head.scale.set(0.95, 1.05, 0.98);
   head.castShadow = true;
   headG.add(head);
-  const cap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI * (Math.random() < 0.25 ? 0.35 : 0.52)),
-    hair
-  );
-  cap.position.y = 0.015;
-  headG.add(cap);
+
+  // eyes — the single cheapest thing that makes them read as people
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 5), EYE_MAT);
+    eye.position.set(s * 0.045, 0.015, 0.102);
+    headG.add(eye);
+  }
+
+  // hair: cap, long, or beanie
+  const style = Math.random();
+  if (style < 0.16) {
+    const beanie = new THREE.Mesh(
+      new THREE.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.42),
+      new THREE.MeshStandardMaterial({ color: dim(pick([0x8a4a3a, 0x3a4a5c, 0x54683f, 0x6a5a4a])), roughness: 1 })
+    );
+    beanie.position.y = 0.028;
+    headG.add(beanie);
+    const brim = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.02, 6, 14), beanie.material);
+    brim.rotation.x = Math.PI / 2;
+    brim.position.y = 0.033;
+    headG.add(brim);
+  } else {
+    const long = style > 0.72;
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI * (style < 0.32 ? 0.35 : 0.52)),
+      hair
+    );
+    cap.position.y = 0.015;
+    headG.add(cap);
+    if (long) {
+      const back = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), hair);
+      back.scale.set(0.9, 1.3, 0.7);
+      back.position.set(0, -0.05, -0.06);
+      headG.add(back);
+      if (Math.random() < 0.5) {
+        const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.14, 3, 6), hair);
+        tail.position.set(0, -0.08, -0.12);
+        tail.rotation.x = 0.4;
+        headG.add(tail);
+      }
+    }
+  }
+
+  // some people wear glasses
+  if (Math.random() < 0.28) {
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x24211c, roughness: 0.4 });
+    for (const s of [-1, 1]) {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.006, 6, 12), glassMat);
+      rim.position.set(s * 0.048, 0.018, 0.105);
+      headG.add(rim);
+    }
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.008, 0.008), glassMat);
+    bridge.position.set(0, 0.018, 0.108);
+    headG.add(bridge);
+  }
+
   g.add(headG);
   parts.head = headG;
 
@@ -344,7 +412,16 @@ class NPC {
       // idle shifting weight
       this.mesh.position.y = 0;
       p.torso.rotation.z = Math.sin(t * 0.9 + this.walkPhase) * 0.03;
-      p.head.rotation.y = Math.sin(t * 0.5 + this.walkPhase) * 0.25;
+      // half of them kill queue time on their phone
+      if (this.checksPhone === undefined) this.checksPhone = Math.random() < 0.5;
+      if (this.checksPhone) {
+        p.armR.rotation.x = -1.15;
+        p.head.rotation.x = 0.32;
+        p.head.rotation.y = Math.sin(t * 0.3 + this.walkPhase) * 0.06;
+      } else {
+        p.head.rotation.x = 0;
+        p.head.rotation.y = Math.sin(t * 0.5 + this.walkPhase) * 0.25;
+      }
       // reached the front and the register is free?
       if (this.queueIndex === 0 && !this.sim.ordering) {
         this.sim.ordering = this;
@@ -436,6 +513,16 @@ class NPC {
         if (this.activity !== 'none') {
           const sip = (t * 0.06 + this.walkPhase) % 1;
           if (sip < 0.06) p.armR.rotation.x = -1.9;
+        }
+        // and every so often, a lean-back stretch
+        const stretch = (t * 0.02 + this.walkPhase * 0.7) % 1;
+        if (stretch < 0.035) {
+          const k = Math.sin((stretch / 0.035) * Math.PI);
+          p.armL.rotation.x = p.armR.rotation.x = -0.6 - k * 2.2;
+          p.head.rotation.x = -k * 0.3;
+          p.torso.rotation.x = -k * 0.12;
+        } else {
+          p.torso.rotation.x = 0;
         }
       }
       if (this.stateT > this.sitDuration) {
@@ -560,7 +647,7 @@ class OutsideLife {
     cafe.group.add(this.group);
     this.walkers = [];
     const night = !!cafe.theme.rain;
-    const n = 5;
+    const n = 8;
     for (let i = 0; i < n; i++) {
       const person = makePerson(night ? 0.35 : 0.75);
       person.userData.parts.blob.visible = false;
@@ -588,8 +675,8 @@ class OutsideLife {
         dir,
         speed: rand(0.7, 1.4),
         phase: rand(0, 10),
-        x: rand(-11, 11),
-        z: this.streetZ() + rand(-0.4, 0.6),
+        x: rand(-14, 14),
+        z: this.streetZ() + rand(-0.4, 0.8),
       };
       person.position.set(walker.x, 0, walker.z);
       person.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -599,14 +686,14 @@ class OutsideLife {
   }
 
   streetZ() {
-    return 10.5 / 2 + 1.7; // just past the front windows
+    return ROOM.D / 2 + 1.7; // just past the front windows
   }
 
   update(dt) {
     for (const w of this.walkers) {
       w.x += w.dir * w.speed * dt;
-      if (w.x > 12) { w.x = -12; this.reroll(w); }
-      if (w.x < -12) { w.x = 12; this.reroll(w); }
+      if (w.x > 15) { w.x = -15; this.reroll(w); }
+      if (w.x < -15) { w.x = 15; this.reroll(w); }
       w.phase += dt * 7 * w.speed;
       const p = w.mesh.userData.parts;
       const s = Math.sin(w.phase);
@@ -651,10 +738,11 @@ export class CrowdSim {
     this.spotSyncT = 0;
 
     // pre-seat customers so the café never starts empty
-    const initial = Math.min(4 + Math.floor(Math.random() * 3), this.maxCrowd - 2);
+    const initial = Math.min(Math.floor(this.maxCrowd * 0.45) + Math.floor(Math.random() * 3), this.maxCrowd - 3);
     for (let i = 0; i < initial; i++) this._preseat();
-    // one pre-seated chatting pair if there's room
+    // a couple of pre-seated chatting pairs if there's room
     this._preseatPair();
+    if (this.maxCrowd >= 14) this._preseatPair();
   }
 
   _preseat() {
@@ -771,7 +859,9 @@ export class CrowdSim {
     // arrivals
     this.spawnCooldown -= dt;
     if (this.spawnCooldown <= 0 && this.npcs.length < this.maxCrowd) {
-      this.spawnCooldown = rand(7, 22);
+      // fill faster while the room is empty, trickle when it's lively
+      const fill = this.npcs.length / this.maxCrowd;
+      this.spawnCooldown = rand(4, 10) + fill * rand(6, 14);
       const asPair = Math.random() < 0.3 && this.npcs.length < this.maxCrowd - 1;
       if (asPair) {
         const pair = this._freePairSeats();

@@ -6,7 +6,7 @@ import * as THREE from 'three';
 const rand = (a, b) => a + Math.random() * (b - a);
 
 // Room shell is shared across themes; palette, light, view and layout differ.
-export const ROOM = { W: 13, D: 10.5, H: 3.6 };
+export const ROOM = { W: 17, D: 13.5, H: 3.8 };
 
 export const THEMES = [
   {
@@ -24,11 +24,15 @@ export const THEMES = [
     outside: 'sunset',
     dust: true, neon: null,
     tables: [
-      { x: -3.6, z: 1.4, type: 'round' }, { x: -3.8, z: -1.6, type: 'round' },
-      { x: 3.4, z: 1.5, type: 'square' }, { x: 3.7, z: -1.5, type: 'round' },
-      { x: 1.9, z: 3.1, type: 'round' }, { x: -1.9, z: 3.2, type: 'square' },
+      { x: -4.9, z: 2.6, type: 'round' }, { x: -5.1, z: -0.5, type: 'round' },
+      { x: -4.7, z: -3.4, type: 'round' }, { x: -2.4, z: 1.1, type: 'square' },
+      { x: -2.6, z: -2.0, type: 'round' }, { x: -2.1, z: 4.3, type: 'round' },
+      { x: 2.2, z: 2.9, type: 'round' }, { x: 2.0, z: -0.2, type: 'square' },
+      { x: 2.4, z: -3.2, type: 'round' }, { x: 5.0, z: 1.3, type: 'round' },
+      { x: 5.2, z: -1.9, type: 'square' },
     ],
-    windowBar: true, plants: 6, crowd: 10, shafts: true, stringLights: true,
+    windowBar: true, plants: 9, crowd: 16, shafts: true, stringLights: true,
+    pendant: 'cone', beams: true, hangingPlants: true, chalkboard: true, cat: 0xb0713a,
   },
   {
     id: 'roastery',
@@ -36,7 +40,7 @@ export const THEMES = [
     blurb: 'Concrete and steel, big windows onto a bright city street.',
     musicKey: 5, rain: false, exposure: 1.05,
     fog: { color: 0x272a2e, density: 0.010 },
-    floor: '#7d7f83', floorLine: '#6a6c70', wall: '#b9bcc0', wallTrim: '#3c3e42',
+    floor: '#7d7f83', floorLine: '#6a6c70', wall: '#b9bcc0', wallTrim: '#55585e',
     wood: 0x8a6a48, woodDark: 0x2e2f33, accent: 0x1f2124, cushion: 0x3f4a54,
     counter: 0x2c2e32, counterTop: 0xcfd2d6,
     hemi: [0xdfeaf5, 0x53565c, 1.0],
@@ -45,11 +49,14 @@ export const THEMES = [
     outside: 'city',
     dust: false, neon: null,
     tables: [
-      { x: -3.9, z: 0.2, type: 'long' },
-      { x: 3.4, z: 1.6, type: 'square' }, { x: 3.6, z: -1.4, type: 'square' },
-      { x: 1.8, z: 3.2, type: 'round' }, { x: -1.9, z: 3.2, type: 'round' },
+      { x: -4.6, z: 0.9, type: 'long' }, { x: 4.7, z: -0.9, type: 'long' },
+      { x: -4.8, z: -3.4, type: 'square' }, { x: -2.2, z: 3.4, type: 'round' },
+      { x: 2.2, z: 3.6, type: 'round' }, { x: -2.3, z: -2.0, type: 'square' },
+      { x: 2.4, z: 0.4, type: 'square' }, { x: 2.3, z: -3.4, type: 'round' },
+      { x: 5.2, z: 2.9, type: 'round' },
     ],
-    windowBar: true, plants: 3, crowd: 12, fan: true,
+    windowBar: true, plants: 5, crowd: 18, fan: true,
+    pendant: 'bulb', ducts: true, roaster: true, chalkboard: true, cat: 0x3a3d42,
   },
   {
     id: 'midnight',
@@ -66,11 +73,14 @@ export const THEMES = [
     outside: 'rainNight',
     dust: false, neon: { text: 'open late', color: '#ff5d8f' },
     tables: [
-      { x: -3.6, z: 1.3, type: 'round' }, { x: -3.8, z: -1.7, type: 'round' },
-      { x: 3.5, z: 1.4, type: 'round' }, { x: 3.7, z: -1.6, type: 'square' },
-      { x: -1.9, z: 3.2, type: 'round' }, { x: 1.9, z: 3.1, type: 'round' },
+      { x: -5.0, z: 2.4, type: 'round' }, { x: -5.2, z: -0.7, type: 'round' },
+      { x: -4.8, z: -3.5, type: 'round' }, { x: -2.4, z: 0.9, type: 'round' },
+      { x: -2.6, z: -2.2, type: 'square' }, { x: -2.0, z: 4.2, type: 'round' },
+      { x: 2.2, z: 2.5, type: 'round' }, { x: 2.0, z: -0.5, type: 'round' },
+      { x: 2.4, z: -3.3, type: 'square' }, { x: 5.0, z: 1.5, type: 'round' },
     ],
-    windowBar: true, plants: 4, crowd: 8, candles: true,
+    windowBar: true, plants: 6, crowd: 13, candles: true,
+    pendant: 'drum', bookshelf: true, vinyl: true, cat: 0x9a6a38,
   },
 ];
 
@@ -460,12 +470,18 @@ export function buildCafe(theme) {
   // ---------- counter along back wall ----------
   const counterMat = new THREE.MeshStandardMaterial({ color: theme.counter, roughness: 0.7 });
   const counterTopMat = new THREE.MeshStandardMaterial({ color: theme.counterTop, roughness: 0.35 });
-  const counter = box(6.2, 1.0, 0.75, counterMat);
+  const counter = box(8.2, 1.0, 0.75, counterMat);
   counter.position.set(-0.6, 0.5, -D / 2 + 1.15);
   group.add(counter);
-  const ctop = box(6.4, 0.06, 0.85, counterTopMat);
+  const ctop = box(8.4, 0.06, 0.85, counterTopMat);
   ctop.position.set(-0.6, 1.03, -D / 2 + 1.15);
   group.add(ctop);
+  // counter front panel detail: vertical wood slats
+  for (let i = 0; i < 20; i++) {
+    const slat = box(0.1, 0.92, 0.03, woodDarkMat);
+    slat.position.set(-4.5 + i * 0.41, 0.5, -D / 2 + 1.54);
+    group.add(slat);
+  }
 
   // espresso machine
   {
@@ -495,21 +511,21 @@ export function buildCafe(theme) {
       group.add(c);
     }
     const reg = box(0.4, 0.3, 0.35, woodDarkMat);
-    reg.position.set(1.6, 1.21, -D / 2 + 1.15);
+    reg.position.set(2.2, 1.21, -D / 2 + 1.15);
     group.add(reg);
     // pastry case
-    const caseGlass = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.5, 0.6),
+    const caseGlass = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 0.6),
       new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.92, transparent: true, opacity: 0.3, roughness: 0.05, depthWrite: false }));
-    caseGlass.position.set(-4.2, 1.31, -D / 2 + 1.15);
+    caseGlass.position.set(-3.9, 1.31, -D / 2 + 1.15);
     group.add(caseGlass);
-    const caseBase = box(1.35, 0.5, 0.65, counterMat);
-    caseBase.position.set(-4.2, 0.81, -D / 2 + 1.15);
+    const caseBase = box(1.55, 0.5, 0.65, counterMat);
+    caseBase.position.set(-3.9, 0.81, -D / 2 + 1.15);
     group.add(caseBase);
     const pastryMat = new THREE.MeshStandardMaterial({ color: 0xc98e4e, roughness: 0.8 });
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), pastryMat);
       p.scale.set(1.4, 0.7, 1);
-      p.position.set(-4.55 + (i % 3) * 0.35, 1.12 + Math.floor(i / 3) * 0.16, -D / 2 + 1.1);
+      p.position.set(-4.35 + (i % 3) * 0.35, 1.12 + Math.floor(i / 3) * 0.16, -D / 2 + 1.1);
       group.add(p);
     }
   }
@@ -518,21 +534,29 @@ export function buildCafe(theme) {
   {
     const shelfMat = woodMat;
     for (const y of [1.7, 2.2]) {
-      const s = box(4.4, 0.05, 0.3, shelfMat);
+      const s = box(5.8, 0.05, 0.3, shelfMat);
       s.position.set(-2.4, y, -D / 2 + 0.25);
       group.add(s);
     }
-    const books = makeBooks(10);
-    books.position.set(-4.4, 1.73, -D / 2 + 0.25);
+    const books = makeBooks(14);
+    books.position.set(-5.1, 1.73, -D / 2 + 0.25);
     group.add(books);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 9; i++) {
       const jar = cyl(0.08, 0.08, rand(0.18, 0.3), new THREE.MeshStandardMaterial({ color: [0x9c7844, 0x6a4a2a, 0x8d8d6a][i % 3], roughness: 0.6 }), 12);
-      jar.position.set(-3.6 + i * 0.5, 2.2 + jar.geometry.parameters.height / 2 + 0.03, -D / 2 + 0.25);
+      jar.position.set(-4.6 + i * 0.5, 2.2 + jar.geometry.parameters.height / 2 + 0.03, -D / 2 + 0.25);
       group.add(jar);
+    }
+    // small bags of beans on the lower shelf end
+    for (let i = 0; i < 3; i++) {
+      const bag = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xa08a62, roughness: 1 }));
+      bag.scale.set(1, 0.95, 0.75);
+      bag.position.set(0.6 + i * 0.3, 1.83, -D / 2 + 0.25);
+      group.add(bag);
     }
     const menu = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 1.4),
       new THREE.MeshBasicMaterial({ map: track(menuTexture()) }));
-    menu.position.set(1.4, 2.35, -D / 2 + 0.09);
+    menu.position.set(2.2, 2.45, -D / 2 + 0.09);
     group.add(menu);
   }
 
@@ -541,22 +565,22 @@ export function buildCafe(theme) {
   if (theme.neon) {
     neonMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65),
       new THREE.MeshBasicMaterial({ map: track(neonTexture(theme.neon.text, theme.neon.color)), transparent: true }));
-    neonMesh.position.set(4.2, 2.5, -D / 2 + 0.09);
+    neonMesh.position.set(5.6, 2.5, -D / 2 + 0.09);
     group.add(neonMesh);
     const neonLight = new THREE.PointLight(theme.neon.color, 6, 6);
-    neonLight.position.set(4.2, 2.5, -D / 2 + 0.6);
+    neonLight.position.set(5.6, 2.5, -D / 2 + 0.6);
     group.add(neonLight);
   }
 
   // wall art on right wall
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const art = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.95),
       new THREE.MeshStandardMaterial({ map: track(artTexture('#' + theme.accent.toString(16).padStart(6, '0'))), roughness: 0.9 }));
     art.rotation.y = -Math.PI / 2;
-    art.position.set(W / 2 - 0.09, 1.8, -2.2 + i * 2.1);
+    art.position.set(W / 2 - 0.09, 1.8, -3.8 + i * 2.3);
     group.add(art);
     const frame = box(0.04, 1.05, 0.85, woodDarkMat);
-    frame.position.set(W / 2 - 0.07, 1.8, -2.2 + i * 2.1);
+    frame.position.set(W / 2 - 0.07, 1.8, -3.8 + i * 2.3);
     group.add(frame);
   }
 
@@ -669,8 +693,9 @@ export function buildCafe(theme) {
 
   // plants
   const plantSpots = [
-    [-W / 2 + 0.7, -D / 2 + 0.7], [W / 2 - 0.7, D / 2 - 0.9], [W / 2 - 0.6, -D / 2 + 2.6],
-    [-W / 2 + 0.6, 2.8], [2.6, -3.0], [-1.6, -3.2],
+    [-W / 2 + 0.7, -D / 2 + 0.7], [W / 2 - 0.7, D / 2 - 1.3], [W / 2 - 0.6, -D / 2 + 3.0],
+    [-W / 2 + 0.6, 3.6], [-W / 2 + 0.6, -2.0], [W / 2 - 0.6, 0.4],
+    [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
   ];
   for (let i = 0; i < Math.min(theme.plants, plantSpots.length); i++) {
     const p = makePlant(theme.woodDark);
@@ -679,13 +704,20 @@ export function buildCafe(theme) {
     group.add(p);
   }
 
-  // rug under the seating area
-  const rug = new THREE.Mesh(new THREE.CircleGeometry(2.1, 32),
-    new THREE.MeshStandardMaterial({ color: theme.accent, roughness: 1 }));
-  rug.rotation.x = -Math.PI / 2;
-  rug.position.set(-3.6, 0.01, 0);
-  rug.receiveShadow = true;
-  group.add(rug);
+  // rugs under the seating clusters
+  const rugMat = new THREE.MeshStandardMaterial({ color: theme.accent, roughness: 1 });
+  for (const [rx, rz, rr] of [[-4.9, -0.4, 2.5], [4.9, -0.2, 2.0]]) {
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(rr, 36), rugMat);
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(rx, 0.01, rz);
+    rug.receiveShadow = true;
+    group.add(rug);
+    const rim = new THREE.Mesh(new THREE.RingGeometry(rr - 0.12, rr, 36),
+      new THREE.MeshStandardMaterial({ color: theme.woodDark, roughness: 1 }));
+    rim.rotation.x = -Math.PI / 2;
+    rim.position.set(rx, 0.012, rz);
+    group.add(rim);
+  }
 
   // ---------- grounding & set dressing ----------
 
@@ -797,7 +829,7 @@ export function buildCafe(theme) {
       g.fillStyle = grad;
       g.fillRect(0, 0, w, h);
     }));
-    for (const sx of [-3.4, 2.6, 4.6]) {
+    for (const sx of [-5.4, -2.6, 3.0, 6.0]) {
       const shaft = new THREE.Mesh(
         new THREE.PlaneGeometry(1.7, 5.2),
         new THREE.MeshBasicMaterial({
@@ -843,6 +875,254 @@ export function buildCafe(theme) {
     glassStreaks.tex = streakTex;
   }
 
+  // ---------- theme signature decor ----------
+
+  // exposed wooden ceiling beams (golden hour)
+  if (theme.beams) {
+    for (const bx of [-6.2, -2.6, 1.0, 4.6]) {
+      const beam = box(0.2, 0.26, D, woodDarkMat);
+      beam.position.set(bx, H - 0.13, 0);
+      group.add(beam);
+    }
+    const spine = box(W, 0.26, 0.2, woodDarkMat);
+    spine.position.set(0, H - 0.14, -0.4);
+    group.add(spine);
+  }
+
+  // industrial ductwork + steel beams (roastery)
+  if (theme.ducts) {
+    const ductMat = new THREE.MeshStandardMaterial({ color: 0x87898d, roughness: 0.4, metalness: 0.6 });
+    const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, W - 2, 14), ductMat);
+    duct.rotation.z = Math.PI / 2;
+    duct.position.set(0, H - 0.45, -2.4);
+    group.add(duct);
+    const elbow = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.9, 14), ductMat);
+    elbow.position.set(-(W - 2) / 2 + 0.14, H - 0.45 - 0.4, -2.4);
+    group.add(elbow);
+    for (const bz of [1.6, 4.4]) {
+      const steel = box(W, 0.2, 0.14, new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.5, metalness: 0.4 }));
+      steel.position.set(0, H - 0.1, bz);
+      group.add(steel);
+    }
+  }
+
+  // a big coffee roaster in the corner (roastery)
+  if (theme.roaster) {
+    const r = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x56595f, roughness: 0.4, metalness: 0.55 });
+    const brass = new THREE.MeshStandardMaterial({ color: 0xa88544, roughness: 0.3, metalness: 0.7 });
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.9, 18), bodyMat);
+    drum.rotation.x = Math.PI / 2;
+    drum.position.y = 1.0;
+    drum.castShadow = true;
+    r.add(drum);
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.06, 18), brass);
+    face.rotation.x = Math.PI / 2;
+    face.position.set(0, 1.0, 0.46);
+    r.add(face);
+    const hopper = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.32, 12), bodyMat);
+    hopper.rotation.x = Math.PI;
+    hopper.position.y = 1.58;
+    r.add(hopper);
+    const hopperTop = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.14, 12), brass);
+    hopperTop.position.y = 1.79;
+    r.add(hopperTop);
+    const base = box(0.9, 0.55, 0.7, bodyMat);
+    base.position.y = 0.28;
+    r.add(base);
+    const tray = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.12, 18), brass);
+    tray.position.set(0.65, 0.75, 0.2);
+    r.add(tray);
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, H - 1.9, 10), bodyMat);
+    pipe.position.set(0, H - (H - 1.9) / 2 - 0.02, -0.2);
+    r.add(pipe);
+    r.position.set(-W / 2 + 1.3, 0, -D / 2 + 3.2);
+    r.rotation.y = 0.9;
+    group.add(r);
+    contactShadow(-W / 2 + 1.3, -D / 2 + 3.2, 2.2);
+    // burlap bean sacks beside it
+    for (let i = 0; i < 3; i++) {
+      const sack = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x9a7f56, roughness: 1 }));
+      sack.scale.set(1, 1.15, 0.85);
+      sack.position.set(-W / 2 + 0.7 + i * 0.5, 0.34, -D / 2 + 4.4 + (i % 2) * 0.4);
+      sack.rotation.y = rand(0, 3);
+      sack.castShadow = true;
+      group.add(sack);
+    }
+  }
+
+  // floor-to-shoulder bookshelf on the right wall (midnight)
+  if (theme.bookshelf) {
+    const shelfG = new THREE.Group();
+    const frameMat = woodDarkMat;
+    const SW = 3.0, SH = 2.2, SD = 0.32;
+    const back = box(SW, SH, 0.04, frameMat);
+    back.position.set(0, SH / 2, -SD / 2);
+    shelfG.add(back);
+    for (const y of [0.08, 0.62, 1.16, 1.7, 2.2]) {
+      const sh = box(SW, 0.05, SD, frameMat);
+      sh.position.set(0, y, 0);
+      shelfG.add(sh);
+    }
+    for (const x of [-SW / 2, SW / 2]) {
+      const side = box(0.05, SH + 0.05, SD, frameMat);
+      side.position.set(x, SH / 2, 0);
+      shelfG.add(side);
+    }
+    for (const y of [0.11, 0.65, 1.19, 1.73]) {
+      const row = makeBooks(Math.floor(rand(12, 17)));
+      row.position.set(-SW / 2 + 0.12, y, 0);
+      shelfG.add(row);
+    }
+    shelfG.position.set(W / 2 - 0.35, 0, 3.2);
+    shelfG.rotation.y = -Math.PI / 2;
+    group.add(shelfG);
+    contactShadow(W / 2 - 0.5, 3.2, 1.6);
+  }
+
+  // sideboard with a spinning vinyl record (midnight)
+  let vinylDisc = null;
+  if (theme.vinyl) {
+    const sb = new THREE.Group();
+    const cab = box(1.5, 0.75, 0.5, woodMat);
+    cab.position.y = 0.375;
+    sb.add(cab);
+    const player = box(0.55, 0.09, 0.42, woodDarkMat);
+    player.position.set(-0.3, 0.8, 0);
+    sb.add(player);
+    vinylDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.012, 24),
+      new THREE.MeshStandardMaterial({ color: 0x111114, roughness: 0.35 }));
+    vinylDisc.position.set(-0.3, 0.86, 0);
+    sb.add(vinylDisc);
+    const label = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.014, 16),
+      new THREE.MeshStandardMaterial({ color: 0xb0402e, roughness: 0.6 }));
+    label.position.set(-0.3, 0.861, 0);
+    sb.add(label);
+    const arm = box(0.02, 0.02, 0.22, metalMat);
+    arm.position.set(-0.12, 0.9, 0.1);
+    arm.rotation.y = 0.5;
+    sb.add(arm);
+    // record crate beside it
+    const crate = box(0.45, 0.35, 0.4, woodDarkMat);
+    crate.position.set(0.85, 0.18, 0);
+    sb.add(crate);
+    for (let i = 0; i < 7; i++) {
+      const rec = box(0.02, 0.31, 0.31, new THREE.MeshStandardMaterial({ color: [0x2a2a30, 0x4a3040, 0x30402e, 0x403520][i % 4], roughness: 0.8 }));
+      rec.position.set(0.68 + i * 0.045, 0.42, 0);
+      rec.rotation.z = -0.12;
+      sb.add(rec);
+    }
+    sb.position.set(W / 2 - 0.65, 0, -0.6);
+    sb.rotation.y = -Math.PI / 2;
+    group.add(sb);
+    contactShadow(W / 2 - 0.65, -0.6, 1.8);
+  }
+
+  // hanging plants near the windows (golden hour)
+  if (theme.hangingPlants) {
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x4a8a48, roughness: 0.85 });
+    for (const hx of [-5.4, -1.9, 3.4, 6.0]) {
+      const hp = new THREE.Group();
+      const cord = cyl(0.006, 0.006, 0.8, woodDarkMat, 6);
+      cord.position.y = 0.4;
+      hp.add(cord);
+      const pot = cyl(0.13, 0.09, 0.16, new THREE.MeshStandardMaterial({ color: 0xc9b394, roughness: 0.9 }));
+      pot.position.y = -0.05;
+      hp.add(pot);
+      for (let i = 0; i < 6; i++) {
+        const vine = cyl(0.015, 0.008, rand(0.3, 0.6), leafMat, 5);
+        vine.position.set(rand(-0.1, 0.1), -0.25 - vine.geometry.parameters.height / 4, rand(-0.1, 0.1));
+        vine.rotation.set(rand(-0.4, 0.4), 0, rand(-0.4, 0.4));
+        hp.add(vine);
+      }
+      hp.position.set(hx, H - 1.0, D / 2 - 0.75);
+      group.add(hp);
+    }
+  }
+
+  // chalkboard A-frame by the door
+  if (theme.chalkboard) {
+    const cb = new THREE.Group();
+    const boardTex = track(canvasTexture(128, 170, (g, w, h) => {
+      g.fillStyle = '#26251f'; g.fillRect(0, 0, w, h);
+      g.strokeStyle = '#8d8b7a'; g.strokeRect(6, 6, w - 12, h - 12);
+      g.fillStyle = '#e8e0c8';
+      g.font = 'italic 19px Georgia'; g.textAlign = 'center';
+      g.fillText('today:', w / 2, 48);
+      g.font = 'bold 21px Georgia';
+      g.fillText('pour over', w / 2, 84);
+      g.fillText('+ banana', w / 2, 112);
+      g.fillText('bread', w / 2, 138);
+    }));
+    for (const s of [-1, 1]) {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.75, 0.02),
+        s === 1
+          ? new THREE.MeshStandardMaterial({ map: boardTex, roughness: 0.9 })
+          : woodDarkMat);
+      panel.position.set(0, 0.42, s * 0.12);
+      panel.rotation.x = s * -0.28;
+      panel.castShadow = true;
+      cb.add(panel);
+    }
+    cb.position.set(1.5, 0, D / 2 - 1.6);
+    cb.rotation.y = -0.5;
+    group.add(cb);
+    contactShadow(1.5, D / 2 - 1.6, 1.0);
+  }
+
+  // warm wall sconces on the solid walls
+  {
+    const sconceSpots = [
+      [W / 2 - 0.12, 2.3, -5.2, -Math.PI / 2],
+      [W / 2 - 0.12, 2.3, 5.4, -Math.PI / 2],
+      [-3.9, 2.3, -D / 2 + 0.12, 0],
+      [4.6, 2.3, -D / 2 + 0.12, 0],
+    ];
+    const glowMat = new THREE.MeshBasicMaterial({ color: theme.lampColor });
+    for (const [sx, sy, sz, ry] of sconceSpots) {
+      const holder = new THREE.Group();
+      const plate = box(0.16, 0.3, 0.03, woodDarkMat);
+      holder.add(plate);
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), glowMat);
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.set(0, 0.06, 0.05);
+      holder.add(glow);
+      holder.position.set(sx, sy, sz);
+      holder.rotation.y = ry;
+      group.add(holder);
+    }
+  }
+
+  // the café cat, asleep on a rug
+  let cat = null;
+  if (theme.cat !== undefined) {
+    cat = new THREE.Group();
+    const furMat = new THREE.MeshStandardMaterial({ color: theme.cat, roughness: 0.95 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), furMat);
+    body.scale.set(1.25, 0.62, 1);
+    body.position.y = 0.13;
+    body.castShadow = true;
+    cat.add(body);
+    cat.userData.body = body;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), furMat);
+    head.position.set(0.22, 0.14, 0.1);
+    cat.add(head);
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.07, 6), furMat);
+      ear.position.set(0.22 + s * 0.055, 0.24, 0.1);
+      cat.add(ear);
+    }
+    // tail curled around the body
+    const tail = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.028, 8, 18, Math.PI * 1.3), furMat);
+    tail.rotation.x = -Math.PI / 2;
+    tail.position.set(-0.05, 0.04, 0.04);
+    cat.add(tail);
+    cat.position.set(4.9, 0.02, -0.2);
+    cat.rotation.y = rand(0, Math.PI * 2);
+    group.add(cat);
+  }
+
   // ---------- lights ----------
   const hemi = new THREE.HemisphereLight(theme.hemi[0], theme.hemi[1], theme.hemi[2]);
   group.add(hemi);
@@ -851,8 +1131,8 @@ export function buildCafe(theme) {
   sun.position.set(...theme.sun.pos);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
-  sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
+  sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+  sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
   sun.shadow.bias = -0.0005;
   group.add(sun);
   group.add(sun.target);
@@ -866,17 +1146,37 @@ export function buildCafe(theme) {
     group.add(cord);
     const shadeMat = new THREE.MeshStandardMaterial({
       color: 0x282018, roughness: 0.6,
-      emissive: theme.lampColor, emissiveIntensity: 0.25,
+      emissive: theme.lampColor, emissiveIntensity: theme.pendant === 'drum' ? 0.16 : 0.25,
     });
-    const shade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.16, 16, 1, true), shadeMat);
-    shade.position.set(t.x, theme.lampY, t.z);
-    group.add(shade);
     const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
-    bulb.position.set(t.x, theme.lampY - 0.05, t.z);
-    group.add(bulb);
+    if (theme.pendant === 'bulb') {
+      // industrial: bare Edison bulb under a small metal disc
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.04, 14), metalMat);
+      disc.position.set(t.x, theme.lampY + 0.06, t.z);
+      group.add(disc);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), bulbMat);
+      bulb.scale.y = 1.35;
+      bulb.position.set(t.x, theme.lampY - 0.03, t.z);
+      group.add(bulb);
+    } else if (theme.pendant === 'drum') {
+      // fabric drum shade, glowing softly
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.18, 16, 1, true), shadeMat);
+      drum.material.side = THREE.DoubleSide;
+      drum.position.set(t.x, theme.lampY, t.z);
+      group.add(drum);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
+      bulb.position.set(t.x, theme.lampY - 0.04, t.z);
+      group.add(bulb);
+    } else {
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.16, 16, 1, true), shadeMat);
+      shade.position.set(t.x, theme.lampY, t.z);
+      group.add(shade);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
+      bulb.position.set(t.x, theme.lampY - 0.05, t.z);
+      group.add(bulb);
+    }
     lampMats.push(shadeMat, bulbMat);
-    if (i < (theme.rain ? 6 : 4)) { // the night café leans on its lamps
+    if (i < (theme.rain ? 8 : 6)) { // the night café leans on its lamps
       const pl = new THREE.PointLight(theme.lampColor, theme.lampIntensity, 6, 2);
       pl.position.set(t.x, theme.lampY - 0.12, t.z);
       group.add(pl);
@@ -902,12 +1202,12 @@ export function buildCafe(theme) {
   // sun dust motes
   let dust = null;
   if (theme.dust) {
-    const n = 160;
+    const n = 240;
     const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
-      pos[i * 3] = rand(-2, 5);
-      pos[i * 3 + 1] = rand(0.4, 3);
-      pos[i * 3 + 2] = rand(-1, 4.8);
+      pos[i * 3] = rand(-3, 7);
+      pos[i * 3 + 1] = rand(0.4, 3.2);
+      pos[i * 3 + 2] = rand(-1.5, 6.2);
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -949,10 +1249,10 @@ export function buildCafe(theme) {
   const nav = {
     door: new THREE.Vector3(0, 0, D / 2 - 0.4),
     doorInside: new THREE.Vector3(0, 0, D / 2 - 1.4),
-    counter: new THREE.Vector3(1.4, 0, -D / 2 + 2.2),   // register spot (queue forms here)
+    counter: new THREE.Vector3(2.2, 0, -D / 2 + 2.2),   // register spot (queue forms here)
     pickup: new THREE.Vector3(-0.7, 0, -D / 2 + 2.2),   // wait for your drink
     baristaHome: new THREE.Vector3(-1.0, 0, -D / 2 + 0.6),
-    baristaRegister: new THREE.Vector3(1.4, 0, -D / 2 + 0.6),
+    baristaRegister: new THREE.Vector3(2.2, 0, -D / 2 + 0.6),
     baristaMachine: new THREE.Vector3(-2.2, 0, -D / 2 + 0.6),
     machineWorld: new THREE.Vector3(-2.2, 1.1, -D / 2 + 1.15), // where espresso sounds come from
     corridorX: 0, // the clear vertical aisle
@@ -962,7 +1262,7 @@ export function buildCafe(theme) {
   const colliders = theme.tables.map((tt) => ({
     x: tt.x, z: tt.z, r: tt.type === 'long' ? 1.5 : 1.05,
   }));
-  colliders.push({ x: -0.6, z: -D / 2 + 1.15, r: 0, rect: { x0: -4.2, x1: 3.0, z0: -D / 2, z1: -D / 2 + 1.8 } });
+  colliders.push({ x: -0.6, z: -D / 2 + 1.15, r: 0, rect: { x0: -5.2, x1: 4.0, z0: -D / 2, z1: -D / 2 + 1.8 } });
   if (theme.windowBar) {
     colliders.push({ rect: { x0: -W / 2, x1: -doorW / 2 - 0.3, z0: D / 2 - 0.9, z1: D / 2 } });
     colliders.push({ rect: { x0: doorW / 2 + 0.3, x1: W / 2, z0: D / 2 - 0.9, z1: D / 2 } });
@@ -1018,6 +1318,13 @@ export function buildCafe(theme) {
       f.scale.setScalar(0.055 + Math.sin(t * 9 + i * 2) * 0.008);
     });
     if (glassStreaks) glassStreaks.tex.offset.y -= dt * 0.045;
+    if (vinylDisc) vinylDisc.rotation.y += dt * 3.5;
+    if (cat) {
+      // slow sleepy breathing, with the occasional ear twitch
+      const breathe = 1 + Math.sin(t * 1.3) * 0.045;
+      cat.userData.body.scale.set(1.25, 0.62 * breathe, 1);
+      if (Math.random() < 0.002) cat.children[2].rotation.z = rand(-0.25, 0.25);
+    }
   }
 
   function dispose() {

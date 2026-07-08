@@ -10,18 +10,25 @@ seat, look around, listen to the room, and get things done.
 
 ## Features
 
-- **Three locations**, each with its own light, layout and mood:
-  - 🌅 **Golden Hour Café** — warm wood, late-afternoon sun, plants everywhere
-  - 🏙️ **Downtown Roastery** — concrete and steel, big windows onto a bright city street
-  - 🌧️ **Midnight Jazz Corner** — rain on the glass, warm lamps, a neon glow
+- **Three spacious locations**, each with its own light, layout, signature decor and mood:
+  - 🌅 **Golden Hour Café** — warm wood, exposed ceiling beams, hanging plants,
+    string lights, sunbeams full of dust
+  - 🏙️ **Downtown Roastery** — concrete and steel, ductwork, a big corner coffee
+    roaster with burlap bean sacks, Edison bulbs, a ceiling fan
+  - 🌧️ **Midnight Jazz Corner** — rain on the glass, candlelit tables, a wall of
+    books, a spinning vinyl record, a neon glow
+  - ...and in every café: a working wall clock, wall art, sconces, a chalkboard
+    sign, and a cat asleep on the rug
 - **Sit anywhere, or walk around** — click any free chair or window stool to move there,
   drag to look around, or press **WASD** to stand up and stroll through the café
   (with real collision against tables and the counter)
-- **A living café** — customers walk in (door chime included), join the queue, order at
-  the register, wait at pickup while the barista actually brews their drink, then settle
-  in with a laptop, a book, or their phone. Pairs arrive together and chat, taking turns
-  talking and nodding. Walkers steer around each other, and pedestrians pass by outside
-  the windows (with umbrellas when it rains)
+- **A living café** — up to ~18 customers with faces, glasses, beanies and varied
+  builds walk in (door chime included), join the queue (half of them on their phones),
+  order at the register, wait at pickup while the barista actually brews their drink,
+  then settle in with a laptop, a book, or their phone — sipping, stretching, people-
+  watching. Pairs arrive together and chat, taking turns talking and nodding. Walkers
+  steer around each other, and pedestrians pass by outside the windows (with umbrellas
+  when it rains)
 - **Generative music, a different record in every café** — lo-fi hip-hop in the golden
   hour, bossa-flavored plucked guitar downtown, slow brushed-drum jazz with a walking
   bass at midnight. Songs have real structure (intro / sections / outro), then the
