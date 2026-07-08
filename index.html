@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vibe coffee ☕</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; background: #17110b; }
+    body { font-family: Georgia, 'Times New Roman', serif; color: #f0e6d4; }
+    #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+    #scene:active { cursor: grabbing; }
+
+    .panel {
+      position: fixed; z-index: 5;
+      background: rgba(20, 14, 8, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(240, 230, 212, 0.14);
+      border-radius: 14px;
+    }
+
+    #hud-top {
+      top: 16px; left: 16px;
+      padding: 14px 18px;
+      max-width: 340px;
+    }
+    #hud-top h1 {
+      font-size: 20px; font-weight: normal; letter-spacing: 1px;
+      font-style: italic;
+    }
+    #hud-top h1 span { opacity: 0.6; font-size: 14px; }
+    #blurb { font-size: 12.5px; opacity: 0.75; margin-top: 3px; font-style: italic; }
+    #locations { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .loc-btn {
+      font-family: inherit; font-size: 12.5px;
+      color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
+      border: 1px solid rgba(240, 230, 212, 0.18);
+      border-radius: 999px; padding: 6px 12px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .loc-btn:hover { background: rgba(240, 230, 212, 0.16); }
+    .loc-btn.active { background: #c98e4e; border-color: #c98e4e; color: #241809; }
+
+    #hud-bottom {
+      bottom: 16px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 18px;
+      padding: 10px 20px;
+      white-space: nowrap;
+    }
+    .ctl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+    .ctl label { opacity: 0.7; }
+    input[type='range'] {
+      width: 86px; accent-color: #c98e4e; cursor: pointer;
+    }
+    #music-toggle {
+      font-family: inherit; font-size: 12.5px; cursor: pointer;
+      color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
+      border: 1px solid rgba(240, 230, 212, 0.18);
+      border-radius: 999px; padding: 6px 12px;
+      transition: all 0.2s;
+    }
+    #music-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
+    .divider { width: 1px; height: 22px; background: rgba(240, 230, 212, 0.15); }
+
+    #timer { display: flex; align-items: center; gap: 8px; }
+    #timer-display { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+    #timer-display.break { color: #8fc9a0; }
+    #timer button {
+      font-family: inherit; font-size: 11px; cursor: pointer;
+      color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
+      border: 1px solid rgba(240, 230, 212, 0.18);
+      border-radius: 6px; padding: 4px 8px;
+    }
+    #timer button:hover { background: rgba(240, 230, 212, 0.16); }
+
+    #hint {
+      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+      font-size: 12px; font-style: italic; opacity: 0.55;
+      z-index: 4; pointer-events: none;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    #toast {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-12px);
+      background: rgba(20, 14, 8, 0.85); border: 1px solid rgba(240, 230, 212, 0.2);
+      border-radius: 10px; padding: 10px 18px; font-size: 13.5px; font-style: italic;
+      opacity: 0; transition: all 0.35s; z-index: 10; pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 20;
+      background: radial-gradient(ellipse at center, #241809 0%, #0e0903 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; transition: opacity 0.9s;
+    }
+    #overlay.hidden { opacity: 0; pointer-events: none; }
+    #overlay h1 { font-size: 44px; font-weight: normal; font-style: italic; letter-spacing: 2px; }
+    #overlay p { font-size: 15px; opacity: 0.65; font-style: italic; max-width: 420px; text-align: center; line-height: 1.6; }
+    #enter-btn {
+      font-family: inherit; font-size: 16px; font-style: italic; cursor: pointer;
+      color: #241809; background: #c98e4e; border: none;
+      border-radius: 999px; padding: 13px 34px; margin-top: 10px;
+      transition: all 0.25s; letter-spacing: 0.5px;
+    }
+    #enter-btn:hover { background: #e0a763; transform: translateY(-2px); }
+
+    @media (max-width: 720px) {
+      #hud-bottom { flex-wrap: wrap; white-space: normal; justify-content: center; max-width: 92vw; }
+      #hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="overlay">
+    <h1>vibe coffee ☕</h1>
+    <p>a small corner of the internet that feels like your favourite café.<br/>
+       find a seat, put something warm on the table, and get to work.</p>
+    <button id="enter-btn">step inside</button>
+  </div>
+
+  <div id="hud-top" class="panel">
+    <h1>vibe coffee <span>☕</span></h1>
+    <div id="blurb"></div>
+    <div id="locations">
+      <button class="loc-btn active">Golden Hour Café</button>
+      <button class="loc-btn">Downtown Roastery</button>
+      <button class="loc-btn">Midnight Jazz Corner</button>
+    </div>
+  </div>
+
+  <div id="hint">drag to look around · click any free chair to move there</div>
+
+  <div id="hud-bottom" class="panel">
+    <button id="music-toggle" class="on">♪ music on</button>
+    <div class="ctl">
+      <label>music</label>
+      <input id="music-vol" type="range" min="0" max="1" step="0.01" value="0.5" />
+    </div>
+    <div class="ctl">
+      <label>café</label>
+      <input id="amb-vol" type="range" min="0" max="1" step="0.01" value="0.7" />
+    </div>
+    <div class="divider"></div>
+    <div id="timer">
+      <span id="timer-display">25:00</span>
+      <button id="timer-btn">▶</button>
+      <button id="timer-reset">↺</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
