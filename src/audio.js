@@ -218,13 +218,13 @@ export class CafeAudio {
     const t = this.ctx.currentTime;
 
     if (this._buf('chatter')) {
-      this._playBuf('chatter', { out: this.ambienceBus, vol: 0.5, loop: true });
+      this._playBuf('chatter', { out: this.ambienceBus, vol: 0.85, loop: true });
       // second, different room at low level = denser, less loopy crowd
       if (this._buf('chatter2')) {
-        this._playBuf('chatter2', { out: this.ambienceBus, vol: 0.22, loop: true, rate: 0.97 });
+        this._playBuf('chatter2', { out: this.ambienceBus, vol: 0.4, loop: true, rate: 0.97 });
       }
       // keep a whisper of the synth murmur for slow movement, but recorded leads
-      this.murmurGain.gain.setTargetAtTime(0.3, t, 2);
+      this.murmurGain.gain.setTargetAtTime(0.25, t, 2);
     }
 
     // street heard from inside, localized at the shopfront
@@ -240,7 +240,7 @@ export class CafeAudio {
       this.trafficNightGain.connect(muffle);
       muffle.connect(pan);
       if (this._buf('traffic_day')) this._playBuf('traffic_day', { out: this.trafficDayGain, vol: 0.5, loop: true });
-      if (this._buf('traffic_night')) this._playBuf('traffic_night', { out: this.trafficNightGain, vol: 0.55, loop: true });
+      if (this._buf('traffic_night')) this._playBuf('traffic_night', { out: this.trafficNightGain, vol: 0.35, loop: true });
       this._setTrafficMix();
       // the occasional single car driving past
       const carPass = () => {
@@ -584,8 +584,9 @@ export class CafeAudio {
         lp.frequency.linearRampToValueAtTime(45, t + 5);
         const g = this.ctx.createGain();
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(rand(0.1, 0.2), t + rand(0.4, 1.2));
-        g.gain.setTargetAtTime(0, t + 2.2, 1.4);
+        // keep the synth stand-in soft — at volume it reads as a passing train
+        g.gain.linearRampToValueAtTime(rand(0.05, 0.1), t + rand(0.8, 1.6));
+        g.gain.setTargetAtTime(0, t + 2.6, 1.2);
         src.connect(lp).connect(g).connect(master);
         src.start(t); src.stop(t + 8);
       }

@@ -375,7 +375,7 @@ function frame() {
       const stepNow = Math.floor(walkBob / Math.PI);
       if (stepNow !== lastPlayerStep) {
         lastPlayerStep = stepNow;
-        if (audio.started) audio.playFootstep(walkPos, 0.35);
+        if (audio.started) audio.playFootstep(walkPos, 0.55);
       }
     }
     camera.position.set(

@@ -20,14 +20,29 @@ function analyze(buffer) {
   return { rms: Math.sqrt(sum / Math.max(1, n)), peak };
 }
 
+// data: URIs must bypass fetch(): strict CSPs (like the Claude artifact
+// sandbox) refuse fetch on data URLs, but plain base64 decoding is just JS.
+function dataUriToArrayBuffer(uri) {
+  const b64 = uri.slice(uri.indexOf(',') + 1);
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
 export async function loadSoundLibrary(ctx, manifest, onLoaded) {
   const buffers = new Map();
   const TARGET_RMS = 0.14;
   await Promise.all(Object.entries(manifest).map(async ([key, def]) => {
     try {
-      const res = await fetch(def.url);
-      if (!res.ok) throw new Error(`http ${res.status}`);
-      const ab = await res.arrayBuffer();
+      let ab;
+      if (def.url.startsWith('data:')) {
+        ab = dataUriToArrayBuffer(def.url);
+      } else {
+        const res = await fetch(def.url);
+        if (!res.ok) throw new Error(`http ${res.status}`);
+        ab = await res.arrayBuffer();
+      }
       const buf = await ctx.decodeAudioData(ab);
       const { rms, peak } = analyze(buf);
       let gain = rms > 0.0001 ? TARGET_RMS / rms : 1;

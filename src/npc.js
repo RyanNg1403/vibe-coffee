@@ -325,7 +325,7 @@ class NPC {
         const lp = this.sim.listenerPos;
         if (lp && this.sim.audio?.started) {
           const dx = this.mesh.position.x - lp.x, dz = this.mesh.position.z - lp.z;
-          if (dx * dx + dz * dz < 30) this.sim.audio.playFootstep(this.mesh.position, 0.28);
+          if (dx * dx + dz * dz < 64) this.sim.audio.playFootstep(this.mesh.position, 0.5);
         }
       }
       // walkers glance around now and then
