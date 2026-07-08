@@ -28,6 +28,7 @@ let seatIndex = -1;
 let mode = 'seated'; // 'seated' | 'walking'
 const walkPos = new THREE.Vector3();
 let walkBob = 0;
+let lastPlayerStep = 0;
 const keys = new Set();
 
 const EYE_HEIGHT = 1.16;
@@ -341,7 +342,7 @@ function frame() {
   elapsed += dt;
 
   if (cafe) cafe.animate(dt);
-  if (crowd) crowd.update(dt, elapsed);
+  if (crowd) crowd.update(dt, elapsed, camera.position);
 
   // camera tween between seats
   if (tween.active) {
@@ -370,6 +371,12 @@ function frame() {
       walkPos.addScaledVector(move, dt * 2.0);
       resolveCollisions(walkPos);
       walkBob += dt * 8;
+      // your own footsteps
+      const stepNow = Math.floor(walkBob / Math.PI);
+      if (stepNow !== lastPlayerStep) {
+        lastPlayerStep = stepNow;
+        if (audio.started) audio.playFootstep(walkPos, 0.35);
+      }
     }
     camera.position.set(
       walkPos.x,

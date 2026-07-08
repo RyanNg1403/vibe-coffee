@@ -185,6 +185,7 @@ class NPC {
     this.sitDuration = rand(40, 150);
     this.orderTime = rand(3.5, 7);
     this.sitY = -0.10;
+    this.stepTick = 0;
     this.props = [];
     this.headTarget = 0;            // desired head yaw offset
     this.glanceT = rand(2, 8);
@@ -317,6 +318,16 @@ class NPC {
       p.armL.rotation.x = -s * 0.4;
       p.armR.rotation.x = p.cup.visible ? -0.9 : s * 0.4;
       this.mesh.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.03;
+      // audible footsteps when they're near the listener
+      const stepNow = Math.floor(this.walkPhase / Math.PI);
+      if (stepNow !== this.stepTick) {
+        this.stepTick = stepNow;
+        const lp = this.sim.listenerPos;
+        if (lp && this.sim.audio?.started) {
+          const dx = this.mesh.position.x - lp.x, dz = this.mesh.position.z - lp.z;
+          if (dx * dx + dz * dz < 30) this.sim.audio.playFootstep(this.mesh.position, 0.28);
+        }
+      }
       // walkers glance around now and then
       this.glanceT -= dt;
       if (this.glanceT < 0) {
@@ -347,6 +358,7 @@ class NPC {
       p.armR.rotation.x = Math.sin(t * 1.3 + this.walkPhase) * 0.12;
       p.head.rotation.y = Math.sin(t * 0.8) * 0.1;
       if (this.stateT > this.orderTime) {
+        if (this.sim.audio?.started) this.sim.audio.playRegister();
         this.sim.dequeue(this);
         this.sim.ordering = null;
         this.sim.brewFor = this;
@@ -741,14 +753,19 @@ export class CrowdSim {
     return [table[0], table[1]];
   }
 
-  update(dt, t) {
+  update(dt, t, listenerPos = null) {
+    this.listenerPos = listenerPos;
     this.barista.update(dt, t);
     this.outside.update(dt);
 
     // brewing timer
     if (this.brewFor) {
       this.brewT += dt;
-      if (this.brewT > this.brewDuration) this.brewFor = null;
+      if (this.brewT > this.brewDuration) {
+        this.brewFor = null;
+        // the drink gets its final pour as it's handed over
+        if (this.audio?.started) this.audio.playPour(this.cafe.nav.machineWorld);
+      }
     }
 
     // arrivals

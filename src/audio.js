@@ -10,6 +10,9 @@
 //  - events are multi-stage (knock -> grind -> pump -> steam) instead of
 //    single noise bursts
 
+import { loadSoundLibrary } from './soundLoader.js';
+import { SOUND_MANIFEST } from './soundManifest.js';
+
 const MIDI_A4 = 69;
 const freq = (midi) => 440 * Math.pow(2, (midi - MIDI_A4) / 12);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -17,41 +20,86 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // ---------- per-café music styles ----------
 
+// Each café has a pool of styles; every new song draws one, so an afternoon
+// in one café wanders through genres the way a good café playlist does.
+const MAJ_SCALE = [0, 2, 4, 7, 9, 12, 14, 16];
+const MIN_SCALE = [0, 3, 5, 7, 10, 12, 15, 17];
+const BLUES_SCALE = [0, 3, 5, 6, 7, 10, 12, 15];
+
 const STYLES = {
-  goldenhour: {
-    bpm: [68, 80], key: [-2, 0, 2, 3],
-    progressions: [
-      [[5, 9, 12, 16], [4, 7, 11, 14], [2, 5, 9, 12], [0, 4, 7, 11]],   // IVmaj7 iii7 ii7 Imaj7
-      [[-3, 0, 4, 7], [5, 9, 12, 16], [0, 4, 7, 11], [-5, -1, 2, 5]],   // vi IV I V7
-      [[0, 4, 7, 11], [-3, 0, 4, 7], [5, 9, 12, 16], [7, 11, 14, 17]],  // I vi IV V
-      [[2, 5, 9, 12], [7, 11, 14, 17], [0, 4, 7, 11], [0, 4, 7, 11]],   // ii V I I
-    ],
-    scale: [0, 2, 4, 7, 9, 12, 14, 16],
-    drums: 'lofi', lead: 'ep', comp: 'ep', pluckChance: 0.5, padChance: 0.35,
-    bassStyle: 'roots', melodyDensity: 0.16,
-  },
-  roastery: {
-    bpm: [86, 98], key: [0, 2, 5, 7],
-    progressions: [
-      [[0, 4, 7, 11], [2, 5, 9, 12], [4, 7, 11, 14], [2, 5, 9, 12]],
-      [[5, 9, 12, 16], [4, 8, 11, 14], [2, 5, 9, 12], [0, 4, 7, 11]],
-      [[0, 4, 7, 11], [0, 3, 7, 10], [5, 9, 12, 16], [5, 8, 12, 15]],   // maj -> min color shifts
-    ],
-    scale: [0, 2, 4, 7, 9, 11, 12, 14],
-    drums: 'bossa', lead: 'pluck', comp: 'pluck', pluckChance: 1, padChance: 0.15,
-    bassStyle: 'bossa', melodyDensity: 0.2,
-  },
-  midnight: {
-    bpm: [56, 66], key: [-5, -3, -1],
-    progressions: [
-      [[0, 3, 7, 10, 14], [5, 8, 12, 15], [-2, 2, 5, 8], [0, 3, 7, 10]],       // minor 9 colors
-      [[0, 3, 7, 10], [-4, 0, 3, 7], [-2, 1, 5, 8], [-7, -3, 0, 3]],
-      [[0, 3, 7, 10, 14], [0, 3, 7, 10, 14], [-4, -1, 3, 6], [-2, 2, 5, 9]],
-    ],
-    scale: [0, 3, 5, 7, 10, 12, 15, 17],
-    drums: 'brush', lead: 'ep', comp: 'ep', pluckChance: 0.2, padChance: 0.6,
-    bassStyle: 'walking', melodyDensity: 0.12,
-  },
+  goldenhour: [
+    { name: 'lofi', bpm: [68, 80], key: [-2, 0, 2, 3], swing: 0.13,
+      progressions: [
+        [[5, 9, 12, 16], [4, 7, 11, 14], [2, 5, 9, 12], [0, 4, 7, 11]],
+        [[-3, 0, 4, 7], [5, 9, 12, 16], [0, 4, 7, 11], [-5, -1, 2, 5]],
+        [[0, 4, 7, 11], [-3, 0, 4, 7], [5, 9, 12, 16], [7, 11, 14, 17]],
+        [[2, 5, 9, 12], [7, 11, 14, 17], [0, 4, 7, 11], [0, 4, 7, 11]],
+      ],
+      scale: MAJ_SCALE, drums: 'lofi', lead: 'ep', comp: 'ep',
+      pluckChance: 0.5, padChance: 0.35, bassStyle: 'roots', melodyDensity: 0.16 },
+    { name: 'soul', bpm: [60, 72], key: [-2, 0, 3], swing: 0.1,
+      progressions: [
+        [[0, 4, 7, 11, 14], [-3, 0, 4, 7, 10], [2, 5, 9, 12], [7, 11, 14, 17]],
+        [[5, 9, 12, 16], [4, 7, 11, 14], [0, 4, 7, 11, 14], [0, 4, 7, 11, 14]],
+      ],
+      scale: MAJ_SCALE, drums: 'soul', lead: 'ep', comp: 'ep',
+      pluckChance: 0.15, padChance: 0.55, bassStyle: 'roots', melodyDensity: 0.11 },
+    { name: 'acoustic', bpm: [76, 90], key: [0, 2, 5], swing: 0.07,
+      progressions: [
+        [[0, 4, 7, 12], [7, 11, 14, 19], [-3, 0, 4, 7], [5, 9, 12, 16]],
+        [[0, 4, 7, 12], [5, 9, 12, 16], [0, 4, 7, 12], [7, 11, 14, 17]],
+      ],
+      scale: MAJ_SCALE, drums: 'shaker', lead: 'pluck', comp: 'pluck',
+      pluckChance: 1, padChance: 0.15, bassStyle: 'roots', melodyDensity: 0.24 },
+  ],
+  roastery: [
+    { name: 'bossa', bpm: [86, 98], key: [0, 2, 5, 7], swing: 0.06,
+      progressions: [
+        [[0, 4, 7, 11], [2, 5, 9, 12], [4, 7, 11, 14], [2, 5, 9, 12]],
+        [[5, 9, 12, 16], [4, 8, 11, 14], [2, 5, 9, 12], [0, 4, 7, 11]],
+        [[0, 4, 7, 11], [0, 3, 7, 10], [5, 9, 12, 16], [5, 8, 12, 15]],
+      ],
+      scale: [0, 2, 4, 7, 9, 11, 12, 14], drums: 'bossa', lead: 'pluck', comp: 'pluck',
+      pluckChance: 1, padChance: 0.15, bassStyle: 'bossa', melodyDensity: 0.2 },
+    { name: 'swing', bpm: [96, 114], key: [0, 3, 5, 7], swing: 0.22,
+      progressions: [
+        [[2, 5, 9, 12], [7, 11, 14, 17], [0, 4, 7, 11], [0, 4, 7, 11]],
+        [[0, 4, 7, 11], [0, 3, 7, 10], [2, 5, 9, 12], [7, 11, 14, 17]],
+      ],
+      scale: [0, 2, 4, 7, 9, 11, 12, 14], drums: 'ride', lead: 'ep', comp: 'ep',
+      pluckChance: 0.2, padChance: 0.1, bassStyle: 'walking', melodyDensity: 0.2 },
+    { name: 'latin', bpm: [92, 104], key: [-3, 0, 2], swing: 0.03,
+      progressions: [
+        [[0, 3, 7, 10], [-2, 2, 5, 8], [0, 3, 7, 10], [5, 8, 12, 15]],
+        [[0, 3, 7, 10], [3, 7, 10, 14], [-2, 2, 5, 8], [-4, 0, 3, 7]],
+      ],
+      scale: MIN_SCALE, drums: 'latin', lead: 'pluck', comp: 'pluck',
+      pluckChance: 1, padChance: 0.1, bassStyle: 'bossa', melodyDensity: 0.22 },
+  ],
+  midnight: [
+    { name: 'brushjazz', bpm: [56, 66], key: [-5, -3, -1], swing: 0.15,
+      progressions: [
+        [[0, 3, 7, 10, 14], [5, 8, 12, 15], [-2, 2, 5, 8], [0, 3, 7, 10]],
+        [[0, 3, 7, 10], [-4, 0, 3, 7], [-2, 1, 5, 8], [-7, -3, 0, 3]],
+        [[0, 3, 7, 10, 14], [0, 3, 7, 10, 14], [-4, -1, 3, 6], [-2, 2, 5, 9]],
+      ],
+      scale: MIN_SCALE, drums: 'brush', lead: 'ep', comp: 'ep',
+      pluckChance: 0.2, padChance: 0.6, bassStyle: 'walking', melodyDensity: 0.12 },
+    { name: 'blues', bpm: [58, 70], key: [-5, -2, 0], swing: 0.18,
+      progressions: [
+        [[0, 4, 7, 10], [0, 4, 7, 10], [5, 9, 12, 15], [0, 4, 7, 10]],
+        [[5, 9, 12, 15], [5, 9, 12, 15], [0, 4, 7, 10], [7, 11, 14, 17]],
+      ],
+      scale: BLUES_SCALE, drums: 'brush', lead: 'ep', comp: 'ep',
+      pluckChance: 0.35, padChance: 0.2, bassStyle: 'blues', melodyDensity: 0.16 },
+    { name: 'nocturne', bpm: [52, 60], key: [-5, -3], swing: 0.1,
+      progressions: [
+        [[0, 3, 7, 14], [-4, 0, 3, 10], [5, 8, 12, 15], [-2, 2, 5, 12]],
+        [[0, 3, 7, 14], [5, 8, 12, 19], [-4, 0, 3, 10], [-7, -3, 0, 7]],
+      ],
+      scale: MIN_SCALE, drums: 'none', lead: 'ep', comp: 'ep',
+      pluckChance: 0.1, padChance: 0.95, bassStyle: 'roots', melodyDensity: 0.09 },
+  ],
 };
 
 export class CafeAudio {
@@ -63,6 +111,7 @@ export class CafeAudio {
     this._timers = [];
     this.clinkSpots = [];   // world positions where seated people are
     this.typingSpots = [];  // world positions of laptop users
+    this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
   }
 
   start(theme) {
@@ -113,6 +162,104 @@ export class CafeAudio {
     this._scheduleEvents();
     this._startMusic();
     this.setTheme(theme);
+
+    // recorded assets stream in behind the synth and take over the beds
+    loadSoundLibrary(ctx, SOUND_MANIFEST).then((buffers) => {
+      this.buffers = buffers;
+      this._applyRecordedBeds();
+    });
+  }
+
+  // ---------- recorded-asset helpers ----------
+
+  _buf(key) { return this.buffers.get(key) || null; }
+
+  // play a recorded asset; opts: {out, vol, rate, offset, dur, loop, when}
+  _playBuf(key, opts = {}) {
+    const entry = this._buf(key);
+    if (!entry || !this.ctx) return null;
+    const src = this.ctx.createBufferSource();
+    src.buffer = entry.buffer;
+    src.playbackRate.value = opts.rate ?? 1;
+    if (opts.loop) {
+      src.loop = true;
+      if (entry.buffer.duration > 4) { // skip loop seams at the file edges
+        src.loopStart = 0.4;
+        src.loopEnd = entry.buffer.duration - 0.4;
+      }
+    }
+    const g = this.ctx.createGain();
+    g.gain.value = (opts.vol ?? 1) * (entry.gain ?? 1);
+    src.connect(g).connect(opts.out ?? this.ambienceBus);
+    const when = opts.when ?? this.ctx.currentTime;
+    let offset = opts.offset ?? 0;
+    if (opts.randomSlice) {
+      // grab a random window from a longer recording, for one-shot variety
+      const dur = opts.dur ?? 1;
+      offset = rand(0, Math.max(0.01, entry.buffer.duration - dur - 0.1));
+    }
+    if (opts.dur) {
+      // gentle edges so slices never click
+      const v = g.gain.value;
+      g.gain.setValueAtTime(0, when);
+      g.gain.linearRampToValueAtTime(v, when + Math.min(0.04, opts.dur / 4));
+      g.gain.setValueAtTime(v, when + opts.dur - Math.min(0.08, opts.dur / 4));
+      g.gain.linearRampToValueAtTime(0, when + opts.dur);
+      src.start(when, offset, opts.dur + 0.1);
+    } else {
+      src.start(when, offset);
+    }
+    return { src, gain: g };
+  }
+
+  // once assets are loaded: recorded chatter/traffic/rain beds fade in,
+  // synth equivalents duck down to a supporting role
+  _applyRecordedBeds() {
+    const t = this.ctx.currentTime;
+
+    if (this._buf('chatter')) {
+      this._playBuf('chatter', { out: this.ambienceBus, vol: 0.5, loop: true });
+      // second, different room at low level = denser, less loopy crowd
+      if (this._buf('chatter2')) {
+        this._playBuf('chatter2', { out: this.ambienceBus, vol: 0.22, loop: true, rate: 0.97 });
+      }
+      // keep a whisper of the synth murmur for slow movement, but recorded leads
+      this.murmurGain.gain.setTargetAtTime(0.3, t, 2);
+    }
+
+    // street heard from inside, localized at the shopfront
+    if (this._buf('traffic_day') || this._buf('traffic_night')) {
+      const front = this.anchors?.door ?? { x: 0, z: 5 };
+      this.trafficDayGain = this.ctx.createGain();
+      this.trafficNightGain = this.ctx.createGain();
+      const muffle = this.ctx.createBiquadFilter();
+      muffle.type = 'lowpass';
+      muffle.frequency.value = 1500; // through the glass
+      const pan = this._panner(front.x, 1.6, front.z + 1.5);
+      this.trafficDayGain.connect(muffle);
+      this.trafficNightGain.connect(muffle);
+      muffle.connect(pan);
+      if (this._buf('traffic_day')) this._playBuf('traffic_day', { out: this.trafficDayGain, vol: 0.5, loop: true });
+      if (this._buf('traffic_night')) this._playBuf('traffic_night', { out: this.trafficNightGain, vol: 0.55, loop: true });
+      this._setTrafficMix();
+      // the occasional single car driving past
+      const carPass = () => {
+        if (this.theme && Math.random() < 0.75) this.playCarPass();
+        this._timer(carPass, rand(14000, 45000));
+      };
+      this._timer(carPass, 8000);
+    }
+
+    // recorded rain joins (and leads) the synth rain layers
+    if (this._buf('rain_window') && this.theme?.rain) this._startRain();
+  }
+
+  _setTrafficMix() {
+    if (!this.trafficDayGain) return;
+    const t = this.ctx.currentTime;
+    const night = !!this.theme?.rain;
+    this.trafficDayGain.gain.setTargetAtTime(night ? 0 : 1, t, 1.5);
+    this.trafficNightGain.gain.setTargetAtTime(night ? 1 : 0.0, t, 1.5);
   }
 
   // ---------- listener / spatial ----------
@@ -177,6 +324,7 @@ export class CafeAudio {
     this.theme = theme;
     if (!this.ctx) return;
     if (theme?.rain) this._startRain(); else this._stopRain();
+    this._setTrafficMix();
     this.styleId = theme?.id in STYLES ? theme.id : 'goldenhour';
     this._newSong(); // switching cafés changes the record
   }
@@ -354,6 +502,13 @@ export class CafeAudio {
   _startRain() {
     if (this.rainNodes) {
       this.rainNodes.master.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
+      // recorded rain may have arrived after the synth rain was built
+      if (this._buf('rain_window') && !this.rainNodes.recorded) {
+        this.rainNodes.recorded = true;
+        this._playBuf('rain_window', { out: this.rainNodes.master, vol: 0.5, loop: true });
+        this.rainNodes.washG?.gain.setTargetAtTime(0.05, this.ctx.currentTime, 2);
+        this.rainNodes.patG?.gain.setTargetAtTime(0.015, this.ctx.currentTime, 2);
+      }
       return;
     }
     const master = this.ctx.createGain();
@@ -368,6 +523,7 @@ export class CafeAudio {
     const washG = this.ctx.createGain(); washG.gain.value = 0.2;
     wash.connect(washBP).connect(washG).connect(master);
     wash.start();
+    this.rainNodes.washG = washG;
 
     // mid patter: lower band with jittery gain — the "on the awning" texture
     const patter = this._noiseSource(this._noiseBuf);
@@ -377,6 +533,7 @@ export class CafeAudio {
     const patG = this.ctx.createGain(); patG.gain.value = 0.05;
     patter.connect(patBP).connect(patG).connect(master);
     patter.start();
+    this.rainNodes.patG = patG;
     const jitter = () => {
       if (!this.ctx || !this.rainNodes) return;
       patG.gain.setTargetAtTime(rand(0.03, 0.09), this.ctx.currentTime, 0.4);
@@ -413,6 +570,11 @@ export class CafeAudio {
     const thunder = () => {
       if (!this.ctx || !this.rainNodes) return;
       if (this.rainNodes.master.gain.value > 0.05 && Math.random() < 0.5) {
+        if (this._buf('thunder')) {
+          this._playBuf('thunder', { out: master, vol: rand(0.4, 0.8), rate: rand(0.88, 1.04) });
+          this._timer(thunder, rand(35000, 120000));
+          return;
+        }
         const t = this.ctx.currentTime;
         const src = this._noiseSource(this._brownBuf, false);
         src.loop = true;
@@ -432,6 +594,8 @@ export class CafeAudio {
     this._timer(thunder, 20000);
 
     master.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
+    // if the recorded bed is already loaded, mount it right away
+    if (this._buf('rain_window')) this._startRain();
   }
 
   _stopRain() {
@@ -444,6 +608,14 @@ export class CafeAudio {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const out = pos ? this._panner(pos.x, 0.9, pos.z) : this.ambienceBus;
+    if (this._buf('cup_clinks')) {
+      // a random little slice of the dishes recording, repitched for variety
+      this._playBuf('cup_clinks', {
+        out, vol: rand(0.35, 0.7), rate: rand(0.92, 1.1),
+        randomSlice: true, dur: rand(0.5, 1.2),
+      });
+      return;
+    }
     // porcelain: two detuned high partials + tiny noise transient
     [rand(2100, 2500), rand(3300, 4100)].forEach((f) => {
       const o = this.ctx.createOscillator();
@@ -468,6 +640,13 @@ export class CafeAudio {
     const out = this.anchors?.door
       ? this._panner(this.anchors.door.x, 2.2, this.anchors.door.z)
       : this.ambienceBus;
+    if (this._buf('door_open') && Math.random() < 0.8) {
+      this._playBuf('door_open', { out, vol: 0.45, rate: rand(0.95, 1.05) });
+    }
+    if (this._buf('door_bell')) {
+      this._playBuf('door_bell', { out, vol: 0.5, rate: rand(0.96, 1.06), when: this.ctx.currentTime + 0.15 });
+      return;
+    }
     [1190, 1580, 1985].forEach((f, i) => {
       const o = this.ctx.createOscillator();
       o.type = 'sine'; o.frequency.value = f * rand(0.99, 1.01);
@@ -484,6 +663,18 @@ export class CafeAudio {
     if (!this.ctx) return;
     const a = this.anchors?.counter;
     const out = a ? this._panner(a.x, 1.1, a.z) : this.ambienceBus;
+    if (this._buf('espresso')) {
+      // real machine recording, then real milk steaming, then the cup goes down
+      const e = this._buf('espresso');
+      this._playBuf('espresso', { out, vol: 0.55, rate: rand(0.97, 1.03) });
+      let end = e.buffer.duration;
+      if (this._buf('steam_milk')) {
+        this._playBuf('steam_milk', { out, vol: 0.5, when: this.ctx.currentTime + end + 0.4 });
+        end += this._buf('steam_milk').buffer.duration + 0.4;
+      }
+      this._timer(() => this.playClink(a), (end + 0.6) * 1000);
+      return;
+    }
     let t = this.ctx.currentTime + 0.1;
 
     // two knocks
@@ -599,6 +790,10 @@ export class CafeAudio {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const out = pos ? this._panner(pos.x, 0.3, pos.z) : this.ambienceBus;
+    if (this._buf('chair_scrape')) {
+      this._playBuf('chair_scrape', { out, vol: rand(0.35, 0.6), rate: rand(0.9, 1.1) });
+      return;
+    }
     const src = this._noiseSource(this._noiseBuf, false);
     src.loop = true;
     const bp = this.ctx.createBiquadFilter();
@@ -617,6 +812,10 @@ export class CafeAudio {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const out = pos ? this._panner(pos.x, 0.9, pos.z) : this.ambienceBus;
+    if (this._buf('page_turn')) {
+      this._playBuf('page_turn', { out, vol: rand(0.3, 0.5), rate: rand(0.92, 1.08) });
+      return;
+    }
     const src = this._noiseSource(this._noiseBuf, false);
     const hp = this.ctx.createBiquadFilter();
     hp.type = 'highpass'; hp.frequency.value = 1800;
@@ -628,9 +827,87 @@ export class CafeAudio {
     src.start(t, rand(0, 1), 0.35);
   }
 
+  playFootstep(pos, vol = 0.5) {
+    if (!this.ctx) return;
+    const out = pos ? this._panner(pos.x, 0.1, pos.z) : this.ambienceBus;
+    if (this._buf('footsteps')) {
+      // one random step out of the walking recording
+      this._playBuf('footsteps', {
+        out, vol: vol * rand(0.7, 1.1), rate: rand(0.9, 1.12),
+        randomSlice: true, dur: 0.35,
+      });
+      return;
+    }
+    // synth fallback: soft heel thump
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(rand(140, 190), t);
+    o.frequency.exponentialRampToValueAtTime(70, t + 0.05);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.04 * vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g).connect(out);
+    o.start(t); o.stop(t + 0.12);
+  }
+
+  playCarPass() {
+    if (!this.ctx || !this._buf('carpass')) return;
+    // a car sweeping across the street outside: pan the panner while it plays
+    const front = this.anchors?.door ?? { x: 0, z: 5 };
+    const p = this._panner(-16, 1.2, front.z + 2.5);
+    const muffle = this.ctx.createBiquadFilter();
+    muffle.type = 'lowpass';
+    muffle.frequency.value = 1300;
+    muffle.connect(p);
+    const entry = this._buf('carpass');
+    const dur = Math.min(entry.buffer.duration, 8);
+    const played = this._playBuf('carpass', { out: muffle, vol: 0.5, rate: rand(0.92, 1.05) });
+    if (played && p.positionX) {
+      const t = this.ctx.currentTime;
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      p.positionX.setValueAtTime(-16 * dir, t);
+      p.positionX.linearRampToValueAtTime(16 * dir, t + dur);
+    }
+  }
+
+  playRegister() {
+    if (!this.ctx) return;
+    const a = this.anchors?.counter;
+    const out = a ? this._panner(a.x + 3.6, 1.1, a.z) : this.ambienceBus;
+    if (this._buf('register')) {
+      this._playBuf('register', { out, vol: 0.4, rate: rand(0.97, 1.03) });
+      return;
+    }
+    // synth: two soft beeps + drawer
+    const t = this.ctx.currentTime;
+    [0, 0.18].forEach((d) => {
+      const o = this.ctx.createOscillator();
+      o.type = 'square'; o.frequency.value = 1245;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.012, t + d);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.09);
+      o.connect(g).connect(out);
+      o.start(t + d); o.stop(t + d + 0.1);
+    });
+  }
+
+  playPour(pos) {
+    if (!this.ctx || !this._buf('pour')) return;
+    const out = pos ? this._panner(pos.x, 1.0, pos.z) : this.ambienceBus;
+    this._playBuf('pour', { out, vol: 0.4, rate: rand(0.95, 1.05) });
+  }
+
   _typeBurst(pos) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.9, pos.z) : this.ambienceBus;
+    if (this._buf('typing')) {
+      this._playBuf('typing', {
+        out, vol: rand(0.2, 0.4), rate: rand(0.95, 1.05),
+        randomSlice: true, dur: rand(1.2, 3),
+      });
+      return;
+    }
     let t = this.ctx.currentTime;
     const keys = Math.floor(rand(4, 14));
     for (let k = 0; k < keys; k++) {
@@ -705,16 +982,19 @@ export class CafeAudio {
   }
 
   _newSong() {
-    const style = STYLES[this.styleId || 'goldenhour'];
+    const pool = STYLES[this.styleId || 'goldenhour'];
+    const style = pick(pool);
+    const hasDrums = style.drums !== 'none';
     const prog = pick(style.progressions);
     const progB = pick(style.progressions);
-    // sections: intro (sparse) / A / B / A / outro (drums fade)
+    // sections: intro (sparse) / A / B / A' / outro — A' sometimes modulates up
+    const modulate = Math.random() < 0.35 ? 2 : 0;
     const sections = [
-      { bars: 4, drums: false, prog, density: 0.5, pad: true },
-      { bars: 8, drums: true, prog, density: 1, pad: false },
-      { bars: 8, drums: true, prog: progB, density: 1.2, pad: style.padChance > 0.4 },
-      { bars: 8, drums: true, prog, density: 0.9, pad: false },
-      { bars: 4, drums: false, prog, density: 0.4, pad: true },
+      { bars: 4, drums: false, prog, density: 0.5, pad: true, keyShift: 0 },
+      { bars: 8, drums: hasDrums, prog, density: 1, pad: false, keyShift: 0 },
+      { bars: 8, drums: hasDrums, prog: progB, density: 1.2, pad: style.padChance > 0.4, keyShift: 0 },
+      { bars: 8, drums: hasDrums, prog, density: 0.9, pad: false, keyShift: modulate },
+      { bars: 4, drums: false, prog, density: 0.4, pad: true, keyShift: modulate },
     ];
     let total = 0;
     for (const s of sections) { s.startStep = total; total += s.bars * 8; }
@@ -722,7 +1002,7 @@ export class CafeAudio {
       style,
       key: pick(style.key),
       bpm: rand(style.bpm[0], style.bpm[1]),
-      swing: this.styleId === 'roastery' ? 0.06 : 0.13,
+      swing: style.swing ?? 0.12,
       sections,
       totalSteps: total,
       motif: this._makeMotif(style.scale),
@@ -755,7 +1035,14 @@ export class CafeAudio {
     const eighth = stepInSec % 8;
     const bar = Math.floor(stepInSec / 8);
     const chord = sec.prog[bar % sec.prog.length];
-    const root = 60 + song.key;
+    const root = 60 + song.key + (sec.keyShift || 0);
+
+    // little drum fill at the end of a drummed section
+    const sectionEndStep = sec.startStep + sec.bars * 8 - 1;
+    if (sec.drums && step === sectionEndStep && Math.random() < 0.7) {
+      this._snare(t, 0.03);
+      this._snare(t + (30 / song.bpm) * 0.5, 0.045);
+    }
 
     // comping
     if (eighth === 0) {
@@ -804,6 +1091,12 @@ export class CafeAudio {
       if (eighth === 0) this._bassNote(b + chord[0], t, 0.7, 0.08);
       if (eighth === 3) this._bassNote(b + chord[0] + 7, t, 0.5, 0.06);
       if (eighth === 4) this._bassNote(b + chord[0], t, 0.7, 0.07);
+    } else if (kind === 'blues') {
+      // classic root-5-6-b7 shuffle line, quarter notes
+      if (eighth % 2 === 0) {
+        const line = [0, 7, 9, 10];
+        this._bassNote(b + chord[0] + line[(eighth / 2 + bar * 4) % 4], t, 0.8, 0.08, true);
+      }
     } else { // roots
       if (eighth === 0 && Math.random() < 0.9) this._bassNote(b + chord[0], t, 1.2, 0.085);
       if (eighth === 4 && Math.random() < 0.4) this._bassNote(b + chord[0] + (Math.random() < 0.3 ? 7 : 0), t, 0.6, 0.06);
@@ -824,7 +1117,28 @@ export class CafeAudio {
       if (eighth === 0 && Math.random() < 0.8) this._kick(t, 0.05);
       if (eighth === 2 || eighth === 6) this._brushSnare(t);
       if (eighth % 2 === 0) this._ride(t);
+    } else if (kind === 'soul') {
+      // lazy pocket: kick 1 and the and-of-3, rim on the backbeat
+      if (eighth === 0 || (eighth === 5 && Math.random() < 0.35)) this._kick(t, 0.09);
+      if (eighth === 2 || eighth === 6) { this._rim(t); this._snare(t, 0.02); }
+      if (eighth % 2 === 1 && Math.random() < 0.55) this._hat(t, false, 0.013);
+    } else if (kind === 'ride') {
+      // uptempo swing: ride carries it, kick feathers
+      if (eighth % 2 === 0) this._ride(t);
+      if (eighth === 3 || eighth === 7) if (Math.random() < 0.6) this._ride(t);
+      if (eighth === 0 && Math.random() < 0.5) this._kick(t, 0.04);
+      if ((eighth === 2 || eighth === 6) && Math.random() < 0.6) this._brushSnare(t);
+      if (eighth === 2 || eighth === 6) this._hat(t, false, 0.012); // pedal hat
+    } else if (kind === 'latin') {
+      if (eighth === 0 || eighth === 4) this._kick(t, 0.08);
+      if (eighth === 0 || eighth === 3 || eighth === 6) this._rim(t);
+      this._shaker(t, eighth % 2 === 0 ? 0.016 : 0.011);
+    } else if (kind === 'shaker') {
+      // just brushes of percussion under an acoustic tune
+      if (eighth === 0 && Math.random() < 0.6) this._kick(t, 0.045);
+      this._shaker(t, eighth % 2 === 0 ? 0.011 : 0.006);
     }
+    // kind === 'none': silence
   }
 
   // ---------- instruments ----------
