@@ -124,5 +124,33 @@
     "license": "CC0 1.0 (public domain) \u2014 https://creativecommons.org/publicdomain/zero/1.0/",
     "source_url": "https://archive.org/download/Red_Library_Foley_Props_2/R21-40a-Bed%20or%20Chair%20Movement.mp3",
     "item_url": "https://archive.org/details/Red_Library_Foley_Props_2"
+  },
+  "chatter_busy": {
+    "title": "AMBRest_Busy restaurant or bar walla; very noisy (SSE Library: AMBIENCE)",
+    "creator": "Sunset Editorial / USC Cinema sound effects collection (SSE Library, uploaded to archive.org)",
+    "license": "CC0 1.0 Public Domain Dedication (https://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://archive.org/download/SSE_Library_AMBIENCE/RESTAURANT%20%26%20BAR/AMBRest_Busy%20restaurant%20or%20bar%20walla%3B%20very%20noisy_CS_USC.mp3",
+    "item_url": "https://archive.org/details/SSE_Library_AMBIENCE"
+  },
+  "chatter_quiet": {
+    "title": "Listening in the Oriental Lounge, 38 floors above street level (Mandarin Oriental Hotel, Tokyo)",
+    "creator": "Felicity Ford",
+    "license": "CC BY-SA 3.0 (http://creativecommons.org/licenses/by-sa/3.0/)",
+    "source_url": "https://archive.org/download/aporee_35167_40408/20171402203738thfloormandarinoriental.mp3",
+    "item_url": "https://archive.org/details/aporee_35167_40408"
+  },
+  "plant": {
+    "title": "Potted Plant (Kenney Furniture Kit 2.0)",
+    "creator": "Kenney (www.kenney.nl)",
+    "license": "CC0 1.0 (Creative Commons Zero, public domain) \u2014 confirmed via the kit's License.txt in the same repo folder: \"Furniture Kit (2.0) License ... Creative Commons Zero (CC0), http://creativecommons.org/publicdomain/zero/1.0/\"",
+    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/Models/GLTF%20format/pottedPlant.glb",
+    "item_url": "https://kenney.nl/assets/furniture-kit"
+  },
+  "espresso_machine": {
+    "title": "Kitchen Coffee Machine (Kenney Furniture Kit 2.0)",
+    "creator": "Kenney (www.kenney.nl)",
+    "license": "CC0 1.0 (Creative Commons Zero, public domain) - verified via Kenney Furniture Kit 2.0 License.txt shipped in the same repo folder",
+    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/dfa19a5602a31f64bd890d15279a61f43b127328/assets/kenney_furniture-kit/Models/GLTF%20format/kitchenCoffeeMachine.glb",
+    "item_url": "https://kenney.nl/assets/furniture-kit"
   }
 }

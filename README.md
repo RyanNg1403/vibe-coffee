@@ -34,10 +34,13 @@ seat, look around, listen to the room, and get things done.
   bass at midnight. Songs have real structure (intro / sections / outro), then the
   needle lifts, and a new one starts in a new key and tempo. All synthesized live —
   including a Karplus-Strong plucked string
-- **Real recorded café sound, positioned in 3D** — 18 Creative-Commons / public-domain
-  field recordings (see `CREDITS.md`): real crowd chatter, espresso grinding, milk
-  steaming, cup clinks, footsteps, a shop door bell, a cash register, rain on the
-  window, day & night street traffic, and single cars that audibly drive past outside.
+- **Real recorded café sound, positioned in 3D — and different in every café** — 20
+  Creative-Commons / public-domain field recordings (see `CREDITS.md`): each location
+  mixes its own crowd (relaxed walla at golden hour, a genuinely busy room downtown, a
+  hushed late-night lounge at midnight) with its own street level, footstep character,
+  crowd tone and pacing. Plus espresso grinding, milk steaming, cup clinks, footsteps,
+  a shop door bell, a cash register, rain on the window, day & night street traffic,
+  and single cars that audibly drive past outside.
   A procedural convolution reverb puts every sound in the room, and 3D panning puts it
   in its *place* — the machine sounds come from the counter, typing from the actual
   laptop users, footsteps from whoever is walking past you. Every recording has a
@@ -68,6 +71,10 @@ Then open the printed URL (usually http://localhost:5173), click
 | Change location | buttons in the top-left panel |
 | Music on/off, volumes | bottom bar |
 | Focus timer | bottom-right of the bar (▶ / ↺) |
+
+- **Downloaded 3D props** — CC0 low-poly models (Kenney furniture & food kits): real
+  mugs with handles, croissants on plates, lounge armchairs, potted plants, and the
+  coffee machine — with procedural fallbacks if any model fails to load
 
 ## Stack
 

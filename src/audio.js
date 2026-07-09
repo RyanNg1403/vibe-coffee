@@ -102,6 +102,33 @@ const STYLES = {
   ],
 };
 
+// Every café hears the world differently: how full the room is, how the
+// street sounds through the glass, how bright the footsteps are, how often
+// cups ring. These profiles steer both the recorded beds and the synth layers.
+const AMBIENCE_PROFILES = {
+  goldenhour: {
+    // relaxed afternoon: the classic walla blend
+    beds: { chatter: 0.8, chatter2: 0.35, chatter_busy: 0, chatter_quiet: 0 },
+    chatterRate: 1.0, chatterLP: 7500,
+    traffic: 0.8, murmur: 0.3, stepRate: 1.0, stepVol: 1.0,
+    clinkMs: [5000, 17000], typeMs: [1500, 7000],
+  },
+  roastery: {
+    // busy daytime spot: its own denser, livelier crowd recording; loud street
+    beds: { chatter: 0.3, chatter2: 0.25, chatter_busy: 1.1, chatter_quiet: 0 },
+    chatterRate: 1.04, chatterLP: 11000,
+    traffic: 1.5, murmur: 0.45, stepRate: 1.14, stepVol: 1.2,
+    clinkMs: [3000, 11000], typeMs: [1000, 4500],
+  },
+  midnight: {
+    // nearly empty, hushed: its own sparse late-night recording; rain-wet street
+    beds: { chatter: 0.1, chatter2: 0, chatter_busy: 0, chatter_quiet: 0.55 },
+    chatterRate: 0.92, chatterLP: 2400,
+    traffic: 0.55, murmur: 0.14, stepRate: 0.88, stepVol: 0.8,
+    clinkMs: [9000, 26000], typeMs: [4000, 14000],
+  },
+};
+
 export class CafeAudio {
   constructor() {
     this.ctx = null;
@@ -137,10 +164,14 @@ export class CafeAudio {
 
     this.musicBus = ctx.createGain();
     this.musicBus.gain.value = 0.5;
+    // makeup gain: the synth voices are written quiet; this brings the music
+    // up to sit beside the recorded ambience beds instead of underneath them
+    this.musicMakeup = ctx.createGain();
+    this.musicMakeup.gain.value = 3.2;
     this.musicLP = ctx.createBiquadFilter();
     this.musicLP.type = 'lowpass';
     this.musicLP.frequency.value = 3400;
-    this.musicBus.connect(this.musicLP).connect(this.master);
+    this.musicBus.connect(this.musicMakeup).connect(this.musicLP).connect(this.master);
     // a touch of room on the music too
     const musVerbSend = ctx.createGain();
     musVerbSend.gain.value = 0.12;
@@ -217,14 +248,25 @@ export class CafeAudio {
   _applyRecordedBeds() {
     const t = this.ctx.currentTime;
 
-    if (this._buf('chatter')) {
-      this._playBuf('chatter', { out: this.ambienceBus, vol: 0.85, loop: true });
-      // second, different room at low level = denser, less loopy crowd
-      if (this._buf('chatter2')) {
-        this._playBuf('chatter2', { out: this.ambienceBus, vol: 0.4, loop: true, rate: 0.97 });
+    // every available crowd recording runs as a loop behind its own gain;
+    // each café's profile mixes them into a different-sounding room
+    this.chatterBeds = {};
+    const bedKeys = ['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet'];
+    if (bedKeys.some((k) => this._buf(k))) {
+      this.chatterTone = this.ctx.createBiquadFilter();
+      this.chatterTone.type = 'lowpass';
+      this.chatterTone.frequency.value = 7500;
+      this.chatterTone.connect(this.ambienceBus);
+      for (const k of bedKeys) {
+        if (!this._buf(k)) continue;
+        const g = this.ctx.createGain();
+        g.gain.value = 0;
+        g.connect(this.chatterTone);
+        const src = this._playBuf(k, { out: g, vol: 1, loop: true });
+        this.chatterBeds[k] = { gain: g, src };
       }
-      // keep a whisper of the synth murmur for slow movement, but recorded leads
-      this.murmurGain.gain.setTargetAtTime(0.25, t, 2);
+      this._applyAmbienceProfile();
+      void t;
     }
 
     // street heard from inside, localized at the shopfront
@@ -245,7 +287,9 @@ export class CafeAudio {
       // the occasional single car driving past
       const carPass = () => {
         if (this.theme && Math.random() < 0.75) this.playCarPass();
-        this._timer(carPass, rand(14000, 45000));
+        // busier street = more frequent cars
+        const busy = this._profile().traffic;
+        this._timer(carPass, rand(14000, 45000) / Math.max(0.4, busy));
       };
       this._timer(carPass, 8000);
     }
@@ -258,8 +302,38 @@ export class CafeAudio {
     if (!this.trafficDayGain) return;
     const t = this.ctx.currentTime;
     const night = !!this.theme?.rain;
-    this.trafficDayGain.gain.setTargetAtTime(night ? 0 : 1, t, 1.5);
-    this.trafficNightGain.gain.setTargetAtTime(night ? 1 : 0.0, t, 1.5);
+    const scale = this._profile().traffic;
+    this.trafficDayGain.gain.setTargetAtTime(night ? 0 : scale, t, 1.5);
+    this.trafficNightGain.gain.setTargetAtTime(night ? scale : 0, t, 1.5);
+  }
+
+  _profile() {
+    return AMBIENCE_PROFILES[this.theme?.id] ?? AMBIENCE_PROFILES.goldenhour;
+  }
+
+  // retune the crowd + murmur + tone to the current café's character
+  _applyAmbienceProfile() {
+    if (!this.ctx) return;
+    const p = this._profile();
+    const t = this.ctx.currentTime;
+    const beds = this.chatterBeds || {};
+    if (Object.keys(beds).length) {
+      // desired mix, with weight falling back to the generic bed when a
+      // café-specific recording didn't make it
+      const want = { ...p.beds };
+      if (!beds.chatter_busy && want.chatter_busy) { want.chatter += want.chatter_busy * 0.8; want.chatter_busy = 0; }
+      if (!beds.chatter_quiet && want.chatter_quiet) { want.chatter += want.chatter_quiet * 0.5; want.chatter_quiet = 0; }
+      for (const [k, bed] of Object.entries(beds)) {
+        bed.gain.gain.setTargetAtTime(want[k] ?? 0, t, 1.8);
+        bed.src?.src.playbackRate.setTargetAtTime(p.chatterRate * (k === 'chatter2' ? 0.97 : 1), t, 1.5);
+      }
+      this.chatterTone.frequency.setTargetAtTime(p.chatterLP, t, 1.5);
+      // recorded crowd leads; synth murmur is per-café seasoning
+      this.murmurGain.gain.setTargetAtTime(p.murmur, t, 2);
+    } else {
+      // synth-only fallback still gets scaled per café
+      this.murmurGain?.gain.setTargetAtTime(Math.max(0.45, p.murmur * 2.4), t, 2);
+    }
   }
 
   // ---------- listener / spatial ----------
@@ -325,6 +399,7 @@ export class CafeAudio {
     if (!this.ctx) return;
     if (theme?.rain) this._startRain(); else this._stopRain();
     this._setTrafficMix();
+    this._applyAmbienceProfile();
     this.styleId = theme?.id in STYLES ? theme.id : 'goldenhour';
     this._newSong(); // switching cafés changes the record
   }
@@ -830,11 +905,14 @@ export class CafeAudio {
 
   playFootstep(pos, vol = 0.5) {
     if (!this.ctx) return;
+    const p = this._profile();
+    vol *= p.stepVol;
     const out = pos ? this._panner(pos.x, 0.1, pos.z) : this.ambienceBus;
     if (this._buf('footsteps')) {
-      // one random step out of the walking recording
+      // one random step out of the walking recording; per-café floor character
+      // (brighter/faster on concrete, low wooden thud in the night café)
       this._playBuf('footsteps', {
-        out, vol: vol * rand(0.7, 1.1), rate: rand(0.9, 1.12),
+        out, vol: vol * rand(0.7, 1.1), rate: p.stepRate * rand(0.94, 1.08),
         randomSlice: true, dur: 0.35,
       });
       return;
@@ -928,11 +1006,13 @@ export class CafeAudio {
     const clinks = () => {
       const spot = this.clinkSpots.length ? pick(this.clinkSpots) : null;
       this.playClink(spot);
-      this._timer(clinks, rand(5000, 18000));
+      const [a, b] = this._profile().clinkMs;
+      this._timer(clinks, rand(a, b));
     };
     const typing = () => {
       if (this.typingSpots.length) this._typeBurst(pick(this.typingSpots));
-      this._timer(typing, rand(1500, 7000));
+      const [a, b] = this._profile().typeMs;
+      this._timer(typing, rand(a, b));
     };
     const pages = () => {
       const spot = this.clinkSpots.length ? pick(this.clinkSpots) : null;
@@ -1179,7 +1259,7 @@ export class CafeAudio {
     const src = this.ctx.createBufferSource();
     src.buffer = this._pluckBuffer(freq(midi), 1.6, 0.995);
     const g = this.ctx.createGain();
-    g.gain.value = vol;
+    g.gain.value = vol * 1.6; // KS plucks read quieter than their peak suggests
     const lp = this.ctx.createBiquadFilter();
     lp.type = 'lowpass'; lp.frequency.value = 3800;
     src.connect(lp).connect(g).connect(this.musicMuter);

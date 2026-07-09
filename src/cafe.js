@@ -2,6 +2,7 @@
 // from Three.js primitives + canvas textures (no external assets).
 
 import * as THREE from 'three';
+import { cloneModel } from './modelLoader.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -24,7 +25,7 @@ export const THEMES = [
     outside: 'sunset',
     dust: true, neon: null,
     tables: [
-      { x: -4.9, z: 2.6, type: 'round' }, { x: -5.1, z: -0.5, type: 'round' },
+      { x: -4.9, z: 2.6, type: 'round', lounge: true }, { x: -5.1, z: -0.5, type: 'round' },
       { x: -4.7, z: -3.4, type: 'round' }, { x: -2.4, z: 1.1, type: 'square' },
       { x: -2.6, z: -2.0, type: 'round' }, { x: -2.1, z: 4.3, type: 'round' },
       { x: 2.2, z: 2.9, type: 'round' }, { x: 2.0, z: -0.2, type: 'square' },
@@ -53,7 +54,7 @@ export const THEMES = [
       { x: -4.8, z: -3.4, type: 'square' }, { x: -2.2, z: 3.4, type: 'round' },
       { x: 2.2, z: 3.6, type: 'round' }, { x: -2.3, z: -2.0, type: 'square' },
       { x: 2.4, z: 0.4, type: 'square' }, { x: 2.3, z: -3.4, type: 'round' },
-      { x: 5.2, z: 2.9, type: 'round' },
+      { x: 5.2, z: 2.9, type: 'round', lounge: true },
     ],
     windowBar: true, plants: 5, crowd: 18, fan: true,
     pendant: 'bulb', ducts: true, roaster: true, chalkboard: true, cat: 0x3a3d42,
@@ -73,7 +74,7 @@ export const THEMES = [
     outside: 'rainNight',
     dust: false, neon: { text: 'open late', color: '#ff5d8f' },
     tables: [
-      { x: -5.0, z: 2.4, type: 'round' }, { x: -5.2, z: -0.7, type: 'round' },
+      { x: -5.0, z: 2.4, type: 'round', lounge: true }, { x: -5.2, z: -0.7, type: 'round' },
       { x: -4.8, z: -3.5, type: 'round' }, { x: -2.4, z: 0.9, type: 'round' },
       { x: -2.6, z: -2.2, type: 'square' }, { x: -2.0, z: 4.2, type: 'round' },
       { x: 2.2, z: 2.5, type: 'round' }, { x: 2.0, z: -0.5, type: 'round' },
@@ -286,13 +287,98 @@ function makeStool(woodMat, cushionMat) {
   return g;
 }
 
-function makeCup(accent) {
+function makeCup(accent, models) {
+  const fromLib = cloneModel(models, 'cup');
+  if (fromLib) return fromLib;
+
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.4 });
-  const cup = cyl(0.045, 0.035, 0.075, mat, 14); cup.position.y = 0.038; g.add(cup);
-  const coffee = cyl(0.038, 0.038, 0.006, new THREE.MeshStandardMaterial({ color: 0x3a2113, roughness: 0.25 }), 14);
-  coffee.position.y = 0.073; g.add(coffee);
-  const saucer = cyl(0.075, 0.06, 0.012, mat, 16); saucer.position.y = 0.006; g.add(saucer);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.35 });
+  // lathe-turned cup body: gentle outward flare with a foot
+  const profile = [];
+  for (const [r, y] of [[0.018, 0], [0.03, 0.004], [0.033, 0.012], [0.038, 0.035], [0.044, 0.062], [0.047, 0.08], [0.046, 0.082]]) {
+    profile.push(new THREE.Vector2(r, y));
+  }
+  const body = new THREE.Mesh(new THREE.LatheGeometry(profile, 18), mat);
+  body.castShadow = true;
+  g.add(body);
+  const coffee = cyl(0.041, 0.041, 0.004, new THREE.MeshStandardMaterial({ color: 0x3a2113, roughness: 0.2 }), 16);
+  coffee.position.y = 0.072;
+  g.add(coffee);
+  // handle
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.0065, 8, 14, Math.PI * 1.6), mat);
+  handle.position.set(0.048, 0.045, 0);
+  handle.rotation.z = -Math.PI / 2 + 0.35;
+  g.add(handle);
+  // saucer with a raised rim + a teaspoon resting on it
+  const saucerProfile = [
+    new THREE.Vector2(0.0, 0), new THREE.Vector2(0.05, 0.003),
+    new THREE.Vector2(0.072, 0.008), new THREE.Vector2(0.082, 0.017),
+  ];
+  const saucer = new THREE.Mesh(new THREE.LatheGeometry(saucerProfile, 20), mat);
+  saucer.receiveShadow = true;
+  g.add(saucer);
+  const spoonMat = new THREE.MeshStandardMaterial({ color: 0xb9bcc2, roughness: 0.25, metalness: 0.8 });
+  const spoonBowl = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), spoonMat);
+  spoonBowl.scale.set(1, 0.35, 1.4);
+  spoonBowl.position.set(-0.055, 0.014, 0.035);
+  g.add(spoonBowl);
+  const spoonHandle = box(0.006, 0.004, 0.05, spoonMat);
+  spoonHandle.position.set(-0.05, 0.014, 0.07);
+  spoonHandle.rotation.y = 0.3;
+  g.add(spoonHandle);
+  return g;
+}
+
+function makePastryPlate(models) {
+  const g = new THREE.Group();
+  const plate = cyl(0.085, 0.07, 0.012, new THREE.MeshStandardMaterial({ color: 0xf5f1e8, roughness: 0.3 }), 18);
+  plate.position.y = 0.006;
+  g.add(plate);
+  const fromLib = cloneModel(models, 'croissant');
+  if (fromLib) {
+    fromLib.position.y = 0.012;
+    fromLib.rotation.y = rand(0, Math.PI * 2);
+    g.add(fromLib);
+    return g;
+  }
+  // procedural croissant: three golden lobes in a crescent
+  const doughMat = new THREE.MeshStandardMaterial({ color: 0xc9853e, roughness: 0.7 });
+  for (const [a, s] of [[-0.5, 0.75], [0, 1], [0.5, 0.75]]) {
+    const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.028 * s, 10, 8), doughMat);
+    lobe.scale.set(1.5, 0.75, 0.9);
+    lobe.position.set(Math.sin(a) * 0.035, 0.028, Math.cos(a) * 0.035 - 0.02);
+    lobe.rotation.y = -a;
+    lobe.castShadow = true;
+    g.add(lobe);
+  }
+  return g;
+}
+
+function makeArmchair(fabricMat, woodDarkMat, models) {
+  const fromLib = cloneModel(models, 'armchair');
+  if (fromLib) return fromLib;
+  const g = new THREE.Group();
+  const base = box(0.6, 0.22, 0.56, fabricMat); base.position.y = 0.22; g.add(base);
+  const cushion = box(0.5, 0.1, 0.48, fabricMat); cushion.position.set(0, 0.38, 0.02); g.add(cushion);
+  const back = box(0.6, 0.5, 0.14, fabricMat);
+  back.position.set(0, 0.55, -0.24);
+  back.rotation.x = -0.12;
+  g.add(back);
+  for (const s of [-1, 1]) {
+    const arm = box(0.13, 0.2, 0.5, fabricMat);
+    arm.position.set(s * 0.30, 0.43, 0);
+    g.add(arm);
+    const armTop = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.38, 4, 8), fabricMat);
+    armTop.rotation.x = Math.PI / 2;
+    armTop.position.set(s * 0.30, 0.54, 0);
+    armTop.castShadow = true;
+    g.add(armTop);
+  }
+  for (const [x, z] of [[-0.24, -0.22], [0.24, -0.22], [-0.24, 0.22], [0.24, 0.22]]) {
+    const leg = cyl(0.02, 0.015, 0.12, woodDarkMat, 8);
+    leg.position.set(x, 0.06, z);
+    g.add(leg);
+  }
   return g;
 }
 
@@ -328,7 +414,7 @@ function makeBooks(n) {
 
 // ---------- the café ----------
 
-export function buildCafe(theme) {
+export function buildCafe(theme, models = null) {
   const group = new THREE.Group();
   const { W, D, H } = ROOM;
   const disposables = [];
@@ -483,8 +569,12 @@ export function buildCafe(theme) {
     group.add(slat);
   }
 
-  // espresso machine
-  {
+  // espresso machine (downloaded model if available, else procedural)
+  const machineModel = cloneModel(models, 'espresso_machine');
+  if (machineModel) {
+    machineModel.position.set(-2.2, 1.06, -D / 2 + 1.15);
+    group.add(machineModel);
+  } else {
     const m = new THREE.Group();
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb33939, roughness: 0.3, metalness: 0.4 });
     const body = box(0.85, 0.42, 0.5, bodyMat); body.position.y = 0.29; m.add(body);
@@ -596,10 +686,11 @@ export function buildCafe(theme) {
     seatMeshes.push(chair);
   }
 
-  function addTable(tx, tz, type) {
+  function addTable(tx, tz, type, lounge = false) {
     const tGroup = new THREE.Group();
     const center = new THREE.Vector3(tx, 0, tz);
     let topY = 0.78;
+    if (lounge) topY = 0.55; // lounge tables sit lower, armchair height
     if (type === 'long') {
       const top = box(1.1, 0.06, 2.6, woodMat); top.position.y = topY; tGroup.add(top);
       for (const [lx, lz] of [[-0.45, -1.15], [0.45, -1.15], [-0.45, 1.15], [0.45, 1.15]]) {
@@ -614,18 +705,27 @@ export function buildCafe(theme) {
       }
     } else {
       const top = cyl(0.52, 0.52, 0.05, woodMat, 24); top.position.y = topY; tGroup.add(top);
+      // rounded edge trim on round tables
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.024, 8, 28), woodDarkMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = topY;
+      tGroup.add(rim);
       const pole = cyl(0.05, 0.05, topY, woodDarkMat); pole.position.y = topY / 2; tGroup.add(pole);
       const base = cyl(0.3, 0.34, 0.04, woodDarkMat, 20); base.position.y = 0.02; tGroup.add(base);
     }
     tGroup.position.set(tx, 0, tz);
     group.add(tGroup);
 
-    // chairs around the table, rotated to face center
+    // seating: armchairs around lounge tables, chairs everywhere else
     const chairDefs = type === 'long'
       ? [[-0.95, -0.7], [-0.95, 0.7], [0.95, -0.7], [0.95, 0.7]]
-      : [[0, -0.85], [0, 0.85], [-0.85, 0], [0.85, 0]].slice(0, type === 'square' ? 4 : 3);
+      : lounge
+        ? [[0, -1.05], [0, 1.05], [-1.05, 0]]
+        : [[0, -0.85], [0, 0.85], [-0.85, 0], [0.85, 0]].slice(0, type === 'square' ? 4 : 3);
     for (const [cx, cz] of chairDefs) {
-      const chair = makeChair(woodMat, cushionMat);
+      const chair = lounge
+        ? makeArmchair(cushionMat, woodDarkMat, models)
+        : makeChair(woodMat, cushionMat);
       const px = tx + cx, pz = tz + cz;
       chair.position.set(px, 0, pz);
       chair.lookAt(tx, 0, tz);
@@ -635,11 +735,17 @@ export function buildCafe(theme) {
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
         center);
     }
-    // a cup + maybe a little vase on the table
-    const cup = makeCup(theme.accent);
+    // a cup + sometimes a pastry + maybe a little vase on the table
+    const cup = makeCup(theme.accent, models);
     cup.position.set(tx + rand(-0.15, 0.15), topY + 0.03, tz + rand(-0.15, 0.15));
     group.add(cup);
     cups.push(cup);
+    if (Math.random() < 0.45) {
+      const plate = makePastryPlate(models);
+      plate.position.set(tx + rand(-0.05, 0.1) - 0.2, topY + 0.028, tz + rand(-0.2, 0.2));
+      plate.rotation.y = rand(0, Math.PI * 2);
+      group.add(plate);
+    }
     if (Math.random() < 0.6) {
       const vase = cyl(0.03, 0.045, 0.12, new THREE.MeshStandardMaterial({ color: 0x87a06a, roughness: 0.6 }), 10);
       vase.position.set(tx - 0.2, topY + 0.09, tz + 0.15);
@@ -656,7 +762,7 @@ export function buildCafe(theme) {
     }
   }
 
-  for (const t of theme.tables) addTable(t.x, t.z, t.type);
+  for (const t of theme.tables) addTable(t.x, t.z, t.type, !!t.lounge);
 
   // window bar with stools, looking out the front window
   if (theme.windowBar) {
@@ -682,7 +788,7 @@ export function buildCafe(theme) {
           new THREE.Vector3(sx, 1.5, D / 2 + 3),
           new THREE.Vector3(sx, 0, D / 2 - 0.45));
         if (Math.random() < 0.5) {
-          const cup = makeCup(theme.accent);
+          const cup = makeCup(theme.accent, models);
           cup.position.set(sx + rand(-0.1, 0.1), 1.03, D / 2 - 0.45);
           group.add(cup);
           cups.push(cup);
@@ -698,9 +804,11 @@ export function buildCafe(theme) {
     [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
   ];
   for (let i = 0; i < Math.min(theme.plants, plantSpots.length); i++) {
-    const p = makePlant(theme.woodDark);
+    // alternate downloaded plant models with procedural ones for variety
+    const fromLib = i % 2 === 0 ? cloneModel(models, 'plant') : null;
+    const p = fromLib ?? makePlant(theme.woodDark);
     p.position.set(plantSpots[i][0], 0, plantSpots[i][1]);
-    p.scale.setScalar(rand(1.2, 2.0));
+    p.scale.setScalar(fromLib ? rand(1.0, 1.5) : rand(1.2, 2.0));
     group.add(p);
   }
 

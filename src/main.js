@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
+import { loadModelLibrary } from './modelLoader.js';
 
 // ---------- renderer / scene ----------
 
@@ -112,9 +113,13 @@ function defaultSeat() {
 
 // ---------- scene switching ----------
 
-function loadTheme(index) {
+let loadToken = 0;
+async function loadTheme(index) {
   currentThemeIndex = index;
   const theme = THEMES[index];
+  const token = ++loadToken;
+  const models = await loadModelLibrary();
+  if (token !== loadToken) return; // a newer switch superseded this one
 
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -123,7 +128,7 @@ function loadTheme(index) {
     cafe = null;
   }
 
-  cafe = buildCafe(theme);
+  cafe = buildCafe(theme, models);
   scene.add(cafe.group);
   cafe.group.add(ring);
 
@@ -437,8 +442,9 @@ function frame() {
 loadTheme(0);
 frame();
 
-// tiny debug handle for automated visual tests: place the camera anywhere
+// tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
+  audio,
   place(x, z, yaw, pitch = 0) {
     standUp();
     walkPos.set(x, 0, z);

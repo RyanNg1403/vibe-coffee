@@ -8,6 +8,8 @@ export const SOUND_MANIFEST = {
   chair_scrape: { url: '/sounds/chair_scrape.mp3', loop: false }, // 0s
   chatter: { url: '/sounds/chatter.mp3', loop: true }, // 0s
   chatter2: { url: '/sounds/chatter2.mp3', loop: true }, // 0s
+  chatter_busy: { url: '/sounds/chatter_busy.mp3', loop: false }, // 0s
+  chatter_quiet: { url: '/sounds/chatter_quiet.mp3', loop: false }, // 0s
   cup_clinks: { url: '/sounds/cup_clinks.mp3', loop: false }, // 4.5s
   door_bell: { url: '/sounds/door_bell.mp3', loop: false }, // 0s
   door_open: { url: '/sounds/door_open.mp3', loop: false }, // 3.6s

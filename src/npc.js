@@ -139,11 +139,25 @@ export function makePerson(tint = 1) {
   g.add(headG);
   parts.head = headG;
 
-  // to-go cup, hidden until they've ordered
-  const cup = new THREE.Mesh(
+  // to-go cup with a cardboard sleeve and lid, hidden until they've ordered
+  const cup = new THREE.Group();
+  const cupBody = new THREE.Mesh(
     new THREE.CylinderGeometry(0.035, 0.028, 0.1, 10),
     new THREE.MeshStandardMaterial({ color: 0xece5d8, roughness: 0.6 })
   );
+  cup.add(cupBody);
+  const sleeve = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0365, 0.0315, 0.045, 10),
+    new THREE.MeshStandardMaterial({ color: 0x9a7248, roughness: 0.95 })
+  );
+  sleeve.position.y = -0.005;
+  cup.add(sleeve);
+  const lid = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.036, 0.036, 0.012, 10),
+    new THREE.MeshStandardMaterial({ color: 0xf7f4ee, roughness: 0.5 })
+  );
+  lid.position.y = 0.056;
+  cup.add(lid);
   cup.position.set(0, -0.38, 0.05);
   cup.visible = false;
   parts.armR.add(cup);
