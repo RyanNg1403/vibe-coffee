@@ -1359,14 +1359,60 @@ export function buildCafe(theme, models = null) {
       if (sm) { sm.position.set(sx, sy, sz); sm.rotation.y = rand(0, Math.PI * 2); group.add(sm); }
     }
     // a lantern on a lounge side table if we have one
+    const sideT = cloneModel(models, 'side_table');
+    if (sideT) {
+      sideT.position.set(-5.1, 0, -0.5);
+      group.add(sideT);
+      contactShadow(-5.1, -0.5, 0.8);
+      extraColliders.push({ x: -5.1, z: -0.5, r: 0.35 });
+      // second one beside the sofa with a forgotten latte on it
+      const sideT2 = cloneModel(models, 'side_table');
+      sideT2.position.set(W / 2 - 0.7, 0, -6.1);
+      group.add(sideT2);
+      const latte = cloneModel(models, 'latte') ?? cloneModel(models, 'mug');
+      if (latte) {
+        latte.position.set(W / 2 - 0.7, 0.5, -6.1);
+        group.add(latte);
+      }
+    }
     const lantern = cloneModel(models, 'lantern');
     if (lantern) {
-      lantern.position.set(-5.1, 0.56, -0.5);
+      lantern.position.set(-5.1, sideT ? 0.5 : 0.56, -0.5);
       group.add(lantern);
       if (theme.candles) {
         const lg = new THREE.PointLight(theme.lampColor, 2.5, 3);
         lg.position.set(-5.1, 0.7, -0.5);
         group.add(lg);
+      }
+    }
+    // wall shelf above the counter with a few keepsakes
+    const shelf = cloneModel(models, 'wall_shelf');
+    if (shelf) {
+      shelf.position.set(-1.6, 1.85, -D / 2 + 0.22);
+      group.add(shelf);
+      const keepsakes = ['plant_small', 'mug', 'teapot'];
+      keepsakes.forEach((k, i) => {
+        const item = cloneModel(models, k);
+        if (item) {
+          item.position.set(-2.1 + i * 0.5, 2.02, -D / 2 + 0.22);
+          item.rotation.y = rand(0, Math.PI * 2);
+          group.add(item);
+        }
+      });
+    }
+    // real pendant lamps hanging over the counter
+    const counterPendant = cloneModel(models, 'pendant_lamp');
+    if (counterPendant) {
+      for (const px of [-2.2, 0, 2.2]) {
+        const pl = cloneModel(models, 'pendant_lamp');
+        pl.position.set(px, 2.15, -D / 2 + 1.15);
+        group.add(pl);
+        const cord = cyl(0.008, 0.008, H - 2.55, woodDarkMat, 6);
+        cord.position.set(px, 2.55 + (H - 2.55) / 2, -D / 2 + 1.15);
+        group.add(cord);
+        const pglow = new THREE.PointLight(theme.lampColor, 1.6, 3.2);
+        pglow.position.set(px, 2.25, -D / 2 + 1.15);
+        group.add(pglow);
       }
     }
     // extra framed art to fill big wall gaps

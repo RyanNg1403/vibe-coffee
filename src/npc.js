@@ -243,12 +243,18 @@ class SkinnedAvatar {
       return null;
     };
     const mk = (clip) => (clip ? this.mixer.clipAction(clip) : null);
+    // sit clips usually open with a stand-to-sit transition; loop only the
+    // seated hold so the character never pops upright at the loop seam
+    let sitClip = find('sit');
+    if (sitClip && sitClip.duration > 2.5) {
+      sitClip = THREE.AnimationUtils.subclip(sitClip, 'sit_hold', 21, Math.floor(sitClip.duration * 30) - 1, 30);
+    }
     this.actions = {
       idle: mk(find('idle')),
       walk: mk(find('walk')),
       work: mk(find('working', 'interact-right', 'pick-up', 'interact')),
       wave: mk(find('wave', 'emote-yes', 'interact')),
-      sit: mk(find('sit')),
+      sit: mk(sitClip),
     };
     this.hasWave = !!this.actions.wave;
     this.hasSitClip = !!this.actions.sit;
@@ -302,6 +308,8 @@ class SkinnedAvatar {
     if (action && this.mode !== next) {
       const prev = this.actions[this.mode];
       action.reset().fadeIn(0.22).play();
+      // desync loops so a room of sitters doesn't shift in unison
+      if (next === 'sit') action.time = Math.random() * action.getClip().duration;
       prev?.fadeOut(0.22);
       this.mode = next;
     }
@@ -435,7 +443,10 @@ class NPC {
     // table); to-go customers who stay on their feet get the downloaded
     // animated character
     const willSit = (opts.seatIndex ?? -1) >= 0;
-    const charKey = !willSit && sim.charKeys?.length ? pick(sim.charKeys) : null;
+    // walkers draw from every rig; anyone headed straight for a chair may only
+    // use a rig with a real sit clip (half stay procedural for variety)
+    const pool = willSit ? sim.sitKeys : sim.charKeys;
+    const charKey = pool?.length && (!willSit || Math.random() < 0.5) ? pick(pool) : null;
     if (charKey) {
       this.avatar = new SkinnedAvatar(sim.models, charKey);
       this.mesh = this.avatar.root;

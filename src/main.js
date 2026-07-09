@@ -496,6 +496,7 @@ frame();
 // tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
   audio,
+  get crowd() { return crowd; },
   place(x, z, yaw, pitch = 0) {
     standUp();
     walkPos.set(x, 0, z);
