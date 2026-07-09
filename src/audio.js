@@ -139,6 +139,7 @@ export class CafeAudio {
     this.clinkSpots = [];   // world positions where seated people are
     this.typingSpots = [];  // world positions of laptop users
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
+    this.voicesLevel = 1;     // user's "people talking" slider, scales the crowd beds
   }
 
   start(theme) {
@@ -317,6 +318,7 @@ export class CafeAudio {
     const p = this._profile();
     const t = this.ctx.currentTime;
     const beds = this.chatterBeds || {};
+    const voices = this.voicesLevel ?? 1;
     if (Object.keys(beds).length) {
       // desired mix, with weight falling back to the generic bed when a
       // café-specific recording didn't make it
@@ -324,15 +326,15 @@ export class CafeAudio {
       if (!beds.chatter_busy && want.chatter_busy) { want.chatter += want.chatter_busy * 0.8; want.chatter_busy = 0; }
       if (!beds.chatter_quiet && want.chatter_quiet) { want.chatter += want.chatter_quiet * 0.5; want.chatter_quiet = 0; }
       for (const [k, bed] of Object.entries(beds)) {
-        bed.gain.gain.setTargetAtTime(want[k] ?? 0, t, 1.8);
+        bed.gain.gain.setTargetAtTime((want[k] ?? 0) * voices, t, 0.4);
         bed.src?.src.playbackRate.setTargetAtTime(p.chatterRate * (k === 'chatter2' ? 0.97 : 1), t, 1.5);
       }
       this.chatterTone.frequency.setTargetAtTime(p.chatterLP, t, 1.5);
       // recorded crowd leads; synth murmur is per-café seasoning
-      this.murmurGain.gain.setTargetAtTime(p.murmur, t, 2);
+      this.murmurGain.gain.setTargetAtTime(p.murmur * voices, t, 0.4);
     } else {
       // synth-only fallback still gets scaled per café
-      this.murmurGain?.gain.setTargetAtTime(Math.max(0.45, p.murmur * 2.4), t, 2);
+      this.murmurGain?.gain.setTargetAtTime(Math.max(0.45, p.murmur * 2.4) * voices, t, 0.4);
     }
   }
 
@@ -384,6 +386,13 @@ export class CafeAudio {
 
   setMusicVolume(v) { if (this.musicBus) this.musicBus.gain.value = v; }
   setAmbienceVolume(v) { if (this.ambienceBus) this.ambienceBus.gain.value = v; }
+
+  // scales just the people-talking layers (recorded crowd beds + synth murmur),
+  // independent of the rest of the café ambience
+  setVoicesVolume(v) {
+    this.voicesLevel = v;
+    this._applyAmbienceProfile();
+  }
 
   setMusicOn(on) {
     this.musicOn = on;

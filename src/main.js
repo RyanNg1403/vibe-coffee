@@ -319,6 +319,9 @@ document.getElementById('music-vol').addEventListener('input', (e) => {
 document.getElementById('amb-vol').addEventListener('input', (e) => {
   audio.setAmbienceVolume(parseFloat(e.target.value));
 });
+document.getElementById('voices-vol').addEventListener('input', (e) => {
+  audio.setVoicesVolume(parseFloat(e.target.value));
+});
 
 // focus timer (pomodoro-style 25/5)
 const timerEl = document.getElementById('timer-display');
