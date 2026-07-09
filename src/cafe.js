@@ -671,6 +671,21 @@ export function buildCafe(theme, models = null) {
     const reg = box(0.4, 0.3, 0.35, woodDarkMat);
     reg.position.set(2.2, 1.21, -D / 2 + 1.15);
     group.add(reg);
+    // a tilted screen + keypad so the register doesn't read as a bare box
+    const regScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.2),
+      new THREE.MeshBasicMaterial({ color: 0xaecfdd }));
+    regScreen.position.set(2.2, 1.42, -D / 2 + 1.28);
+    regScreen.rotation.x = -0.35;
+    group.add(regScreen);
+    const regFrame = box(0.34, 0.24, 0.02, new THREE.MeshStandardMaterial({ color: 0x2a2a2e, roughness: 0.4 }));
+    regFrame.position.set(2.2, 1.42, -D / 2 + 1.273);
+    regFrame.rotation.x = -0.35;
+    group.add(regFrame);
+    for (let i = 0; i < 6; i++) {
+      const key = box(0.045, 0.012, 0.045, new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.7 }));
+      key.position.set(2.06 + (i % 3) * 0.09, 1.37, -D / 2 + 1.04 + Math.floor(i / 3) * 0.08);
+      group.add(key);
+    }
     // pastry case
     const caseGlass = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 0.6),
       new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.92, transparent: true, opacity: 0.3, roughness: 0.05, depthWrite: false }));
@@ -703,23 +718,52 @@ export function buildCafe(theme, models = null) {
       kettle.rotation.y = rand(0, Math.PI * 2);
       group.add(kettle);
     }
-    const counterCake = cloneModel(models, 'cake');
-    if (counterCake) {
-      counterCake.position.set(-2.9, 1.06, -D / 2 + 1.15);
-      group.add(counterCake);
-      const dome = new THREE.Mesh(
-        new THREE.SphereGeometry(0.17, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
-        new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, transparent: true, opacity: 0.25, roughness: 0.05, depthWrite: false })
-      );
-      dome.position.set(-2.9, 1.06, -D / 2 + 1.15);
-      group.add(dome);
+    // each café dresses this counter spot its own way
+    if (theme.roaster) {
+      // roastery: plump burlap sacks of fresh beans
+      for (let i = 0; i < 2; i++) {
+        const sack = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8),
+          new THREE.MeshStandardMaterial({ color: i ? 0x8d7a55 : 0xa08a62, roughness: 1 }));
+        sack.scale.set(1, 1.05, 0.8);
+        sack.position.set(-2.95 + i * 0.26, 1.06, -D / 2 + 1.15);
+        group.add(sack);
+      }
+    } else if (theme.vinyl) {
+      // midnight: a slice on a stand and a record sleeve leaning on the shelf
+      const slice = cloneModel(models, 'cakeSlice');
+      if (slice) {
+        slice.position.set(-2.9, 1.09, -D / 2 + 1.15);
+        group.add(slice);
+        const stand = cyl(0.12, 0.13, 0.03, new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.4 }));
+        stand.position.set(-2.9, 1.075, -D / 2 + 1.15);
+        group.add(stand);
+      }
+      const sleeve = box(0.28, 0.28, 0.015, new THREE.MeshStandardMaterial({ color: 0x30262c, roughness: 0.7 }));
+      sleeve.position.set(0.7, 1.86, -D / 2 + 0.28);
+      sleeve.rotation.x = -0.18;
+      group.add(sleeve);
+    } else {
+      // golden hour: the classic cake under a glass dome
+      const counterCake = cloneModel(models, 'cake');
+      if (counterCake) {
+        counterCake.position.set(-2.9, 1.06, -D / 2 + 1.15);
+        group.add(counterCake);
+        const dome = new THREE.Mesh(
+          new THREE.SphereGeometry(0.17, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+          new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, transparent: true, opacity: 0.25, roughness: 0.05, depthWrite: false })
+        );
+        dome.position.set(-2.9, 1.06, -D / 2 + 1.15);
+        group.add(dome);
+      }
     }
-    // a radio on the back shelf, quietly keeping the place company
-    const radio = cloneModel(models, 'radio');
-    if (radio) {
-      radio.position.set(0.0, 1.725, -D / 2 + 0.25);
-      radio.rotation.y = 0.15;
-      group.add(radio);
+    // a radio keeps the golden hour café company; the others have their own music
+    if (!theme.roaster && !theme.vinyl) {
+      const radio = cloneModel(models, 'radio');
+      if (radio) {
+        radio.position.set(0.0, 1.725, -D / 2 + 0.25);
+        radio.rotation.y = 0.15;
+        group.add(radio);
+      }
     }
   }
 
@@ -744,7 +788,7 @@ export function buildCafe(theme, models = null) {
       const bag = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6),
         new THREE.MeshStandardMaterial({ color: 0xa08a62, roughness: 1 }));
       bag.scale.set(1, 0.95, 0.75);
-      bag.position.set(0.6 + i * 0.3, 1.83, -D / 2 + 0.25);
+      bag.position.set(-1.5 + i * 0.3, 1.83, -D / 2 + 0.25);
       group.add(bag);
     }
     const menu = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 1.4),
@@ -1335,15 +1379,28 @@ export function buildCafe(theme, models = null) {
         group.add(bc);
         contactShadow(W / 2 - 0.5, -0.35, 1.4);
         extraColliders.push({ x: W / 2 - 0.5, z: -0.35, r: 0.8 });
+        // dress the shelves — an empty bookcase reads unfinished
+        for (const [sy, kind] of [[0.52, 'books'], [0.97, 'books'], [1.42, 'plant']]) {
+          if (kind === 'books') {
+            const row = makeBooks(6);
+            row.rotation.y = Math.PI / 2;
+            row.position.set(W / 2 - 0.35, sy, -0.35 + 0.22);
+            group.add(row);
+          } else {
+            const pot = cloneModel(models, 'plant_small');
+            if (pot) { pot.position.set(W / 2 - 0.35, sy, -0.5); group.add(pot); }
+            const mug2 = cloneModel(models, 'mug');
+            if (mug2) { mug2.position.set(W / 2 - 0.35, sy, -0.1); group.add(mug2); }
+          }
+        }
       }
     }
-    // a coat rack by the door
+    // a peg board for coats on the right wall by the entrance
     const coats = cloneModel(models, 'coat_rack');
     if (coats) {
-      coats.position.set(-doorW / 2 - 0.8, 0, D / 2 - 0.6);
+      coats.position.set(W / 2 - 0.10, 1.35, 4.9);
+      coats.rotation.y = -Math.PI / 2;
       group.add(coats);
-      contactShadow(-doorW / 2 - 0.8, D / 2 - 0.6, 0.9);
-      extraColliders.push({ x: -doorW / 2 - 0.8, z: D / 2 - 0.6, r: 0.4 });
     }
     // a small trash bin tucked beside the counter
     const bin = cloneModel(models, 'trashcan');
@@ -1385,25 +1442,19 @@ export function buildCafe(theme, models = null) {
         group.add(lg);
       }
     }
-    // wall shelf above the counter with a few keepsakes
+    // a standing display unit near the pickup end of the counter
     const shelf = cloneModel(models, 'wall_shelf');
     if (shelf) {
-      shelf.position.set(-1.6, 1.85, -D / 2 + 0.22);
+      shelf.position.set(-6.5, 0, -D / 2 + 0.5);
       group.add(shelf);
-      const keepsakes = ['plant_small', 'mug', 'teapot'];
-      keepsakes.forEach((k, i) => {
-        const item = cloneModel(models, k);
-        if (item) {
-          item.position.set(-2.1 + i * 0.5, 2.02, -D / 2 + 0.22);
-          item.rotation.y = rand(0, Math.PI * 2);
-          group.add(item);
-        }
-      });
+      contactShadow(-6.5, -D / 2 + 0.5, 1.0);
+      extraColliders.push({ x: -6.5, z: -D / 2 + 0.5, r: 0.5 });
     }
     // real pendant lamps hanging over the counter
     const counterPendant = cloneModel(models, 'pendant_lamp');
     if (counterPendant) {
-      for (const px of [-2.2, 0, 2.2]) {
+      // keep clear of the menu board (x 1.15..3.25) so prices stay readable
+      for (const px of [-3.4, -1.2, 0.9]) {
         const pl = cloneModel(models, 'pendant_lamp');
         pl.position.set(px, 2.15, -D / 2 + 1.15);
         group.add(pl);
@@ -1541,8 +1592,18 @@ export function buildCafe(theme, models = null) {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    // soft round sprite so near-camera motes don't render as hard squares
+    const moteTex = track(canvasTexture(32, 32, (g, w, h) => {
+      const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.4, 'rgba(255,255,255,0.6)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+    }));
     dust = new THREE.Points(geo, new THREE.PointsMaterial({
       color: 0xffdda8, size: 0.02, transparent: true, opacity: 0.55, depthWrite: false,
+      map: moteTex,
     }));
     group.add(dust);
   }

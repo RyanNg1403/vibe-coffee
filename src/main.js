@@ -389,16 +389,25 @@ window.addEventListener('resize', () => {
 const clock = new THREE.Clock();
 let elapsed = 0;
 let lastListenerSync = 0;
+let simAcc = 0;
+const SIM_STEP = 1 / 30;
 
 function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 0.05);
-  elapsed += dt;
+  const rawDt = Math.min(clock.getDelta(), 1.0); // real time, survives slow frames
+  const dt = Math.min(rawDt, 0.05);              // camera/interaction step
+  elapsed += rawDt;
 
-  if (cafe) cafe.animate(dt);
-  if (crowd) crowd.update(dt, elapsed, camera.position);
+  // the life of the room runs on real time in fixed substeps, so a slow
+  // renderer or a throttled tab never turns the crowd into a wax museum
+  simAcc = Math.min(simAcc + rawDt, 1.0);
+  while (simAcc >= SIM_STEP) {
+    simAcc -= SIM_STEP;
+    if (cafe) cafe.animate(SIM_STEP);
+    if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
+  }
 
   // camera tween between seats
   if (tween.active) {
@@ -477,7 +486,7 @@ function frame() {
 
   // focus timer
   if (timerRunning) {
-    timerLeft -= dt;
+    timerLeft -= rawDt;
     if (timerLeft <= 0) {
       timerBreak = !timerBreak;
       timerLeft = (timerBreak ? 5 : 25) * 60;

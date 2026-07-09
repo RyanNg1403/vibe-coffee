@@ -39,8 +39,8 @@ const NORMALIZE = {
   // décor / furniture (new)
   pendant_lamp: { height: 0.4 },
   side_table: { height: 0.5 },
-  wall_shelf: { height: 0.3 },
-  coat_rack: { height: 1.7 },
+  wall_shelf: { height: 1.6 },  // actually a tall standing display unit
+  coat_rack: { height: 0.4 },   // a wide peg board, not a standing rack
   trashcan: { height: 0.4 },
   painting: { height: 0.6 },
   lantern: { height: 0.3 },
@@ -75,7 +75,12 @@ function normalize(scene, key) {
   scene.position.z -= center.z;
   scene.position.y -= box2.min.y;
   wrapper.traverse((o) => {
-    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+      // avoid texture shimmer/moire on oblique surfaces (paintings, labels)
+      if (o.material?.map) o.material.map.anisotropy = 8;
+    }
   });
   return wrapper;
 }

@@ -34,19 +34,28 @@ export function makePerson(tint = 1) {
   const parts = {};
 
   for (const side of [-1, 1]) {
+    // two-segment legs: thigh from the hip, shin+foot from a knee pivot,
+    // so seated people fold naturally instead of sticking straight out
     const hip = new THREE.Group();
     hip.position.set(side * 0.09 * build, 0.5, 0);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.36, 3, 8), pants);
-    leg.position.y = -0.24;
-    leg.castShadow = true;
-    hip.add(leg);
-    // a proper foot sells the walk cycle
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.15, 3, 8), pants);
+    thigh.position.y = -0.125;
+    thigh.castShadow = true;
+    hip.add(thigh);
+    const knee = new THREE.Group();
+    knee.position.y = -0.25;
+    hip.add(knee);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.048, 0.13, 3, 8), pants);
+    shin.position.y = -0.11;
+    shin.castShadow = true;
+    knee.add(shin);
     const foot = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.15), shoeMat);
-    foot.position.set(0, -0.47, 0.035);
+    foot.position.set(0, -0.225, 0.035);
     foot.castShadow = true;
-    hip.add(foot);
+    knee.add(foot);
     g.add(hip);
     parts[side === -1 ? 'legL' : 'legR'] = hip;
+    parts[side === -1 ? 'kneeL' : 'kneeR'] = knee;
   }
 
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.34, 4, 10), shirt);
@@ -436,6 +445,16 @@ function makePhone() {
   );
 }
 
+// vertical mesh offset while seated: bar stools (elevated seat.pos) need the
+// hips carried up to the stool top; regular chairs sink slightly instead
+function sitYFor(npc, seat) {
+  const elevated = seat.pos.y > 0.05;
+  if (!npc.avatar) return elevated ? 0.17 : -0.10;
+  return npc.avatar.hasSitClip
+    ? (elevated ? 0.2 : -0.05)
+    : (elevated ? -0.24 : -0.38);
+}
+
 class NPC {
   constructor(sim, opts = {}) {
     this.sim = sim;
@@ -505,10 +524,13 @@ class NPC {
     }
     const p = this.mesh.userData.parts;
     if (sitting) {
-      p.legL.rotation.x = p.legR.rotation.x = -Math.PI / 2.3;
+      // thighs forward, shins folded back down toward the floor
+      p.legL.rotation.x = p.legR.rotation.x = -1.25;
+      p.kneeL.rotation.x = p.kneeR.rotation.x = 1.45;
       this.mesh.position.y = this.sitY;
     } else {
       p.legL.rotation.x = p.legR.rotation.x = 0;
+      p.kneeL.rotation.x = p.kneeR.rotation.x = 0;
       this.mesh.position.y = 0;
     }
   }
@@ -684,6 +706,8 @@ class NPC {
         const s = Math.sin(this.walkPhase);
         p.legL.rotation.x = s * 0.55;
         p.legR.rotation.x = -s * 0.55;
+        p.kneeL.rotation.x = Math.max(0, -s) * 0.8;
+        p.kneeR.rotation.x = Math.max(0, s) * 0.8;
         // procedural: raise the free hand in a wave during a greeting
         if (greetingNow && !p.cup.visible) {
           p.armR.rotation.x = -2.4;
@@ -966,11 +990,7 @@ class NPC {
       this.state = 'sitting';
       this.stateT = 0;
       const seat = this.sim.cafe.seats[this.seatIndex];
-      this.sitY = this.avatar
-        ? (this.avatar.hasSitClip
-          ? (seat.pos.y > 0.05 ? 0.1 : -0.05)
-          : (seat.pos.y > 0.05 ? -0.24 : -0.38))
-        : (seat.pos.y > 0.05 ? 0.07 : -0.10);
+      this.sitY = sitYFor(this, seat);
       this.mesh.position.set(seat.pos.x, 0, seat.pos.z);
       this._setPose(true);
       this._addProps();
@@ -1034,6 +1054,8 @@ class Barista {
         const s = Math.sin(this.phase);
         p.legL.rotation.x = s * 0.4;
         p.legR.rotation.x = -s * 0.4;
+        p.kneeL.rotation.x = Math.max(0, -s) * 0.6;
+        p.kneeR.rotation.x = Math.max(0, s) * 0.6;
       }
       this.mesh.rotation.y = dx > 0 ? Math.PI / 2 : -Math.PI / 2;
       this.espressoPlayed = false;
@@ -1059,6 +1081,7 @@ class Barista {
       }
     } else {
       p.legL.rotation.x = p.legR.rotation.x = 0;
+      p.kneeL.rotation.x = p.kneeR.rotation.x = 0;
       if (this.sim.brewFor) {
         // working the machine, back half-turned
         this.mesh.rotation.y = Math.PI;
@@ -1180,6 +1203,8 @@ class OutsideLife {
       const s = Math.sin(w.phase);
       p.legL.rotation.x = s * 0.55;
       p.legR.rotation.x = -s * 0.55;
+      p.kneeL.rotation.x = Math.max(0, -s) * 0.8;
+      p.kneeR.rotation.x = Math.max(0, s) * 0.8;
       p.armL.rotation.x = -s * 0.35;
       p.armR.rotation.x = s * 0.35;
       w.mesh.position.set(w.x, Math.abs(s) * 0.03, w.z);
@@ -1240,11 +1265,7 @@ export class CrowdSim {
     npc.path = null;
     npc.setCup(Math.random() < 0.7);
     const s = this.cafe.seats[seat];
-    npc.sitY = npc.avatar
-      ? (npc.avatar.hasSitClip
-        ? (s.pos.y > 0.05 ? 0.1 : -0.05)
-        : (s.pos.y > 0.05 ? -0.24 : -0.38))
-      : (s.pos.y > 0.05 ? 0.07 : -0.10);
+    npc.sitY = sitYFor(npc, s);
     npc.mesh.position.set(s.pos.x, 0, s.pos.z);
     npc._setPose(true);
     npc._addProps();
@@ -1265,11 +1286,7 @@ export class CrowdSim {
       npc.path = null;
       npc.setCup(true);
       const s = this.cafe.seats[seat];
-      npc.sitY = npc.avatar
-        ? (npc.avatar.hasSitClip
-          ? (s.pos.y > 0.05 ? 0.1 : -0.05)
-          : (s.pos.y > 0.05 ? -0.24 : -0.38))
-        : (s.pos.y > 0.05 ? 0.07 : -0.10);
+      npc.sitY = sitYFor(npc, s);
       npc.mesh.position.set(s.pos.x, 0, s.pos.z);
       npc._setPose(true);
       members.push(npc);
@@ -1312,7 +1329,16 @@ export class CrowdSim {
       if (playerTable && this.cafe.seats[i].tableCenter.distanceTo(playerTable) < 0.01) continue;
       free.push(i);
     }
-    return free.length ? pick(free) : -1;
+    if (!free.length) return -1;
+    // prefer seats with elbow room so strangers don't shoulder into each other
+    const roomy = free.filter((i) => {
+      const p = this.cafe.seats[i].pos;
+      for (const j of this.takenSeats) {
+        if (this.cafe.seats[j].pos.distanceTo(p) < 0.65) return false;
+      }
+      return true;
+    });
+    return pick(roomy.length ? roomy : free);
   }
 
   _freePairSeats() {

@@ -185,6 +185,13 @@ export class CafeAudio {
     this.ambVerbSend.gain.value = 0.35;
     this.ambienceBus.connect(this.ambVerbSend).connect(this.reverb);
 
+    // people-talking layers get their own bus so the voices slider stays
+    // audible even with the café ambience slider at zero
+    this.voicesBus = ctx.createGain();
+    this.voicesBus.gain.value = 0.7;
+    this.voicesBus.connect(this.master);
+    this.voicesBus.connect(this.ambVerbSend);
+
     this._noiseBuf = this._makeNoiseBuffer(2);
     this._brownBuf = this._makeBrownBuffer(4);
 
@@ -257,7 +264,7 @@ export class CafeAudio {
       this.chatterTone = this.ctx.createBiquadFilter();
       this.chatterTone.type = 'lowpass';
       this.chatterTone.frequency.value = 7500;
-      this.chatterTone.connect(this.ambienceBus);
+      this.chatterTone.connect(this.voicesBus);
       for (const k of bedKeys) {
         if (!this._buf(k)) continue;
         const g = this.ctx.createGain();
@@ -506,7 +513,7 @@ export class CafeAudio {
     this.murmurGain.gain.value = 0.9;
     const lp = this.ctx.createBiquadFilter();
     lp.type = 'lowpass'; lp.frequency.value = 1000;
-    this.murmurGain.connect(lp).connect(this.ambienceBus);
+    this.murmurGain.connect(lp).connect(this.voicesBus);
 
     for (let v = 0; v < 7; v++) {
       const src = this._noiseSource(this._brownBuf);
