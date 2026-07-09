@@ -180,5 +180,89 @@
     "license": "CC0 / Public Domain",
     "source_url": "https://static.poly.pizza/46d6db5a-3c9f-4238-8cdf-8eb7194498dc.glb",
     "item_url": "https://poly.pizza/m/nIItLV9nxS"
+  },
+  "char_j": {
+    "title": "Man in Suit (rigged; Idle/Walk/Run/Sitting/Clapping clips)",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://poly.pizza/m/mQnGoME1ez",
+    "item_url": "https://poly.pizza/m/mQnGoME1ez"
+  },
+  "mug": {
+    "title": "Mug (Kenney Food Kit)",
+    "creator": "Kenney",
+    "license": "CC0 1.0",
+    "source_url": "https://poly.pizza/m/fis2ugeLbn",
+    "item_url": "https://poly.pizza/m/fis2ugeLbn"
+  },
+  "latte": {
+    "title": "Coffee cup",
+    "creator": "Poly by Google",
+    "license": "CC-BY 3.0",
+    "source_url": "https://poly.pizza/m/2zk0pGhndM4",
+    "item_url": "https://poly.pizza/m/2zk0pGhndM4"
+  },
+  "cookie": {
+    "title": "Chocolate Chip Cookie",
+    "creator": "Jarlan Perez",
+    "license": "CC-BY",
+    "source_url": "https://poly.pizza/m/evU5g-OJDdr",
+    "item_url": "https://poly.pizza/m/evU5g-OJDdr"
+  },
+  "cupcake": {
+    "title": "Cupcake",
+    "creator": "Quaternius",
+    "license": "CC0",
+    "source_url": "https://poly.pizza/m/XL70IUDIrZ",
+    "item_url": "https://poly.pizza/m/XL70IUDIrZ"
+  },
+  "pancakes": {
+    "title": "Pancakes Stack",
+    "creator": "Quaternius",
+    "license": "CC0",
+    "source_url": "https://poly.pizza/m/rNr63sFa69",
+    "item_url": "https://poly.pizza/m/rNr63sFa69"
+  },
+  "cakeSlice": {
+    "title": "Cake Birthday Slice",
+    "creator": "Isa Lousberg",
+    "license": "CC0 1.0",
+    "source_url": "https://poly.pizza/m/YxYKsrZnwd",
+    "item_url": "https://poly.pizza/m/YxYKsrZnwd"
+  },
+  "apple": {
+    "title": "Apple",
+    "creator": "Junior IT",
+    "license": "CC-BY",
+    "source_url": "https://poly.pizza/m/b3vW8VveSIJ",
+    "item_url": "https://poly.pizza/m/b3vW8VveSIJ"
+  },
+  "iceCream": {
+    "title": "Ice Cream Sundae (Kenney Food Kit)",
+    "creator": "Kenney",
+    "license": "CC0 1.0",
+    "source_url": "https://kenney.nl/assets/food-kit",
+    "item_url": "https://kenney.nl/assets/food-kit"
+  },
+  "pendant_lamp": {
+    "title": "Ceiling Lamp (Kenney Furniture Kit)",
+    "creator": "Kenney",
+    "license": "CC0 1.0",
+    "source_url": "https://kenney.nl/assets/furniture-kit",
+    "item_url": "https://kenney.nl/assets/furniture-kit"
+  },
+  "side_table": {
+    "title": "Coffee Table (Kenney Furniture Kit)",
+    "creator": "Kenney",
+    "license": "CC0 1.0",
+    "source_url": "https://kenney.nl/assets/furniture-kit",
+    "item_url": "https://kenney.nl/assets/furniture-kit"
+  },
+  "coat_rack": {
+    "title": "Coat Rack (Kenney Furniture Kit)",
+    "creator": "Kenney",
+    "license": "CC0 1.0",
+    "source_url": "https://kenney.nl/assets/furniture-kit",
+    "item_url": "https://kenney.nl/assets/furniture-kit"
   }
 }
