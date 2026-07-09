@@ -3,10 +3,21 @@
 
 export const MODEL_MANIFEST = {
   armchair: { url: '/models/armchair.glb' },
+  bar_stool: { url: '/models/bar_stool.glb' },
+  bookcase: { url: '/models/bookcase.glb' },
+  cake: { url: '/models/cake.glb' },
+  char_b: { url: '/models/char_b.glb' },
   croissant: { url: '/models/croissant.glb' },
   cup: { url: '/models/cup.glb' },
+  donut: { url: '/models/donut.glb' },
   espresso_machine: { url: '/models/espresso_machine.glb' },
+  floor_lamp: { url: '/models/floor_lamp.glb' },
+  muffin: { url: '/models/muffin.glb' },
   plant: { url: '/models/plant.glb' },
+  radio: { url: '/models/radio.glb' },
+  sandwich: { url: '/models/sandwich.glb' },
+  sofa: { url: '/models/sofa.glb' },
+  teapot: { url: '/models/teapot.glb' },
 };
 
 // attribution data lives in CREDITS.md

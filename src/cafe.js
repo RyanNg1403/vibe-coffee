@@ -14,7 +14,7 @@ export const THEMES = [
     id: 'goldenhour',
     name: 'Golden Hour Café',
     blurb: 'Warm wood, late-afternoon sun, plants everywhere.',
-    musicKey: 0, rain: false, exposure: 1.15,
+    musicKey: 0, rain: false, exposure: 1.15, envIntensity: 0.4, bloom: 0.22,
     fog: { color: 0x2b1d12, density: 0.012 },
     floor: '#8a6242', floorLine: '#6d4b31', wall: '#c9b394', wallTrim: '#8a6242',
     wood: 0x6f4a2d, woodDark: 0x4e3018, accent: 0x2e6e4e, cushion: 0xa33b2e,
@@ -39,7 +39,7 @@ export const THEMES = [
     id: 'roastery',
     name: 'Downtown Roastery',
     blurb: 'Concrete and steel, big windows onto a bright city street.',
-    musicKey: 5, rain: false, exposure: 1.05,
+    musicKey: 5, rain: false, exposure: 1.05, envIntensity: 0.55, bloom: 0.15,
     fog: { color: 0x272a2e, density: 0.010 },
     floor: '#7d7f83', floorLine: '#6a6c70', wall: '#b9bcc0', wallTrim: '#55585e',
     wood: 0x8a6a48, woodDark: 0x2e2f33, accent: 0x1f2124, cushion: 0x3f4a54,
@@ -63,7 +63,7 @@ export const THEMES = [
     id: 'midnight',
     name: 'Midnight Jazz Corner',
     blurb: 'Rain on the glass, warm lamps, a neon glow. Open late.',
-    musicKey: -3, rain: true, exposure: 1.25,
+    musicKey: -3, rain: true, exposure: 1.25, envIntensity: 0.16, bloom: 0.5,
     fog: { color: 0x0b0d14, density: 0.016 },
     floor: '#4a3628', floorLine: '#38281d', wall: '#4e4038', wallTrim: '#2c2119',
     wood: 0x4e3323, woodDark: 0x2a1a10, accent: 0x7a2c26, cushion: 0x274235,
@@ -114,6 +114,32 @@ function woodFloorTexture(base, line) {
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(3, 3);
   return tex;
+}
+
+// subtle grayscale wood grain, multiplied by each material's color —
+// one shared texture makes every wooden surface read as actual wood
+let _grainTex = null;
+function woodGrainTexture() {
+  if (_grainTex) return _grainTex;
+  _grainTex = canvasTexture(256, 256, (g, w, h) => {
+    g.fillStyle = '#b9b3aa'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 2) {
+      const wave = Math.sin(y * 0.11) * 8 + Math.sin(y * 0.031) * 20;
+      g.fillStyle = `rgba(70,50,30,${0.05 + 0.05 * Math.sin(y * 0.6)})`;
+      g.fillRect(0, y, w, 1);
+      g.fillStyle = `rgba(255,245,225,${0.04 + 0.03 * Math.sin(y * 0.9 + 2)})`;
+      g.fillRect(wave, y + 1, w, 1);
+    }
+    for (let i = 0; i < 8; i++) { // knots
+      const x = rand(0, w), y = rand(0, h);
+      for (let r = 1; r < 9; r += 1.6) {
+        g.strokeStyle = `rgba(60,40,25,${0.1 - r * 0.01})`;
+        g.beginPath(); g.ellipse(x, y, r * 1.7, r, 0.3, 0, 7); g.stroke();
+      }
+    }
+  });
+  _grainTex.wrapS = _grainTex.wrapT = THREE.RepeatWrapping;
+  return _grainTex;
 }
 
 function plasterTexture(base) {
@@ -334,7 +360,9 @@ function makePastryPlate(models) {
   const plate = cyl(0.085, 0.07, 0.012, new THREE.MeshStandardMaterial({ color: 0xf5f1e8, roughness: 0.3 }), 18);
   plate.position.y = 0.006;
   g.add(plate);
-  const fromLib = cloneModel(models, 'croissant');
+  // whatever's in the pastry case today: croissant, donut, muffin, sandwich
+  const options = ['croissant', 'donut', 'muffin', 'sandwich'].filter((k) => models?.get?.(k));
+  const fromLib = options.length ? cloneModel(models, options[Math.floor(rand(0, options.length))]) : null;
   if (fromLib) {
     fromLib.position.y = 0.012;
     fromLib.rotation.y = rand(0, Math.PI * 2);
@@ -419,9 +447,15 @@ export function buildCafe(theme, models = null) {
   const { W, D, H } = ROOM;
   const disposables = [];
   const track = (t) => { disposables.push(t); return t; };
+  const extraColliders = []; // decor added before the collider list is built
 
-  const woodMat = new THREE.MeshStandardMaterial({ color: theme.wood, roughness: 0.75 });
-  const woodDarkMat = new THREE.MeshStandardMaterial({ color: theme.woodDark, roughness: 0.8 });
+  const grain = woodGrainTexture();
+  const woodMat = new THREE.MeshStandardMaterial({
+    color: theme.wood, roughness: 0.7, map: grain, bumpMap: grain, bumpScale: 0.01,
+  });
+  const woodDarkMat = new THREE.MeshStandardMaterial({
+    color: theme.woodDark, roughness: 0.75, map: grain, bumpMap: grain, bumpScale: 0.008,
+  });
   const cushionMat = new THREE.MeshStandardMaterial({ color: theme.cushion, roughness: 0.95 });
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x6a6d70, roughness: 0.35, metalness: 0.7 });
 
@@ -611,12 +645,46 @@ export function buildCafe(theme, models = null) {
     const caseBase = box(1.55, 0.5, 0.65, counterMat);
     caseBase.position.set(-3.9, 0.81, -D / 2 + 1.15);
     group.add(caseBase);
+    const caseGoods = ['croissant', 'donut', 'muffin', 'cake', 'sandwich', 'croissant'];
     const pastryMat = new THREE.MeshStandardMaterial({ color: 0xc98e4e, roughness: 0.8 });
     for (let i = 0; i < 6; i++) {
-      const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), pastryMat);
-      p.scale.set(1.4, 0.7, 1);
-      p.position.set(-4.35 + (i % 3) * 0.35, 1.12 + Math.floor(i / 3) * 0.16, -D / 2 + 1.1);
-      group.add(p);
+      const good = cloneModel(models, caseGoods[i]);
+      if (good) {
+        good.position.set(-4.35 + (i % 3) * 0.4, 1.07 + Math.floor(i / 3) * 0.2, -D / 2 + 1.1);
+        good.rotation.y = rand(0, Math.PI * 2);
+        good.scale.setScalar(caseGoods[i] === 'cake' ? 0.8 : 1);
+        group.add(good);
+      } else {
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), pastryMat);
+        p.scale.set(1.4, 0.7, 1);
+        p.position.set(-4.35 + (i % 3) * 0.35, 1.12 + Math.floor(i / 3) * 0.16, -D / 2 + 1.1);
+        group.add(p);
+      }
+    }
+    // kettle by the register, and a cake up on the counter under a glass dome
+    const kettle = cloneModel(models, 'teapot');
+    if (kettle) {
+      kettle.position.set(1.2, 1.06, -D / 2 + 1.1);
+      kettle.rotation.y = rand(0, Math.PI * 2);
+      group.add(kettle);
+    }
+    const counterCake = cloneModel(models, 'cake');
+    if (counterCake) {
+      counterCake.position.set(-2.9, 1.06, -D / 2 + 1.15);
+      group.add(counterCake);
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(0.17, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, transparent: true, opacity: 0.25, roughness: 0.05, depthWrite: false })
+      );
+      dome.position.set(-2.9, 1.06, -D / 2 + 1.15);
+      group.add(dome);
+    }
+    // a radio on the back shelf, quietly keeping the place company
+    const radio = cloneModel(models, 'radio');
+    if (radio) {
+      radio.position.set(0.0, 1.725, -D / 2 + 0.25);
+      radio.rotation.y = 0.15;
+      group.add(radio);
     }
   }
 
@@ -780,7 +848,7 @@ export function buildCafe(theme, models = null) {
       const nStools = Math.floor(barLen / 1.1);
       for (let i = 0; i < nStools; i++) {
         const sx = bx - barLen / 2 + (i + 0.5) * (barLen / nStools);
-        const stool = makeStool(woodDarkMat, cushionMat);
+        const stool = cloneModel(models, 'bar_stool') ?? makeStool(woodDarkMat, cushionMat);
         stool.position.set(sx, 0, D / 2 - 1.05);
         group.add(stool);
         addSeat(stool,
@@ -1202,6 +1270,40 @@ export function buildCafe(theme, models = null) {
     }
   }
 
+  // a reading nook against the right wall: sofa, floor lamp, side table
+  {
+    const sofa = cloneModel(models, 'sofa');
+    if (sofa) {
+      sofa.position.set(W / 2 - 0.85, 0, -4.9);
+      sofa.rotation.y = -Math.PI / 2;
+      group.add(sofa);
+      contactShadow(W / 2 - 0.85, -4.9, 2.2);
+      extraColliders.push({ x: W / 2 - 0.85, z: -4.9, r: 1.0 });
+    }
+    const lamp = cloneModel(models, 'floor_lamp');
+    if (lamp) {
+      lamp.position.set(W / 2 - 0.6, 0, -3.6);
+      group.add(lamp);
+      const glow = new THREE.PointLight(theme.lampColor, 4, 4);
+      glow.position.set(W / 2 - 0.6, 1.35, -3.6);
+      group.add(glow);
+      const lamp2 = cloneModel(models, 'floor_lamp');
+      lamp2.position.set(-W / 2 + 0.6, 0, 1.2);
+      group.add(lamp2);
+    }
+    // a proper bookcase for the golden hour café (midnight has its own wall)
+    if (!theme.bookshelf) {
+      const bc = cloneModel(models, 'bookcase');
+      if (bc) {
+        bc.position.set(W / 2 - 0.35, 0, -0.35);
+        bc.rotation.y = -Math.PI / 2;
+        group.add(bc);
+        contactShadow(W / 2 - 0.5, -0.35, 1.4);
+        extraColliders.push({ x: W / 2 - 0.5, z: -0.35, r: 0.8 });
+      }
+    }
+  }
+
   // the café cat, asleep on a rug
   let cat = null;
   if (theme.cat !== undefined) {
@@ -1371,6 +1473,7 @@ export function buildCafe(theme, models = null) {
     x: tt.x, z: tt.z, r: tt.type === 'long' ? 1.5 : 1.05,
   }));
   colliders.push({ x: -0.6, z: -D / 2 + 1.15, r: 0, rect: { x0: -5.2, x1: 4.0, z0: -D / 2, z1: -D / 2 + 1.8 } });
+  colliders.push(...extraColliders);
   if (theme.windowBar) {
     colliders.push({ rect: { x0: -W / 2, x1: -doorW / 2 - 0.3, z0: D / 2 - 0.9, z1: D / 2 } });
     colliders.push({ rect: { x0: doorW / 2 + 0.3, x1: W / 2, z0: D / 2 - 0.9, z1: D / 2 } });

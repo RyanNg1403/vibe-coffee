@@ -1,4 +1,9 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
@@ -17,6 +22,21 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.05, 60);
+
+// image-based environment lighting: gives every PBR material soft reflected
+// room light instead of the flat "primitive" look of pure analytic lights
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+// post: subtle bloom makes lamps, neon, sunlit glass and the espresso
+// machine's highlights actually glow
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight), 0.25, 0.5, 0.85
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
 
 const audio = new CafeAudio();
 
@@ -135,8 +155,10 @@ async function loadTheme(index) {
   scene.fog = new THREE.FogExp2(theme.fog.color, theme.fog.density);
   scene.background = new THREE.Color(theme.fog.color);
   renderer.toneMappingExposure = theme.exposure;
+  scene.environmentIntensity = theme.envIntensity ?? 0.35;
+  bloomPass.strength = theme.bloom ?? 0.25;
 
-  crowd = new CrowdSim(cafe, audio);
+  crowd = new CrowdSim(cafe, audio, models);
   audio.setAnchors({ counter: cafe.nav.machineWorld, door: cafe.nav.door });
   audio.setClinkSpots([]);
   audio.setTypingSpots([]);
@@ -331,6 +353,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // ---------- main loop ----------
@@ -436,7 +459,7 @@ function frame() {
     renderTimer();
   }
 
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 loadTheme(0);

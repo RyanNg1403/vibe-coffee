@@ -152,5 +152,33 @@
     "license": "CC0 1.0 (Creative Commons Zero, public domain) - verified via Kenney Furniture Kit 2.0 License.txt shipped in the same repo folder",
     "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/dfa19a5602a31f64bd890d15279a61f43b127328/assets/kenney_furniture-kit/Models/GLTF%20format/kitchenCoffeeMachine.glb",
     "item_url": "https://kenney.nl/assets/furniture-kit"
+  },
+  "radio": {
+    "title": "Radio (Kenney Furniture Kit 2.0)",
+    "creator": "Kenney (kenney.nl)",
+    "license": "CC0 1.0 (Creative Commons Zero, public domain) \u2014 confirmed via License.txt in the kit folder: https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/License.txt",
+    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/Models/GLTF%20format/radio.glb",
+    "item_url": "https://kenney.nl/assets/furniture-kit"
+  },
+  "muffin": {
+    "title": "Muffin",
+    "creator": "Kenney",
+    "license": "CC0 (Public Domain)",
+    "source_url": "https://static.poly.pizza/920e6336-6a29-4291-8d00-356d423c1230.glb",
+    "item_url": "https://poly.pizza/m/YZWplO0tzB"
+  },
+  "bar_stool": {
+    "title": "Bar Stool (stoolBar) \u2014 Kenney Furniture Kit 2.0",
+    "creator": "Kenney (www.kenney.nl)",
+    "license": "CC0 1.0 (Creative Commons Zero, public domain) \u2014 confirmed by License.txt in the kenney_furniture-kit folder",
+    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/Models/GLTF%20format/stoolBar.glb",
+    "item_url": "https://github.com/RetroDECK/RetroQUEST/tree/main/assets/kenney_furniture-kit"
+  },
+  "char_b": {
+    "title": "Animated Woman (idle/walk/run/interact/wave clips; unused clips stripped, keyframes resampled)",
+    "creator": "Quaternius",
+    "license": "CC0 / Public Domain",
+    "source_url": "https://static.poly.pizza/46d6db5a-3c9f-4238-8cdf-8eb7194498dc.glb",
+    "item_url": "https://poly.pizza/m/nIItLV9nxS"
   }
 }

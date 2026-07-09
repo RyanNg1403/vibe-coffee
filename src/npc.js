@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { ROOM } from './cafe.js';
+import { cloneCharacter, characterKeys, sitCharacterKeys } from './modelLoader.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -193,6 +194,181 @@ function personBlobTexture() {
   return _blobTex;
 }
 
+// ---------- skinned avatar: downloaded rigged character ----------
+// Wraps a Quaternius/Kenney-style rigged character (mixamo bone names) and
+// exposes the small control surface the NPC brain needs. Sitting is posed
+// manually after the mixer update, since the packs ship no sit clip.
+
+class SkinnedAvatar {
+  constructor(models, key) {
+    const { mesh, animations } = cloneCharacter(models, key);
+    this.root = new THREE.Group();
+    this.root.add(mesh);
+    this.inner = mesh;
+
+    // per-instance outfit tint so one model reads as many customers:
+    // clothing materials get a bold hue spin; skin/textured materials don't
+    const outfitShift = rand(0, 1);
+    mesh.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.frustumCulled = false; // skinned bounds lag the pose; avoid pop-out
+        o.material = o.material.clone();
+        o.material.metalness = Math.min(o.material.metalness ?? 0, 0.1);
+        const name = (o.material.name || '').toLowerCase();
+        const isSkin = name.includes('skin') || name.includes('face');
+        const hasTex = !!o.material.map;
+        if (o.material.color && !hasTex) {
+          const hsl = { h: 0, s: 0, l: 0 };
+          o.material.color.getHSL(hsl);
+          if (isSkin) {
+            o.material.color.setHSL(hsl.h, hsl.s, Math.min(1, Math.max(0.08, hsl.l * rand(0.75, 1.2))));
+          } else {
+            o.material.color.setHSL(
+              (hsl.h + outfitShift) % 1,
+              Math.min(1, hsl.s * rand(0.8, 1.2)),
+              Math.min(0.8, Math.max(0.05, hsl.l * rand(0.85, 1.15)))
+            );
+          }
+        }
+      }
+    });
+
+    this.mixer = new THREE.AnimationMixer(mesh);
+    const find = (...names) => {
+      for (const n of names) {
+        const c = animations.find((a) => a.name.toLowerCase().includes(n));
+        if (c) return c;
+      }
+      return null;
+    };
+    const mk = (clip) => (clip ? this.mixer.clipAction(clip) : null);
+    this.actions = {
+      idle: mk(find('idle')),
+      walk: mk(find('walk')),
+      work: mk(find('working', 'interact-right', 'pick-up', 'interact', 'wave')),
+      sit: mk(find('sit')),
+    };
+    this.hasSitClip = !!this.actions.sit;
+    this.mode = 'idle';
+    this.actions.idle?.play();
+
+    // rigs differ across packs — resolve bones through alias lists
+    const ALIASES = {
+      Hips: ['Hips', 'hips', 'Torso', 'torso', 'Body', 'body'],
+      Neck: ['Neck', 'neck'],
+      Head: ['Head', 'head'],
+      LeftUpLeg: ['LeftUpLeg', 'UpperLeg.L', 'UpperLegL', 'leg-left', 'Leg.L'],
+      RightUpLeg: ['RightUpLeg', 'UpperLeg.R', 'UpperLegR', 'leg-right', 'Leg.R'],
+      LeftLeg: ['LeftLeg', 'LowerLeg.L', 'LowerLegL'],
+      RightLeg: ['RightLeg', 'LowerLeg.R', 'LowerLegR'],
+      LeftHand: ['LeftHand', 'Hand.L', 'HandL', 'hand-left', 'arm-left', 'LowerArm.L'],
+      RightHand: ['RightHand', 'Hand.R', 'HandR', 'hand-right', 'arm-right', 'LowerArm.R'],
+    };
+    this.bones = {};
+    for (const [key, names] of Object.entries(ALIASES)) {
+      for (const n of names) {
+        const found = mesh.getObjectByName(n);
+        if (found) { this.bones[key] = found; break; }
+      }
+    }
+    this.sitting = false;
+    this.headYawTarget = 0;
+    this.headPitch = 0;
+    this._headYaw = 0;
+
+    // grounding blob
+    const blob = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.62, 0.62),
+      new THREE.MeshBasicMaterial({ map: personBlobTexture(), transparent: true, depthWrite: false, opacity: 0.5 })
+    );
+    blob.rotation.x = -Math.PI / 2;
+    blob.position.y = 0.015;
+    this.root.add(blob);
+    this.blob = blob;
+
+    // to-go cup lives in the right hand
+    this.cup = makeToGoCup();
+    this.cup.visible = false;
+    this._cupScaled = false;
+    this.bones.RightHand?.add(this.cup);
+  }
+
+  setMode(mode, timeScale = 1) {
+    const next = this.actions[mode] ? mode : 'idle';
+    const action = this.actions[next];
+    if (action && this.mode !== next) {
+      const prev = this.actions[this.mode];
+      action.reset().fadeIn(0.22).play();
+      prev?.fadeOut(0.22);
+      this.mode = next;
+    }
+    if (action) action.timeScale = timeScale;
+  }
+
+  setCup(v) { this.cup.visible = v; }
+
+  update(dt) {
+    this.mixer.update(dt);
+    // one-time compensation for armature scale so the cup is world-sized
+    if (!this._cupScaled && this.cup.visible && this.bones.RightHand) {
+      const s = new THREE.Vector3();
+      this.bones.RightHand.getWorldScale(s);
+      if (s.x > 0.0001) {
+        this.cup.scale.setScalar(1 / s.x);
+        this.cup.position.set(0, 0.06 / s.x, 0.02 / s.x);
+        this._cupScaled = true;
+      }
+    }
+    // sit: use the pack's sit clip when it has one, else pose the legs
+    // manually after the mixer (overriding whatever idle did)
+    if (this.sitting && !this.hasSitClip) {
+      const { LeftUpLeg, RightUpLeg, LeftLeg, RightLeg } = this.bones;
+      if (LeftUpLeg) { LeftUpLeg.rotation.x = -1.45; LeftUpLeg.rotation.y = 0.1; }
+      if (RightUpLeg) { RightUpLeg.rotation.x = -1.45; RightUpLeg.rotation.y = -0.1; }
+      if (LeftLeg) LeftLeg.rotation.x = 1.35;
+      if (RightLeg) RightLeg.rotation.x = 1.35;
+    }
+    // head look, applied post-mixer so it composes with the idle sway
+    this._headYaw += (this.headYawTarget - this._headYaw) * Math.min(1, dt * 3);
+    const head = this.bones.Head ?? this.bones.Neck;
+    if (head) {
+      head.rotation.y += this._headYaw;
+      head.rotation.x += this.headPitch;
+    }
+  }
+
+  dispose() {
+    this.root.parent?.remove(this.root);
+    this.root.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
+    });
+  }
+}
+
+function makeToGoCup() {
+  const cup = new THREE.Group();
+  const cupBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.028, 0.1, 10),
+    new THREE.MeshStandardMaterial({ color: 0xece5d8, roughness: 0.6 })
+  );
+  cup.add(cupBody);
+  const sleeve = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0365, 0.0315, 0.045, 10),
+    new THREE.MeshStandardMaterial({ color: 0x9a7248, roughness: 0.95 })
+  );
+  sleeve.position.y = -0.005;
+  cup.add(sleeve);
+  const lid = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.036, 0.036, 0.012, 10),
+    new THREE.MeshStandardMaterial({ color: 0xf7f4ee, roughness: 0.5 })
+  );
+  lid.position.y = 0.056;
+  cup.add(lid);
+  return cup;
+}
+
 function routeBetween(a, b, corridorX) {
   const pts = [a.clone()];
   const ax = Math.abs(a.x - corridorX) > 0.4;
@@ -253,7 +429,17 @@ function makePhone() {
 class NPC {
   constructor(sim, opts = {}) {
     this.sim = sim;
-    this.mesh = makePerson();
+    // seated customers use the procedural rig (it can actually sit at a
+    // table); to-go customers who stay on their feet get the downloaded
+    // animated character
+    const willSit = (opts.seatIndex ?? -1) >= 0;
+    const charKey = !willSit && sim.charKeys?.length ? pick(sim.charKeys) : null;
+    if (charKey) {
+      this.avatar = new SkinnedAvatar(sim.models, charKey);
+      this.mesh = this.avatar.root;
+    } else {
+      this.mesh = makePerson();
+    }
     this.mesh.scale.setScalar(rand(0.9, 1.06));
     this.seatIndex = opts.seatIndex ?? -1;
     this.partner = null;            // set for pairs
@@ -291,6 +477,15 @@ class NPC {
   }
 
   _setPose(sitting) {
+    if (this.avatar) {
+      this.avatar.sitting = sitting;
+      this.mesh.position.y = sitting ? this.sitY : 0;
+      if (sitting) {
+        if (this.avatar.hasSitClip) this.avatar.setMode('sit');
+        else this.avatar.setMode('idle', 0.5);
+      }
+      return;
+    }
     const p = this.mesh.userData.parts;
     if (sitting) {
       p.legL.rotation.x = p.legR.rotation.x = -Math.PI / 2.3;
@@ -299,6 +494,15 @@ class NPC {
       p.legL.rotation.x = p.legR.rotation.x = 0;
       this.mesh.position.y = 0;
     }
+  }
+
+  setCup(v) {
+    if (this.avatar) this.avatar.setCup(v);
+    else this.mesh.userData.parts.cup.visible = v;
+  }
+
+  get hasCup() {
+    return this.avatar ? this.avatar.cup.visible : this.mesh.userData.parts.cup.visible;
   }
 
   _addProps() {
@@ -322,15 +526,35 @@ class NPC {
       this.isTyping = true;
     } else if (this.activity === 'book') {
       const book = makeBook();
-      book.position.set(0, 1.02, 0.26);
-      book.rotation.x = -0.5;
-      this.mesh.add(book);
+      if (this.avatar) {
+        const hand = this.avatar.bones.LeftHand;
+        if (!hand) return; // rig has no hand bone: skip the prop gracefully
+        const s = new THREE.Vector3();
+        hand.getWorldScale(s);
+        if (s.x > 0.0001) book.scale.setScalar(1 / s.x);
+        book.rotation.x = -0.6;
+        hand.add(book);
+      } else {
+        book.position.set(0, 1.02, 0.26);
+        book.rotation.x = -0.5;
+        this.mesh.add(book);
+      }
       this.props.push(book);
     } else if (this.activity === 'phone') {
       const phone = makePhone();
-      phone.position.set(0, -0.36, 0.06);
-      phone.rotation.x = -0.6;
-      this.mesh.userData.parts.armR.add(phone);
+      if (this.avatar) {
+        const hand = this.avatar.bones.RightHand;
+        if (!hand) return; // rig has no hand bone: skip the prop gracefully
+        const s = new THREE.Vector3();
+        hand.getWorldScale(s);
+        if (s.x > 0.0001) phone.scale.setScalar(1 / s.x);
+        phone.rotation.x = -0.6;
+        hand.add(phone);
+      } else {
+        phone.position.set(0, -0.36, 0.06);
+        phone.rotation.x = -0.6;
+        this.mesh.userData.parts.armR.add(phone);
+      }
       this.props.push(phone);
     }
   }
@@ -394,12 +618,18 @@ class NPC {
         this.mesh.rotation.y += dy * Math.min(1, dt * 10);
       }
       this.walkPhase += dt * 7 * this.speed;
-      const s = Math.sin(this.walkPhase);
-      p.legL.rotation.x = s * 0.55;
-      p.legR.rotation.x = -s * 0.55;
-      p.armL.rotation.x = -s * 0.4;
-      p.armR.rotation.x = p.cup.visible ? -0.9 : s * 0.4;
-      this.mesh.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.03;
+      if (this.avatar) {
+        this.avatar.sitting = false;
+        this.avatar.setMode('walk', this.speed * 1.25);
+        this.mesh.position.y = 0;
+      } else {
+        const s = Math.sin(this.walkPhase);
+        p.legL.rotation.x = s * 0.55;
+        p.legR.rotation.x = -s * 0.55;
+        p.armL.rotation.x = -s * 0.4;
+        p.armR.rotation.x = p.cup.visible ? -0.9 : s * 0.4;
+        this.mesh.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.03;
+      }
       // audible footsteps when they're near the listener
       const stepNow = Math.floor(this.walkPhase / Math.PI);
       if (stepNow !== this.stepTick) {
@@ -416,7 +646,15 @@ class NPC {
         this.headTarget = rand(-0.6, 0.6);
         this.glanceT = rand(2, 6);
       }
-      p.head.rotation.y += (this.headTarget - p.head.rotation.y) * dt * 3;
+      if (this.avatar) { this.avatar.headYawTarget = this.headTarget; this.avatar.update(dt); }
+      else p.head.rotation.y += (this.headTarget - p.head.rotation.y) * dt * 3;
+      return;
+    }
+
+    // ---- stationary states, skinned branch: drive the rig and bail ----
+    if (this.avatar) {
+      this._updateSkinnedStationary(dt, t, seat);
+      this.avatar.update(dt);
       return;
     }
 
@@ -465,7 +703,7 @@ class NPC {
       p.torso.rotation.z = Math.sin(t * 0.7 + this.walkPhase) * 0.025;
       if (this.sim.brewFor !== this) {
         // coffee's up
-        p.cup.visible = true;
+        this.setCup(true);
         this.stateT = 0;
         if (this.seatIndex >= 0) {
           this.state = 'toSeat';
@@ -552,6 +790,101 @@ class NPC {
     }
   }
 
+  // same brain as the procedural branch below, driving the rigged character
+  _updateSkinnedStationary(dt, t, seat) {
+    const av = this.avatar;
+    if (this.state === 'queueing') {
+      this._setPose(false);
+      av.setMode('idle');
+      this.mesh.rotation.y = Math.PI;
+      if (this.checksPhone === undefined) this.checksPhone = Math.random() < 0.5;
+      if (this.checksPhone) {
+        av.headPitch = 0.3;
+        av.headYawTarget = 0;
+        if (!this.queuePhone && av.bones.RightHand) {
+          this.queuePhone = makePhone();
+          av.bones.RightHand.add(this.queuePhone);
+          const s = new THREE.Vector3();
+          av.bones.RightHand.getWorldScale(s);
+          if (s.x > 0.0001) this.queuePhone.scale.setScalar(1 / s.x);
+          this.props.push(this.queuePhone);
+        }
+      } else {
+        av.headPitch = 0;
+        av.headYawTarget = Math.sin(t * 0.5 + this.walkPhase) * 0.35;
+      }
+      if (this.queueIndex === 0 && !this.sim.ordering) {
+        this.sim.ordering = this;
+        this.state = 'ordering';
+        this.stateT = 0;
+      }
+    } else if (this.state === 'ordering') {
+      av.setMode('idle');
+      av.headPitch = 0;
+      this.mesh.rotation.y = Math.PI;
+      av.headYawTarget = Math.sin(t * 0.8) * 0.12;
+      if (this.stateT > this.orderTime) {
+        if (this.sim.audio?.started) this.sim.audio.playRegister();
+        this.sim.dequeue(this);
+        this.sim.ordering = null;
+        this.sim.brewFor = this;
+        this.sim.brewT = 0;
+        this.sim.brewDuration = rand(6, 10);
+        this.state = 'waitingPickup';
+        this.stateT = 0;
+        this._walkTo(this.sim.cafe.nav.pickup);
+      }
+    } else if (this.state === 'waitingPickup') {
+      av.setMode('idle');
+      this.mesh.rotation.y = Math.PI;
+      av.headYawTarget = Math.sin(t * 0.4 + this.walkPhase) * 0.4;
+      if (this.sim.brewFor !== this) {
+        this.setCup(true);
+        this.stateT = 0;
+        if (this.seatIndex >= 0) {
+          this.state = 'toSeat';
+          this._walkTo(this.sim.cafe.seats[this.seatIndex].pos);
+        } else {
+          this.state = 'leaving';
+          this._walkTo(this.sim.cafe.nav.door);
+        }
+      }
+    } else if (this.state === 'sitting') {
+      this._setPose(true);
+      const isChat = this.activity === 'chat' && this.partner && this.partner.state === 'sitting';
+      if (isChat) {
+        const pp = this.partner.mesh.position;
+        const yaw = Math.atan2(pp.x - seat.pos.x, pp.z - seat.pos.z);
+        this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
+        const turn = Math.sin(t * 0.13 + (this.pairLead ? 0 : Math.PI));
+        av.headPitch = turn > 0 ? 0.05 : 0.12 + Math.sin(t * 2.8) * 0.05;
+        av.headYawTarget = Math.sin(t * 0.4 + this.walkPhase) * 0.12;
+      } else {
+        const look = seat.tableCenter;
+        const yaw = Math.atan2(look.x - seat.pos.x, look.z - seat.pos.z);
+        this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
+        if (this.activity === 'laptop' || this.activity === 'book' || this.activity === 'phone') {
+          av.headPitch = 0.28;
+          av.headYawTarget = Math.sin(t * 0.2 + this.walkPhase) * 0.08;
+        } else {
+          av.headPitch = Math.sin(t * 0.5 + this.walkPhase * 2) * 0.05;
+          av.headYawTarget = Math.sin(t * 0.3 + this.walkPhase) * 0.5;
+        }
+      }
+      if (this.stateT > this.sitDuration) {
+        this.state = 'leaving';
+        this.stateT = 0;
+        av.headPitch = 0;
+        this._setPose(false);
+        this._clearProps();
+        if (this.sim.audio?.started && Math.random() < 0.7) this.sim.audio.playChairScrape(seat.pos);
+        this._walkTo(this.sim.cafe.nav.door);
+        this.sim.releaseSeat(this.seatIndex);
+        this.seatIndex = -1;
+      }
+    }
+  }
+
   _arrived() {
     if (this.state === 'queueing') {
       // settled into the current queue slot; update() takes it from here
@@ -559,7 +892,11 @@ class NPC {
       this.state = 'sitting';
       this.stateT = 0;
       const seat = this.sim.cafe.seats[this.seatIndex];
-      this.sitY = seat.pos.y > 0.05 ? 0.07 : -0.10;
+      this.sitY = this.avatar
+        ? (this.avatar.hasSitClip
+          ? (seat.pos.y > 0.05 ? 0.1 : -0.05)
+          : (seat.pos.y > 0.05 ? -0.24 : -0.38))
+        : (seat.pos.y > 0.05 ? 0.07 : -0.10);
       this.mesh.position.set(seat.pos.x, 0, seat.pos.z);
       this._setPose(true);
       this._addProps();
@@ -571,6 +908,7 @@ class NPC {
 
   dispose() {
     this._clearProps();
+    if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
     this.mesh.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
@@ -582,13 +920,18 @@ class NPC {
 class Barista {
   constructor(sim) {
     this.sim = sim;
-    this.mesh = makePerson();
-    const apron = new THREE.Mesh(
-      new THREE.BoxGeometry(0.26, 0.34, 0.02),
-      new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: 0.95 })
-    );
-    apron.position.set(0, 0.82, 0.13);
-    this.mesh.add(apron);
+    if (sim.charKeys?.length) {
+      this.avatar = new SkinnedAvatar(sim.models, pick(sim.charKeys));
+      this.mesh = this.avatar.root;
+    } else {
+      this.mesh = makePerson();
+      const apron = new THREE.Mesh(
+        new THREE.BoxGeometry(0.26, 0.34, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: 0.95 })
+      );
+      apron.position.set(0, 0.82, 0.13);
+      this.mesh.add(apron);
+    }
     this.home = sim.cafe.nav.baristaHome.clone();
     this.registerSpot = sim.cafe.nav.baristaRegister.clone();
     this.machineSpot = sim.cafe.nav.baristaMachine.clone();
@@ -600,7 +943,7 @@ class Barista {
   }
 
   update(dt, t) {
-    const p = this.mesh.userData.parts;
+    const p = this.avatar ? null : this.mesh.userData.parts;
 
     // where should I be?
     if (this.sim.ordering) this.target.copy(this.registerSpot);
@@ -611,11 +954,35 @@ class Barista {
     if (Math.abs(dx) > 0.06) {
       this.mesh.position.x += Math.sign(dx) * Math.min(Math.abs(dx), dt * 1.0);
       this.phase += dt * 6;
-      const s = Math.sin(this.phase);
-      p.legL.rotation.x = s * 0.4;
-      p.legR.rotation.x = -s * 0.4;
+      if (this.avatar) {
+        this.avatar.setMode('walk', 1.1);
+      } else {
+        const s = Math.sin(this.phase);
+        p.legL.rotation.x = s * 0.4;
+        p.legR.rotation.x = -s * 0.4;
+      }
       this.mesh.rotation.y = dx > 0 ? Math.PI / 2 : -Math.PI / 2;
       this.espressoPlayed = false;
+    } else if (this.avatar) {
+      if (this.sim.brewFor) {
+        // working the machine, back turned — the pack's Working clip is perfect
+        this.mesh.rotation.y = Math.PI;
+        this.avatar.setMode('work');
+        if (!this.espressoPlayed) {
+          this.espressoPlayed = true;
+          if (this.sim.audio?.started) this.sim.audio.playEspresso();
+        }
+      } else if (this.sim.ordering) {
+        this.mesh.rotation.y = 0;
+        this.avatar.setMode('idle');
+        this.avatar.headPitch = 0.05;
+        this.espressoPlayed = false;
+      } else {
+        this.mesh.rotation.y = 0;
+        this.avatar.setMode('work', 0.7); // wiping, tidying
+        this.avatar.headYawTarget = Math.sin(t * 0.4 + this.phase) * 0.3;
+        this.espressoPlayed = false;
+      }
     } else {
       p.legL.rotation.x = p.legR.rotation.x = 0;
       if (this.sim.brewFor) {
@@ -642,9 +1009,11 @@ class Barista {
         this.espressoPlayed = false;
       }
     }
+    if (this.avatar) this.avatar.update(dt);
   }
 
   dispose() {
+    if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
     this.mesh.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
@@ -655,7 +1024,7 @@ class Barista {
 
 // pedestrians drifting past the windows outside
 class OutsideLife {
-  constructor(cafe) {
+  constructor(cafe, models = null, charKeys = []) {
     this.cafe = cafe;
     this.group = new THREE.Group();
     cafe.group.add(this.group);
@@ -663,40 +1032,59 @@ class OutsideLife {
     const night = !!cafe.theme.rain;
     const n = 8;
     for (let i = 0; i < n; i++) {
-      const person = makePerson(night ? 0.35 : 0.75);
-      person.userData.parts.blob.visible = false;
-      const s = rand(0.85, 1.0);
-      person.scale.setScalar(s);
-      if (night && Math.random() < 0.8) {
-        const umbrella = new THREE.Group();
-        const canopy = new THREE.Mesh(
-          new THREE.ConeGeometry(0.5, 0.22, 10),
-          new THREE.MeshStandardMaterial({ color: pick([0x333940, 0x5c2e33, 0x2e4650]), roughness: 0.7 })
-        );
-        canopy.position.y = 1.75;
-        umbrella.add(canopy);
-        const stick = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.012, 0.012, 0.85, 6),
-          new THREE.MeshStandardMaterial({ color: 0x222222 })
-        );
-        stick.position.y = 1.35;
-        umbrella.add(stick);
-        person.add(umbrella);
+      // downloaded animated characters when available, procedural otherwise
+      let person, avatar = null;
+      if (charKeys.length && Math.random() < 0.85) {
+        avatar = new SkinnedAvatar(models, pick(charKeys));
+        avatar.blob.visible = false;
+        if (night) {
+          avatar.root.traverse((o) => { if (o.isMesh && o.material?.color) o.material.color.multiplyScalar(0.4); });
+        }
+        avatar.setMode('walk', rand(0.9, 1.2));
+        person = avatar.root;
+        person.userData.avatar = avatar;
+        this._buildWalker(person, night, avatar);
+        continue;
       }
-      const dir = Math.random() < 0.5 ? 1 : -1;
-      const walker = {
-        mesh: person,
-        dir,
-        speed: rand(0.7, 1.4),
-        phase: rand(0, 10),
-        x: rand(-14, 14),
-        z: this.streetZ() + rand(-0.4, 0.8),
-      };
-      person.position.set(walker.x, 0, walker.z);
-      person.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
-      this.group.add(person);
-      this.walkers.push(walker);
+      person = makePerson(night ? 0.35 : 0.75);
+      person.userData.parts.blob.visible = false;
+      this._buildWalker(person, night, null);
     }
+  }
+
+  _buildWalker(person, night, avatar) {
+    const s = rand(0.85, 1.0);
+    person.scale.setScalar(s);
+    if (night && Math.random() < 0.8) {
+      const umbrella = new THREE.Group();
+      const canopy = new THREE.Mesh(
+        new THREE.ConeGeometry(0.5, 0.22, 10),
+        new THREE.MeshStandardMaterial({ color: pick([0x333940, 0x5c2e33, 0x2e4650]), roughness: 0.7 })
+      );
+      canopy.position.y = 1.75;
+      umbrella.add(canopy);
+      const stick = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.012, 0.012, 0.85, 6),
+        new THREE.MeshStandardMaterial({ color: 0x222222 })
+      );
+      stick.position.y = 1.35;
+      umbrella.add(stick);
+      person.add(umbrella);
+    }
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const walker = {
+      mesh: person,
+      avatar,
+      dir,
+      speed: rand(0.7, 1.4),
+      phase: rand(0, 10),
+      x: rand(-14, 14),
+      z: this.streetZ() + rand(-0.4, 0.8),
+    };
+    person.position.set(walker.x, 0, walker.z);
+    person.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+    this.group.add(person);
+    this.walkers.push(walker);
   }
 
   streetZ() {
@@ -709,6 +1097,11 @@ class OutsideLife {
       if (w.x > 15) { w.x = -15; this.reroll(w); }
       if (w.x < -15) { w.x = 15; this.reroll(w); }
       w.phase += dt * 7 * w.speed;
+      if (w.avatar) {
+        w.avatar.update(dt);
+        w.mesh.position.set(w.x, 0, w.z);
+        continue;
+      }
       const p = w.mesh.userData.parts;
       const s = Math.sin(w.phase);
       p.legL.rotation.x = s * 0.55;
@@ -734,9 +1127,12 @@ class OutsideLife {
 }
 
 export class CrowdSim {
-  constructor(cafe, audio) {
+  constructor(cafe, audio, models = null) {
     this.cafe = cafe;
     this.audio = audio;
+    this.models = models;
+    this.charKeys = characterKeys(models);
+    this.sitKeys = sitCharacterKeys(models);
     this.npcs = [];
     this.queue = [];
     this.ordering = null;   // NPC currently at the register
@@ -747,7 +1143,7 @@ export class CrowdSim {
     this.playerSeat = -1;
     this.maxCrowd = cafe.theme.crowd ?? 9;
     this.barista = new Barista(this);
-    this.outside = new OutsideLife(cafe);
+    this.outside = new OutsideLife(cafe, models, this.charKeys);
     this.spawnCooldown = rand(3, 7);
     this.spotSyncT = 0;
 
@@ -768,9 +1164,13 @@ export class CrowdSim {
     npc.state = 'sitting';
     npc.stateT = rand(0, 40);
     npc.path = null;
-    npc.mesh.userData.parts.cup.visible = Math.random() < 0.7;
+    npc.setCup(Math.random() < 0.7);
     const s = this.cafe.seats[seat];
-    npc.sitY = s.pos.y > 0.05 ? 0.07 : -0.10;
+    npc.sitY = npc.avatar
+      ? (npc.avatar.hasSitClip
+        ? (s.pos.y > 0.05 ? 0.1 : -0.05)
+        : (s.pos.y > 0.05 ? -0.24 : -0.38))
+      : (s.pos.y > 0.05 ? 0.07 : -0.10);
     npc.mesh.position.set(s.pos.x, 0, s.pos.z);
     npc._setPose(true);
     npc._addProps();
@@ -789,9 +1189,13 @@ export class CrowdSim {
       npc.stateT = rand(0, 30);
       npc.sitDuration = rand(80, 200);
       npc.path = null;
-      npc.mesh.userData.parts.cup.visible = true;
+      npc.setCup(true);
       const s = this.cafe.seats[seat];
-      npc.sitY = s.pos.y > 0.05 ? 0.07 : -0.10;
+      npc.sitY = npc.avatar
+        ? (npc.avatar.hasSitClip
+          ? (s.pos.y > 0.05 ? 0.1 : -0.05)
+          : (s.pos.y > 0.05 ? -0.24 : -0.38))
+        : (s.pos.y > 0.05 ? 0.07 : -0.10);
       npc.mesh.position.set(s.pos.x, 0, s.pos.z);
       npc._setPose(true);
       members.push(npc);
