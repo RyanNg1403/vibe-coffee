@@ -27,6 +27,24 @@ const NORMALIZE = {
   teapot: { height: 0.2 },
   sandwich: { height: 0.09 },
   bar_stool: { height: 0.65 },
+  // drinks & food (new)
+  mug: { height: 0.1 },
+  latte: { height: 0.12 },
+  cookie: { height: 0.03 },
+  cupcake: { height: 0.09 },
+  pancakes: { height: 0.07 },
+  cakeSlice: { height: 0.08 },
+  apple: { height: 0.08 },
+  iceCream: { height: 0.14 },
+  // décor / furniture (new)
+  pendant_lamp: { height: 0.4 },
+  side_table: { height: 0.5 },
+  wall_shelf: { height: 0.3 },
+  coat_rack: { height: 1.7 },
+  trashcan: { height: 0.4 },
+  painting: { height: 0.6 },
+  lantern: { height: 0.3 },
+  plant_small: { height: 0.35 },
 };
 // any key starting char_ is a rigged character
 function specFor(key) {

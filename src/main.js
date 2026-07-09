@@ -3,6 +3,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
@@ -28,12 +29,35 @@ const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerH
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-// post: subtle bloom makes lamps, neon, sunlit glass and the espresso
-// machine's highlights actually glow
-const composer = new EffectComposer(renderer);
+// post-processing chain. A multisampled render target restores the MSAA the
+// composer would otherwise throw away (clean edges), GTAO adds real contact
+// darkening in corners and under furniture, and bloom makes the lamps glow.
+const W0 = window.innerWidth, H0 = window.innerHeight;
+const rt = new THREE.WebGLRenderTarget(W0, H0, {
+  samples: 4,
+  type: THREE.HalfFloatType,
+  colorSpace: THREE.SRGBColorSpace,
+});
+const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
+
+// GTAO reads the rendered depth/normals and multiplies soft occlusion in
+const gtaoPass = new GTAOPass(scene, camera, W0, H0);
+gtaoPass.output = GTAOPass.OUTPUT.Default;
+gtaoPass.updateGtaoMaterial({
+  radius: 0.5,
+  distanceExponent: 1.0,
+  thickness: 1.0,
+  scale: 1.0,
+  samples: 16,
+  distanceFallOff: 1.0,
+  screenSpaceRadius: false,
+});
+gtaoPass.blendIntensity = 0.85;
+composer.addPass(gtaoPass);
+
 const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight), 0.25, 0.5, 0.85
+  new THREE.Vector2(W0, H0), 0.25, 0.5, 0.85
 );
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
@@ -357,6 +381,7 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+  gtaoPass.setSize(window.innerWidth, window.innerHeight);
 });
 
 // ---------- main loop ----------

@@ -246,9 +246,11 @@ class SkinnedAvatar {
     this.actions = {
       idle: mk(find('idle')),
       walk: mk(find('walk')),
-      work: mk(find('working', 'interact-right', 'pick-up', 'interact', 'wave')),
+      work: mk(find('working', 'interact-right', 'pick-up', 'interact')),
+      wave: mk(find('wave', 'emote-yes', 'interact')),
       sit: mk(find('sit')),
     };
+    this.hasWave = !!this.actions.wave;
     this.hasSitClip = !!this.actions.sit;
     this.mode = 'idle';
     this.actions.idle?.play();
@@ -457,6 +459,10 @@ class NPC {
     this.props = [];
     this.headTarget = 0;            // desired head yaw offset
     this.glanceT = rand(2, 8);
+    this.greetT = rand(4, 12);      // cooldown before this NPC greets again
+    this.greeting = 0;              // remaining greeting time
+    this.cheers = 0;                // remaining "cheers" toast time
+    this.cheersT = rand(12, 30);    // cooldown between toasts
 
     const { nav } = sim.cafe;
     this.mesh.position.copy(nav.door);
@@ -571,6 +577,42 @@ class NPC {
     this.isTyping = false;
   }
 
+  // occasional toast between a chatting pair: the lead starts it, both raise
+  // cups, a clink plays. Only the lead runs the timer to keep them in sync.
+  _pairCheers(dt, seat) {
+    if (this.cheers > 0) { this.cheers -= dt; return; }
+    if (!this.pairLead) return;
+    this.cheersT -= dt;
+    if (this.cheersT <= 0 && this.partner?.state === 'sitting') {
+      this.cheers = 1.1;
+      this.partner.cheers = 1.1;
+      this.cheersT = rand(15, 35);
+      if (this.sim.audio?.started) this.sim.audio.playClink(seat.pos);
+    }
+  }
+
+  // wave hello if another person is close and roughly ahead
+  _maybeGreet() {
+    const pos = this.mesh.position;
+    for (const other of this.sim.npcs) {
+      if (other === this) continue;
+      const dx = other.mesh.position.x - pos.x;
+      const dz = other.mesh.position.z - pos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < 2.0 && d2 > 0.05) {
+        this.greeting = 1.4;
+        this.greetT = rand(9, 22);
+        // the other person, if idle-ish, waves back a beat later
+        if (other.greeting <= 0 && (other.path || other.state === 'queueing')) {
+          other.greeting = 1.1;
+          other.greetT = rand(9, 22);
+        }
+        return;
+      }
+    }
+    this.greetT = rand(2, 5); // nobody near; check again soon
+  }
+
   // gentle steering away from other walkers
   _separation(dir) {
     const pos = this.mesh.position;
@@ -618,16 +660,28 @@ class NPC {
         this.mesh.rotation.y += dy * Math.min(1, dt * 10);
       }
       this.walkPhase += dt * 7 * this.speed;
+      // passing greeting: when two people cross paths, one waves hello
+      this.greetT -= dt;
+      if (this.greeting > 0) this.greeting -= dt;
+      if (this.greeting <= 0 && this.greetT <= 0) this._maybeGreet();
+      const greetingNow = this.greeting > 0;
       if (this.avatar) {
         this.avatar.sitting = false;
-        this.avatar.setMode('walk', this.speed * 1.25);
+        this.avatar.setMode(greetingNow && this.avatar.hasWave ? 'wave' : 'walk', this.speed * 1.25);
         this.mesh.position.y = 0;
       } else {
         const s = Math.sin(this.walkPhase);
         p.legL.rotation.x = s * 0.55;
         p.legR.rotation.x = -s * 0.55;
+        // procedural: raise the free hand in a wave during a greeting
+        if (greetingNow && !p.cup.visible) {
+          p.armR.rotation.x = -2.4;
+          p.armR.rotation.z = Math.sin(this.greeting * 12) * 0.3;
+        } else {
+          p.armR.rotation.z = 0;
+          p.armR.rotation.x = p.cup.visible ? -0.9 : s * 0.4;
+        }
         p.armL.rotation.x = -s * 0.4;
-        p.armR.rotation.x = p.cup.visible ? -0.9 : s * 0.4;
         this.mesh.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.03;
       }
       // audible footsteps when they're near the listener
@@ -721,18 +775,27 @@ class NPC {
         const pp = this.partner.mesh.position;
         const yaw = Math.atan2(pp.x - seat.pos.x, pp.z - seat.pos.z);
         this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
-        // turn-taking: one leans in and gestures while the other nods
-        const turn = Math.sin(t * 0.13 + (this.pairLead ? 0 : Math.PI));
-        if (turn > 0) {
-          p.armR.rotation.x = -0.5 + Math.sin(t * 2.2) * 0.25;
-          p.armL.rotation.x = -0.3 + Math.sin(t * 1.7 + 1) * 0.15;
-          p.head.rotation.x = 0.03;
+        this._pairCheers(dt, seat);
+        if (this.cheers > 0) {
+          // both raise their cups for a toast
+          p.armR.rotation.x = -1.9;
+          p.armL.rotation.x = -0.4;
+          p.head.rotation.x = -0.05;
+          p.head.rotation.y = 0;
         } else {
-          p.armR.rotation.x = -0.55;
-          p.armL.rotation.x = -0.45;
-          p.head.rotation.x = 0.12 + Math.sin(t * 2.8) * 0.06; // nodding along
+          // turn-taking: one leans in and gestures while the other nods
+          const turn = Math.sin(t * 0.13 + (this.pairLead ? 0 : Math.PI));
+          if (turn > 0) {
+            p.armR.rotation.x = -0.5 + Math.sin(t * 2.2) * 0.25;
+            p.armL.rotation.x = -0.3 + Math.sin(t * 1.7 + 1) * 0.15;
+            p.head.rotation.x = 0.03;
+          } else {
+            p.armR.rotation.x = -0.55;
+            p.armL.rotation.x = -0.45;
+            p.head.rotation.x = 0.12 + Math.sin(t * 2.8) * 0.06; // nodding along
+          }
+          p.head.rotation.y = Math.sin(t * 0.4 + this.walkPhase) * 0.1;
         }
-        p.head.rotation.y = Math.sin(t * 0.4 + this.walkPhase) * 0.1;
       } else {
         const look = seat.tableCenter;
         const yaw = Math.atan2(look.x - seat.pos.x, look.z - seat.pos.z);

@@ -313,8 +313,38 @@ function makeStool(woodMat, cushionMat) {
   return g;
 }
 
-function makeCup(accent, models) {
-  const fromLib = cloneModel(models, 'cup');
+let _latteArtTex = null;
+function latteArtTexture() {
+  if (_latteArtTex) return _latteArtTex;
+  _latteArtTex = canvasTexture(64, 64, (g, w, h) => {
+    g.fillStyle = '#3a2113'; g.fillRect(0, 0, w, h);
+    // a rosetta-ish leaf in crema foam
+    g.strokeStyle = '#d8c4a0'; g.fillStyle = '#e6d6b8';
+    g.translate(w / 2, h / 2);
+    for (let i = 0; i < 7; i++) {
+      const s = 1 - i * 0.12;
+      g.beginPath();
+      g.ellipse(0, (i - 3) * 4, 12 * s, 5 * s, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillRect(-1.5, -26, 3, 52);
+  });
+  return _latteArtTex;
+}
+
+// a drink with variety: different downloaded cup/mug/latte models when
+// available, otherwise a procedural cup, and a chance of latte art on top
+function makeDrink(accent, models) {
+  const drinkKeys = ['cup', 'mug', 'latte'].filter((k) => models?.get?.(k));
+  if (drinkKeys.length && Math.random() < 0.7) {
+    const g = cloneModel(models, drinkKeys[Math.floor(rand(0, drinkKeys.length))]);
+    if (g) return g;
+  }
+  return makeCup(accent, models, Math.random() < 0.4);
+}
+
+function makeCup(accent, models, latteArt = false) {
+  const fromLib = !latteArt && cloneModel(models, 'cup');
   if (fromLib) return fromLib;
 
   const g = new THREE.Group();
@@ -327,7 +357,10 @@ function makeCup(accent, models) {
   const body = new THREE.Mesh(new THREE.LatheGeometry(profile, 18), mat);
   body.castShadow = true;
   g.add(body);
-  const coffee = cyl(0.041, 0.041, 0.004, new THREE.MeshStandardMaterial({ color: 0x3a2113, roughness: 0.2 }), 16);
+  const coffeeMat = latteArt
+    ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.5 })
+    : new THREE.MeshStandardMaterial({ color: 0x3a2113, roughness: 0.2 });
+  const coffee = cyl(0.041, 0.041, 0.004, coffeeMat, 16);
   coffee.position.y = 0.072;
   g.add(coffee);
   // handle
@@ -360,8 +393,9 @@ function makePastryPlate(models) {
   const plate = cyl(0.085, 0.07, 0.012, new THREE.MeshStandardMaterial({ color: 0xf5f1e8, roughness: 0.3 }), 18);
   plate.position.y = 0.006;
   g.add(plate);
-  // whatever's in the pastry case today: croissant, donut, muffin, sandwich
-  const options = ['croissant', 'donut', 'muffin', 'sandwich'].filter((k) => models?.get?.(k));
+  // whatever's on the plate today — the full menu of downloaded treats
+  const options = ['croissant', 'donut', 'muffin', 'sandwich', 'cookie', 'cupcake', 'pancakes', 'cakeSlice', 'iceCream', 'apple']
+    .filter((k) => models?.get?.(k));
   const fromLib = options.length ? cloneModel(models, options[Math.floor(rand(0, options.length))]) : null;
   if (fromLib) {
     fromLib.position.y = 0.012;
@@ -645,7 +679,8 @@ export function buildCafe(theme, models = null) {
     const caseBase = box(1.55, 0.5, 0.65, counterMat);
     caseBase.position.set(-3.9, 0.81, -D / 2 + 1.15);
     group.add(caseBase);
-    const caseGoods = ['croissant', 'donut', 'muffin', 'cake', 'sandwich', 'croissant'];
+    const caseGoods = ['croissant', 'donut', 'muffin', 'cupcake', 'cookie', 'cakeSlice']
+      .map((k) => (models?.get?.(k) ? k : 'croissant'));
     const pastryMat = new THREE.MeshStandardMaterial({ color: 0xc98e4e, roughness: 0.8 });
     for (let i = 0; i < 6; i++) {
       const good = cloneModel(models, caseGoods[i]);
@@ -804,7 +839,7 @@ export function buildCafe(theme, models = null) {
         center);
     }
     // a cup + sometimes a pastry + maybe a little vase on the table
-    const cup = makeCup(theme.accent, models);
+    const cup = makeDrink(theme.accent, models);
     cup.position.set(tx + rand(-0.15, 0.15), topY + 0.03, tz + rand(-0.15, 0.15));
     group.add(cup);
     cups.push(cup);
@@ -856,7 +891,7 @@ export function buildCafe(theme, models = null) {
           new THREE.Vector3(sx, 1.5, D / 2 + 3),
           new THREE.Vector3(sx, 0, D / 2 - 0.45));
         if (Math.random() < 0.5) {
-          const cup = makeCup(theme.accent, models);
+          const cup = makeDrink(theme.accent, models);
           cup.position.set(sx + rand(-0.1, 0.1), 1.03, D / 2 - 0.45);
           group.add(cup);
           cups.push(cup);
@@ -1301,6 +1336,45 @@ export function buildCafe(theme, models = null) {
         contactShadow(W / 2 - 0.5, -0.35, 1.4);
         extraColliders.push({ x: W / 2 - 0.5, z: -0.35, r: 0.8 });
       }
+    }
+    // a coat rack by the door
+    const coats = cloneModel(models, 'coat_rack');
+    if (coats) {
+      coats.position.set(-doorW / 2 - 0.8, 0, D / 2 - 0.6);
+      group.add(coats);
+      contactShadow(-doorW / 2 - 0.8, D / 2 - 0.6, 0.9);
+      extraColliders.push({ x: -doorW / 2 - 0.8, z: D / 2 - 0.6, r: 0.4 });
+    }
+    // a small trash bin tucked beside the counter
+    const bin = cloneModel(models, 'trashcan');
+    if (bin) {
+      bin.position.set(3.4, 0, -D / 2 + 2.0);
+      group.add(bin);
+      contactShadow(3.4, -D / 2 + 2.0, 0.7);
+    }
+    // little potted succulents scattered on the counter and window sills
+    const sillY = 0.9 + 1.9; // window head
+    for (const [sx, sy, sz] of [[-3.3, 1.06, -D / 2 + 1.15], [3.0, 1.06, -D / 2 + 1.15], [-W / 2 + 0.15, sillY - 1.0, -2.5], [-W / 2 + 0.15, sillY - 1.0, 2.5]]) {
+      const sm = cloneModel(models, 'plant_small');
+      if (sm) { sm.position.set(sx, sy, sz); sm.rotation.y = rand(0, Math.PI * 2); group.add(sm); }
+    }
+    // a lantern on a lounge side table if we have one
+    const lantern = cloneModel(models, 'lantern');
+    if (lantern) {
+      lantern.position.set(-5.1, 0.56, -0.5);
+      group.add(lantern);
+      if (theme.candles) {
+        const lg = new THREE.PointLight(theme.lampColor, 2.5, 3);
+        lg.position.set(-5.1, 0.7, -0.5);
+        group.add(lg);
+      }
+    }
+    // extra framed art to fill big wall gaps
+    const painting = cloneModel(models, 'painting');
+    if (painting) {
+      painting.position.set(-W / 2 + 0.12, 2.1, -3.5);
+      painting.rotation.y = Math.PI / 2;
+      group.add(painting);
     }
   }
 
