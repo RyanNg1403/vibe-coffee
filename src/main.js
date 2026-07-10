@@ -8,7 +8,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
-import { loadModelLibrary } from './modelLoader.js';
+import { loadModelLibrary, cloneModel } from './modelLoader.js';
 
 // ---------- renderer / scene ----------
 
@@ -159,6 +159,9 @@ function defaultSeat() {
 
 let loadToken = 0;
 let variantOn = false;
+let lastModels = null;
+let playerCup = null;
+let orderPending = false;
 function activeTheme(index = currentThemeIndex) {
   const base = THEMES[index];
   return variantOn && base.variant ? { ...base, ...base.variant } : base;
@@ -169,6 +172,8 @@ async function loadTheme(index) {
   const token = ++loadToken;
   const models = await loadModelLibrary();
   if (token !== loadToken) return; // a newer switch superseded this one
+  lastModels = models;
+  playerCup = null; // the old room takes the old cup with it
 
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -211,6 +216,39 @@ async function loadTheme(index) {
 document.getElementById('variant-btn')?.addEventListener('click', () => {
   variantOn = !variantOn;
   loadTheme(currentThemeIndex);
+});
+
+// order a drink: the barista actually makes it, then it lands on your table
+document.getElementById('order-btn')?.addEventListener('click', () => {
+  if (!crowd || !cafe) return;
+  if (seatIndex < 0) { toast('find a seat first — click any free chair'); return; }
+  if (orderPending) { toast('your drink is already on its way ☕'); return; }
+  if (playerCup) { cafe.group.remove(playerCup); playerCup = null; }
+  const ok = crowd.orderDrink(() => {
+    orderPending = false;
+    if (seatIndex < 0 || !cafe) return; // stood up meanwhile
+    const seat = cafe.seats[seatIndex];
+    const cup = cloneModel(lastModels, Math.random() < 0.5 ? 'latte' : 'mug');
+    if (!cup) return;
+    // set it down between you and the middle of the table
+    const tc = seat.tableCenter;
+    const topY = seat.pos.y > 0.05 ? 1.03 : (seat.tableTopY ?? 0.81);
+    cup.position.set(
+      tc.x + (seat.pos.x - tc.x) * 0.45,
+      topY,
+      tc.z + (seat.pos.z - tc.z) * 0.45
+    );
+    cafe.group.add(cup);
+    playerCup = cup;
+    toast('order up — enjoy ☕');
+  });
+  if (ok) {
+    orderPending = true;
+    toast('coming right up…');
+    setTimeout(() => { orderPending = false; }, 20000); // safety net
+  } else {
+    toast('the barista has their hands full — one moment');
+  }
 });
 
 // ---------- walk mode ----------
@@ -411,13 +449,13 @@ function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2)
 
 function frame() {
   requestAnimationFrame(frame);
-  const rawDt = Math.min(clock.getDelta(), 1.0); // real time, survives slow frames
+  const rawDt = Math.min(clock.getDelta(), 3.0); // real time, survives slow frames
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
 
   // the life of the room runs on real time in fixed substeps, so a slow
   // renderer or a throttled tab never turns the crowd into a wax museum
-  simAcc = Math.min(simAcc + rawDt, 1.0);
+  simAcc = Math.min(simAcc + rawDt, 3.0);
   while (simAcc >= SIM_STEP) {
     simAcc -= SIM_STEP;
     if (cafe) cafe.animate(SIM_STEP);
@@ -497,6 +535,13 @@ function frame() {
     }
   } else {
     ring.visible = false;
+  }
+
+  // focus mode gently dims the room; break/idle brings the light back
+  {
+    const baseExp = activeTheme().exposure;
+    const targetExp = timerRunning && !timerBreak ? baseExp * 0.84 : baseExp;
+    renderer.toneMappingExposure += (targetExp - renderer.toneMappingExposure) * Math.min(1, dt * 1.5);
   }
 
   // focus timer

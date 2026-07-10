@@ -1205,10 +1205,10 @@ export function buildCafe(theme, models = null) {
   const seatMeshes = []; // raycast targets
   const cups = [];       // for steam
 
-  function addSeat(chair, seatPos, lookAt, tableCenter) {
+  function addSeat(chair, seatPos, lookAt, tableCenter, tableTopY = 0.81) {
     chair.traverse((o) => { o.userData.seatIndex = seats.length; });
     chair.userData.seatIndex = seats.length;
-    seats.push({ pos: seatPos, look: lookAt, tableCenter, chair });
+    seats.push({ pos: seatPos, look: lookAt, tableCenter, chair, tableTopY });
     seatMeshes.push(chair);
   }
 
@@ -1259,7 +1259,7 @@ export function buildCafe(theme, models = null) {
       addSeat(chair,
         new THREE.Vector3(px, 0, pz),
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
-        center);
+        center, topY + 0.03);
     }
     // a cup + sometimes a pastry + maybe a little vase on the table
     const cup = makeDrink(theme.accent, models);
@@ -2124,6 +2124,32 @@ export function buildCafe(theme, models = null) {
       const breathe = 1 + Math.sin(t * 1.3) * 0.045;
       cat.userData.body.scale.set(1.25, 0.62 * breathe, 1);
       if (Math.random() < 0.002) cat.children[2].rotation.z = rand(-0.25, 0.25);
+      // …and every so often the cat pads over to a new favourite spot
+      const cu = cat.userData;
+      if (cu.naptime === undefined) cu.naptime = rand(15, 45);
+      if (cu.walkTo) {
+        const dx = cu.walkTo.x - cat.position.x, dz = cu.walkTo.z - cat.position.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 0.12) {
+          cu.walkTo = null;
+          cu.naptime = rand(30, 90);
+          cat.rotation.y = rand(0, Math.PI * 2);
+        } else {
+          cat.position.x += (dx / d) * dt * 0.45;
+          cat.position.z += (dz / d) * dt * 0.45;
+          cat.rotation.y = Math.atan2(dx, dz) - Math.PI / 2;
+          cat.position.y = 0.02 + Math.abs(Math.sin(t * 6)) * 0.015; // soft pad
+        }
+      } else {
+        cu.naptime -= dt;
+        cat.position.y = 0.02;
+        if (cu.naptime <= 0) {
+          cu.walkTo = pick([
+            { x: 4.9, z: -0.2 }, { x: -5.4, z: 1.8 }, { x: 1.4, z: 4.1 },
+            { x: -1.2, z: -3.6 }, { x: 6.2, z: 2.6 }, { x: -6.4, z: -2.2 },
+          ]);
+        }
+      }
     }
   }
 

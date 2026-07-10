@@ -775,7 +775,7 @@ class NPC {
       p.armL.rotation.x = Math.sin(t * 1.6 + this.walkPhase) * 0.12;
       p.armR.rotation.x = Math.sin(t * 1.3 + this.walkPhase) * 0.12;
       p.head.rotation.y = Math.sin(t * 0.8) * 0.1;
-      if (this.stateT > this.orderTime) {
+      if (this.stateT > this.orderTime && !this.sim.brewFor) {
         if (this.sim.audio?.started) this.sim.audio.playRegister();
         this.sim.dequeue(this);
         this.sim.ordering = null;
@@ -921,7 +921,7 @@ class NPC {
       av.headPitch = 0;
       this.mesh.rotation.y = Math.PI;
       av.headYawTarget = Math.sin(t * 0.8) * 0.12;
-      if (this.stateT > this.orderTime) {
+      if (this.stateT > this.orderTime && !this.sim.brewFor) {
         if (this.sim.audio?.started) this.sim.audio.playRegister();
         this.sim.dequeue(this);
         this.sim.ordering = null;
@@ -1305,6 +1305,18 @@ export class CrowdSim {
     members[0].pairLead = true;
   }
 
+  // the player orders a drink: the barista brews it for real, then `done`
+  // fires so the UI can put a cup on their table
+  orderDrink(done) {
+    if (this.brewFor) return false; // barista's hands are full
+    if (this.audio?.started) this.audio.playRegister();
+    this.brewFor = 'player';
+    this.brewT = 0;
+    this.brewDuration = 6 + Math.random() * 4;
+    this._playerOrderDone = done;
+    return true;
+  }
+
   // position of slot i in the order queue (a line from the register toward the door)
   queueSlot(i) {
     const c = this.cafe.nav.counter;
@@ -1384,11 +1396,17 @@ export class CrowdSim {
     if (this.brewFor) {
       this.brewT += dt;
       if (this.brewT > this.brewDuration) {
+        const wasPlayer = this.brewFor === 'player';
         this.brewFor = null;
         // the drink gets its final pour and an "order up" ding as it's handed over
         if (this.audio?.started) {
           this.audio.playPour(this.cafe.nav.machineWorld);
-          if (Math.random() < 0.6) this.audio.playOrderUp(this.cafe.nav.pickup);
+          if (wasPlayer || Math.random() < 0.6) this.audio.playOrderUp(this.cafe.nav.pickup);
+        }
+        if (wasPlayer && this._playerOrderDone) {
+          const cb = this._playerOrderDone;
+          this._playerOrderDone = null;
+          cb();
         }
       }
     }
