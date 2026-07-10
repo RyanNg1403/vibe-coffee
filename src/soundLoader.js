@@ -24,8 +24,9 @@ function analyze(buffer) {
 
 const BED_KEYS = new Set(['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet']);
 const EXTERIOR_KEYS = new Set(['traffic_day', 'traffic_night', 'rain_window']);
-const MACHINE_KEYS = new Set(['espresso', 'steam_milk', 'pour']);
-const LONG_ONE_SHOTS = new Set(['carpass', 'espresso', 'footsteps', 'thunder', 'typing']);
+const MACHINE_KEYS = new Set(['espresso', 'steam_milk', 'pour', 'grinder', 'dishes']);
+const HUMAN_BG_KEYS = new Set(['laughter', 'cough']); // sit under the chatter bed
+const LONG_ONE_SHOTS = new Set(['carpass', 'espresso', 'footsteps', 'thunder', 'typing', 'grinder', 'dishes']);
 
 function decodeRate(key, contextRate) {
   if (BED_KEYS.has(key) || EXTERIOR_KEYS.has(key) || LONG_ONE_SHOTS.has(key)) return 24000;
@@ -37,6 +38,7 @@ function targetRms(key, def) {
   if (BED_KEYS.has(key)) return 0.075;
   if (EXTERIOR_KEYS.has(key)) return 0.055;
   if (MACHINE_KEYS.has(key)) return 0.1;
+  if (HUMAN_BG_KEYS.has(key)) return 0.065;
   return 0.115;
 }
 

@@ -5,10 +5,14 @@ export const MUSIC_MANIFEST = {
   goldenhour: [
     { id: 'airport-lounge', title: "Airport Lounge", artist: "Kevin MacLeod", url: '/music/airport-lounge.ogg', duration: 70 },
     { id: 'everything', title: "Everything You Ever Dreamed.", artist: "HoliznaCC0", url: '/music/everything.ogg', duration: 80 },
+    { id: 'smooth-lovin', title: "Smooth Lovin", artist: "Kevin MacLeod", url: '/music/smooth-lovin.ogg', duration: 78 },
     { id: 'warm-fuzz', title: "Warm Fuzz (LoFi, Retro)", artist: "HoliznaCC0", url: '/music/warm-fuzz.ogg', duration: 80 },
+    { id: 'wholesome', title: "Wholesome", artist: "Kevin MacLeod", url: '/music/wholesome.ogg', duration: 78 },
   ],
   midnight: [
+    { id: 'backed-vibes-clean', title: "Backed Vibes Clean", artist: "Kevin MacLeod", url: '/music/backed-vibes-clean.ogg', duration: 78 },
     { id: 'beyond-piano', title: "Beyond (Piano Edit)", artist: "Pablo Perez", url: '/music/beyond-piano.ogg', duration: 80 },
+    { id: 'i-knew-a-guy', title: "I Knew a Guy", artist: "Kevin MacLeod", url: '/music/i-knew-a-guy.ogg', duration: 78 },
     { id: 'jazz-one', title: "1 (jazz)", artist: "HoliznaCC0", url: '/music/jazz-one.ogg', duration: 80 },
     { id: 'jazz-two', title: "2 (jazz)", artist: "HoliznaCC0", url: '/music/jazz-two.ogg', duration: 80 },
     { id: 'lobby-time', title: "Lobby Time", artist: "Kevin MacLeod", url: '/music/lobby-time.ogg', duration: 70 },
@@ -17,5 +21,7 @@ export const MUSIC_MANIFEST = {
     { id: 'bossa-antigua', title: "Bossa Antigua", artist: "Kevin MacLeod", url: '/music/bossa-antigua.ogg', duration: 70 },
     { id: 'busted-jazz', title: "Busted Jazz", artist: "HoliznaCC0", url: '/music/busted-jazz.ogg', duration: 80 },
     { id: 'cellar-door', title: "Cellar Door", artist: "HoliznaCC0", url: '/music/cellar-door.ogg', duration: 80 },
+    { id: 'george-street-shuffle', title: "George Street Shuffle", artist: "Kevin MacLeod", url: '/music/george-street-shuffle.ogg', duration: 78 },
+    { id: 'samba-isobel', title: "Samba Isobel", artist: "Kevin MacLeod", url: '/music/samba-isobel.ogg', duration: 78 },
   ],
 };

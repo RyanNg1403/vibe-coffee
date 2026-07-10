@@ -68,5 +68,47 @@
     "artist": "Kevin MacLeod",
     "license": "CC BY 4.0",
     "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "smooth-lovin": {
+    "theme": "goldenhour",
+    "title": "Smooth Lovin",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "wholesome": {
+    "theme": "goldenhour",
+    "title": "Wholesome",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "george-street-shuffle": {
+    "theme": "roastery",
+    "title": "George Street Shuffle",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "samba-isobel": {
+    "theme": "roastery",
+    "title": "Samba Isobel",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "i-knew-a-guy": {
+    "theme": "midnight",
+    "title": "I Knew a Guy",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "backed-vibes-clean": {
+    "theme": "midnight",
+    "title": "Backed Vibes Clean",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
   }
 }

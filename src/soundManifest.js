@@ -10,11 +10,15 @@ export const SOUND_MANIFEST = {
   chatter2: { url: '/sounds/chatter2.mp3', loop: true }, // 25.1s
   chatter_busy: { url: '/sounds/chatter_busy.mp3', loop: false }, // 32s
   chatter_quiet: { url: '/sounds/chatter_quiet.mp3', loop: false }, // 30s
+  cough: { url: '/sounds/cough.mp3', loop: false }, // 4.9s
   cup_clinks: { url: '/sounds/cup_clinks.mp3', loop: false }, // 4.6s
+  dishes: { url: '/sounds/dishes.mp3', loop: false }, // 22.1s
   door_bell: { url: '/sounds/door_bell.mp3', loop: false }, // 3.1s
   door_open: { url: '/sounds/door_open.mp3', loop: false }, // 3.6s
   espresso: { url: '/sounds/espresso.mp3', loop: false }, // 10s
   footsteps: { url: '/sounds/footsteps.mp3', loop: false }, // 12s
+  grinder: { url: '/sounds/grinder.mp3', loop: false }, // 14s
+  laughter: { url: '/sounds/laughter.mp3', loop: false }, // 6.3s
   page_turn: { url: '/sounds/page_turn.mp3', loop: false }, // 1.8s
   pour: { url: '/sounds/pour.mp3', loop: false }, // 5.5s
   rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 26.1s
