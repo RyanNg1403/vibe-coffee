@@ -2031,7 +2031,10 @@ export function buildCafe(theme, models = null) {
   // reads as hospitality styling; independent random props read as clutter.
   const candleFlames = [];
   theme.tables.forEach((tt, ti) => {
-    const topY = tt.type === 'round' ? 0.805 : 0.81;
+    // Lounge tables are intentionally coffee-table height. Their curated
+    // place settings must use that lower surface instead of the standard
+    // dining-table height, or they appear to float 25 cm above the top.
+    const topY = tt.lounge ? 0.575 : tt.type === 'round' ? 0.805 : 0.81;
     if (ti % 2 === 0) {
       const napkins = box(0.09, 0.07, 0.05, metalMat);
       napkins.position.set(tt.x + 0.24, topY + 0.035, tt.z - 0.12);

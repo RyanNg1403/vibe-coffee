@@ -201,6 +201,7 @@ function sitAt(index, instant = false) {
   mode = 'seated';
   updateWalkBtn();
   placePlayerLaptop(); // your MacBook follows you to the new table
+  placePlayerCup(); // keep an existing order grounded at the current table
   if (!instant && audio.started) audio.playChairScrape(seat.pos);
 
   const eye = seatEye(seat);
@@ -399,9 +400,38 @@ function makeMacBook() {
 }
 
 let laptopOn = preferences.laptopOn;
+function placePlayerCup() {
+  if (!playerCup || seatIndex < 0 || !cafe) return;
+  const seat = cafe.seats[seatIndex];
+  const tc = seat.tableCenter;
+  const topY = seat.pos.y > 0.05 ? 1.03 : (seat.tableTopY ?? 0.81);
+  if (playerLaptop) {
+    // A drink belongs beside a laptop, never on its keyboard. Offset along the
+    // table edge and prefer the side facing the room centre so end seats at the
+    // narrow window bar still keep the mug fully supported.
+    const towardTable = new THREE.Vector3().subVectors(tc, seat.pos).setY(0).normalize();
+    const beside = new THREE.Vector3(-towardTable.z, 0, towardTable.x);
+    const towardRoom = new THREE.Vector3(-tc.x, 0, -tc.z);
+    if (beside.dot(towardRoom) < 0) beside.negate();
+    playerCup.position.set(
+      playerLaptop.position.x + beside.x * 0.26,
+      topY,
+      playerLaptop.position.z + beside.z * 0.26
+    );
+  } else {
+    playerCup.position.set(
+      tc.x + (seat.pos.x - tc.x) * 0.45,
+      topY,
+      tc.z + (seat.pos.z - tc.z) * 0.45
+    );
+  }
+}
 function placePlayerLaptop() {
   if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
-  if (!laptopOn || seatIndex < 0 || !cafe) return;
+  if (!laptopOn || seatIndex < 0 || !cafe) {
+    placePlayerCup();
+    return;
+  }
   const seat = cafe.seats[seatIndex];
   const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0);
   const d = toTable.length() || 1;
@@ -419,6 +449,7 @@ function placePlayerLaptop() {
   // open side faces you
   playerLaptop.rotation.y = Math.atan2(toTable.x, toTable.z) + Math.PI;
   cafe.group.add(playerLaptop);
+  placePlayerCup();
 }
 
 document.getElementById('laptop-btn')?.addEventListener('click', () => {
@@ -444,15 +475,9 @@ document.getElementById('order-btn')?.addEventListener('click', () => {
     const cup = cloneModel(lastModels, Math.random() < 0.5 ? 'latte' : 'mug');
     if (!cup) return;
     // set it down between you and the middle of the table
-    const tc = seat.tableCenter;
-    const topY = seat.pos.y > 0.05 ? 1.03 : (seat.tableTopY ?? 0.81);
-    cup.position.set(
-      tc.x + (seat.pos.x - tc.x) * 0.45,
-      topY,
-      tc.z + (seat.pos.z - tc.z) * 0.45
-    );
     cafe.group.add(cup);
     playerCup = cup;
+    placePlayerCup();
     toast('order up — enjoy ☕');
   });
   if (ok) {
@@ -783,12 +808,35 @@ voicesVolume.addEventListener('input', (e) => {
 // focus timer (adjustable focus interval / five-minute break)
 const timerEl = document.getElementById('timer-display');
 const timerBtn = document.getElementById('timer-btn');
-const timerMinutesInput = document.getElementById('timer-minutes');
+const timerPop = document.getElementById('timer-pop');
+const timerDuration = document.getElementById('timer-duration');
+const timerPresetButtons = [...document.querySelectorAll('#timer-presets button')];
 let focusMinutes = preferences.focusMinutes;
 let timerRunning = false, timerBreak = false, timerLeft = focusMinutes * 60;
 let lastTimerText = '';
 let lastTimerBreak = null;
-timerMinutesInput.value = String(focusMinutes);
+function renderTimerDuration() {
+  timerDuration.innerHTML = `${focusMinutes}<small>min</small>`;
+  timerPresetButtons.forEach((button) => {
+    const active = Number(button.dataset.minutes) === focusMinutes;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  timerEl.setAttribute('aria-label', `Set focus duration, currently ${focusMinutes} minutes`);
+}
+function setTimerPopOpen(open) {
+  timerPop.hidden = !open;
+  timerEl.classList.toggle('open', open);
+  timerEl.setAttribute('aria-expanded', String(open));
+}
+function setFocusMinutes(nextMinutes) {
+  focusMinutes = Math.round(THREE.MathUtils.clamp(nextMinutes, 1, 180));
+  timerBreak = false;
+  timerLeft = focusMinutes * 60;
+  persistPreferences();
+  renderTimerDuration();
+  renderTimer();
+}
 function renderTimer() {
   const m = String(Math.floor(timerLeft / 60)).padStart(2, '0');
   const s = String(Math.floor(timerLeft % 60)).padStart(2, '0');
@@ -805,26 +853,33 @@ function renderTimer() {
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   if (!timerRunning) audio.stopPlayerTyping();
-  timerMinutesInput.disabled = timerRunning;
+  if (timerRunning) setTimerPopOpen(false);
+  timerEl.disabled = timerRunning;
   timerBtn.textContent = timerRunning ? '❚❚' : '▶';
   timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = focusMinutes * 60;
   audio.stopPlayerTyping();
-  timerMinutesInput.disabled = false;
+  timerEl.disabled = false;
   timerBtn.textContent = '▶';
   timerBtn.setAttribute('aria-label', 'Start focus timer');
   renderTimer();
 });
-timerMinutesInput.addEventListener('change', () => {
-  focusMinutes = Math.round(THREE.MathUtils.clamp(Number(timerMinutesInput.value) || 25, 1, 180));
-  timerMinutesInput.value = String(focusMinutes);
-  timerBreak = false;
-  timerLeft = focusMinutes * 60;
-  persistPreferences();
-  renderTimer();
+timerEl.addEventListener('click', () => setTimerPopOpen(timerPop.hidden));
+document.getElementById('timer-minus').addEventListener('click', () => {
+  setFocusMinutes(focusMinutes - (focusMinutes > 5 ? 5 : 1));
 });
+document.getElementById('timer-plus').addEventListener('click', () => {
+  setFocusMinutes(focusMinutes + (focusMinutes < 5 ? 1 : 5));
+});
+timerPresetButtons.forEach((button) => {
+  button.addEventListener('click', () => setFocusMinutes(Number(button.dataset.minutes)));
+});
+document.addEventListener('pointerdown', (event) => {
+  if (!timerPop.hidden && !document.getElementById('timer').contains(event.target)) setTimerPopOpen(false);
+});
+renderTimerDuration();
 renderTimer();
 
 // enter overlay — also unlocks the AudioContext

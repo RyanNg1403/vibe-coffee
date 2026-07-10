@@ -95,16 +95,35 @@
       mix-blend-mode: multiply;
     }
 
-    #timer { display: flex; align-items: center; gap: 8px; }
-    #timer-setting { display: flex; align-items: center; gap: 4px; font-size: 11px; opacity: .76; }
-    #timer-minutes {
-      width: 42px; padding: 4px 3px; color: #f0e6d4; text-align: center;
-      font: inherit; background: rgba(240, 230, 212, .07);
-      border: 1px solid rgba(240, 230, 212, .18); border-radius: 6px;
+    #timer { position: relative; display: flex; align-items: center; gap: 7px; }
+    #timer-display {
+      min-width: 62px; padding-inline: 7px; border-color: transparent !important;
+      background: transparent !important; font-size: 16px !important;
+      font-variant-numeric: tabular-nums; letter-spacing: 1px;
     }
-    #timer-minutes:disabled { opacity: .52; cursor: not-allowed; }
-    #timer-display { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+    #timer-display:hover, #timer-display.open { background: rgba(240, 230, 212, .1) !important; }
+    #timer-display:disabled { cursor: default; opacity: 1; }
     #timer-display.break { color: #8fc9a0; }
+    #timer-pop {
+      position: absolute; bottom: calc(100% + 16px); right: 0; width: 224px;
+      padding: 15px; background: rgba(20, 14, 8, .92);
+      border: 1px solid rgba(240, 230, 212, .16); border-radius: 12px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, .28); backdrop-filter: blur(8px);
+    }
+    #timer-pop[hidden] { display: none; }
+    #timer-pop-title {
+      margin-bottom: 12px; color: rgba(240, 230, 212, .56);
+      font-size: 10px; letter-spacing: .12em; text-align: center; text-transform: uppercase;
+    }
+    #timer-adjust { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 8px; }
+    #timer-adjust button { width: 34px; height: 34px; padding: 0; border-radius: 50%; font-size: 17px; }
+    #timer-duration { font-size: 23px; text-align: center; font-variant-numeric: tabular-nums; }
+    #timer-duration small { margin-left: 3px; font-size: 11px; opacity: .56; }
+    #timer-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 13px; }
+    #timer-presets button { padding: 5px 0; color: rgba(240, 230, 212, .68); border-radius: 999px; }
+    #timer-presets button.active {
+      color: #241809; background: #c98e4e; border-color: #c98e4e;
+    }
     #timer button {
       font-family: inherit; font-size: 11px; cursor: pointer;
       color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
@@ -234,10 +253,21 @@
     <button id="fullscreen-btn" aria-label="Enter fullscreen" aria-pressed="false" title="enter fullscreen">⛶ full screen</button>
     <div class="divider"></div>
     <div id="timer">
-      <label id="timer-setting" for="timer-minutes">
-        <input id="timer-minutes" type="number" min="1" max="180" step="1" value="25" inputmode="numeric" aria-label="Focus duration in minutes" /> min
-      </label>
-      <span id="timer-display">25:00</span>
+      <button id="timer-display" aria-label="Set focus duration, currently 25 minutes" aria-expanded="false" aria-haspopup="dialog">25:00</button>
+      <div id="timer-pop" role="dialog" aria-label="Choose focus duration" hidden>
+        <div id="timer-pop-title">focus session</div>
+        <div id="timer-adjust">
+          <button id="timer-minus" aria-label="Decrease focus duration">−</button>
+          <output id="timer-duration" aria-live="polite">25<small>min</small></output>
+          <button id="timer-plus" aria-label="Increase focus duration">+</button>
+        </div>
+        <div id="timer-presets" aria-label="Focus duration presets">
+          <button data-minutes="15">15</button>
+          <button data-minutes="25">25</button>
+          <button data-minutes="45">45</button>
+          <button data-minutes="60">60</button>
+        </div>
+      </div>
       <button id="timer-btn" aria-label="Start focus timer">▶</button>
       <button id="timer-reset" aria-label="Reset focus timer">↺</button>
     </div>
