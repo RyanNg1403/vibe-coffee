@@ -6,9 +6,10 @@ audible event should have a reason to be there.
 
 ## Completed in the immersion pass
 
-- Indoor customers now default to four lightweight skinned, clothed characters
-  with real locomotion and seated clips. They remain intentionally temporary:
-  close-up anatomy and facial/material fidelity are still below the final target.
+- The cast now mixes two unique, realistically textured hero walkers, a 9.8k-triangle
+  seated PBR guest and two lightweight animated background patrons. Hero geometry is
+  Draco-compressed, uses compact 1K WebP atlases, never repeats in one café visit and
+  stays out of the shadow pass; exterior crowds remain on lightweight rigs.
 - Upholstery, rugs, tables and theme walls gained surface detail. Imported lounge
   seating is retinted into the café palette instead of keeping bright kit colors.
 - Wood flooring, plaster and industrial painted concrete now use compact local CC0
@@ -37,10 +38,11 @@ audible event should have a reason to be there.
   activity ducks the music, café-specific room responses shape reverb, and footstep,
   clink and car-pass recordings use authored timing rather than arbitrary slices.
 
-## Next: character production (highest visual impact)
+## Next: complete the character production set
 
-Create a coherent set of 6–10 mid-poly café patrons sharing one skeleton. Each
-character should have PBR skin, hair and fabric materials and these animation clips:
+Expand the current three-person close-up set into 6–10 mid-poly café patrons sharing
+one skeleton. Each new character should have PBR skin, hair and fabric materials and
+these animation clips:
 
 - idle breathing and weight shift
 - walk, sit transition and seated idle
@@ -111,18 +113,20 @@ same RMS.
 
 ## Character fidelity path
 
-The indoor crowd now defaults to four lightweight skinned GLB characters with
-real idle, walk and seated animation clips; procedural capsule people are only a
-load-failure fallback. Distance-based mixer updates keep the larger crowd viable.
+The indoor crowd now reserves close-up roles for two compressed, realistically
+textured hero walkers and one static seated PBR guest. Two lightweight skinned GLBs
+retain authored seated animation for the larger background crowd; procedural capsule
+people remain load-failure fallbacks. Distance-based mixer updates, one-use hero bags
+and disabled hero shadow casting keep the larger crowd viable.
 
 The next source-art milestone is a curated six-person café cast rather than more
 runtime geometry tricks:
 
 - Rejected source: the free Quaternius Universal Base archive only exposes the
   exaggerated underwear-clad superhero bases, so it is not appropriate café art.
-- Validated final route: MakeHuman CC0 core bodies, casual clothing, hair and shoes
-  on the 53-bone game rig. Use 35–39k-triangle hero patrons close to the camera and
-  11–14k dressed proxies farther away, then convert FBX to optimized GLB.
+- Validated next route: rig the acquired 10–23k-triangle CC0 casual source characters
+  with Mesh2Motion's MIT tool and CC0 rigs/animations, then export a shared GLB clip
+  set. This avoids both the current heroes' 159–171k runtime meshes and Mixamo terms.
 - Author café-specific additive clips for sipping, typing, reading, carrying a
   tray, wiping the counter and using the espresso machine.
 - Target 8–15k triangles, one 1K atlas per person, compressed geometry/textures,

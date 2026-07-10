@@ -89,9 +89,10 @@ Then open the printed URL (usually http://localhost:5173), click
 | Graphics quality | `quality · auto/detail/smooth` in the bottom bar |
 | Focus timer | bottom-right of the bar (▶ / ↺) |
 
-- **Downloaded 3D props** — CC0 low-poly models (Kenney furniture & food kits): real
-  mugs with handles, croissants on plates, lounge armchairs, potted plants, and the
-  coffee machine — with procedural fallbacks if any model fails to load
+- **Authored 3D library** — CC0 furniture, food and compact PBR surfaces plus two
+  textured, rigged hero patrons and a realistic seated café guest. Draco geometry,
+  1K WebP atlases, single-use hero casting and lightweight fallbacks keep the room
+  responsive while faces, clothing and hands remain readable at conversational range.
 
 ## Stack
 

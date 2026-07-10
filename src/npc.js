@@ -8,7 +8,7 @@
 
 import * as THREE from 'three';
 import { ROOM } from './cafe.js';
-import { cloneCharacter, characterKeys, sitCharacterKeys } from './modelLoader.js';
+import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -362,6 +362,7 @@ class SkinnedAvatar {
   constructor(models, key, options = {}) {
     const { mesh, animations } = cloneCharacter(models, key);
     this.key = key;
+    this.isHero = key.startsWith('char_hero_');
     this.root = new THREE.Group();
     this.root.add(mesh);
     this.inner = mesh;
@@ -380,7 +381,10 @@ class SkinnedAvatar {
     const hairTone = new THREE.Color(IMPORTED_HAIR[(appearanceIndex * 3 + keySalt) % IMPORTED_HAIR.length]);
     mesh.traverse((o) => {
       if (o.isMesh) {
-        o.castShadow = options.castShadow !== false;
+        // Each high-detail hero is a single 159–171k-triangle draw. Keeping it out
+        // of the shadow map retains the close-up silhouette and texture quality
+        // without rendering that geometry twice every shadow refresh.
+        o.castShadow = options.castShadow !== false && !this.isHero;
         o.receiveShadow = options.receiveShadow !== false;
         // SkinnedMesh caches a bind-pose bound. Pad it for arm swings and seated
         // poses, then allow Three.js to reject patrons fully outside the camera.
@@ -414,7 +418,7 @@ class SkinnedAvatar {
               material.roughness = 0.36;
             } else {
               // Related, rather than identical, tones preserve multi-material
-              // garment details on char_b while keeping the outfit coherent.
+              // garment details while keeping each outfit coherent.
               material.color.copy(outfit).offsetHSL(
                 materialIndex * 0.025 - 0.025,
                 rand(-0.05, 0.05),
@@ -423,8 +427,8 @@ class SkinnedAvatar {
               material.roughness = Math.max(0.72, material.roughness ?? 0.82);
             }
           } else if (hasTexture) {
-            // char_k uses one tiny atlas for skin and clothes; preserve its
-            // authored colour instead of tinting the person's skin as well.
+            // Textured characters may share one atlas across skin and clothes;
+            // preserve authored colour instead of tinting their skin as well.
             material.roughness = Math.max(0.76, material.roughness ?? 0.85);
           }
           material.needsUpdate = true;
@@ -1589,7 +1593,7 @@ class Barista {
   constructor(sim) {
     this.sim = sim;
     if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, sim.pickCharacter(false), {
+      this.avatar = new SkinnedAvatar(sim.models, sim.pickStandardCharacter(), {
         appearanceIndex: sim.nextAppearanceIndex(),
       });
       this.mesh = this.avatar.root;
@@ -1866,6 +1870,9 @@ export class CrowdSim {
     this.audio = audio;
     this.models = models;
     this.charKeys = characterKeys(models);
+    this.heroKeys = this.charKeys.filter((key) => key.startsWith('char_hero_'));
+    this.standardCharKeys = this.charKeys.filter((key) => !key.startsWith('char_hero_'));
+    this._usedHeroKeys = new Set();
     this.authoredSitKeys = sitCharacterKeys(models);
     // Manual leg folding cannot reproduce hip translation, spine balance and
     // chair clearance reliably across rigs. Only use authored seated clips when
@@ -1887,7 +1894,11 @@ export class CrowdSim {
     this.maxCrowd = cafe.theme.crowd ?? 9;
     this.qualityLevel = 2;
     this.barista = new Barista(this);
-    this.outside = new OutsideLife(cafe, models, this.charKeys);
+    // Detailed hero patrons stay indoors, where their face and clothing can be
+    // read. Exterior walkers use the lighter cast and never duplicate heroes.
+    this.outside = new OutsideLife(cafe, models, this.standardCharKeys);
+    this.staticPatrons = [];
+    this._placeStaticPatron();
     this.spawnCooldown = rand(3, 7);
     this.spotSyncT = 0;
 
@@ -1903,7 +1914,21 @@ export class CrowdSim {
   // repeated.  Moving the previous pick away from the front also prevents the
   // conspicuous same-model twins produced by independent random selection.
   pickCharacter(willSit = false) {
-    const pool = willSit ? this.sitKeys : this.charKeys;
+    // Lead with each close-up-quality patron instead of burying them behind a
+    // random shuffle. Every hero appears once per café visit, then the lighter
+    // animated cast resumes for later arrivals.
+    const unusedHero = willSit
+      ? null
+      : this.heroKeys.find((key) => !this._usedHeroKeys.has(key));
+    if (unusedHero) {
+      const key = unusedHero;
+      this._usedHeroKeys.add(key);
+      this._lastCharacter = key;
+      return key;
+    }
+    const pool = willSit
+      ? this.sitKeys
+      : this.standardCharKeys;
     if (!pool.length) return null;
     const bagName = willSit ? 'sitting' : 'standing';
     let bag = this._characterBags[bagName];
@@ -1921,6 +1946,28 @@ export class CrowdSim {
     const key = bag.pop();
     this._lastCharacter = key;
     return key;
+  }
+
+  pickStandardCharacter() {
+    const pool = this.standardCharKeys.length ? this.standardCharKeys : this.charKeys;
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  }
+
+  _placeStaticPatron() {
+    const model = cloneModel(this.models, 'patron_seated_female');
+    if (!model) return;
+    // Her authored asset includes a matching pedestal chair, so reserve and
+    // replace one window-bar stool. Garden Terrace has no window bar and simply
+    // skips this guest rather than forcing a tall stool against a low table.
+    const seatIndex = this.cafe.seats.findIndex((seat) => seat.pos.y > 0.05);
+    if (seatIndex < 0) return;
+    const seat = this.cafe.seats[seatIndex];
+    this.takenSeats.add(seatIndex);
+    seat.chair.visible = false;
+    model.position.set(seat.pos.x, 0, seat.pos.z);
+    model.rotation.y = seat.facingYaw;
+    this.cafe.group.add(model);
+    this.staticPatrons.push({ model, seatIndex });
   }
 
   nextAppearanceIndex() {
@@ -1954,6 +2001,17 @@ export class CrowdSim {
         position.x += dx * push;
         position.z += dz * push;
       }
+    }
+    for (const patron of this.staticPatrons) {
+      const dx = position.x - patron.model.position.x;
+      const dz = position.z - patron.model.position.z;
+      const minDistance = playerRadius + 0.34;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= minDistance * minDistance) continue;
+      const distance = Math.max(0.001, Math.sqrt(d2));
+      const push = (minDistance - distance) / distance;
+      position.x += dx * push;
+      position.z += dz * push;
     }
     return position;
   }
@@ -2164,7 +2222,7 @@ export class CrowdSim {
       this.audio.setClinkSpots(seated.map((n) => n.mesh.position));
       this.audio.setTypingSpots(seated.filter((n) => n.isTyping).map((n) => n.mesh.position));
       this.audio.setPageSpots(seated.filter((n) => n.activity === 'book').map((n) => n.mesh.position));
-      this.audio.setOccupancy(this.npcs.length, this.maxCrowd);
+      this.audio.setOccupancy(this.npcs.length + this.staticPatrons.length, this.maxCrowd);
     }
   }
 
@@ -2175,6 +2233,8 @@ export class CrowdSim {
     this.npcs.forEach((n) => n.dispose());
     this.barista.dispose();
     this.outside.dispose();
+    this.staticPatrons.forEach(({ model }) => model.parent?.remove(model));
+    this.staticPatrons = [];
     this.npcs = [];
     this.queue = [];
   }
