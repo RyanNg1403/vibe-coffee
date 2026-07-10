@@ -1166,16 +1166,8 @@ class NPC {
       this.sim.cafe.group.add(pad);
       this.props.push(pad);
     }
-    // some regulars bring a sleepy dog that settles beside the chair
-    if (this.activity !== 'chat' && seat.pos.y < 0.05 && Math.random() < 0.14) {
-      const dog = makeDog();
-      const perp = new THREE.Vector3(toTable.z, 0, -toTable.x).normalize();
-      dog.position.copy(seat.pos).addScaledVector(perp, 0.62);
-      dog.position.y = 0;
-      dog.rotation.y = rand(0, Math.PI * 2);
-      this.sim.cafe.group.add(dog);
-      this.props.push(dog);
-    }
+    // (the sleepy table-side dog prop is retired — pets.js now brings a real
+    // rigged dog that arrives with a patron and leaves with them)
   }
 
   _clearProps() {

@@ -8,6 +8,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
+import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
 import { loadModelLibrary, cloneModel } from './modelLoader.js';
 import { loadPreferences, savePreferences } from './preferences.js';
@@ -139,6 +140,7 @@ const audio = new CafeAudio();
 
 let cafe = null;
 let crowd = null;
+let pets = null;
 let currentThemeIndex = preferences.cafeIndex;
 let seatIndex = -1;
 let mode = 'seated'; // 'seated' | 'walking'
@@ -266,6 +268,7 @@ async function loadTheme(index) {
   playerCup = null; // the old room takes the old cup with it
   playerLaptop = null;
 
+  if (pets) { pets.dispose(); pets = null; }
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
     scene.remove(cafe.group);
@@ -293,6 +296,7 @@ async function loadTheme(index) {
   bloomPass.strength = theme.bloom ?? 0.25;
 
   crowd = new CrowdSim(cafe, audio, models);
+  pets = new PetSystem(cafe, models, theme);
   applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({ counter: cafe.nav.machineWorld, door: cafe.nav.door });
   audio.setClinkSpots([]);
@@ -891,6 +895,7 @@ function frame() {
       simSteps += 1;
       if (cafe) cafe.animate(SIM_STEP);
       if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
+      if (pets) pets.update(SIM_STEP, crowd, camera.position);
     }
   }
 
@@ -1041,6 +1046,7 @@ frame();
 window.__vibe = {
   audio,
   get crowd() { return crowd; },
+  get pets() { return pets; },
   metrics() {
     let decodedAudioBytes = 0;
     const activeGeometries = new Set();
