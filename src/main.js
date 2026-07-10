@@ -609,6 +609,23 @@ document.getElementById('walk-btn').addEventListener('click', () => {
   else toast('Click any free chair to sit back down ☕');
 });
 
+// the volume sliders live in a small popover so the bar stays uncrowded
+const mixerBtn = document.getElementById('mixer-btn');
+const mixerPop = document.getElementById('mixer-pop');
+function setMixerOpen(open) {
+  if (!mixerBtn || !mixerPop) return;
+  mixerPop.hidden = !open;
+  mixerBtn.classList.toggle('open', open);
+  mixerBtn.setAttribute('aria-expanded', String(open));
+}
+mixerBtn?.addEventListener('click', () => setMixerOpen(mixerPop.hidden));
+document.addEventListener('pointerdown', (e) => {
+  if (mixerPop && !mixerPop.hidden
+    && !mixerPop.contains(e.target) && !mixerBtn.contains(e.target)) {
+    setMixerOpen(false);
+  }
+});
+
 const musicToggle = document.getElementById('music-toggle');
 const trackStyle = document.getElementById('track-style');
 const musicVolume = document.getElementById('music-vol');
