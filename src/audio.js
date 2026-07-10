@@ -1178,6 +1178,13 @@ export class CafeAudio {
   playGrinder(pos) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 1.1, pos.z) : this.ambienceBus;
+    if (this._buf('grinder')) {
+      this._playBuf('grinder', {
+        out, vol: rand(0.3, 0.45), rate: rand(0.95, 1.05),
+        randomSlice: true, dur: rand(1.6, 2.6),
+      });
+      return;
+    }
     const t = this.ctx.currentTime;
     const dur = rand(1.4, 2.4);
     const motor = this.ctx.createOscillator();
@@ -1208,6 +1215,14 @@ export class CafeAudio {
   playDishes(pos) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.8, pos.z) : this.ambienceBus;
+    if (this._buf('dishes')) {
+      // a real sink: porcelain knocks, running water, cutlery
+      this._playBuf('dishes', {
+        out, vol: rand(0.28, 0.42), rate: rand(0.92, 1.04),
+        randomSlice: true, dur: rand(1.6, 3.2),
+      });
+      return;
+    }
     if (this._buf('cup_clinks')) {
       this._playBuf('cup_clinks', {
         out, vol: rand(0.25, 0.45), rate: rand(0.8, 0.92),
@@ -1315,6 +1330,32 @@ export class CafeAudio {
       const [a, b] = this._profile().typeMs;
       this._timer(typing, rand(a, b));
     };
+    // human texture: a table breaks into laughter now and then, and once in a
+    // while somebody coughs — both from real seated-patron positions
+    const laughter = () => {
+      if (this._buf('laughter') && this.clinkSpots.length && Math.random() < 0.65) {
+        const spot = pick(this.clinkSpots);
+        this._playBuf('laughter', {
+          out: this._panner(spot.x, 1.1, spot.z, this.voicesBus),
+          vol: rand(0.16, 0.3), rate: rand(0.94, 1.06),
+          randomSlice: true, dur: rand(2.4, 4.2),
+        });
+      }
+      this._timer(laughter, rand(38000, 95000) / Math.max(0.4, this.occupancy / Math.max(1, this.capacity) + 0.4));
+    };
+    this._timer(laughter, rand(15000, 35000));
+    const cough = () => {
+      if (this._buf('cough') && this.clinkSpots.length && Math.random() < 0.5) {
+        const spot = pick(this.clinkSpots);
+        this._playBuf('cough', {
+          out: this._panner(spot.x, 1.1, spot.z, this.voicesBus),
+          vol: rand(0.14, 0.24), rate: rand(0.9, 1.08),
+          randomSlice: true, dur: rand(1.1, 2.0),
+        });
+      }
+      this._timer(cough, rand(70000, 170000));
+    };
+    this._timer(cough, rand(30000, 80000));
     const pages = () => {
       if (this.pageSpots.length && Math.random() < 0.65) this.playPageTurn(pick(this.pageSpots));
       this._timer(pages, rand(9000, 25000));

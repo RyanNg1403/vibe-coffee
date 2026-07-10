@@ -380,5 +380,26 @@
     "creator": "jeremy",
     "license": "CC BY 3.0",
     "item_url": "https://poly.pizza/m/0lfEqzVkp8a"
+  },
+  "grinder": {
+    "title": "Coffee grinder",
+    "license": "Public domain",
+    "item_url": "https://commons.wikimedia.org/wiki/File:Coffee_grinder.ogg"
+  },
+  "cough": {
+    "title": "Man coughing",
+    "license": "Public domain",
+    "item_url": "https://commons.wikimedia.org/wiki/File:Man_coughing.ogg"
+  },
+  "laughter": {
+    "title": "Small group laughter",
+    "artist": "Kabit",
+    "license": "CC BY 3.0",
+    "item_url": "https://commons.wikimedia.org/wiki/File:Small_group_laughter.ogg"
+  },
+  "dishes": {
+    "title": "Kitchen tidy up",
+    "license": "Public domain",
+    "item_url": "https://commons.wikimedia.org/wiki/File:Kitchen_tidy_up.ogg"
   }
 }
