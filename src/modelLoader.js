@@ -137,7 +137,20 @@ export function loadModelLibrary() {
     } catch (e) {
       console.warn(`[models] "${key}" unavailable (${e.message}) — procedural fallback`);
     }
-  })).then(() => models);
+  })).then(() => {
+    // char_j and char_l ship the same "HumanArmature" rig, but char_j's
+    // authored "Sitting" is a floor pose — parked on a chair it reads as
+    // kneeling behind the seat. char_l's clip is a proper chair sit and the
+    // bone tracks transfer 1:1, so char_j borrows it.
+    const j = models.get('char_j');
+    const l = models.get('char_l');
+    if (j?.animations && l?.animations) {
+      const goodSit = l.animations.find((a) => a.name.toLowerCase().includes('sit'));
+      const badIndex = j.animations.findIndex((a) => a.name.toLowerCase().includes('sit'));
+      if (goodSit && badIndex >= 0) j.animations[badIndex] = goodSit;
+    }
+    return models;
+  });
   return libraryPromise;
 }
 

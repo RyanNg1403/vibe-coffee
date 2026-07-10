@@ -1317,11 +1317,19 @@ class NPC {
         this._stallT = (this._stallT ?? 0) + dt;
       }
       const stalled = this._stallT > 2.5 && dist < 0.9;
-      if (this._stallT > 7) {
-        // truly wedged: replan from here to the final destination
+      if (this._stallT > 4.5) {
+        // truly wedged: replan from here to the final destination, with a
+        // sidestep first so the same steering equilibrium can't recapture us
         this._stallT = 0;
         this._bestDist = Infinity;
-        this._walkTo(this.path[this.path.length - 1]);
+        const destination = this.path[this.path.length - 1];
+        this._walkTo(destination);
+        if (this.path && this.path.length > 1) {
+          this.path.splice(1, 0, new THREE.Vector3(
+            pos.x + (Math.random() - 0.5) * 1.3, 0,
+            pos.z + (Math.random() - 0.5) * 1.3,
+          ));
+        }
         return;
       }
       if (dist < 0.07 || stalled) {
@@ -1386,7 +1394,11 @@ class NPC {
           while (dy > Math.PI) dy -= Math.PI * 2;
           while (dy < -Math.PI) dy += Math.PI * 2;
           const turn = this.turnRate * Math.min(1, actualSpeed / 0.45);
-          this.mesh.rotation.y += dy * (1 - Math.exp(-turn * dt));
+          // absolute rate cap: even a full about-face sweeps like a person
+          // turning, not a top spinning
+          const step = dy * (1 - Math.exp(-turn * dt));
+          const maxStep = 4.2 * dt;
+          this.mesh.rotation.y += THREE.MathUtils.clamp(step, -maxStep, maxStep);
         }
       }
       const speedRatio = THREE.MathUtils.clamp(this.currentSpeed / Math.max(0.01, this.speed), 0, 1);
@@ -1468,7 +1480,7 @@ class NPC {
 
     if (this.state === 'queueing') {
       this._setPose(false);
-      this.mesh.rotation.y = Math.PI; // face the counter
+      this._faceCounter(dt); // never fight the walking block for the yaw
       // idle shifting weight
       this._setRootY(0);
       p.torso.rotation.z = Math.sin(t * 0.9 + this.walkPhase) * 0.03;
@@ -1490,7 +1502,7 @@ class NPC {
         this.stateT = 0;
       }
     } else if (this.state === 'ordering') {
-      this.mesh.rotation.y = Math.PI;
+      this._faceCounter(dt);
       // chatting with the barista
       p.armL.rotation.x = Math.sin(t * 1.6 + this.walkPhase) * 0.12;
       p.armR.rotation.x = Math.sin(t * 1.3 + this.walkPhase) * 0.12;
@@ -1504,10 +1516,10 @@ class NPC {
         this.sim.brewDuration = rand(14.8, 16.2);
         this.state = 'waitingPickup';
         this.stateT = 0;
-        this._walkTo(this.sim.cafe.nav.pickup);
+        this._walkTo(this.sim.pickupSlot(this));
       }
     } else if (this.state === 'waitingPickup') {
-      this.mesh.rotation.y = Math.PI;
+      this._faceCounter(dt);
       p.head.rotation.y = Math.sin(t * 0.4 + this.walkPhase) * 0.35;
       p.torso.rotation.z = Math.sin(t * 0.7 + this.walkPhase) * 0.025;
       if (this.sim.brewFor !== this) {
@@ -1612,12 +1624,28 @@ class NPC {
   }
 
   // same brain as the procedural branch below, driving the rigged character
+  // Ease toward facing the counter. Hard-setting the yaw here while a path
+  // was still active meant two writers fought over it every frame — the
+  // walking block turned toward the velocity, this snapped it back — which
+  // read as customers spinning in place at the register and pickup counter.
+  _faceCounter(dt) {
+    if (this.path) return;
+    let dy = Math.PI - this.mesh.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    this.mesh.rotation.y += dy * Math.min(1, dt * 5);
+  }
+
   _updateSkinnedStationary(dt, t, seat) {
     const av = this.avatar;
+    // While walking to the queue slot / pickup spot, the walking block owns
+    // the gait and facing; forcing idle+yaw from here as well thrashed the
+    // animation mixer every frame (both actions permanently mid-fade).
+    const enRoute = !!this.path;
     if (this.state === 'queueing') {
       this._setPose(false);
-      av.setMode('idle');
-      this.mesh.rotation.y = Math.PI;
+      if (!enRoute) av.setMode('idle');
+      this._faceCounter(dt);
       if (this.checksPhone === undefined) this.checksPhone = Math.random() < 0.5;
       if (this.checksPhone) {
         av.headPitch = 0.3;
@@ -1641,9 +1669,9 @@ class NPC {
         this.stateT = 0;
       }
     } else if (this.state === 'ordering') {
-      av.setMode('idle');
+      if (!enRoute) av.setMode('idle');
       av.headPitch = 0;
-      this.mesh.rotation.y = Math.PI;
+      this._faceCounter(dt);
       av.headYawTarget = Math.sin(t * 0.8) * 0.12;
       if (this.stateT > this.orderTime && !this.sim.brewFor) {
         if (this.sim.audio?.started) this.sim.audio.playRegister();
@@ -1654,11 +1682,11 @@ class NPC {
         this.sim.brewDuration = rand(14.8, 16.2);
         this.state = 'waitingPickup';
         this.stateT = 0;
-        this._walkTo(this.sim.cafe.nav.pickup);
+        this._walkTo(this.sim.pickupSlot(this));
       }
     } else if (this.state === 'waitingPickup') {
-      av.setMode('idle');
-      this.mesh.rotation.y = Math.PI;
+      if (!enRoute) av.setMode('idle');
+      this._faceCounter(dt);
       av.headYawTarget = Math.sin(t * 0.4 + this.walkPhase) * 0.4;
       if (this.sim.brewFor !== this) {
         this.setCup(true);
@@ -2221,6 +2249,16 @@ export class CrowdSim {
   queueSlot(i) {
     const c = this.cafe.nav.counter;
     return new THREE.Vector3(c.x, 0, c.z + 0.75 * i);
+  }
+
+  // Waiting customers fan out along the counter instead of stacking on the
+  // single pickup point — several people pulled toward one spot while
+  // separation pushed them apart made a permanent jostling knot.
+  pickupSlot(self) {
+    const p = this.cafe.nav.pickup;
+    const waiting = this.npcs.filter((n) => n !== self && n.state === 'waitingPickup').length;
+    const offset = [0, 0.6, -0.6, 1.2, -1.2][Math.min(waiting, 4)];
+    return new THREE.Vector3(p.x + offset, 0, p.z);
   }
 
   dequeue(npc) {
