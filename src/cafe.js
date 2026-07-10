@@ -203,6 +203,7 @@ function woodGrainTexture() {
     }
   });
   _grainTex.wrapS = _grainTex.wrapT = THREE.RepeatWrapping;
+  _grainTex.userData.vibeShared = true;
   return _grainTex;
 }
 
@@ -474,21 +475,6 @@ function cyl(rt, rb, h, mat, seg = 20) {
   return m;
 }
 
-function makeChair(woodMat, cushionMat) {
-  const g = new THREE.Group();
-  const seat = roundedBox(0.42, 0.05, 0.42, woodMat, 0.018); seat.position.y = 0.45; g.add(seat);
-  const cushion = roundedBox(0.38, 0.045, 0.38, cushionMat, 0.022); cushion.position.y = 0.49; g.add(cushion);
-  const back = new THREE.Mesh(chairBackGeometry(), woodMat);
-  back.position.set(0, 0.72, -0.19);
-  back.castShadow = true; back.receiveShadow = true;
-  g.add(back);
-  for (const [x, z] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) {
-    const leg = box(0.04, 0.45, 0.04, woodMat);
-    leg.position.set(x, 0.225, z); g.add(leg);
-  }
-  return g;
-}
-
 function makeStool(woodMat, cushionMat) {
   const g = new THREE.Group();
   const seat = cyl(0.19, 0.19, 0.06, cushionMat); seat.position.y = 0.62; g.add(seat);
@@ -513,6 +499,7 @@ function latteArtTexture() {
     }
     g.fillRect(-1.5, -26, 3, 52);
   });
+  _latteArtTex.userData.vibeShared = true;
   return _latteArtTex;
 }
 
@@ -570,6 +557,7 @@ function cremaTexture() {
     g.fill();
   }
   _cremaTex = new THREE.CanvasTexture(c);
+  _cremaTex.userData.vibeShared = true;
   _cremaTex.colorSpace = THREE.SRGBColorSpace;
   return _cremaTex;
 }
@@ -882,6 +870,7 @@ function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
   t.repeat.set(rx, ry);
   t.anisotropy = 8;
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.userData.vibeShared = true;
   _texCache.set(key, t);
   return t;
 }
@@ -1666,9 +1655,64 @@ export function buildCafe(theme, models = null) {
   const seatMeshes = []; // raycast targets
   const cups = [];       // for steam
 
+  // The standard café chair used to be seven separate meshes, repeated more
+  // than thirty times in the larger rooms. Four instanced batches preserve the
+  // rounded silhouette and proper shadows while turning ~230 chair draw calls
+  // into four. Lounge chairs and authored bar stools stay individual because
+  // their models and materials vary.
+  const maxStandardChairs = 64;
+  const chairSeatGeometry = new RoundedBoxGeometry(0.42, 0.05, 0.42, 2, 0.011);
+  const chairCushionGeometry = new RoundedBoxGeometry(0.38, 0.045, 0.38, 2, 0.01);
+  const chairBackBatchGeometry = chairBackGeometry().clone();
+  const chairLegGeometry = new THREE.BoxGeometry(0.04, 0.45, 0.04);
+  const chairSeatBatch = new THREE.InstancedMesh(chairSeatGeometry, woodMat, maxStandardChairs);
+  const chairCushionBatch = new THREE.InstancedMesh(chairCushionGeometry, cushionMat, maxStandardChairs);
+  const chairBackBatch = new THREE.InstancedMesh(chairBackBatchGeometry, woodMat, maxStandardChairs);
+  const chairLegBatch = new THREE.InstancedMesh(chairLegGeometry, woodMat, maxStandardChairs * 4);
+  const chairBatches = [chairSeatBatch, chairCushionBatch, chairBackBatch, chairLegBatch];
+  chairBatches.forEach((batch) => {
+    batch.count = 0;
+    batch.castShadow = true;
+    batch.receiveShadow = true;
+    group.add(batch);
+  });
+  chairSeatBatch.userData.seatIndices = [];
+  const chairRootMatrix = new THREE.Matrix4();
+  const chairLocalMatrix = new THREE.Matrix4();
+  const chairWorldMatrix = new THREE.Matrix4();
+  const chairQuaternion = new THREE.Quaternion();
+  const chairScale = new THREE.Vector3(1, 1, 1);
+  let standardChairCount = 0;
+
+  function setChairPart(batch, index, root, position) {
+    chairLocalMatrix.compose(position, new THREE.Quaternion(), chairScale);
+    chairWorldMatrix.multiplyMatrices(root, chairLocalMatrix);
+    batch.setMatrixAt(index, chairWorldMatrix);
+    batch.count = Math.max(batch.count, index + 1);
+  }
+
+  function addStandardChair(position, yaw) {
+    const index = standardChairCount++;
+    chairQuaternion.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, yaw);
+    chairRootMatrix.compose(position, chairQuaternion, chairScale);
+    setChairPart(chairSeatBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.45, 0));
+    setChairPart(chairCushionBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.49, 0));
+    setChairPart(chairBackBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.72, -0.19));
+    [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]].forEach(([x, z], leg) => {
+      setChairPart(chairLegBatch, index * 4 + leg, chairRootMatrix, new THREE.Vector3(x, 0.225, z));
+    });
+    return { isInstancedSeat: true, batch: chairSeatBatch, instanceId: index, visible: true };
+  }
+
   function addSeat(chair, seatPos, lookAt, tableCenter, tableTopY = 0.81) {
-    chair.traverse((o) => { o.userData.seatIndex = seats.length; });
-    chair.userData.seatIndex = seats.length;
+    if (chair.isInstancedSeat) {
+      chair.batch.userData.seatIndices[chair.instanceId] = seats.length;
+      if (!seatMeshes.includes(chair.batch)) seatMeshes.push(chair.batch);
+    } else {
+      chair.traverse((o) => { o.userData.seatIndex = seats.length; });
+      chair.userData.seatIndex = seats.length;
+      seatMeshes.push(chair);
+    }
     const away = new THREE.Vector3().subVectors(seatPos, tableCenter).setY(0);
     if (away.lengthSq() < 0.0001) away.set(0, 0, 1);
     away.normalize();
@@ -1677,7 +1721,6 @@ export function buildCafe(theme, models = null) {
     seats.push({
       pos: seatPos, look: lookAt, tableCenter, chair, tableTopY, approach, facingYaw,
     });
-    seatMeshes.push(chair);
   }
 
   function addTable(tx, tz, type, lounge = false) {
@@ -1717,13 +1760,16 @@ export function buildCafe(theme, models = null) {
         ? [[0, -1.05], [0, 1.05], [-1.05, 0]]
         : [[0, -0.85], [0, 0.85], [-0.85, 0], [0.85, 0]].slice(0, type === 'square' ? 4 : 3);
     for (const [cx, cz] of chairDefs) {
+      const px = tx + cx, pz = tz + cz;
+      const facingYaw = Math.atan2(tx - px, tz - pz);
       const chair = lounge
         ? makeArmchair(cushionMat, woodDarkMat, models)
-        : makeChair(woodMat, cushionMat);
-      const px = tx + cx, pz = tz + cz;
-      chair.position.set(px, 0, pz);
-      chair.lookAt(tx, 0, tz);
-      group.add(chair);
+        : addStandardChair(new THREE.Vector3(px, 0, pz), facingYaw);
+      if (lounge) {
+        chair.position.set(px, 0, pz);
+        chair.lookAt(tx, 0, tz);
+        group.add(chair);
+      }
       addSeat(chair,
         new THREE.Vector3(px, 0, pz),
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
@@ -1773,6 +1819,10 @@ export function buildCafe(theme, models = null) {
   }
 
   for (const t of theme.tables) addTable(t.x, t.z, t.type, !!t.lounge);
+  chairBatches.forEach((batch) => {
+    batch.instanceMatrix.needsUpdate = true;
+    batch.computeBoundingSphere();
+  });
 
   // window bar with stools, looking out the front window
   if (theme.windowBar) {
@@ -2981,11 +3031,18 @@ export function buildCafe(theme, models = null) {
 
   function dispose() {
     group.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
+      if (o.geometry && !o.geometry.userData.vibeShared) o.geometry.dispose();
       if (o.material) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
-        mats.forEach((m) => m.dispose());
+        mats.forEach((m) => {
+          for (const value of Object.values(m)) {
+            if (value?.isTexture && !value.userData.vibeShared) value.dispose();
+          }
+          if (!m.userData.vibeShared) m.dispose();
+        });
       }
+      o.shadow?.map?.dispose();
+      o.shadow?.mapPass?.dispose();
     });
     disposables.forEach((d) => d.dispose());
   }

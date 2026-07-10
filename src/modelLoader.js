@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODEL_MANIFEST } from './modelManifest.js';
 
@@ -84,6 +85,15 @@ function normalize(scene, key) {
   scene.position.y -= box2.min.y;
   wrapper.traverse((o) => {
     if (o.isMesh) {
+      if (o.geometry) o.geometry.userData.vibeShared = true;
+      const materials = Array.isArray(o.material) ? o.material : [o.material];
+      for (const material of materials) {
+        if (!material) continue;
+        material.userData.vibeShared = true;
+        for (const value of Object.values(material)) {
+          if (value?.isTexture) value.userData.vibeShared = true;
+        }
+      }
       o.castShadow = true;
       o.receiveShadow = true;
       // avoid texture shimmer/moire on oblique surfaces (paintings, labels)
@@ -98,6 +108,7 @@ let libraryPromise = null;
 export function loadModelLibrary() {
   if (libraryPromise) return libraryPromise;
   const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
   const dracoLoader = new DRACOLoader();
   dracoLoader.setDecoderPath('/draco/');
   loader.setDRACOLoader(dracoLoader);

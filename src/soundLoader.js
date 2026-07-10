@@ -25,6 +25,12 @@ function analyze(buffer) {
 const BED_KEYS = new Set(['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet']);
 const EXTERIOR_KEYS = new Set(['traffic_day', 'traffic_night', 'rain_window']);
 const MACHINE_KEYS = new Set(['espresso', 'steam_milk', 'pour']);
+const LONG_ONE_SHOTS = new Set(['carpass', 'espresso', 'footsteps', 'thunder', 'typing']);
+
+function decodeRate(key, contextRate) {
+  if (BED_KEYS.has(key) || EXTERIOR_KEYS.has(key) || LONG_ONE_SHOTS.has(key)) return 24000;
+  return Math.min(32000, contextRate);
+}
 
 function targetRms(key, def) {
   if (def.targetRms) return def.targetRms;
@@ -46,6 +52,7 @@ function dataUriToArrayBuffer(uri) {
 
 export async function loadSoundLibrary(ctx, manifest, onLoaded) {
   const buffers = new Map();
+  const decoderContexts = new Map();
   await Promise.all(Object.entries(manifest).map(async ([key, def]) => {
     try {
       let ab;
@@ -56,7 +63,18 @@ export async function loadSoundLibrary(ctx, manifest, onLoaded) {
         if (!res.ok) throw new Error(`http ${res.status}`);
         ab = await res.arrayBuffer();
       }
-      const buf = await ctx.decodeAudioData(ab);
+      // AudioContext.decodeAudioData() otherwise resamples every file to the
+      // output device (usually 48 kHz), undoing the RAM benefit of our 24 kHz
+      // ambience masters. Decode through a rate-specific OfflineAudioContext;
+      // AudioBufferSourceNode resamples the compact buffer only while playing.
+      const rate = def.decodeRate ?? decodeRate(key, ctx.sampleRate);
+      let decoder = decoderContexts.get(rate);
+      if (!decoder) {
+        const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        decoder = OfflineContext ? new OfflineContext(1, 1, rate) : ctx;
+        decoderContexts.set(rate, decoder);
+      }
+      const buf = await decoder.decodeAudioData(ab);
       const { rms, peak } = analyze(buf);
       let gain = rms > 0.0001 ? targetRms(key, def) / rms : 1;
       gain = Math.min(gain, 6, peak > 0.0001 ? 0.95 / peak : 6);

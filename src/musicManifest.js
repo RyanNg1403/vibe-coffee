@@ -18,4 +18,8 @@ export const MUSIC_MANIFEST = {
     { id: 'busted-jazz', title: "Busted Jazz", artist: "HoliznaCC0", url: '/music/busted-jazz.ogg', duration: 80 },
     { id: 'cellar-door', title: "Cellar Door", artist: "HoliznaCC0", url: '/music/cellar-door.ogg', duration: 80 },
   ],
+  terrace: [
+    { id: 'airport-lounge', title: "Airport Lounge", artist: "Kevin MacLeod", url: '/music/airport-lounge.ogg', duration: 70 },
+    { id: 'everything', title: "Everything You Ever Dreamed.", artist: "HoliznaCC0", url: '/music/everything.ogg', duration: 80 },
+  ],
 };

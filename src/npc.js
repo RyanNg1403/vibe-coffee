@@ -30,6 +30,20 @@ const IMPORTED_HAIR = [0x17120f, 0x2b2019, 0x49301f, 0x6a4930, 0x8a8177];
 const EYE_MAT = new THREE.MeshStandardMaterial({ color: 0x110e0c, roughness: 0.3 });
 const EYE_WHITE_MAT = new THREE.MeshPhysicalMaterial({ color: 0xf4eee7, roughness: 0.35, clearcoat: 0.15 });
 
+function disposeOwnedObject(root) {
+  root?.traverse?.((object) => {
+    if (object.geometry && !object.geometry.userData.vibeShared) object.geometry.dispose();
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (!material) continue;
+      for (const value of Object.values(material)) {
+        if (value?.isTexture && !value.userData.vibeShared) value.dispose();
+      }
+      if (!material.userData.vibeShared) material.dispose();
+    }
+  });
+}
+
 const _clothTextures = [];
 function clothTexture(style = 0) {
   if (_clothTextures[style]) return _clothTextures[style];
@@ -64,6 +78,7 @@ function clothTexture(style = 0) {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(style === 1 ? 2 : 4, 6);
   texture.anisotropy = 2;
+  texture.userData.vibeShared = true;
   _clothTextures[style] = texture;
   return texture;
 }
@@ -92,6 +107,7 @@ function hairStrandTexture() {
   _hairTex = new THREE.CanvasTexture(c);
   _hairTex.colorSpace = THREE.SRGBColorSpace;
   _hairTex.wrapS = _hairTex.wrapT = THREE.RepeatWrapping;
+  _hairTex.userData.vibeShared = true;
   return _hairTex;
 }
 
@@ -373,6 +389,7 @@ function personBlobTexture() {
   g.fillStyle = grad;
   g.fillRect(0, 0, 64, 64);
   _blobTex = new THREE.CanvasTexture(c);
+  _blobTex.userData.vibeShared = true;
   return _blobTex;
 }
 
@@ -1129,10 +1146,7 @@ class NPC {
   _clearProps() {
     for (const prop of this.props) {
       prop.parent?.remove(prop);
-      prop.traverse?.((o) => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) o.material.dispose();
-      });
+      disposeOwnedObject(prop);
     }
     this.props = [];
     this.isTyping = false;
@@ -1145,10 +1159,7 @@ class NPC {
     phone.parent?.remove(phone);
     const index = this.props.indexOf(phone);
     if (index >= 0) this.props.splice(index, 1);
-    phone.traverse?.((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) o.material.dispose();
-    });
+    disposeOwnedObject(phone);
     this.queuePhone = null;
   }
 
@@ -1703,10 +1714,7 @@ class NPC {
     this._clearProps();
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
-    this.mesh.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
-    });
+    disposeOwnedObject(this.mesh);
   }
 }
 
@@ -1845,10 +1853,7 @@ class Barista {
   dispose() {
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
-    this.mesh.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
-    });
+    disposeOwnedObject(this.mesh);
   }
 }
 
@@ -1975,10 +1980,7 @@ class OutsideLife {
       if (walker.avatar) {
         walker.avatar.dispose();
       } else {
-        walker.mesh.traverse((o) => {
-          if (o.geometry) o.geometry.dispose();
-          if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
-        });
+        disposeOwnedObject(walker.mesh);
       }
     }
     this.walkers = [];

@@ -10,6 +10,9 @@ import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
 import { loadModelLibrary, cloneModel } from './modelLoader.js';
+import { loadPreferences, savePreferences } from './preferences.js';
+
+const preferences = loadPreferences();
 
 // ---------- renderer / scene ----------
 
@@ -34,6 +37,10 @@ renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+// EffectComposer issues several renderer calls per frame. Disable Three's
+// per-call reset so diagnostics capture the complete frame instead of only the
+// final fullscreen output pass.
+renderer.info.autoReset = false;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.05, 60);
@@ -114,7 +121,7 @@ const audio = new CafeAudio();
 
 let cafe = null;
 let crowd = null;
-let currentThemeIndex = 0;
+let currentThemeIndex = preferences.cafeIndex;
 let seatIndex = -1;
 let mode = 'seated'; // 'seated' | 'walking'
 const walkPos = new THREE.Vector3();
@@ -216,12 +223,14 @@ function defaultSeat() {
 // ---------- scene switching ----------
 
 let loadToken = 0;
-let variantOn = false;
+let variantOn = preferences.variantOn;
 let lastModels = null;
 let playerCup = null;
 let playerLaptop = null;
 let orderPending = false;
-let currentTheme = THEMES[0];
+let currentTheme = variantOn && THEMES[currentThemeIndex].variant
+  ? { ...THEMES[currentThemeIndex], ...THEMES[currentThemeIndex].variant }
+  : THEMES[currentThemeIndex];
 function activeTheme(index = currentThemeIndex) {
   const base = THEMES[index];
   if (index === currentThemeIndex) return currentTheme;
@@ -292,6 +301,7 @@ async function loadTheme(index) {
 
 document.getElementById('variant-btn')?.addEventListener('click', () => {
   variantOn = !variantOn;
+  persistPreferences();
   loadTheme(currentThemeIndex);
 });
 
@@ -367,7 +377,7 @@ function makeMacBook() {
   return g;
 }
 
-let laptopOn = false;
+let laptopOn = preferences.laptopOn;
 function placePlayerLaptop() {
   if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
   if (!laptopOn || seatIndex < 0 || !cafe) return;
@@ -391,6 +401,8 @@ document.getElementById('laptop-btn')?.addEventListener('click', () => {
   laptopOn = !laptopOn;
   placePlayerLaptop();
   document.getElementById('laptop-btn').classList.toggle('on', laptopOn);
+  if (!laptopOn) audio.stopPlayerTyping();
+  persistPreferences();
   toast(laptopOn ? 'MacBook out — focus time 💻' : 'laptop packed away');
 });
 
@@ -533,6 +545,13 @@ function pickSeat() {
   seatHits.length = 0;
   raycaster.intersectObjects(cafe.seatMeshes, true, seatHits);
   for (const h of seatHits) {
+    if (h.object.isInstancedMesh && h.instanceId !== undefined) {
+      const index = h.object.userData.seatIndices?.[h.instanceId];
+      if (index !== undefined) {
+        seatHits.length = 0;
+        return index;
+      }
+    }
     let o = h.object;
     while (o && o.userData.seatIndex === undefined) o = o.parent;
     if (o) {
@@ -558,7 +577,11 @@ function toast(msg) {
 
 document.querySelectorAll('.loc-btn:not(#variant-btn)').forEach((b, i) => {
   b.addEventListener('click', () => {
-    if (i !== currentThemeIndex) loadTheme(i);
+    if (i !== currentThemeIndex) {
+      currentThemeIndex = i;
+      persistPreferences();
+      loadTheme(i);
+    }
   });
 });
 
@@ -569,6 +592,32 @@ document.getElementById('walk-btn').addEventListener('click', () => {
 
 const musicToggle = document.getElementById('music-toggle');
 const trackStyle = document.getElementById('track-style');
+const musicVolume = document.getElementById('music-vol');
+const ambienceVolume = document.getElementById('amb-vol');
+const voicesVolume = document.getElementById('voices-vol');
+musicVolume.value = String(preferences.musicVolume);
+ambienceVolume.value = String(preferences.ambienceVolume);
+voicesVolume.value = String(preferences.voicesVolume);
+musicToggle.classList.toggle('on', preferences.musicOn);
+musicToggle.textContent = preferences.musicOn ? '♪ music on' : '♪ music off';
+musicToggle.setAttribute('aria-pressed', String(preferences.musicOn));
+document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
+audio.setMusicVolume(preferences.musicVolume);
+audio.setAmbienceVolume(preferences.ambienceVolume);
+audio.setVoicesVolume(preferences.voicesVolume);
+
+function persistPreferences() {
+  savePreferences({
+    musicVolume: Number(musicVolume.value),
+    ambienceVolume: Number(ambienceVolume.value),
+    voicesVolume: Number(voicesVolume.value),
+    musicOn: musicToggle.classList.contains('on'),
+    cafeIndex: currentThemeIndex,
+    variantOn,
+    qualityMode,
+    laptopOn,
+  });
+}
 window.addEventListener('cafe-track-change', (e) => {
   if (!trackStyle) return;
   if (e.detail.recorded) {
@@ -584,11 +633,12 @@ musicToggle.addEventListener('click', () => {
   audio.setMusicOn(on);
   musicToggle.textContent = on ? '♪ music on' : '♪ music off';
   musicToggle.setAttribute('aria-pressed', String(on));
+  persistPreferences();
 });
 
 const qualityToggle = document.getElementById('quality-toggle');
 const QUALITY_MODES = ['auto', 'detail', 'smooth'];
-let qualityMode = 'auto';
+let qualityMode = preferences.qualityMode;
 let autoEffectLevel = 1;
 let effectLevel = 1;
 let shadowInterval = 1 / 20;
@@ -626,20 +676,26 @@ qualityToggle.addEventListener('click', () => {
     applyEffectLevel(autoEffectLevel);
   }
   renderQualityMode();
+  persistPreferences();
   toast(qualityMode === 'auto'
     ? 'quality will adapt to keep the café smooth'
     : `quality locked to ${qualityMode}`);
 });
 renderQualityMode();
+if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
+if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(0.9, MAX_PIXEL_RATIO));
 
-document.getElementById('music-vol').addEventListener('input', (e) => {
+musicVolume.addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
+  persistPreferences();
 });
-document.getElementById('amb-vol').addEventListener('input', (e) => {
+ambienceVolume.addEventListener('input', (e) => {
   audio.setAmbienceVolume(parseFloat(e.target.value));
+  persistPreferences();
 });
-document.getElementById('voices-vol').addEventListener('input', (e) => {
+voicesVolume.addEventListener('input', (e) => {
   audio.setVoicesVolume(parseFloat(e.target.value));
+  persistPreferences();
 });
 
 // focus timer (pomodoro-style 25/5)
@@ -663,11 +719,13 @@ function renderTimer() {
 }
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
+  if (!timerRunning) audio.stopPlayerTyping();
   timerBtn.textContent = timerRunning ? '❚❚' : '▶';
   timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = 25 * 60;
+  audio.stopPlayerTyping();
   timerBtn.textContent = '▶';
   timerBtn.setAttribute('aria-label', 'Start focus timer');
   renderTimer();
@@ -680,6 +738,9 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   overlay.classList.add('hidden');
   overlay.setAttribute('aria-hidden', 'true');
   audio.start(activeTheme());
+  audio.setMusicVolume(Number(musicVolume.value));
+  audio.setAmbienceVolume(Number(ambienceVolume.value));
+  audio.setVoicesVolume(Number(voicesVolume.value));
   audio.setMusicOn(musicToggle.classList.contains('on'));
 });
 
@@ -711,6 +772,11 @@ let shadowAcc = 1 / 30;
 let perfSampleTime = 0;
 let perfSampleFrames = 0;
 let qualityCooldown = 0;
+let nextPlayerTypingAt = 0;
+let playerTypingActive = false;
+let metricsSyncAt = 0;
+const playerLaptopWorld = new THREE.Vector3();
+const lastRenderStats = { calls: 0, triangles: 0, points: 0, lines: 0 };
 const SIM_STEP = 1 / 30;
 // Catch-up budget after a slow frame or a throttled tab. Crowd updates are
 // renderer-free math (~20 NPCs), so even the full 3 s budget costs only a few
@@ -887,11 +953,26 @@ function frame() {
     timerLeft -= rawDt;
     if (timerLeft <= 0) {
       timerBreak = !timerBreak;
+      if (timerBreak) audio.stopPlayerTyping();
       timerLeft = (timerBreak ? 5 : 25) * 60;
       if (audio.started) { audio.playChime(); }
       toast(timerBreak ? 'Break time — stretch a little 🌿' : 'Back to focus ☕');
     }
     renderTimer();
+  }
+
+  const shouldType = timerRunning && !timerBreak && laptopOn && playerLaptop && audio.started;
+  if (shouldType) {
+    if (!playerTypingActive) nextPlayerTypingAt = elapsed + 0.8;
+    playerTypingActive = true;
+    if (elapsed >= nextPlayerTypingAt) {
+      playerLaptop.getWorldPosition(playerLaptopWorld);
+      audio.playPlayerTyping(playerLaptopWorld);
+      nextPlayerTypingAt = elapsed + 2.8 + Math.random() * 4.8;
+    }
+  } else if (playerTypingActive) {
+    playerTypingActive = false;
+    audio.stopPlayerTyping();
   }
 
   shadowAcc += rawDt;
@@ -900,16 +981,66 @@ function frame() {
     shadowAcc %= shadowInterval;
   }
 
+  renderer.info.reset();
   composer.render(dt);
+  lastRenderStats.calls = renderer.info.render.calls;
+  lastRenderStats.triangles = renderer.info.render.triangles;
+  lastRenderStats.points = renderer.info.render.points;
+  lastRenderStats.lines = renderer.info.render.lines;
+
+  if (elapsed >= metricsSyncAt && window.__vibe) {
+    metricsSyncAt = elapsed + 0.5;
+    document.documentElement.dataset.vibeMetrics = JSON.stringify(window.__vibe.metrics());
+  }
 }
 
-loadTheme(0);
+loadTheme(preferences.cafeIndex);
 frame();
 
 // tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
   audio,
   get crowd() { return crowd; },
+  metrics() {
+    let decodedAudioBytes = 0;
+    const activeGeometries = new Set();
+    const activeTextures = new Set();
+    const activeSharedTextures = new Set();
+    scene.traverse((object) => {
+      if (object.geometry) activeGeometries.add(object.geometry);
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        if (!material) continue;
+        for (const value of Object.values(material)) {
+          if (!value?.isTexture) continue;
+          activeTextures.add(value);
+          if (value.userData.vibeShared) activeSharedTextures.add(value);
+        }
+      }
+    });
+    for (const { buffer } of audio.buffers.values()) {
+      decodedAudioBytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+    }
+    return {
+      theme: currentTheme.id,
+      qualityMode,
+      pixelRatio: renderPixelRatio,
+      effects: effectLevel,
+      heapBytes: performance.memory?.usedJSHeapSize ?? null,
+      decodedAudioBytes,
+      playerTypingBursts: audio.playerTypingBursts ?? 0,
+      playerTypingActive: (audio._playerTypingNodes?.length ?? 0) > 0,
+      geometries: renderer.info.memory.geometries,
+      textures: renderer.info.memory.textures,
+      activeGeometries: activeGeometries.size,
+      activeTextures: activeTextures.size,
+      activeSharedTextures: activeSharedTextures.size,
+      calls: lastRenderStats.calls,
+      triangles: lastRenderStats.triangles,
+      points: lastRenderStats.points,
+      lines: lastRenderStats.lines,
+    };
+  },
   place(x, z, yaw, pitch = 0) {
     standUp();
     walkPos.set(x, 0, z);

@@ -162,6 +162,7 @@ const AMBIENCE_PROFILES = {
     beds: { chatter: 0.35, chatter2: 0.2, chatter_busy: 0, chatter_quiet: 0.5 },
     chatterRate: 0.98, chatterLP: 6000,
     traffic: 0.18, murmur: 0.2, stepRate: 0.85, stepVol: 0.65,
+    room: { seconds: 0.55, decay: 5.0, wet: 0.08 },
     clinkMs: [7000, 20000], typeMs: [2500, 9000],
   },
 };
@@ -1250,29 +1251,48 @@ export class CafeAudio {
     });
   }
 
-  _typeBurst(pos) {
+  _typeBurst(pos, volumeScale = 1, trackPlayer = false) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;
     if (this._buf('typing')) {
-      this._playBuf('typing', {
-        out, vol: rand(0.2, 0.4), rate: rand(0.95, 1.05),
+      const node = this._playBuf('typing', {
+        out, vol: rand(0.2, 0.4) * volumeScale, rate: rand(0.95, 1.05),
         randomSlice: true, dur: rand(1.2, 3),
       });
+      if (trackPlayer && node) this._playerTypingNodes = [node.src];
       return;
     }
     let t = this.ctx.currentTime;
     const keys = Math.floor(rand(4, 14));
+    const nodes = [];
     for (let k = 0; k < keys; k++) {
       t += rand(0.05, 0.17);
       const o = this.ctx.createOscillator();
       o.type = 'square';
       o.frequency.value = rand(1800, 2600);
       const g = this.ctx.createGain();
-      g.gain.setValueAtTime(rand(0.002, 0.007), t);
+      g.gain.setValueAtTime(rand(0.002, 0.007) * volumeScale, t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
       o.connect(g).connect(out);
       o.start(t); o.stop(t + 0.02);
+      nodes.push(o);
     }
+    if (trackPlayer) this._playerTypingNodes = nodes;
+  }
+
+  playPlayerTyping(pos) {
+    this.stopPlayerTyping();
+    // Same spatial and recorded/synth pipeline as NPC laptops, but tucked well
+    // underneath the room bed so it reads as the player's nearby keyboard.
+    this._typeBurst(pos, 0.34, true);
+    this.playerTypingBursts = (this.playerTypingBursts ?? 0) + 1;
+  }
+
+  stopPlayerTyping() {
+    for (const node of this._playerTypingNodes ?? []) {
+      try { node.stop(); } catch { /* source already ended */ }
+    }
+    this._playerTypingNodes = [];
   }
 
   _scheduleEvents() {

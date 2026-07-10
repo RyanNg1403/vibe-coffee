@@ -18,7 +18,7 @@ don't step on each other. Update Status as you go
 | | |
 |---|---|
 | **Owner** | **Claude** ✅ (self-assigned, starting immediately) |
-| **Status** | in-progress |
+| **Status** | review — audio/draw-call targets met; renderer-counter retention remains open |
 
 **Problem.** Known/suspected costs today:
 - **Decoded audio is the likely RAM heavyweight.** Ambience beds (chatter ×4,
@@ -61,18 +61,18 @@ don't step on each other. Update Status as you go
 
 | # | Feature | Owner | Status | Priority |
 |---|---------|-------|--------|----------|
-| P0 | Runtime efficiency (RAM/draw calls/leaks) | **Claude** ✅ | in-progress | P0 |
-| 1 | Preference persistence (localStorage) | **Claude** ✅ | todo | P1 |
+| P0 | Runtime efficiency (RAM/draw calls/leaks) | **Claude** ✅ | review | P0 |
+| 1 | Preference persistence (localStorage) | **Claude** ✅ | done | P1 |
 | 2 | Mobile / touch support | Team | todo | P1 |
 | 3 | Clickable world (cat, radio, chalkboard) | Team | todo | P1 |
-| 4 | MacBook typing sounds during focus | **Claude** ✅ | todo | P2 |
+| 4 | MacBook typing sounds during focus | **Claude** ✅ | done | P2 |
 | 5 | Barista table service & bussing | Team | todo | P1 |
 | 6 | NPC–environment interactions | Team | todo | P2 |
 | 7 | Dogs leave with their owners | Team | todo | P3 |
 | 8 | Seasonal particles (leaves / snow) | Team | todo | P2 |
 | 9 | Night lamp shadows (budgeted) | Team | todo | P3 |
-| 10 | Artifact: restore hero patrons | **Claude** ✅ | todo | P2 |
-| 11 | Artifact: second music track per café | **Claude** ✅ | todo | P3 |
+| 10 | Artifact: restore hero patrons | **Claude** ✅ | done | P2 |
+| 11 | Artifact: second music track per café | **Claude** ✅ | done | P3 |
 | 12 | Focus stats (pomodoro history) | Team | todo | P3 |
 
 > Note: #8 (instancing) from the original suggestion list is folded into P0
@@ -164,5 +164,27 @@ reload; no server calls; resets cleanly at midnight local time.
   measurement) before its Status flips to `done`.
 - P0 measurements get committed into this file under "Results".
 
-## Results (P0) — to be filled by Claude
-_baseline & after numbers land here._
+## Results (P0)
+
+Measured in Chrome at `quality=smooth`; audio figures are decoded PCM, not
+compressed download size.
+
+| Measurement | Baseline | This branch | Change / result |
+|---|---:|---:|---:|
+| Decoded sound-library PCM (live) | 105.35 MiB | 30.06 MiB | **−71.5%** |
+| Source-rate PCM calculation | 104.18 MiB | 28.67 MiB | **−72.5%** |
+| Busiest café render calls (Roastery) | 1,387 | 509 | **−63.3%** |
+| Standard-chair draw calls per scene pass | up to 217 | 4 | **−98.2%** |
+| Single-file artifact | heroes unavailable | 15.24 MiB | heroes visible; no Draco fetch |
+| Preference reload | none | 8/8 restored | pass |
+| Focus typing gate | none | start + immediate stop verified | pass |
+
+The ten-switch audit found that live scene ownership is stable
+(`activeTextures` 39 → 44 and `activeGeometries` 789 → 771), but Three r166's
+`renderer.info.memory` counters still rise across rebuilds (textures 833 →
+2,083; geometries 526 → 593), and a rapid no-idle JS-heap sample rose by about
+83 MiB before GC. This is why P0 remains **review** rather than being marked
+done: the audio and draw-call acceptance targets are met, but the strict
+renderer-counter / heap acceptance target is not yet proven. The next pass
+should isolate the renderer texture-cache variants or move to a newer Three
+revision while preserving the artifact's fetch-free model loader.
