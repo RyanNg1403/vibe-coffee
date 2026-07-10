@@ -1066,7 +1066,11 @@ class Barista {
         this.avatar.setMode('work');
         if (!this.espressoPlayed) {
           this.espressoPlayed = true;
-          if (this.sim.audio?.started) this.sim.audio.playEspresso();
+          if (this.sim.audio?.started) {
+            const a = this.sim.audio;
+            a.playGrinder(this.sim.cafe.nav.machineWorld);
+            a._timer(() => a.playEspresso(), 2300);
+          }
         }
       } else if (this.sim.ordering) {
         this.mesh.rotation.y = 0;
@@ -1089,7 +1093,11 @@ class Barista {
         p.armR.rotation.x = -0.7 + Math.cos(t * 2.7) * 0.25;
         if (!this.espressoPlayed) {
           this.espressoPlayed = true;
-          if (this.sim.audio?.started) this.sim.audio.playEspresso();
+          if (this.sim.audio?.started) {
+            const a = this.sim.audio;
+            a.playGrinder(this.sim.cafe.nav.machineWorld);
+            a._timer(() => a.playEspresso(), 2300);
+          }
         }
       } else if (this.sim.ordering) {
         // face the customer, take the order
@@ -1377,8 +1385,11 @@ export class CrowdSim {
       this.brewT += dt;
       if (this.brewT > this.brewDuration) {
         this.brewFor = null;
-        // the drink gets its final pour as it's handed over
-        if (this.audio?.started) this.audio.playPour(this.cafe.nav.machineWorld);
+        // the drink gets its final pour and an "order up" ding as it's handed over
+        if (this.audio?.started) {
+          this.audio.playPour(this.cafe.nav.machineWorld);
+          if (Math.random() < 0.6) this.audio.playOrderUp(this.cafe.nav.pickup);
+        }
       }
     }
 

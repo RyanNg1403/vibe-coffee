@@ -707,12 +707,19 @@ export class CafeAudio {
     };
     drop();
 
-    // far-off thunder, rarely
+    // far-off thunder, rarely — the rain leans in just before the sky answers
     const thunder = () => {
       if (!this.ctx || !this.rainNodes) return;
       if (this.rainNodes.master.gain.value > 0.05 && Math.random() < 0.5) {
+        const t0 = this.ctx.currentTime;
+        master.gain.cancelScheduledValues(t0);
+        master.gain.setTargetAtTime(1.7, t0, 1.7);
+        master.gain.setTargetAtTime(1, t0 + 8, 2.8);
         if (this._buf('thunder')) {
-          this._playBuf('thunder', { out: master, vol: rand(0.4, 0.8), rate: rand(0.88, 1.04) });
+          this._playBuf('thunder', {
+            out: master, vol: rand(0.4, 0.8), rate: rand(0.88, 1.04),
+            when: t0 + rand(3, 4.5),
+          });
           this._timer(thunder, rand(35000, 120000));
           return;
         }
@@ -1043,6 +1050,83 @@ export class CafeAudio {
     this._playBuf('pour', { out, vol: 0.4, rate: rand(0.95, 1.05) });
   }
 
+  // coffee grinder: motor growl + beans rattling through the burrs
+  playGrinder(pos) {
+    if (!this.ctx) return;
+    const out = pos ? this._panner(pos.x, 1.1, pos.z) : this.ambienceBus;
+    const t = this.ctx.currentTime;
+    const dur = rand(1.4, 2.4);
+    const motor = this.ctx.createOscillator();
+    motor.type = 'sawtooth';
+    motor.frequency.setValueAtTime(82, t);
+    motor.frequency.linearRampToValueAtTime(rand(96, 110), t + 0.25);
+    motor.frequency.setValueAtTime(88, t + dur - 0.15);
+    const mg = this.ctx.createGain();
+    mg.gain.setValueAtTime(0, t);
+    mg.gain.linearRampToValueAtTime(0.016, t + 0.08);
+    mg.gain.setValueAtTime(0.016, t + dur - 0.12);
+    mg.gain.linearRampToValueAtTime(0, t + dur);
+    motor.connect(mg).connect(out);
+    motor.start(t); motor.stop(t + dur + 0.05);
+    const beans = this._noiseSource(this._noiseBuf);
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.7;
+    const bg = this.ctx.createGain();
+    bg.gain.setValueAtTime(0, t);
+    bg.gain.linearRampToValueAtTime(0.05, t + 0.12);
+    bg.gain.linearRampToValueAtTime(0.02, t + dur * 0.7); // hopper empties out
+    bg.gain.linearRampToValueAtTime(0, t + dur);
+    beans.connect(bp).connect(bg).connect(out);
+    beans.start(t); beans.stop(t + dur + 0.05);
+  }
+
+  // dishes being washed behind the counter: a couple of soft ceramic knocks
+  playDishes(pos) {
+    if (!this.ctx) return;
+    const out = pos ? this._panner(pos.x, 0.8, pos.z) : this.ambienceBus;
+    if (this._buf('cup_clinks')) {
+      this._playBuf('cup_clinks', {
+        out, vol: rand(0.25, 0.45), rate: rand(0.8, 0.92),
+        randomSlice: true, dur: rand(1.2, 2.4),
+      });
+      return;
+    }
+    let t = this.ctx.currentTime;
+    for (let k = 0; k < Math.floor(rand(2, 5)); k++) {
+      t += rand(0.1, 0.5);
+      const o = this.ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = rand(1400, 2600);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(rand(0.006, 0.015), t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      o.connect(g).connect(out);
+      o.start(t); o.stop(t + 0.12);
+    }
+  }
+
+  // "order up!" — a bright two-note counter bell when a drink is ready
+  playOrderUp(pos) {
+    if (!this.ctx) return;
+    const out = pos ? this._panner(pos.x, 1.2, pos.z) : this.ambienceBus;
+    const t = this.ctx.currentTime;
+    [[1560, 0], [2080, 0.16]].forEach(([f, d]) => {
+      const o = this.ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = f;
+      const o2 = this.ctx.createOscillator();
+      o2.type = 'sine'; o2.frequency.value = f * 2.7; // bell partial
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.02, t + d);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.7);
+      const g2 = this.ctx.createGain();
+      g2.gain.setValueAtTime(0.006, t + d);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.3);
+      o.connect(g).connect(out);
+      o2.connect(g2).connect(out);
+      o.start(t + d); o.stop(t + d + 0.75);
+      o2.start(t + d); o2.stop(t + d + 0.35);
+    });
+  }
+
   _typeBurst(pos) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.9, pos.z) : this.ambienceBus;
@@ -1075,6 +1159,15 @@ export class CafeAudio {
       const [a, b] = this._profile().clinkMs;
       this._timer(clinks, rand(a, b));
     };
+    // somebody's always washing up behind the counter
+    const dishes = () => {
+      if (Math.random() < 0.7) {
+        const c = this.anchors?.counter;
+        this.playDishes(c ? { x: c.x + rand(-1.5, 1.5), z: c.z } : null);
+      }
+      this._timer(dishes, rand(24000, 70000));
+    };
+    this._timer(dishes, 15000);
     const typing = () => {
       if (this.typingSpots.length) this._typeBurst(pick(this.typingSpots));
       const [a, b] = this._profile().typeMs;
