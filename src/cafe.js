@@ -2835,7 +2835,10 @@ export function buildCafe(theme, models = null) {
 
   // the café cat, asleep on a rug
   let cat = null;
-  const catModel = theme.cat !== undefined ? cloneModel(models, 'cat') : null;
+  // the rigged pets system (pets.js) owns the cat when its model is present;
+  // these built-in versions remain only as a fallback for missing assets
+  const petsHandleCat = !!models?.get?.('pet_cat');
+  const catModel = theme.cat !== undefined && !petsHandleCat ? cloneModel(models, 'cat') : null;
   if (catModel) {
     cat = new THREE.Group();
     cat.add(catModel);
@@ -2857,7 +2860,7 @@ export function buildCafe(theme, models = null) {
     cat.position.set(4.9, 0.02, -0.2);
     cat.rotation.y = rand(0, Math.PI * 2);
     group.add(cat);
-  } else if (theme.cat !== undefined) {
+  } else if (theme.cat !== undefined && !petsHandleCat) {
     cat = new THREE.Group();
     const furMat = new THREE.MeshStandardMaterial({ color: theme.cat, roughness: 0.95 });
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), furMat);

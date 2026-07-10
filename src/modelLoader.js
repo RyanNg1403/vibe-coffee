@@ -49,6 +49,9 @@ const NORMALIZE = {
   plant_small: { height: 0.35 },
   cat: { height: 0.32 },
   patron_seated_female: { height: 1.7 },
+  // rigged pets: skinned + animated, but not part of the human casting pools
+  pet_cat: { height: 0.34, pet: true },
+  pet_dog: { height: 0.55, pet: true },
   // decor expansion
   cactus_pot: { height: 0.34 },
   crate: { height: 0.42 },
@@ -127,11 +130,13 @@ export function loadModelLibrary() {
         if (!res.ok) throw new Error(`http ${res.status}`);
         gltf = await loader.parseAsync(await res.arrayBuffer(), '');
       }
-      const isChar = specFor(key).character;
+      const spec = specFor(key);
+      const isChar = spec.character;
       models.set(key, {
         template: normalize(gltf.scene, key),
-        animations: isChar ? gltf.animations : null,
+        animations: (isChar || spec.pet) ? gltf.animations : null,
         character: !!isChar,
+        pet: !!spec.pet,
         hasSit: !!(isChar && gltf.animations?.some((a) => a.name.toLowerCase().includes('sit'))),
       });
     } catch (e) {
@@ -157,7 +162,23 @@ export function loadModelLibrary() {
 // static props: plain clone
 export function cloneModel(models, key) {
   const entry = models?.get(key);
-  return entry && !entry.character ? entry.template.clone(true) : null;
+  return entry && !entry.character && !entry.pet ? entry.template.clone(true) : null;
+}
+
+// rigged pets: skeleton-aware clone + their animation clips
+export function clonePet(models, key) {
+  const entry = models?.get(key);
+  if (!entry || !entry.pet) return null;
+  const mesh = skeletonClone(entry.template);
+  const skeletons = new Map();
+  mesh.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const sig = o.skeleton.bones.map((b) => b.uuid).join('/');
+    const shared = skeletons.get(sig);
+    if (shared) o.bind(shared, o.bindMatrix);
+    else skeletons.set(sig, o.skeleton);
+  });
+  return { mesh, animations: entry.animations };
 }
 
 // rigged characters: skeleton-aware clone + their animation clips

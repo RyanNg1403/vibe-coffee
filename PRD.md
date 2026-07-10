@@ -68,7 +68,7 @@ don't step on each other. Update Status as you go
 | 4 | MacBook typing sounds during focus | **Claude** ✅ | done | P2 |
 | 5 | Barista table service & bussing | Team | todo | P1 |
 | 6 | NPC–environment interactions | Team | todo | P2 |
-| 7 | Dogs leave with their owners | Team | todo | P3 |
+| 7 | Dogs leave with their owners | **Claude** ✅ | done | P3 |
 | 8 | Seasonal particles (leaves / snow) | Team | todo | P2 |
 | 9 | Night lamp shadows (budgeted) | Team | todo | P3 |
 | 10 | Artifact: restore hero patrons | **Claude** ✅ | done | P2 |
@@ -128,7 +128,7 @@ art (look, head tilt), or the cat (crouch + pet if the cat is napping).
 **AC:** at most one NPC per point of interest at a time; interactions abort
 cleanly if the café switches; no collision regressions.
 
-### 7. Dogs leave with their owners — Team
+### 7. Dogs leave with their owners — **Claude** — done (folded into the pets system)
 The dog prop becomes a companion: walks in beside its owner to the seat,
 lies down, gets up and follows the owner out on departure. **AC:** dog never
 blocks other walkers (no collider, purely visual); despawns with owner; ≤ 1

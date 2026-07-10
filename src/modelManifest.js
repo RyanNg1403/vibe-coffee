@@ -32,6 +32,8 @@ export const MODEL_MANIFEST = {
   pancakes: { url: '/models/pancakes.glb' },
   patron_seated_female: { url: '/models/patron_seated_female.glb' },
   pendant_lamp: { url: '/models/pendant_lamp.glb' },
+  pet_cat: { url: '/models/pet_cat.glb' },
+  pet_dog: { url: '/models/pet_dog.glb' },
   plant: { url: '/models/plant.glb' },
   plant_small: { url: '/models/plant_small.glb' },
   radio: { url: '/models/radio.glb' },
