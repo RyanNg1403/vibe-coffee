@@ -821,6 +821,16 @@ export function buildCafe(theme, models = null) {
   back2.position.set(-W / 2 - 14, 4.2, 0);
   back2.rotation.y = Math.PI / 2;
   group.add(back2);
+  if (theme.openAir) {
+    // the terrace is open on every side — close the horizon all the way round
+    const back3 = new THREE.Mesh(new THREE.PlaneGeometry(D * 3.2, 13), outMat);
+    back3.position.set(W / 2 + 14, 4.2, 0);
+    back3.rotation.y = -Math.PI / 2;
+    group.add(back3);
+    const back4 = new THREE.Mesh(new THREE.PlaneGeometry(W * 3.2, 13), outMat);
+    back4.position.set(0, 4.2, -D / 2 - 17);
+    group.add(back4);
+  }
 
   // ---------- a real street outside the windows ----------
   let passingCar = null;

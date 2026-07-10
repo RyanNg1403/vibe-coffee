@@ -256,7 +256,19 @@ class SkinnedAvatar {
     // seated hold so the character never pops upright at the loop seam
     let sitClip = find('sit');
     if (sitClip && sitClip.duration > 2.5) {
-      sitClip = THREE.AnimationUtils.subclip(sitClip, 'sit_hold', 21, Math.floor(sitClip.duration * 30) - 1, 30);
+      const trimmed = THREE.AnimationUtils.subclip(sitClip, 'sit_hold', 21, Math.floor(sitClip.duration * 30) - 1, 30);
+      if (trimmed.tracks.length > 4 && trimmed.duration > 0.1) {
+        sitClip = trimmed;
+      } else {
+        // sparse keyframes (optimized asset): the trim window caught nothing.
+        // The hold section is constant anyway, so freeze the mid-clip pose.
+        const tMid = sitClip.duration * 0.6;
+        const tracks = sitClip.tracks.map((tr) => {
+          const v = tr.createInterpolant().evaluate(tMid);
+          return new tr.constructor(tr.name, [0], Array.from(v));
+        });
+        sitClip = new THREE.AnimationClip('sit_hold', 0.5, tracks);
+      }
     }
     this.actions = {
       idle: mk(find('idle')),
