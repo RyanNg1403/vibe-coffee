@@ -18,7 +18,7 @@ don't step on each other. Update Status as you go
 | | |
 |---|---|
 | **Owner** | **Claude** ✅ (self-assigned, starting immediately) |
-| **Status** | in-progress |
+| **Status** | **done** — see Results at the bottom of this file |
 
 **Problem.** Known/suspected costs today:
 - **Decoded audio is the likely RAM heavyweight.** Ambience beds (chatter ×4,
@@ -61,7 +61,7 @@ don't step on each other. Update Status as you go
 
 | # | Feature | Owner | Status | Priority |
 |---|---------|-------|--------|----------|
-| P0 | Runtime efficiency (RAM/draw calls/leaks) | **Claude** ✅ | in-progress | P0 |
+| P0 | Runtime efficiency (RAM/draw calls/leaks) | **Claude** ✅ | done | P0 |
 | 1 | Preference persistence (localStorage) | **Claude** ✅ | todo | P1 |
 | 2 | Mobile / touch support | Team | todo | P1 |
 | 3 | Clickable world (cat, radio, chalkboard) | Team | todo | P1 |
@@ -164,5 +164,43 @@ reload; no server calls; resets cleanly at midnight local time.
   measurement) before its Status flips to `done`.
 - P0 measurements get committed into this file under "Results".
 
-## Results (P0) — to be filled by Claude
-_baseline & after numbers land here._
+## Results (P0) — measured 2026-07-10, Chromium headless, 960×600
+
+| Metric | Baseline | After | Δ | AC |
+|---|---|---|---|---|
+| Decoded audio PCM | 100.5 MB | 38.7 MB | **−61.5 %** | ≥ 60 % ✅ |
+| Draw calls / frame — Garden Terrace (busiest) | 2054 | 1219 | **−41 %** | ≥ 30 % ✅ |
+| Draw calls / frame — Golden Hour | 1833 | 1137 | −38 % | ✅ |
+| Draw calls / frame — Roastery / Midnight | 1939 / 1973 | 1152 / 1205 | −41 % / −39 % | ✅ |
+| GL textures after 10 café switches | 176 → 1579 (**+1403 leaked**) | 69 → 73 (**+4**) | leak eliminated | ± 5 ✅ |
+| JS heap after 10 switches | — | 110 → 116 MB (+6 MB) | | < 10 MB ✅ |
+| GL geometries per café | ~712 | ~440 | −38 % | (bonus) |
+| Skeleton bone textures per crowd | ~130 (10 per patron) | ~20 (1–2 per patron) | −85 % | (bonus) |
+
+**What was done.**
+1. **Audio diet** (`soundLoader.js`): all decoded buffers pass through an
+   `OfflineAudioContext` resample on load — chatter/rain beds stereo 22.05 kHz,
+   traffic beds mono 22.05 kHz (they feed a `PannerNode`, which downmixes to
+   mono anyway, so their stereo bytes were never audible), one-shots mono
+   24 kHz. Verified by RMS A/B — no audible regression.
+2. **Texture leak, root-caused with GL-level instrumentation**
+   (create/delete/upload hooks + birth-epoch tracking):
+   - `SkeletonUtils.clone` gives every `SkinnedMesh` its own `Skeleton` copy —
+     ten bone textures per patron, re-uploaded every frame, never disposed on
+     despawn (~125 leaked GL textures per café switch). Fix: re-share one
+     skeleton per bone set after cloning (`modelLoader.cloneCharacter`) and
+     dispose skeletons in `SkinnedAvatar.dispose`.
+   - The café sun's **shadow map** (1024–2048 px) leaked once per switch —
+     `dispose()` freed geometry/materials but never called `Light.dispose()`.
+   - Candle flames each allocated a private steam-puff texture; now one shared
+     cached texture across all cafés.
+   - 24-switch soak: texture count flat (63–78 band, no trend), heap flat.
+3. **Draw-call reduction** (`cafe.js: mergeStaticDecor`): at build time, static
+   decor merges into one mesh per material; untextured flat-colour standard
+   materials additionally merge **across** material instances by baking colour
+   into vertex colours (bucketed by quantised roughness/metalness/shadow
+   flags). Skips: animated roots (car, cat, clock, fan, vinyl, neon),
+   clickable chairs (seat raycast), transparent materials, quantised-attribute
+   GLB props. Runs before first render so source geometries never reach the
+   GPU. Verified: all 4 cafés screenshot-compared, seat picking + laptop
+   toggle functional.

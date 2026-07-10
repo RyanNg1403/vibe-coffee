@@ -92,6 +92,7 @@ function hairStrandTexture() {
   _hairTex = new THREE.CanvasTexture(c);
   _hairTex.colorSpace = THREE.SRGBColorSpace;
   _hairTex.wrapS = _hairTex.wrapT = THREE.RepeatWrapping;
+  _hairTex.userData.shared = true; // one copy for the whole cast
   return _hairTex;
 }
 
@@ -676,6 +677,12 @@ class SkinnedAvatar {
     this._ownedMaterials.forEach((material) => material.dispose());
     this._ownedGeometries.clear();
     this._ownedMaterials.clear();
+    // Skeletons (and their GPU bone textures) belong to this clone, not the
+    // library template — leaving them undisposed leaked one bone texture per
+    // skinned part every time a patron left or the café switched.
+    const skeletons = new Set();
+    this.inner.traverse((o) => { if (o.isSkinnedMesh) skeletons.add(o.skeleton); });
+    skeletons.forEach((skeleton) => skeleton.dispose());
   }
 }
 
@@ -1131,7 +1138,11 @@ class NPC {
       prop.parent?.remove(prop);
       prop.traverse?.((o) => {
         if (o.geometry) o.geometry.dispose();
-        if (o.material) o.material.dispose();
+        if (o.material) {
+          // sketch pages / board grids carry one-off canvas textures
+          if (o.material.map && !o.material.map.userData?.shared) o.material.map.dispose();
+          o.material.dispose();
+        }
       });
     }
     this.props = [];
@@ -1705,7 +1716,11 @@ class NPC {
     this.mesh.parent?.remove(this.mesh);
     this.mesh.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
-      if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
+      if (o.material && o.material.map !== _blobTex) {
+        if (o.material.map && !o.material.map.userData?.shared) o.material.map.dispose();
+        if (o.material.bumpMap && !o.material.bumpMap.userData?.shared) o.material.bumpMap.dispose();
+        o.material.dispose?.();
+      }
     });
   }
 }

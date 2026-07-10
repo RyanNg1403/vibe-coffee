@@ -87,7 +87,11 @@ function normalize(scene, key) {
       o.castShadow = true;
       o.receiveShadow = true;
       // avoid texture shimmer/moire on oblique surfaces (paintings, labels)
-      if (o.material?.map) o.material.map.anisotropy = 8;
+      if (o.material?.map) {
+        o.material.map.anisotropy = 8;
+        // library textures outlive every café — clones must never dispose them
+        o.material.map.userData.shared = true;
+      }
     }
   });
   return wrapper;
@@ -136,7 +140,21 @@ export function cloneModel(models, key) {
 export function cloneCharacter(models, key) {
   const entry = models?.get(key);
   if (!entry || !entry.character) return null;
-  return { mesh: skeletonClone(entry.template), animations: entry.animations };
+  const mesh = skeletonClone(entry.template);
+  // SkeletonUtils.clone gives every SkinnedMesh its own Skeleton copy even
+  // when the source parts share one, so a ten-part character pays for ten
+  // bone textures and ten matrix passes per frame. Re-share one skeleton per
+  // identical bone set (bind inverses included, so distinct skins stay apart).
+  const skeletons = new Map();
+  mesh.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const sig = o.skeleton.bones.map((b) => b.uuid).join('/')
+      + '#' + o.skeleton.boneInverses.map((m) => m.elements.join(',')).join(';');
+    const shared = skeletons.get(sig);
+    if (shared) o.bind(shared, o.bindMatrix);
+    else skeletons.set(sig, o.skeleton);
+  });
+  return { mesh, animations: entry.animations };
 }
 
 export function characterKeys(models) {

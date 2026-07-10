@@ -44,6 +44,27 @@ function dataUriToArrayBuffer(uri) {
   return bytes.buffer;
 }
 
+// Decoded 44.1 kHz stereo PCM is the app's RAM heavyweight (~100 MB total).
+// Ambience beds keep their stereo width but drop to 22.05 kHz (they all sit
+// under low-pass filters); one-shots collapse to mono 24 kHz. The traffic
+// beds also go mono: they play through a PannerNode, which downmixes its
+// input to mono anyway, so their stereo bytes were never audible. WebAudio
+// resamples transparently at playback, and the synth layers are unaffected.
+function shrinkBuffer(buffer, key) {
+  const longBed = BED_KEYS.has(key) || EXTERIOR_KEYS.has(key);
+  const keepStereo = longBed && !key.startsWith('traffic');
+  const rate = longBed ? 22050 : 24000;
+  const channels = keepStereo ? Math.min(2, buffer.numberOfChannels) : 1;
+  if (buffer.sampleRate <= rate && buffer.numberOfChannels <= channels) return buffer;
+  const frames = Math.max(1, Math.ceil(buffer.duration * rate));
+  const off = new OfflineAudioContext(channels, frames, rate);
+  const src = off.createBufferSource();
+  src.buffer = buffer;
+  src.connect(off.destination); // destination channel count downmixes for us
+  src.start();
+  return off.startRendering();
+}
+
 export async function loadSoundLibrary(ctx, manifest, onLoaded) {
   const buffers = new Map();
   await Promise.all(Object.entries(manifest).map(async ([key, def]) => {
@@ -56,7 +77,7 @@ export async function loadSoundLibrary(ctx, manifest, onLoaded) {
         if (!res.ok) throw new Error(`http ${res.status}`);
         ab = await res.arrayBuffer();
       }
-      const buf = await ctx.decodeAudioData(ab);
+      const buf = await shrinkBuffer(await ctx.decodeAudioData(ab), key);
       const { rms, peak } = analyze(buf);
       let gain = rms > 0.0001 ? targetRms(key, def) / rms : 1;
       gain = Math.min(gain, 6, peak > 0.0001 ? 0.95 / peak : 6);

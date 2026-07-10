@@ -909,7 +909,24 @@ frame();
 // tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
   audio,
+  renderer,
   get crowd() { return crowd; },
+  // perf probe: draw calls, GPU object counts, decoded-audio bytes, JS heap
+  stats() {
+    let pcm = 0;
+    audio.buffers?.forEach((e) => {
+      pcm += e.buffer.length * e.buffer.numberOfChannels * 4;
+    });
+    return {
+      calls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+      geometries: renderer.info.memory.geometries,
+      textures: renderer.info.memory.textures,
+      programs: renderer.info.programs?.length ?? 0,
+      audioPcmMB: +(pcm / 1048576).toFixed(1),
+      heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null,
+    };
+  },
   place(x, z, yaw, pitch = 0) {
     standUp();
     walkPos.set(x, 0, z);
