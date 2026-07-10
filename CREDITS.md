@@ -34,6 +34,7 @@ to load) is synthesized at runtime with WebAudio.
 - **bookcase** — source metadata missing (see git history of tools/sound-credits.json)
 - **cake** — source metadata missing (see git history of tools/sound-credits.json)
 - **cakeSlice** — "Cake Birthday Slice" by Isa Lousberg — CC0 1.0 — [source](https://poly.pizza/m/YxYKsrZnwd)
+- **cat** — "Dingus the cat (a.k.a. Maxwell)" by alwayshasbean — CC BY 3.0 — [source](https://poly.pizza/m/4dXgbKLHD9)
 - **char_b** — "Animated Woman (idle/walk/run/interact/wave clips; unused clips stripped, keyframes resampled)" by Quaternius — CC0 / Public Domain — [source](https://poly.pizza/m/nIItLV9nxS)
 - **char_j** — "Man in Suit (rigged; Idle/Walk/Run/Sitting/Clapping clips)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/mQnGoME1ez)
 - **char_k** — "Animated Woman (Idle/Walking/SitIdle/PickUp clips; combat clips stripped)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/qJ2gsTUBHL)

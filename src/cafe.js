@@ -1021,6 +1021,38 @@ export function buildCafe(theme, models = null) {
   if (machineModel) {
     machineModel.position.set(-2.2, 1.06, -D / 2 + 1.15);
     group.add(machineModel);
+    // dress the plain model up: brushed steel + espresso-red panels,
+    // portafilter handles on the front, warm cups staged on top
+    machineModel.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(machineModel);
+    let biggest = null, biggestVol = 0;
+    machineModel.traverse((o) => {
+      if (!o.isMesh || !o.material?.color) return;
+      o.material = o.material.clone();
+      const b2 = new THREE.Box3().setFromObject(o);
+      const s2 = b2.getSize(new THREE.Vector3());
+      const vol = s2.x * s2.y * s2.z;
+      o.material.metalness = 0.75;
+      o.material.roughness = 0.3;
+      if (vol > biggestVol) { biggestVol = vol; biggest = o; }
+    });
+    if (biggest) {
+      biggest.material.color.set(0xa33b2e); // the classic café-red body
+      biggest.material.metalness = 0.35;
+      biggest.material.roughness = 0.45;
+    }
+    const darkM = new THREE.MeshStandardMaterial({ color: 0x24262a, roughness: 0.5 });
+    for (const hx of [-0.12, 0.08]) {
+      const handle = cyl(0.016, 0.02, 0.11, darkM, 8);
+      handle.rotation.x = Math.PI / 2 - 0.25;
+      handle.position.set(-2.2 + hx, bb.min.y + (bb.max.y - bb.min.y) * 0.3, bb.max.z + 0.05);
+      group.add(handle);
+    }
+    for (let ci = 0; ci < 3; ci++) {
+      const c2 = cyl(0.028, 0.022, 0.05, new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.5 }), 10);
+      c2.position.set(-2.32 + ci * 0.12, bb.max.y + 0.028, -D / 2 + 1.15);
+      group.add(c2);
+    }
   } else {
     const m = new THREE.Group();
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb33939, roughness: 0.3, metalness: 0.4 });
@@ -1865,7 +1897,15 @@ export function buildCafe(theme, models = null) {
 
   // the café cat, asleep on a rug
   let cat = null;
-  if (theme.cat !== undefined) {
+  const catModel = theme.cat !== undefined ? cloneModel(models, 'cat') : null;
+  if (catModel) {
+    cat = new THREE.Group();
+    cat.add(catModel);
+    cat.userData.model = catModel;
+    cat.position.set(4.9, 0.02, -0.2);
+    cat.rotation.y = rand(0, Math.PI * 2);
+    group.add(cat);
+  } else if (theme.cat !== undefined) {
     cat = new THREE.Group();
     const furMat = new THREE.MeshStandardMaterial({ color: theme.cat, roughness: 0.95 });
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), furMat);
@@ -2122,8 +2162,11 @@ export function buildCafe(theme, models = null) {
     if (cat) {
       // slow sleepy breathing, with the occasional ear twitch
       const breathe = 1 + Math.sin(t * 1.3) * 0.045;
-      cat.userData.body.scale.set(1.25, 0.62 * breathe, 1);
-      if (Math.random() < 0.002) cat.children[2].rotation.z = rand(-0.25, 0.25);
+      if (cat.userData.model) cat.userData.model.scale.y = breathe;
+      else {
+        cat.userData.body.scale.set(1.25, 0.62 * breathe, 1);
+        if (Math.random() < 0.002) cat.children[2].rotation.z = rand(-0.25, 0.25);
+      }
       // …and every so often the cat pads over to a new favourite spot
       const cu = cat.userData;
       if (cu.naptime === undefined) cu.naptime = rand(15, 45);

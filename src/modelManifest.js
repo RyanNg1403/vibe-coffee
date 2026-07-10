@@ -8,6 +8,7 @@ export const MODEL_MANIFEST = {
   bookcase: { url: '/models/bookcase.glb' },
   cake: { url: '/models/cake.glb' },
   cakeSlice: { url: '/models/cakeSlice.glb' },
+  cat: { url: '/models/cat.glb' },
   char_b: { url: '/models/char_b.glb' },
   char_j: { url: '/models/char_j.glb' },
   char_k: { url: '/models/char_k.glb' },

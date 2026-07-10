@@ -5,6 +5,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
@@ -61,6 +62,27 @@ const bloomPass = new UnrealBloomPass(
 );
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
+
+// a whisper of vignette + film grain, the "3am ambience video" finish
+const grainPass = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + uTime) * 43758.5453); }
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 d = vUv - 0.5;
+      float vig = 1.0 - dot(d, d) * 0.55;          // gentle corner falloff
+      float g = (hash(vUv * vec2(1920.0, 1080.0)) - 0.5) * 0.028;
+      gl_FragColor = vec4(c.rgb * vig + g, c.a);
+    }`,
+});
+composer.addPass(grainPass);
 
 const audio = new CafeAudio();
 
@@ -556,6 +578,7 @@ function frame() {
     renderTimer();
   }
 
+  grainPass.uniforms.uTime.value = elapsed % 10;
   composer.render();
 }
 
