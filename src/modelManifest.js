@@ -6,6 +6,7 @@ export const MODEL_MANIFEST = {
   armchair: { url: '/models/armchair.glb' },
   bar_stool: { url: '/models/bar_stool.glb' },
   bookcase: { url: '/models/bookcase.glb' },
+  cactus_pot: { url: '/models/cactus_pot.glb' },
   cake: { url: '/models/cake.glb' },
   cakeSlice: { url: '/models/cakeSlice.glb' },
   cat: { url: '/models/cat.glb' },
@@ -15,6 +16,7 @@ export const MODEL_MANIFEST = {
   char_l: { url: '/models/char_l.glb' },
   coat_rack: { url: '/models/coat_rack.glb' },
   cookie: { url: '/models/cookie.glb' },
+  crate: { url: '/models/crate.glb' },
   croissant: { url: '/models/croissant.glb' },
   cup: { url: '/models/cup.glb' },
   cupcake: { url: '/models/cupcake.glb' },
@@ -36,8 +38,10 @@ export const MODEL_MANIFEST = {
   sandwich: { url: '/models/sandwich.glb' },
   side_table: { url: '/models/side_table.glb' },
   sofa: { url: '/models/sofa.glb' },
+  table_lamp: { url: '/models/table_lamp.glb' },
   teapot: { url: '/models/teapot.glb' },
   trashcan: { url: '/models/trashcan.glb' },
+  typewriter: { url: '/models/typewriter.glb' },
   wall_shelf: { url: '/models/wall_shelf.glb' },
 };
 

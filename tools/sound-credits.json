@@ -356,5 +356,29 @@
     "creator": "alwayshasbean",
     "license": "CC BY 3.0",
     "item_url": "https://poly.pizza/m/4dXgbKLHD9"
+  },
+  "cactus_pot": {
+    "title": "Potted Plant",
+    "creator": "Kenney",
+    "license": "CC0",
+    "item_url": "https://poly.pizza/m/23Dx9CC95C"
+  },
+  "crate": {
+    "title": "Pickup Crate",
+    "creator": "Quaternius",
+    "license": "CC0",
+    "item_url": "https://poly.pizza/m/1dh0EFL5gl"
+  },
+  "table_lamp": {
+    "title": "Lamp With Shade",
+    "creator": "CreativeTrio",
+    "license": "CC0",
+    "item_url": "https://poly.pizza/m/1nKtMmYxLT"
+  },
+  "typewriter": {
+    "title": "Typewriter",
+    "creator": "jeremy",
+    "license": "CC BY 3.0",
+    "item_url": "https://poly.pizza/m/0lfEqzVkp8a"
   }
 }

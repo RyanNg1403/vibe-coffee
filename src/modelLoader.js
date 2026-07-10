@@ -48,6 +48,11 @@ const NORMALIZE = {
   plant_small: { height: 0.35 },
   cat: { height: 0.32 },
   patron_seated_female: { height: 1.7 },
+  // decor expansion
+  cactus_pot: { height: 0.34 },
+  crate: { height: 0.42 },
+  table_lamp: { height: 0.48 },
+  typewriter: { height: 0.16 },
 };
 // any key starting char_ is a rigged character
 function specFor(key) {

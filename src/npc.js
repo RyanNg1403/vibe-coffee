@@ -437,7 +437,12 @@ class SkinnedAvatar {
               material.roughness = rand(0.68, 0.82);
             } else if (isHair) {
               material.color.copy(hairTone);
-              material.roughness = 0.88;
+              material.roughness = 0.84;
+              // the same combed-strand texture the procedural cast uses —
+              // flat-shaded hair shells read as helmets up close
+              material.map = hairStrandTexture();
+              material.bumpMap = material.map;
+              material.bumpScale = 0.0015;
             } else if (isEye) {
               material.color.setHex(0x171411);
               material.roughness = 0.36;
@@ -519,7 +524,7 @@ class SkinnedAvatar {
       idle: mk(find('idle')),
       walk: mk(find('walk')),
       work: mk(find('working', 'interact-right', 'pick-up', 'pickup', 'interact')),
-      wave: mk(find('wave', 'emote-yes', 'interact')),
+      wave: mk(find('wave', 'emote-yes')), // 'interact' reads as a scarecrow mid-walk
       sit: mk(sitClip),
     };
     this.hasWave = !!this.actions.wave;
@@ -854,7 +859,20 @@ function makeDog() {
 function sitYFor(npc, seat) {
   const elevated = seat.pos.y > 0.05;
   if (!npc.avatar) return elevated ? 0.17 : -0.10;
-  return npc.avatar.hasSitClip ? (elevated ? 0.15 : -0.04) : (elevated ? -0.24 : -0.38);
+  // measured: authored sit poses put the hip bone ~0.10 below these offsets
+  // plus the cushion top, which reads as sinking through the chair
+  return npc.avatar.hasSitClip ? (elevated ? 0.24 : 0.05) : (elevated ? -0.24 : -0.38);
+}
+
+// authored sit poses centre the hips on the rig origin; slide the body a
+// palm's width back toward the chair so nobody perches off the front edge
+function applySitOffset(npc, seat) {
+  const yaw = seat.facingYaw ?? Math.atan2(
+    seat.tableCenter.x - seat.pos.x, seat.tableCenter.z - seat.pos.z);
+  if (npc.avatar?.hasSitClip) {
+    npc.mesh.position.x -= Math.sin(yaw) * 0.14;
+    npc.mesh.position.z -= Math.cos(yaw) * 0.14;
+  }
 }
 
 class NPC {
@@ -1008,6 +1026,7 @@ class NPC {
       this.stateT = 0;
       this.mesh.position.x = seat.pos.x;
       this.mesh.position.z = seat.pos.z;
+      applySitOffset(this, seat);
       this._setPose(true);
       this._addProps();
     } else {
@@ -1335,15 +1354,18 @@ class NPC {
         pos.x += this.velocity.x * dt;
         pos.z += this.velocity.z * dt;
         const actualSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-        if (actualSpeed > 0.025) {
+        if (actualSpeed > 0.12) {
+          // a near-stationary walker whose steering flips (waiting at a busy
+          // pickup counter) must not whip around on the spot: face only real
+          // movement, and turn slower the slower you walk
           this.walkDir.set(this.velocity.x / actualSpeed, 0, this.velocity.z / actualSpeed);
+          const targetYaw = Math.atan2(this.walkDir.x, this.walkDir.z);
+          let dy = targetYaw - this.mesh.rotation.y;
+          while (dy > Math.PI) dy -= Math.PI * 2;
+          while (dy < -Math.PI) dy += Math.PI * 2;
+          const turn = this.turnRate * Math.min(1, actualSpeed / 0.45);
+          this.mesh.rotation.y += dy * (1 - Math.exp(-turn * dt));
         }
-
-        const targetYaw = Math.atan2(this.walkDir.x, this.walkDir.z);
-        let dy = targetYaw - this.mesh.rotation.y;
-        while (dy > Math.PI) dy -= Math.PI * 2;
-        while (dy < -Math.PI) dy += Math.PI * 2;
-        this.mesh.rotation.y += dy * (1 - Math.exp(-this.turnRate * dt));
       }
       const speedRatio = THREE.MathUtils.clamp(this.currentSpeed / Math.max(0.01, this.speed), 0, 1);
       this.walkPhase += dt * 6.7 * this.currentSpeed * this.strideScale;
@@ -2128,6 +2150,7 @@ export class CrowdSim {
     const s = this.cafe.seats[seat];
     npc.sitY = sitYFor(npc, s);
     npc.mesh.position.set(s.pos.x, 0, s.pos.z);
+    applySitOffset(npc, s);
     npc._setPose(true);
     npc._addProps();
     this.npcs.push(npc);
@@ -2149,6 +2172,7 @@ export class CrowdSim {
       const s = this.cafe.seats[seat];
       npc.sitY = sitYFor(npc, s);
       npc.mesh.position.set(s.pos.x, 0, s.pos.z);
+      applySitOffset(npc, s);
       npc._setPose(true);
       members.push(npc);
       this.npcs.push(npc);

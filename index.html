@@ -56,7 +56,7 @@
     input[type='range'] {
       width: 86px; accent-color: #c98e4e; cursor: pointer;
     }
-    #music-toggle, #walk-btn, #order-btn, #quality-toggle {
+    #music-toggle, #walk-btn, #order-btn, #quality-toggle, #laptop-btn {
       font-family: inherit; font-size: 12.5px; cursor: pointer;
       color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
       border: 1px solid rgba(240, 230, 212, 0.18);
@@ -65,6 +65,7 @@
     }
     #walk-btn:hover { background: rgba(240, 230, 212, 0.16); }
     #music-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
+    #laptop-btn.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
     #quality-toggle { color: rgba(240, 230, 212, .76); min-width: 102px; }
     .divider { width: 1px; height: 22px; background: rgba(240, 230, 212, 0.15); }
     #track-style {
@@ -165,6 +166,7 @@
   <div id="hud-bottom" class="panel">
     <button id="walk-btn" aria-label="Stand up and walk">stand up &amp; walk</button>
     <button id="order-btn" aria-label="Order a drink">☕ order</button>
+    <button id="laptop-btn" aria-label="Set up your MacBook on this table" title="set up your MacBook on this table">💻 laptop</button>
     <button id="music-toggle" class="on" aria-pressed="true">♪ music on</button>
     <button id="quality-toggle" aria-label="Rendering quality: automatic">quality · auto</button>
     <span id="track-style" aria-live="polite">playlist loading</span>

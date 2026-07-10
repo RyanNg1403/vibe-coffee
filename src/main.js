@@ -59,15 +59,18 @@ composer.addPass(new RenderPass(scene, camera));
 const gtaoPass = new GTAOPass(scene, camera, W0, H0);
 gtaoPass.output = GTAOPass.OUTPUT.Default;
 gtaoPass.updateGtaoMaterial({
-  radius: 0.5,
-  distanceExponent: 1.0,
-  thickness: 1.0,
+  // a tighter radius and softer blend keep the contact shadow under chairs
+  // and tables without the view-dependent dark halo that used to sweep
+  // across wall art as the camera panned
+  radius: 0.3,
+  distanceExponent: 1.4,
+  thickness: 0.6,
   scale: 1.0,
   samples: 8,
   distanceFallOff: 1.0,
   screenSpaceRadius: false,
 });
-gtaoPass.blendIntensity = 0.72;
+gtaoPass.blendIntensity = 0.5;
 // Contact AO remains soft and convincing at 60% resolution, while avoiding
 // four full-resolution depth/normal/AO buffers on high-DPI displays.
 const setGtaoSize = gtaoPass.setSize.bind(gtaoPass);
@@ -170,6 +173,7 @@ function sitAt(index, instant = false) {
   seatIndex = index;
   mode = 'seated';
   updateWalkBtn();
+  placePlayerLaptop(); // your MacBook follows you to the new table
   if (!instant && audio.started) audio.playChairScrape(seat.pos);
 
   const eye = seatEye(seat);
@@ -215,6 +219,7 @@ let loadToken = 0;
 let variantOn = false;
 let lastModels = null;
 let playerCup = null;
+let playerLaptop = null;
 let orderPending = false;
 let currentTheme = THEMES[0];
 function activeTheme(index = currentThemeIndex) {
@@ -232,6 +237,7 @@ async function loadTheme(index) {
   if (token !== loadToken) return; // a newer switch superseded this one
   lastModels = models;
   playerCup = null; // the old room takes the old cup with it
+  playerLaptop = null;
 
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -289,6 +295,105 @@ document.getElementById('variant-btn')?.addEventListener('click', () => {
   loadTheme(currentThemeIndex);
 });
 
+// your MacBook Pro (M series): space-grey unibody, notched display, glowing
+// desktop — placed on whatever table you're sitting at via the HUD toggle
+function makeMacBook() {
+  const g = new THREE.Group();
+  const alu = new THREE.MeshStandardMaterial({ color: 0x8e9196, metalness: 0.75, roughness: 0.32 });
+  // base: thin unibody slab with a keyboard well and trackpad
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.312, 0.016, 0.221), alu);
+  base.position.y = 0.008;
+  base.castShadow = true;
+  g.add(base);
+  const kbTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 96;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#7d8085'; ctx.fillRect(0, 0, 128, 96);
+    ctx.fillStyle = '#1d1e20';
+    for (let r = 0; r < 6; r++)
+      for (let k = 0; k < 14; k++)
+        ctx.fillRect(4 + k * 8.8, 6 + r * 9.6, 7.4, 7.8);
+    // space bar
+    ctx.fillRect(34, 6 + 5 * 9.6, 56, 7.8);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  })();
+  const kb = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.115),
+    new THREE.MeshStandardMaterial({ map: kbTex, roughness: 0.7 }));
+  kb.rotation.x = -Math.PI / 2;
+  kb.position.set(0, 0.0165, -0.045);
+  g.add(kb);
+  const trackpad = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.082),
+    new THREE.MeshStandardMaterial({ color: 0x82858a, metalness: 0.6, roughness: 0.25 }));
+  trackpad.rotation.x = -Math.PI / 2;
+  trackpad.position.set(0, 0.0165, 0.062);
+  g.add(trackpad);
+  // lid: hinged at the back, slightly reclined
+  const lid = new THREE.Group();
+  const lidBody = new THREE.Mesh(new THREE.BoxGeometry(0.312, 0.21, 0.007), alu);
+  lidBody.position.y = 0.105;
+  lidBody.castShadow = true;
+  lid.add(lidBody);
+  const wallTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 84;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 128, 84); // macOS-y dunes
+    grad.addColorStop(0, '#3c2a5e'); grad.addColorStop(0.5, '#a04670');
+    grad.addColorStop(1, '#e88a5e');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 128, 84);
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.beginPath(); ctx.moveTo(0, 66); ctx.quadraticCurveTo(56, 36, 128, 62);
+    ctx.lineTo(128, 84); ctx.lineTo(0, 84); ctx.fill();
+    // dock
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.fillRect(34, 74, 60, 7);
+    // menu bar + notch
+    ctx.fillStyle = 'rgba(250,250,250,0.32)'; ctx.fillRect(0, 0, 128, 5);
+    ctx.fillStyle = '#0a0a0c'; ctx.fillRect(56, 0, 16, 5);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  })();
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.294, 0.19),
+    new THREE.MeshBasicMaterial({ map: wallTex }));
+  screen.position.set(0, 0.107, 0.0037);
+  lid.add(screen);
+  lid.position.set(0, 0.014, -0.108);
+  lid.rotation.x = 0.32; // comfortable viewing recline
+  g.add(lid);
+  return g;
+}
+
+let laptopOn = false;
+function placePlayerLaptop() {
+  if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
+  if (!laptopOn || seatIndex < 0 || !cafe) return;
+  const seat = cafe.seats[seatIndex];
+  const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0);
+  const d = toTable.length() || 1;
+  const edge = Math.max(0.2, d - 0.52); // your side of the table, clear of the centre clutter
+  playerLaptop = makeMacBook();
+  playerLaptop.position.set(
+    seat.pos.x + (toTable.x / d) * edge,
+    seat.pos.y > 0.05 ? 1.035 : (seat.tableTopY ?? 0.81),
+    seat.pos.z + (toTable.z / d) * edge
+  );
+  // open side faces you
+  playerLaptop.rotation.y = Math.atan2(toTable.x, toTable.z) + Math.PI;
+  cafe.group.add(playerLaptop);
+}
+
+document.getElementById('laptop-btn')?.addEventListener('click', () => {
+  if (seatIndex < 0) { toast('sit down first, then set up your laptop'); return; }
+  laptopOn = !laptopOn;
+  placePlayerLaptop();
+  document.getElementById('laptop-btn').classList.toggle('on', laptopOn);
+  toast(laptopOn ? 'MacBook out — focus time 💻' : 'laptop packed away');
+});
+
 // order a drink: the barista actually makes it, then it lands on your table
 document.getElementById('order-btn')?.addEventListener('click', () => {
   if (!crowd || !cafe) return;
@@ -329,6 +434,7 @@ function standUp() {
   mode = 'walking';
   seatIndex = -1;
   if (crowd) crowd.setPlayerSeat(-1);
+  placePlayerLaptop(); // packs it into your bag while you wander
   walkPos.set(camera.position.x, 0, camera.position.z);
   resolveCollisions(walkPos);
   updateWalkBtn();

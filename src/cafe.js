@@ -721,6 +721,155 @@ function makeBooks(n) {
 
 // ---------- the café ----------
 
+// ---------- décor expansion: small believable objects ----------
+
+function makeNewspaper() {
+  const g = new THREE.Group();
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 96;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ece7da'; ctx.fillRect(0, 0, 128, 96);
+  ctx.fillStyle = '#2a2620';
+  ctx.font = 'bold 13px Georgia'; ctx.fillText('THE DAILY BREW', 8, 16);
+  ctx.fillRect(8, 22, 52, 30); // photo block
+  ctx.font = '4px Georgia';
+  for (let y = 28; y < 90; y += 5) {
+    if (y < 56) { ctx.fillRect(66, y, 54, 2); } else { ctx.fillRect(8, y, 112, 2); }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const paperMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 });
+  const backMat = new THREE.MeshStandardMaterial({ color: 0xe4dfd2, roughness: 0.95 });
+  for (const side of [0, 1]) {
+    const half = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.004, 0.24), side === 0 ? paperMat : backMat);
+    half.position.set(side * 0.155, side * 0.004, 0);
+    half.rotation.z = side * 0.06;
+    half.castShadow = true;
+    g.add(half);
+  }
+  return g;
+}
+
+function makeCushion(color) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.98 });
+  const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.09, 0.3), mat);
+  cushion.geometry.translate(0, 0.045, 0);
+  cushion.castShadow = true;
+  const g = new THREE.Group();
+  g.add(cushion);
+  const btn = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 5),
+    new THREE.MeshStandardMaterial({ color: 0x39322a, roughness: 0.8 }));
+  btn.position.y = 0.095;
+  g.add(btn);
+  return g;
+}
+
+function makeCakeStand(models) {
+  const g = new THREE.Group();
+  const porcelain = new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.25 });
+  const foot = cyl(0.05, 0.085, 0.09, porcelain, 14);
+  foot.position.y = 0.045;
+  g.add(foot);
+  const plate = cyl(0.17, 0.15, 0.02, porcelain, 20);
+  plate.position.y = 0.1;
+  g.add(plate);
+  const cake = cloneModel(models, 'cake');
+  if (cake) { cake.position.y = 0.11; cake.scale.setScalar(0.85); g.add(cake); }
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.155, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, transparent: true, opacity: 0.25, roughness: 0.05, depthWrite: false })
+  );
+  dome.position.y = 0.11;
+  g.add(dome);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), porcelain);
+  knob.position.y = 0.27;
+  g.add(knob);
+  return g;
+}
+
+function makeTipJar() {
+  const g = new THREE.Group();
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.042, 0.11, 12),
+    new THREE.MeshPhysicalMaterial({ color: 0xf4f8f8, transmission: 0.85, transparent: true, opacity: 0.35, roughness: 0.08 }));
+  glass.position.y = 0.055;
+  g.add(glass);
+  for (let i = 0; i < 7; i++) { // loose change
+    const coin = cyl(0.013, 0.013, 0.003, new THREE.MeshStandardMaterial({ color: i % 2 ? 0xc9a03a : 0xb8bec4, metalness: 0.85, roughness: 0.3 }), 8);
+    coin.position.set(rand(-0.02, 0.02), 0.006 + i * 0.005, rand(-0.02, 0.02));
+    coin.rotation.set(rand(-0.4, 0.4), rand(0, 3), rand(-0.4, 0.4));
+    g.add(coin);
+  }
+  // "tips" label
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 32;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f7f2e2'; ctx.fillRect(0, 0, 64, 32);
+  ctx.fillStyle = '#5c4630'; ctx.font = 'bold italic 17px Georgia';
+  ctx.textAlign = 'center'; ctx.fillText('tips ☺', 32, 22);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.03), new THREE.MeshBasicMaterial({ map: tex }));
+  label.position.set(0, 0.06, 0.046);
+  g.add(label);
+  return g;
+}
+
+// napkin holder + sugar shaker + tiny menu card: the table clutter that makes
+// a café table read as in-service rather than staged
+function makeTableSet(accent) {
+  const g = new THREE.Group();
+  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcfd4d8, metalness: 0.9, roughness: 0.2 });
+  const holder = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.07, 0.09), chromeMat);
+  holder.position.set(-0.03, 0.035, 0);
+  g.add(holder);
+  const holder2 = holder.clone();
+  holder2.position.x = 0.03;
+  g.add(holder2);
+  const napkins = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.08),
+    new THREE.MeshStandardMaterial({ color: 0xf4efe2, roughness: 0.95 }));
+  napkins.position.y = 0.033;
+  g.add(napkins);
+  const shaker = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.07, 10),
+    new THREE.MeshPhysicalMaterial({ color: 0xf8f8f4, transmission: 0.5, transparent: true, opacity: 0.7, roughness: 0.2 }));
+  shaker.position.set(0.09, 0.035, 0.01);
+  g.add(shaker);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.019, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), chromeMat);
+  cap.position.set(0.09, 0.07, 0.01);
+  g.add(cap);
+  const menuCard = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.1),
+    new THREE.MeshStandardMaterial({ color: accent ?? 0xc98e4e, roughness: 0.85, side: THREE.DoubleSide }));
+  menuCard.position.set(-0.1, 0.05, -0.02);
+  menuCard.rotation.set(-0.25, 0.5, 0);
+  g.add(menuCard);
+  return g;
+}
+
+function makeWallMirror() {
+  const g = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xc9a03a, metalness: 0.75, roughness: 0.3 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.025, 10, 32), frameMat);
+  g.add(ring);
+  // an env-mapped disc reads as glass from every angle without real reflections
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(0.31, 32),
+    new THREE.MeshStandardMaterial({ color: 0xcfe0e8, metalness: 1.0, roughness: 0.05 }));
+  g.add(glass);
+  return g;
+}
+
+function makeMagazineStack() {
+  const g = new THREE.Group();
+  const covers = [0x8a3b2e, 0x2e5e6e, 0xc98e4e, 0x54683f];
+  for (let i = 0; i < 4; i++) {
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.008, 0.27),
+      new THREE.MeshStandardMaterial({ color: covers[i], roughness: 0.6 }));
+    mag.position.set(rand(-0.012, 0.012), 0.004 + i * 0.009, rand(-0.012, 0.012));
+    mag.rotation.y = rand(-0.18, 0.18);
+    mag.castShadow = true;
+    g.add(mag);
+  }
+  return g;
+}
+
 // photographic PBR surface maps (public/textures, CC0 from ambientCG),
 // cached across theme switches — these never get disposed
 const _texLoader = new THREE.TextureLoader();
@@ -1372,6 +1521,11 @@ export function buildCafe(theme, models = null) {
       key.position.set(2.06 + (i % 3) * 0.09, 1.37, -D / 2 + 1.04 + Math.floor(i / 3) * 0.08);
       group.add(key);
     }
+    // a tip jar with loose change beside the register
+    const tips = makeTipJar();
+    tips.position.set(2.62, 1.06, -D / 2 + 1.2);
+    tips.rotation.y = rand(-0.3, 0.3);
+    group.add(tips);
     // pastry case
     const caseGlass = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 0.6),
       new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.92, transparent: true, opacity: 0.3, roughness: 0.05, depthWrite: false }));
@@ -1586,6 +1740,24 @@ export function buildCafe(theme, models = null) {
       plate.rotation.y = rand(0, Math.PI * 2);
       group.add(plate);
     }
+    // in-service clutter: napkins+sugar on half the tables, a folded paper or
+    // a magazine pile on some of the rest
+    const clutter = Math.random();
+    if (clutter < 0.45) {
+      const set = makeTableSet(theme.accent);
+      set.position.set(tx + rand(-0.08, 0.08), topY + 0.028, tz - rand(0.14, 0.24));
+      set.rotation.y = rand(-0.4, 0.4);
+      group.add(set);
+    } else if (clutter < 0.62) {
+      const paper = makeNewspaper();
+      paper.position.set(tx + rand(-0.12, 0.12), topY + 0.032, tz + rand(-0.1, 0.1));
+      paper.rotation.y = rand(0, Math.PI * 2);
+      group.add(paper);
+    } else if (clutter < 0.74 && lounge) {
+      const mags = makeMagazineStack();
+      mags.position.set(tx + rand(-0.1, 0.1), topY + 0.028, tz + rand(-0.1, 0.1));
+      group.add(mags);
+    }
     if (Math.random() < 0.6) {
       const vase = cyl(0.03, 0.045, 0.12, glazedCeramicMat, 10);
       vase.position.set(tx - 0.2, topY + 0.09, tz + 0.15);
@@ -1604,6 +1776,19 @@ export function buildCafe(theme, models = null) {
 
   // window bar with stools, looking out the front window
   if (theme.windowBar) {
+    if (theme.id === 'goldenhour') {
+      // somebody's vintage writing spot at the end of the bar
+      const tw = cloneModel(models, 'typewriter');
+      if (tw) {
+        tw.position.set(-7.2, 1.03, D / 2 - 0.45);
+        tw.rotation.y = Math.PI + rand(-0.15, 0.15);
+        group.add(tw);
+        const paper = makeNewspaper();
+        paper.position.set(-6.7, 1.035, D / 2 - 0.42);
+        paper.rotation.y = rand(0, Math.PI * 2);
+        group.add(paper);
+      }
+    }
     for (const s of [-1, 1]) {
       const barLen = (W - doorW) / 2 - 1.3;
       const bx = s * (doorW / 2 + 0.65 + barLen / 2);
@@ -2096,6 +2281,18 @@ export function buildCafe(theme, models = null) {
 
   // a big coffee roaster in the corner (roastery)
   if (theme.roaster) {
+    // supply crates stacked beside the roaster, one tipped with bean bags
+    for (const [cx2, cz2, cy2, ry2] of [[-7.6, -4.6, 0, 0.15], [-7.0, -4.7, 0, -0.3], [-7.3, -4.65, 0.42, 0.55]]) {
+      const crate = cloneModel(models, 'crate');
+      if (!crate) break;
+      crate.position.set(cx2, cy2, cz2);
+      crate.rotation.y = ry2;
+      group.add(crate);
+      if (cy2 === 0) extraColliders.push({ x: cx2, z: cz2, r: 0.35 });
+    }
+    const stand = makeCakeStand(models);
+    stand.position.set(-0.55, 1.06, -D / 2 + 1.15);
+    group.add(stand);
     const r = new THREE.Group();
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5f6267, roughness: 0.36, metalness: 0.84 });
     const brass = new THREE.MeshStandardMaterial({ color: 0xa88544, roughness: 0.32, metalness: 0.88 });
@@ -2356,9 +2553,14 @@ export function buildCafe(theme, models = null) {
     // little potted succulents scattered on the counter and window sills
     const sillY = 0.9 + 1.9; // window head
     for (const [sx, sy, sz] of [[-3.3, 1.06, -D / 2 + 1.15], [3.0, 1.06, -D / 2 + 1.15], [-W / 2 + 0.15, sillY - 1.0, -2.5], [-W / 2 + 0.15, sillY - 1.0, 2.5]]) {
-      const sm = cloneModel(models, 'plant_small');
+      const sm = Math.random() < 0.5 ? cloneModel(models, 'cactus_pot') : cloneModel(models, 'plant_small');
       if (sm) { sm.position.set(sx, sy, sz); sm.rotation.y = rand(0, Math.PI * 2); group.add(sm); }
     }
+    // a round brass mirror above the art row
+    const mirror = makeWallMirror();
+    mirror.position.set(W / 2 - 0.1, 2.72, 1.95);
+    mirror.rotation.y = -Math.PI / 2;
+    group.add(mirror);
     // a lantern on a lounge side table if we have one
     const sideT = cloneModel(models, 'side_table');
     if (sideT) {
@@ -2370,11 +2572,23 @@ export function buildCafe(theme, models = null) {
       const sideT2 = cloneModel(models, 'side_table');
       sideT2.position.set(W / 2 - 0.7, 0, -6.1);
       group.add(sideT2);
-      const latte = cloneModel(models, 'latte') ?? cloneModel(models, 'mug');
-      if (latte) {
-        latte.position.set(W / 2 - 0.7, 0.5, -6.1);
-        group.add(latte);
+      const lamp2m = cloneModel(models, 'table_lamp');
+      if (lamp2m) {
+        lamp2m.position.set(W / 2 - 0.7, 0.5, -6.1);
+        group.add(lamp2m);
+        const lg2 = new THREE.PointLight(theme.lampColor, 2.2, 3.5);
+        lg2.position.set(W / 2 - 0.7, 0.95, -6.1);
+        group.add(lg2);
+      } else {
+        const latte = cloneModel(models, 'latte') ?? cloneModel(models, 'mug');
+        if (latte) {
+          latte.position.set(W / 2 - 0.7, 0.5, -6.1);
+          group.add(latte);
+        }
       }
+      const mags2 = makeMagazineStack();
+      mags2.position.set(W / 2 - 0.95, 0, -5.7);
+      group.add(mags2);
     }
     const lantern = cloneModel(models, 'lantern');
     if (lantern) {
