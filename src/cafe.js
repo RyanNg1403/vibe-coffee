@@ -30,7 +30,7 @@ function mergeStaticDecor(group, animatedRoots) {
   group.traverse((o) => {
     if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
     if (skip.has(o) || o.children.length > 0 || !o.visible) return;
-    if (o.userData.seatServiceProp) return;
+    if (o.userData.tableSurfaceProp) return;
     if (o.userData.seatIndex !== undefined) return;
     const material = o.material;
     if (!material || Array.isArray(material) || material.transparent) return;
@@ -1755,6 +1755,14 @@ export function buildCafe(theme, models = null) {
   const seats = [];      // {pos, look, tableCenter}
   const seatMeshes = []; // raycast targets
   const cups = [];       // for steam
+  const tableSurfaceProps = [];
+
+  function registerTableProp(surfaceProps, object) {
+    if (!object) return object;
+    object.traverse((part) => { part.userData.tableSurfaceProp = true; });
+    surfaceProps.push({ object, home: object.position.clone() });
+    return object;
+  }
 
   // The standard café chair used to be seven separate meshes, repeated more
   // than thirty times in the larger rooms. Four instanced batches preserve the
@@ -1805,7 +1813,7 @@ export function buildCafe(theme, models = null) {
     return { isInstancedSeat: true, batch: chairSeatBatch, instanceId: index, visible: true };
   }
 
-  function addSeat(chair, seatPos, lookAt, tableCenter, tableTopY = 0.81) {
+  function addSeat(chair, seatPos, lookAt, tableCenter, tableTopY = 0.81, surfaceProps = []) {
     if (chair.isInstancedSeat) {
       chair.batch.userData.seatIndices[chair.instanceId] = seats.length;
       if (!seatMeshes.includes(chair.batch)) seatMeshes.push(chair.batch);
@@ -1820,7 +1828,7 @@ export function buildCafe(theme, models = null) {
     const approach = seatPos.clone().addScaledVector(away, 0.38);
     const facingYaw = Math.atan2(tableCenter.x - seatPos.x, tableCenter.z - seatPos.z);
     const seat = {
-      pos: seatPos, look: lookAt, tableCenter, chair, tableTopY, approach, facingYaw,
+      pos: seatPos, look: lookAt, tableCenter, chair, tableTopY, approach, facingYaw, surfaceProps,
     };
     seats.push(seat);
     return seat;
@@ -1829,6 +1837,8 @@ export function buildCafe(theme, models = null) {
   function addTable(tx, tz, type, lounge = false) {
     const tGroup = new THREE.Group();
     const center = new THREE.Vector3(tx, 0, tz);
+    const surfaceProps = [];
+    tableSurfaceProps.push(surfaceProps);
     let topY = 0.78;
     if (lounge) topY = 0.55; // lounge tables sit lower, armchair height
     if (type === 'long') {
@@ -1876,18 +1886,20 @@ export function buildCafe(theme, models = null) {
       addSeat(chair,
         new THREE.Vector3(px, 0, pz),
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
-        center, topY + 0.03);
+        center, topY + 0.03, surfaceProps);
     }
     // a cup + sometimes a pastry + maybe a little vase on the table
     const cup = makeDrink(theme.accent, models);
     cup.position.set(tx + rand(-0.15, 0.15), topY + 0.03, tz + rand(-0.15, 0.15));
     group.add(cup);
     cups.push(cup);
+    registerTableProp(surfaceProps, cup);
     if (Math.random() < 0.45) {
       const plate = makePastryPlate(models);
       plate.position.set(tx + rand(-0.05, 0.1) - 0.2, topY + 0.028, tz + rand(-0.2, 0.2));
       plate.rotation.y = rand(0, Math.PI * 2);
       group.add(plate);
+      registerTableProp(surfaceProps, plate);
     }
     // in-service clutter: napkins+sugar on half the tables, a folded paper or
     // a magazine pile on some of the rest
@@ -1897,27 +1909,33 @@ export function buildCafe(theme, models = null) {
       set.position.set(tx + rand(-0.08, 0.08), topY + 0.028, tz - rand(0.14, 0.24));
       set.rotation.y = rand(-0.4, 0.4);
       group.add(set);
+      registerTableProp(surfaceProps, set);
     } else if (clutter < 0.62) {
       const paper = makeNewspaper();
       paper.position.set(tx + rand(-0.12, 0.12), topY + 0.032, tz + rand(-0.1, 0.1));
       paper.rotation.y = rand(0, Math.PI * 2);
       group.add(paper);
+      registerTableProp(surfaceProps, paper);
     } else if (clutter < 0.74 && lounge) {
       const mags = makeMagazineStack();
       mags.position.set(tx + rand(-0.1, 0.1), topY + 0.028, tz + rand(-0.1, 0.1));
       group.add(mags);
+      registerTableProp(surfaceProps, mags);
     }
     if (Math.random() < 0.6) {
       const vase = cyl(0.03, 0.045, 0.12, glazedCeramicMat, 10);
       vase.position.set(tx - 0.2, topY + 0.09, tz + 0.15);
       group.add(vase);
+      registerTableProp(surfaceProps, vase);
       const stem = cyl(0.006, 0.006, 0.16, stemMat, 6);
       stem.position.set(tx - 0.2, topY + 0.22, tz + 0.15);
       stem.rotation.z = 0.15;
       group.add(stem);
+      registerTableProp(surfaceProps, stem);
       const flower = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), flowerMat);
       flower.position.set(tx - 0.22, topY + 0.3, tz + 0.15);
       group.add(flower);
+      registerTableProp(surfaceProps, flower);
     }
   }
 
@@ -1929,6 +1947,7 @@ export function buildCafe(theme, models = null) {
 
   // window bar with stools, looking out the front window
   if (theme.windowBar) {
+    const looseBarProps = [];
     if (theme.id === 'goldenhour') {
       // somebody's vintage writing spot at the end of the bar
       const tw = cloneModel(models, 'typewriter');
@@ -1936,10 +1955,12 @@ export function buildCafe(theme, models = null) {
         tw.position.set(-7.2, 1.03, D / 2 - 0.45);
         tw.rotation.y = Math.PI + rand(-0.15, 0.15);
         group.add(tw);
+        registerTableProp(looseBarProps, tw);
         const paper = makeNewspaper();
         paper.position.set(-6.7, 1.035, D / 2 - 0.42);
         paper.rotation.y = rand(0, Math.PI * 2);
         group.add(paper);
+        registerTableProp(looseBarProps, paper);
       }
     }
     for (const s of [-1, 1]) {
@@ -1956,25 +1977,35 @@ export function buildCafe(theme, models = null) {
       const nStools = Math.floor(barLen / 1.1);
       for (let i = 0; i < nStools; i++) {
         const sx = bx - barLen / 2 + (i + 0.5) * (barLen / nStools);
+        const surfaceProps = [];
         const stool = cloneModel(models, 'bar_stool') ?? makeStool(woodDarkMat, cushionMat);
         stool.position.set(sx, 0, D / 2 - 1.05);
         group.add(stool);
-        const barSeat = addSeat(stool,
+        addSeat(stool,
           new THREE.Vector3(sx, 0.15, D / 2 - 1.05),
           new THREE.Vector3(sx, 1.5, D / 2 + 3),
           new THREE.Vector3(sx, 0, D / 2 - 0.45),
-          1.035);
+          1.035, surfaceProps);
         if (Math.random() < 0.5) {
           const cup = makeDrink(theme.accent, models);
           cup.position.set(sx + rand(-0.1, 0.1), 1.03, D / 2 - 0.45);
-          // This place-setting cup is cleared while the player uses the seat
-          // as a laptop workstation, then restored when they move away.
-          cup.traverse((object) => { object.userData.seatServiceProp = true; });
           group.add(cup);
           cups.push(cup);
-          barSeat.serviceCup = cup;
+          registerTableProp(surfaceProps, cup);
         }
       }
+    }
+    // Attach authored bar props to the nearest workstation so the same
+    // laptop-clearance rule applies to typewriters, papers and future props.
+    for (const entry of looseBarProps) {
+      let nearest = null;
+      let nearestDistance = Infinity;
+      for (const seat of seats) {
+        if (seat.pos.y <= 0.05) continue;
+        const distance = Math.abs(seat.tableCenter.x - entry.home.x);
+        if (distance < nearestDistance) { nearest = seat; nearestDistance = distance; }
+      }
+      nearest?.surfaceProps.push(entry);
     }
   }
 
@@ -2038,6 +2069,7 @@ export function buildCafe(theme, models = null) {
   // reads as hospitality styling; independent random props read as clutter.
   const candleFlames = [];
   theme.tables.forEach((tt, ti) => {
+    const surfaceProps = tableSurfaceProps[ti];
     // Lounge tables are intentionally coffee-table height. Their curated
     // place settings must use that lower surface instead of the standard
     // dining-table height, or they appear to float 25 cm above the top.
@@ -2046,10 +2078,12 @@ export function buildCafe(theme, models = null) {
       const napkins = box(0.09, 0.07, 0.05, metalMat);
       napkins.position.set(tt.x + 0.24, topY + 0.035, tt.z - 0.12);
       group.add(napkins);
+      registerTableProp(surfaceProps, napkins);
     }
     const sugar = cyl(0.03, 0.03, 0.08, ceramicMat, 10);
     sugar.position.set(tt.x + 0.28, topY + 0.04, tt.z + 0.08);
     group.add(sugar);
+    registerTableProp(surfaceProps, sugar);
     const vignette = ti % 4;
     if (vignette === 0) {
       // Water tumbler and a folded menu beside a laptop-friendly seat.
@@ -2059,10 +2093,12 @@ export function buildCafe(theme, models = null) {
       }), 18);
       glass.position.set(tt.x - 0.24, topY + 0.045, tt.z + 0.12);
       group.add(glass);
+      registerTableProp(surfaceProps, glass);
       const menu = box(0.18, 0.008, 0.11, paperMat);
       menu.position.set(tt.x + 0.05, topY + 0.006, tt.z + 0.2);
       menu.rotation.y = -0.22;
       group.add(menu);
+      registerTableProp(surfaceProps, menu);
     } else if (vignette === 1) {
       // A tiny ceramic bud vase makes the setting feel intentionally dressed.
       const vase = new THREE.Group();
@@ -2077,22 +2113,26 @@ export function buildCafe(theme, models = null) {
       }
       vase.position.set(tt.x - 0.08, topY, tt.z - 0.16);
       group.add(vase);
+      registerTableProp(surfaceProps, vase);
     } else if (vignette === 2) {
       const linen = box(0.16, 0.006, 0.12, cushionMat);
       linen.position.set(tt.x - 0.13, topY + 0.005, tt.z + 0.18);
       linen.rotation.y = 0.34;
       group.add(linen);
+      registerTableProp(surfaceProps, linen);
     }
     if (theme.candles) {
       const candle = cyl(0.022, 0.025, 0.05, waxMat, 8);
       candle.position.set(tt.x - 0.05, topY + 0.025, tt.z - 0.22);
       group.add(candle);
+      registerTableProp(surfaceProps, candle);
       const flame = new THREE.Sprite(new THREE.SpriteMaterial({
         map: steamTexture(), color: 0xffa33e, transparent: true, opacity: 0.9, depthWrite: false,
       }));
       flame.scale.setScalar(0.06);
       flame.position.set(tt.x - 0.05, topY + 0.075, tt.z - 0.22);
       group.add(flame);
+      registerTableProp(surfaceProps, flame);
       candleFlames.push(flame);
     }
   });

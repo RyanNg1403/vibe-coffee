@@ -320,6 +320,9 @@ async function loadTheme(index) {
   if (vb) {
     const base = THEMES[index];
     vb.textContent = '☀ ' + (variantOn && base.variant ? base.variant.name : base.varName ?? 'now');
+    const variantActive = Boolean(variantOn && base.variant);
+    vb.classList.toggle('active', variantActive);
+    vb.setAttribute('aria-pressed', String(variantActive));
   }
 }
 
@@ -402,6 +405,34 @@ function makeMacBook() {
 }
 
 let laptopOn = preferences.laptopOn;
+function restoreTableProps(seat) {
+  for (const entry of seat?.surfaceProps ?? []) {
+    if (!entry.object?.parent) continue;
+    entry.object.position.copy(entry.home);
+  }
+}
+
+function clearTablePropsForLaptop(seat, beside) {
+  const props = seat.surfaceProps ?? [];
+  props.forEach((entry, index) => {
+    const object = entry.object;
+    if (!object?.parent) return;
+    object.position.copy(entry.home);
+    const offsetX = entry.home.x - playerLaptop.position.x;
+    const offsetZ = entry.home.z - playerLaptop.position.z;
+    const lateral = offsetX * beside.x + offsetZ * beside.z;
+    // Preserve which side an item already occupies. Items on the centreline
+    // fan out evenly, while already-clear objects still make a subtle 3.5 cm
+    // shift so setting up the workspace reads as one intentional action.
+    const direction = Math.abs(lateral) > 0.04 ? Math.sign(lateral) : (index % 2 ? -1 : 1);
+    const clearance = Math.min(0.34, 0.24 + Math.floor(index / 2) * 0.025);
+    const desired = direction * Math.max(Math.abs(lateral) + 0.035, clearance);
+    const shift = THREE.MathUtils.clamp(desired - lateral, -0.32, 0.32);
+    object.position.addScaledVector(beside, shift);
+  });
+  renderer.shadowMap.needsUpdate = true;
+}
+
 function placePlayerCup() {
   if (!playerCup || seatIndex < 0 || !cafe) return;
   const seat = cafe.seats[seatIndex];
@@ -430,7 +461,7 @@ function placePlayerCup() {
 }
 function placePlayerLaptop() {
   const previousSeat = cafe?.seats[playerLaptopSeatIndex];
-  if (previousSeat?.serviceCup) previousSeat.serviceCup.visible = true;
+  restoreTableProps(previousSeat);
   playerLaptopSeatIndex = -1;
   if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
   if (!laptopOn || seatIndex < 0 || !cafe) {
@@ -454,7 +485,10 @@ function placePlayerLaptop() {
   // open side faces you
   playerLaptop.rotation.y = Math.atan2(toTable.x, toTable.z) + Math.PI;
   cafe.group.add(playerLaptop);
-  if (seat.serviceCup) seat.serviceCup.visible = false;
+  const beside = new THREE.Vector3(-(toTable.z / d), 0, toTable.x / d);
+  const towardRoom = new THREE.Vector3(-seat.tableCenter.x, 0, -seat.tableCenter.z);
+  if (beside.dot(towardRoom) < 0) beside.negate();
+  clearTablePropsForLaptop(seat, beside);
   playerLaptopSeatIndex = seatIndex;
   placePlayerCup();
 }

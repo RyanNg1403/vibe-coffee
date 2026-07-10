@@ -490,11 +490,11 @@ class SkinnedAvatar {
       }
     });
 
-    // One conservative whole-body bound shared by every skinned part: culling
-    // still rejects patrons fully off-screen, but no animated pose (sitting,
-    // waving, folded legs) can drift outside its own culling sphere the way
-    // small per-part bind-pose bounds allowed.
-    {
+    // Indoor patrons stay rendered at close range. Some imported rigs keep
+    // skinned parts in different local spaces, so one shared sphere can be
+    // outside the camera even while the character fills the view. Only the
+    // distant exterior walkers opt into this culling optimization.
+    if (options.frustumCulling) {
       const skinnedParts = [];
       mesh.traverse((o) => { if (o.isSkinnedMesh) skinnedParts.push(o); });
       if (skinnedParts.length) {
@@ -1939,6 +1939,7 @@ class OutsideLife {
           castShadow: false,
           receiveShadow: false,
           appearanceIndex: i,
+          frustumCulling: true,
         });
         avatar.blob.visible = false;
         if (night) {
