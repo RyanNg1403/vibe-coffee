@@ -63,14 +63,14 @@ export const THEMES = [
     id: 'midnight',
     name: 'Midnight Jazz Corner',
     blurb: 'Rain on the glass, warm lamps, a neon glow. Open late.',
-    musicKey: -3, rain: true, exposure: 1.25, envIntensity: 0.16, bloom: 0.5,
+    musicKey: -3, rain: true, exposure: 1.05, envIntensity: 0.16, bloom: 0.34,
     fog: { color: 0x0b0d14, density: 0.016 },
     floor: '#4a3628', floorLine: '#38281d', wall: '#4e4038', wallTrim: '#2c2119',
     wood: 0x4e3323, woodDark: 0x2a1a10, accent: 0x7a2c26, cushion: 0x274235,
     counter: 0x332012, counterTop: 0x1d2b26,
     hemi: [0x30405e, 0x120c08, 0.4],
     sun: { color: 0x7e97c8, intensity: 0.5, pos: [4, 6, 12] },
-    lampColor: 0xff9a4d, lampIntensity: 14, lampY: 2.25,
+    lampColor: 0xff9a4d, lampIntensity: 7, lampY: 2.25,
     outside: 'rainNight',
     dust: false, neon: { text: 'open late', color: '#ff5d8f' },
     tables: [
@@ -153,6 +153,35 @@ function plasterTexture(base) {
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(4, 2);
   return tex;
+}
+
+function fabricTexture() {
+  return canvasTexture(128, 128, (g, w, h) => {
+    g.fillStyle = '#aaa'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < w; i += 3) {
+      g.fillStyle = i % 6 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.08)';
+      g.fillRect(i, 0, 1, h);
+      g.fillRect(0, i, w, 1);
+    }
+  });
+}
+
+function rugTexture(accent, dark) {
+  return canvasTexture(256, 256, (g, w, h) => {
+    g.fillStyle = `#${new THREE.Color(accent).getHexString()}`; g.fillRect(0, 0, w, h);
+    g.strokeStyle = `#${new THREE.Color(dark).getHexString()}`;
+    g.globalAlpha = 0.38;
+    for (let r = 28; r < 170; r += 24) {
+      g.lineWidth = r % 48 ? 3 : 7;
+      g.beginPath(); g.arc(w / 2, h / 2, r, 0, Math.PI * 2); g.stroke();
+    }
+    g.globalAlpha = 0.18;
+    g.lineWidth = 1;
+    for (let i = 0; i < 256; i += 4) {
+      g.beginPath(); g.moveTo(i, 0); g.lineTo(i, h); g.stroke();
+      g.beginPath(); g.moveTo(0, i); g.lineTo(w, i); g.stroke();
+    }
+  });
 }
 
 // The world seen through the windows, painted per theme.
@@ -418,7 +447,20 @@ function makePastryPlate(models) {
 
 function makeArmchair(fabricMat, woodDarkMat, models) {
   const fromLib = cloneModel(models, 'armchair');
-  if (fromLib) return fromLib;
+  if (fromLib) {
+    fromLib.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = o.material.clone();
+      o.material.color.lerp(fabricMat.color, 0.84);
+      o.material.roughness = 0.9;
+      if (!o.material.map) {
+        o.material.map = fabricMat.map;
+        o.material.bumpMap = fabricMat.bumpMap;
+        o.material.bumpScale = fabricMat.bumpScale;
+      }
+    });
+    return fromLib;
+  }
   const g = new THREE.Group();
   const base = box(0.6, 0.22, 0.56, fabricMat); base.position.y = 0.22; g.add(base);
   const cushion = box(0.5, 0.1, 0.48, fabricMat); cushion.position.set(0, 0.38, 0.02); g.add(cushion);
@@ -476,12 +518,23 @@ function makeBooks(n) {
 
 // ---------- the café ----------
 
-export function buildCafe(theme, models = null) {
+export function buildCafe(theme, models = null, materials = null) {
   const group = new THREE.Group();
   const { W, D, H } = ROOM;
   const disposables = [];
   const track = (t) => { disposables.push(t); return t; };
   const extraColliders = []; // decor added before the collider list is built
+
+  const pbrTexture = (setName, channel, repeatX, repeatY) => {
+    const source = materials?.get?.(setName)?.[channel];
+    if (!source) return null;
+    const texture = track(source.clone());
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeatX, repeatY);
+    texture.anisotropy = 8;
+    texture.needsUpdate = true;
+    return texture;
+  };
 
   const grain = woodGrainTexture();
   const woodMat = new THREE.MeshStandardMaterial({
@@ -490,14 +543,30 @@ export function buildCafe(theme, models = null) {
   const woodDarkMat = new THREE.MeshStandardMaterial({
     color: theme.woodDark, roughness: 0.75, map: grain, bumpMap: grain, bumpScale: 0.008,
   });
-  const cushionMat = new THREE.MeshStandardMaterial({ color: theme.cushion, roughness: 0.95 });
+  const clothTex = track(fabricTexture());
+  clothTex.wrapS = clothTex.wrapT = THREE.RepeatWrapping;
+  clothTex.repeat.set(5, 5);
+  const cushionMat = new THREE.MeshStandardMaterial({
+    color: theme.cushion, roughness: 0.92,
+    map: clothTex, bumpMap: clothTex, bumpScale: 0.006,
+  });
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x6a6d70, roughness: 0.35, metalness: 0.7 });
 
   // floor
-  const floorTex = track(woodFloorTexture(theme.floor, theme.floorLine));
+  const floorSet = theme.id === 'roastery' ? 'concrete' : 'wood';
+  const floorPbrMap = pbrTexture(floorSet, 'map', theme.id === 'roastery' ? 4 : 5, theme.id === 'roastery' ? 3 : 4);
+  const floorNormal = pbrTexture(floorSet, 'normalMap', theme.id === 'roastery' ? 4 : 5, theme.id === 'roastery' ? 3 : 4);
+  const floorRough = pbrTexture(floorSet, 'roughnessMap', theme.id === 'roastery' ? 4 : 5, theme.id === 'roastery' ? 3 : 4);
+  const floorTex = floorPbrMap ?? track(woodFloorTexture(theme.floor, theme.floorLine));
+  const floorTint = theme.id === 'roastery' ? 0xaeb3ba : theme.id === 'midnight' ? 0x6a5243 : 0xffffff;
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(W, D),
-    new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8, bumpMap: floorTex, bumpScale: 0.015 })
+    new THREE.MeshStandardMaterial({
+      color: floorTint, map: floorTex, normalMap: floorNormal,
+      normalScale: new THREE.Vector2(0.5, 0.5), roughnessMap: floorRough,
+      roughness: floorRough ? 0.92 : 0.8,
+      bumpMap: floorNormal ? null : floorTex, bumpScale: floorNormal ? 0 : 0.015,
+    })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -513,8 +582,18 @@ export function buildCafe(theme, models = null) {
   group.add(ceil);
 
   // walls — front (+z) and left (-x) get window openings
-  const wallTex = track(plasterTexture(theme.wall));
-  const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.95 });
+  const wallPbr = pbrTexture('plaster', 'map', 7, 3);
+  const wallNormal = pbrTexture('plaster', 'normalMap', 7, 3);
+  const wallRough = pbrTexture('plaster', 'roughnessMap', 7, 3);
+  const wallTex = wallPbr ?? track(plasterTexture(theme.wall));
+  const wallTint = wallPbr
+    ? new THREE.Color(theme.wall).lerp(new THREE.Color(0xffffff), theme.id === 'midnight' ? 0.15 : 0.55)
+    : new THREE.Color(0xffffff);
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: wallTint, map: wallTex,
+    normalMap: wallNormal, normalScale: new THREE.Vector2(0.32, 0.32),
+    roughnessMap: wallRough, roughness: 0.95,
+  });
   const sillY = 0.9, winH = 1.9, headY = sillY + winH;
 
   function windowedWall(len) {
@@ -960,7 +1039,8 @@ export function buildCafe(theme, models = null) {
   }
 
   // rugs under the seating clusters
-  const rugMat = new THREE.MeshStandardMaterial({ color: theme.accent, roughness: 1 });
+  const rugTex = track(rugTexture(theme.accent, theme.woodDark));
+  const rugMat = new THREE.MeshStandardMaterial({ map: rugTex, roughness: 1, bumpMap: rugTex, bumpScale: 0.004 });
   for (const [rx, rz, rr] of [[-4.9, -0.4, 2.5], [4.9, -0.2, 2.0]]) {
     const rug = new THREE.Mesh(new THREE.CircleGeometry(rr, 36), rugMat);
     rug.rotation.x = -Math.PI / 2;
@@ -996,7 +1076,8 @@ export function buildCafe(theme, models = null) {
   for (const t of theme.tables) contactShadow(t.x, t.z, t.type === 'long' ? 3.4 : 2.4);
   contactShadow(-0.6, -D / 2 + 1.3, 7.5);
 
-  // table clutter: napkin holders, sugar jars, candles at night
+  // Curated table vignettes. Repeating a handful of believable arrangements
+  // reads as hospitality styling; independent random props read as clutter.
   const candleFlames = [];
   theme.tables.forEach((tt, ti) => {
     const topY = tt.type === 'round' ? 0.805 : 0.81;
@@ -1008,6 +1089,44 @@ export function buildCafe(theme, models = null) {
     const sugar = cyl(0.03, 0.03, 0.08, new THREE.MeshStandardMaterial({ color: 0xd9d3c4, roughness: 0.4 }), 10);
     sugar.position.set(tt.x + 0.28, topY + 0.04, tt.z + 0.08);
     group.add(sugar);
+    const vignette = ti % 4;
+    if (vignette === 0) {
+      // Water tumbler and a folded menu beside a laptop-friendly seat.
+      const glass = cyl(0.032, 0.027, 0.09, new THREE.MeshPhysicalMaterial({
+        color: 0xdcecf0, transmission: 0.7, transparent: true, opacity: 0.48,
+        roughness: 0.08, thickness: 0.01, depthWrite: false,
+      }), 18);
+      glass.position.set(tt.x - 0.24, topY + 0.045, tt.z + 0.12);
+      group.add(glass);
+      const menu = box(0.18, 0.008, 0.11, new THREE.MeshStandardMaterial({ color: 0xd8cbb2, roughness: 0.92 }));
+      menu.position.set(tt.x + 0.05, topY + 0.006, tt.z + 0.2);
+      menu.rotation.y = -0.22;
+      group.add(menu);
+    } else if (vignette === 1) {
+      // A tiny ceramic bud vase makes the setting feel intentionally dressed.
+      const vase = new THREE.Group();
+      const ceramic = new THREE.MeshPhysicalMaterial({ color: 0xd7c8ac, roughness: 0.38, clearcoat: 0.12 });
+      const body = cyl(0.034, 0.042, 0.11, ceramic, 18); body.position.y = 0.055; vase.add(body);
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x536341, roughness: 0.9 });
+      for (const a of [-0.12, 0.08]) {
+        const stem = cyl(0.004, 0.004, 0.18, stemMat, 6);
+        stem.position.set(a * 0.18, 0.18, 0); stem.rotation.z = a; vase.add(stem);
+        const leaf = new THREE.Mesh(
+          new THREE.SphereGeometry(0.018, 12, 8),
+          new THREE.MeshStandardMaterial({ color: 0x78815c, roughness: 0.92 })
+        );
+        leaf.scale.set(0.65, 0.24, 1.35);
+        leaf.rotation.z = a * 3;
+        leaf.position.set(-a * 0.14, 0.265, 0); vase.add(leaf);
+      }
+      vase.position.set(tt.x - 0.08, topY, tt.z - 0.16);
+      group.add(vase);
+    } else if (vignette === 2) {
+      const linen = box(0.16, 0.006, 0.12, cushionMat);
+      linen.position.set(tt.x - 0.13, topY + 0.005, tt.z + 0.18);
+      linen.rotation.y = 0.34;
+      group.add(linen);
+    }
     if (theme.candles) {
       const candle = cyl(0.022, 0.025, 0.05, new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.8 }), 8);
       candle.position.set(tt.x - 0.05, topY + 0.025, tt.z - 0.22);
@@ -1131,6 +1250,30 @@ export function buildCafe(theme, models = null) {
   }
 
   // ---------- theme signature decor ----------
+
+  // Architectural surface details give each room an identity beyond palette.
+  if (theme.id === 'roastery') {
+    const grout = new THREE.MeshStandardMaterial({ color: 0xd7d9d8, roughness: 0.82 });
+    const tile = new THREE.MeshStandardMaterial({ color: 0xf0f1ee, roughness: 0.32, metalness: 0.02 });
+    for (let row = 0; row < 6; row++) {
+      for (let col = 0; col < 22; col++) {
+        const t = box(0.34, 0.16, 0.018, (row + col) % 9 === 0 ? grout : tile);
+        t.position.set(-4.0 + col * 0.37 + (row % 2) * 0.18, 1.25 + row * 0.19, -D / 2 + 0.17);
+        group.add(t);
+      }
+    }
+  } else if (theme.id === 'midnight') {
+    const velvet = new THREE.MeshStandardMaterial({ color: 0x241c22, roughness: 1, map: clothTex, bumpMap: clothTex, bumpScale: 0.008 });
+    for (const x of [-4.8, -3.8, 3.8, 4.8]) {
+      const panel = box(0.72, 1.25, 0.055, velvet);
+      panel.position.set(x, 2.15, -D / 2 + 0.18);
+      group.add(panel);
+    }
+  } else {
+    const rail = box(6.8, 0.055, 0.07, woodDarkMat);
+    rail.position.set(0.1, 1.75, -D / 2 + 0.19);
+    group.add(rail);
+  }
 
   // exposed wooden ceiling beams (golden hour)
   if (theme.beams) {
@@ -1353,6 +1496,13 @@ export function buildCafe(theme, models = null) {
   {
     const sofa = cloneModel(models, 'sofa');
     if (sofa) {
+      sofa.traverse((o) => {
+        if (!o.isMesh) return;
+        o.material = o.material.clone();
+        o.material.color.lerp(cushionMat.color, 0.88);
+        o.material.roughness = 0.92;
+        if (!o.material.map) { o.material.map = clothTex; o.material.bumpMap = clothTex; o.material.bumpScale = 0.006; }
+      });
       sofa.position.set(W / 2 - 0.85, 0, -4.9);
       sofa.rotation.y = -Math.PI / 2;
       group.add(sofa);
@@ -1691,12 +1841,16 @@ export function buildCafe(theme, models = null) {
       p.needsUpdate = true;
     }
     if (neonMesh) {
-      neonMesh.material.opacity = 0.86 + Math.sin(t * 30) * 0.04 + (Math.random() < 0.005 ? -0.4 : 0);
+      // Keep the neon alive without single-frame random dropouts. The old
+      // frame-dependent Math.random() dip read as a rendering fault and could
+      // flash more often on faster displays.
+      neonMesh.material.opacity = 0.88 + Math.sin(t * 1.6) * 0.012;
       neonMesh.material.transparent = true;
     }
-    // subtle lamp warmth flicker
-    lampLights.forEach((pl, i) => {
-      pl.intensity = theme.lampIntensity * (1 + Math.sin(t * 7 + i * 2) * 0.03);
+    // Electric practical lights should remain steady. Continuously modulating
+    // every point light made the entire room pulse, especially on PBR walls.
+    lampLights.forEach((pl) => {
+      pl.intensity = theme.lampIntensity;
     });
     // the clock keeps real time
     const now = new Date();
@@ -1706,8 +1860,11 @@ export function buildCafe(theme, models = null) {
     clockGroup.userData.hourHand.rotation.z = -(hrs / 12) * Math.PI * 2;
     if (fan) fan.rotation.y += dt * 2.4;
     candleFlames.forEach((f, i) => {
-      f.material.opacity = 0.7 + Math.sin(t * 11 + i * 3) * 0.18 + Math.sin(t * 23 + i) * 0.08;
-      f.scale.setScalar(0.055 + Math.sin(t * 9 + i * 2) * 0.008);
+      // A low-amplitude, continuous flame motion preserves candle ambience
+      // without producing harsh luminance changes in the surrounding scene.
+      f.material.opacity = 0.78 + Math.sin(t * 5 + i * 2.4) * 0.07
+        + Math.sin(t * 8.5 + i) * 0.025;
+      f.scale.setScalar(0.055 + Math.sin(t * 4.2 + i * 1.7) * 0.004);
     });
     if (glassStreaks) glassStreaks.tex.offset.y -= dt * 0.045;
     if (vinylDisc) vinylDisc.rotation.y += dt * 3.5;

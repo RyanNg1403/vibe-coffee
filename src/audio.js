@@ -12,11 +12,17 @@
 
 import { loadSoundLibrary } from './soundLoader.js';
 import { SOUND_MANIFEST } from './soundManifest.js';
+import { MUSIC_MANIFEST } from './musicManifest.js';
 
 const MIDI_A4 = 69;
 const freq = (midi) => 440 * Math.pow(2, (midi - MIDI_A4) / 12);
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+// Authored onset markers from the bundled recordings. Starting at impacts
+// avoids the conspicuous mid-sound slices produced by arbitrary offsets.
+const FOOTSTEP_ONSETS = [0.55, 1.3, 2.1, 2.91, 3.71, 4.57, 5.23, 5.96, 6.69, 7.47, 8.24, 9.04, 9.84, 10.54, 11.32];
+const CLINK_ONSETS = [0.43, 1.6, 2.67, 3.35, 3.7, 3.89, 4.23];
 
 // ---------- per-café music styles ----------
 
@@ -51,6 +57,13 @@ const STYLES = {
       ],
       scale: MAJ_SCALE, drums: 'shaker', lead: 'pluck', comp: 'pluck',
       pluckChance: 1, padChance: 0.15, bassStyle: 'roots', melodyDensity: 0.24 },
+    { name: 'minimal piano', bpm: [54, 66], key: [-2, 0, 5], swing: 0.04,
+      progressions: [
+        [[0, 4, 7, 11], [5, 9, 12, 16], [2, 5, 9, 12], [-3, 0, 4, 7]],
+        [[0, 4, 7, 14], [-5, -1, 2, 7], [5, 9, 12, 19], [4, 7, 11, 16]],
+      ],
+      scale: MAJ_SCALE, drums: 'none', lead: 'ep', comp: 'ep',
+      pluckChance: 0, padChance: 0.75, bassStyle: 'roots', melodyDensity: 0.08 },
   ],
   roastery: [
     { name: 'bossa', bpm: [86, 98], key: [0, 2, 5, 7], swing: 0.06,
@@ -75,6 +88,13 @@ const STYLES = {
       ],
       scale: MIN_SCALE, drums: 'latin', lead: 'pluck', comp: 'pluck',
       pluckChance: 1, padChance: 0.1, bassStyle: 'bossa', melodyDensity: 0.22 },
+    { name: 'downtempo', bpm: [72, 84], key: [-3, 0, 5], swing: 0.12,
+      progressions: [
+        [[0, 3, 7, 10], [5, 9, 12, 16], [-2, 2, 5, 9], [3, 7, 10, 14]],
+        [[0, 4, 7, 11], [-4, 0, 3, 7], [5, 9, 12, 16], [2, 5, 9, 12]],
+      ],
+      scale: MIN_SCALE, drums: 'lofi', lead: 'ep', comp: 'ep',
+      pluckChance: 0.35, padChance: 0.55, bassStyle: 'roots', melodyDensity: 0.13 },
   ],
   midnight: [
     { name: 'brushjazz', bpm: [56, 66], key: [-5, -3, -1], swing: 0.15,
@@ -99,6 +119,13 @@ const STYLES = {
       ],
       scale: MIN_SCALE, drums: 'none', lead: 'ep', comp: 'ep',
       pluckChance: 0.1, padChance: 0.95, bassStyle: 'roots', melodyDensity: 0.09 },
+    { name: 'piano trio', bpm: [68, 82], key: [-5, -2, 0], swing: 0.2,
+      progressions: [
+        [[0, 3, 7, 10], [5, 8, 12, 15], [2, 5, 9, 12], [7, 10, 14, 17]],
+        [[0, 3, 7, 14], [-3, 0, 4, 10], [-5, -1, 2, 9], [5, 8, 12, 17]],
+      ],
+      scale: MIN_SCALE, drums: 'ride', lead: 'ep', comp: 'ep',
+      pluckChance: 0.05, padChance: 0.18, bassStyle: 'walking', melodyDensity: 0.18 },
   ],
 };
 
@@ -111,6 +138,7 @@ const AMBIENCE_PROFILES = {
     beds: { chatter: 0.8, chatter2: 0.35, chatter_busy: 0, chatter_quiet: 0 },
     chatterRate: 1.0, chatterLP: 7500,
     traffic: 0.8, murmur: 0.3, stepRate: 1.0, stepVol: 1.0,
+    room: { seconds: 1.35, decay: 3.8, wet: 0.32 },
     clinkMs: [5000, 17000], typeMs: [1500, 7000],
   },
   roastery: {
@@ -118,6 +146,7 @@ const AMBIENCE_PROFILES = {
     beds: { chatter: 0.3, chatter2: 0.25, chatter_busy: 1.1, chatter_quiet: 0 },
     chatterRate: 1.04, chatterLP: 11000,
     traffic: 1.5, murmur: 0.45, stepRate: 1.14, stepVol: 1.2,
+    room: { seconds: 0.95, decay: 4.6, wet: 0.22 },
     clinkMs: [3000, 11000], typeMs: [1000, 4500],
   },
   midnight: {
@@ -125,6 +154,7 @@ const AMBIENCE_PROFILES = {
     beds: { chatter: 0.1, chatter2: 0, chatter_busy: 0, chatter_quiet: 0.55 },
     chatterRate: 0.92, chatterLP: 2400,
     traffic: 0.55, murmur: 0.14, stepRate: 0.88, stepVol: 0.8,
+    room: { seconds: 1.85, decay: 3.1, wet: 0.46 },
     clinkMs: [9000, 26000], typeMs: [4000, 14000],
   },
 };
@@ -138,8 +168,13 @@ export class CafeAudio {
     this._timers = [];
     this.clinkSpots = [];   // world positions where seated people are
     this.typingSpots = [];  // world positions of laptop users
+    this.pageSpots = [];    // world positions of people actually reading
+    this.occupancy = 0;
+    this.capacity = 1;
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
     this.voicesLevel = 1;     // user's "people talking" slider, scales the crowd beds
+    this.recordedVolume = 0.5;
+    this.recordedDuck = 1;
   }
 
   start(theme) {
@@ -158,9 +193,12 @@ export class CafeAudio {
 
     // procedural room reverb
     this.reverb = ctx.createConvolver();
-    this.reverb.buffer = this._makeImpulseResponse(1.7, 3.2);
+    const initialRoom = this._profile().room;
+    this._irCache = new Map();
+    this.reverb.buffer = this._makeImpulseResponse(initialRoom.seconds, initialRoom.decay);
+    this._irCache.set(this.theme.id, this.reverb.buffer);
     this.reverbGain = ctx.createGain();
-    this.reverbGain.gain.value = 0.5;
+    this.reverbGain.gain.value = initialRoom.wet;
     this.reverb.connect(this.reverbGain).connect(this.master);
 
     this.musicBus = ctx.createGain();
@@ -168,11 +206,15 @@ export class CafeAudio {
     // makeup gain: the synth voices are written quiet; this brings the music
     // up to sit beside the recorded ambience beds instead of underneath them
     this.musicMakeup = ctx.createGain();
-    this.musicMakeup.gain.value = 3.2;
+    this.musicMakeup.gain.value = 2.15;
+    this.musicDucker = ctx.createGain();
+    this.musicDucker.gain.value = 1;
     this.musicLP = ctx.createBiquadFilter();
     this.musicLP.type = 'lowpass';
-    this.musicLP.frequency.value = 3400;
-    this.musicBus.connect(this.musicMakeup).connect(this.musicLP).connect(this.master);
+    // Keep the top octave of percussion and plucked strings. The former
+    // 3.4 kHz cutoff made every genre sound like the same muffled game loop.
+    this.musicLP.frequency.value = 8200;
+    this.musicBus.connect(this.musicMakeup).connect(this.musicDucker).connect(this.musicLP).connect(this.master);
     // a touch of room on the music too
     const musVerbSend = ctx.createGain();
     musVerbSend.gain.value = 0.12;
@@ -181,6 +223,17 @@ export class CafeAudio {
     this.ambienceBus = ctx.createGain();
     this.ambienceBus.gain.value = 0.7;
     this.ambienceBus.connect(this.master);
+    // Category buses preserve one user-facing café control while giving the
+    // mix intentional internal perspective and headroom.
+    this.foleyBus = ctx.createGain();
+    this.foleyBus.gain.value = 0.82;
+    this.foleyBus.connect(this.ambienceBus);
+    this.machineryBus = ctx.createGain();
+    this.machineryBus.gain.value = 0.9;
+    this.machineryBus.connect(this.ambienceBus);
+    this.exteriorBus = ctx.createGain();
+    this.exteriorBus.gain.value = 0.62;
+    this.exteriorBus.connect(this.ambienceBus);
     this.ambVerbSend = ctx.createGain();
     this.ambVerbSend.gain.value = 0.35;
     this.ambienceBus.connect(this.ambVerbSend).connect(this.reverb);
@@ -198,9 +251,9 @@ export class CafeAudio {
     this._startVinyl();
     this._startRoomTone();
     this._startMurmur();
+    this.setTheme(theme);
     this._scheduleEvents();
     this._startMusic();
-    this.setTheme(theme);
 
     // recorded assets stream in behind the synth and take over the beds
     loadSoundLibrary(ctx, SOUND_MANIFEST).then((buffers) => {
@@ -285,7 +338,7 @@ export class CafeAudio {
       const muffle = this.ctx.createBiquadFilter();
       muffle.type = 'lowpass';
       muffle.frequency.value = 1500; // through the glass
-      const pan = this._panner(front.x, 1.6, front.z + 1.5);
+      const pan = this._panner(front.x, 1.6, front.z + 1.5, this.exteriorBus);
       this.trafficDayGain.connect(muffle);
       this.trafficNightGain.connect(muffle);
       muffle.connect(pan);
@@ -326,6 +379,7 @@ export class CafeAudio {
     const t = this.ctx.currentTime;
     const beds = this.chatterBeds || {};
     const voices = this.voicesLevel ?? 1;
+    const occupancy = clamp(this.occupancy / Math.max(1, this.capacity), 0.08, 1);
     if (Object.keys(beds).length) {
       // desired mix, with weight falling back to the generic bed when a
       // café-specific recording didn't make it
@@ -333,12 +387,12 @@ export class CafeAudio {
       if (!beds.chatter_busy && want.chatter_busy) { want.chatter += want.chatter_busy * 0.8; want.chatter_busy = 0; }
       if (!beds.chatter_quiet && want.chatter_quiet) { want.chatter += want.chatter_quiet * 0.5; want.chatter_quiet = 0; }
       for (const [k, bed] of Object.entries(beds)) {
-        bed.gain.gain.setTargetAtTime((want[k] ?? 0) * voices, t, 0.4);
+        bed.gain.gain.setTargetAtTime((want[k] ?? 0) * voices * (0.3 + occupancy * 0.7), t, 0.8);
         bed.src?.src.playbackRate.setTargetAtTime(p.chatterRate * (k === 'chatter2' ? 0.97 : 1), t, 1.5);
       }
       this.chatterTone.frequency.setTargetAtTime(p.chatterLP, t, 1.5);
       // recorded crowd leads; synth murmur is per-café seasoning
-      this.murmurGain.gain.setTargetAtTime(p.murmur * voices, t, 0.4);
+      this.murmurGain.gain.setTargetAtTime(p.murmur * 0.18 * voices * occupancy, t, 0.8);
     } else {
       // synth-only fallback still gets scaled per café
       this.murmurGain?.gain.setTargetAtTime(Math.max(0.45, p.murmur * 2.4) * voices, t, 0.4);
@@ -366,9 +420,9 @@ export class CafeAudio {
     }
   }
 
-  _panner(x, y, z) {
+  _panner(x, y, z, destination = this.ambienceBus) {
     const p = this.ctx.createPanner();
-    p.panningModel = 'equalpower';
+    p.panningModel = 'HRTF';
     p.distanceModel = 'linear';
     p.refDistance = 1.5;
     p.maxDistance = 22;
@@ -377,7 +431,7 @@ export class CafeAudio {
     p.positionY?.setValueAtTime(y, this.ctx.currentTime);
     p.positionZ?.setValueAtTime(z, this.ctx.currentTime);
     if (!p.positionX && p.setPosition) p.setPosition(x, y, z);
-    p.connect(this.ambienceBus);
+    p.connect(destination);
     return p;
   }
 
@@ -388,11 +442,39 @@ export class CafeAudio {
 
   setClinkSpots(spots) { this.clinkSpots = spots; }
   setTypingSpots(spots) { this.typingSpots = spots; }
+  setPageSpots(spots) { this.pageSpots = spots; }
+  setOccupancy(count, capacity) {
+    this.occupancy = count;
+    this.capacity = Math.max(1, capacity);
+    this._applyAmbienceProfile();
+  }
+
+  _duckMusic(level, seconds) {
+    if (this.recordedMusic) {
+      this.recordedDuck = level;
+      this._applyRecordedVolumes();
+      this._timer(() => {
+        this.recordedDuck = 1;
+        this._applyRecordedVolumes();
+      }, seconds * 1000);
+    }
+    if (!this.musicDucker || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.musicDucker.gain.cancelScheduledValues(t);
+    this.musicDucker.gain.setTargetAtTime(level, t, 0.12);
+    this.musicDucker.gain.setTargetAtTime(1, t + seconds, 0.55);
+  }
 
   // ---------- volume / theme ----------
 
-  setMusicVolume(v) { if (this.musicBus) this.musicBus.gain.value = v; }
-  setAmbienceVolume(v) { if (this.ambienceBus) this.ambienceBus.gain.value = v; }
+  setMusicVolume(v) {
+    this.recordedVolume = v;
+    this._applyRecordedVolumes();
+    if (this.musicBus) this.musicBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
+  }
+  setAmbienceVolume(v) {
+    if (this.ambienceBus) this.ambienceBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
+  }
 
   // scales just the people-talking layers (recorded crowd beds + synth murmur),
   // independent of the rest of the café ambience
@@ -408,6 +490,7 @@ export class CafeAudio {
       this.musicMuter.gain.cancelScheduledValues(t);
       this.musicMuter.gain.setTargetAtTime(on ? 1 : 0, t, 0.4);
     }
+    this._applyRecordedVolumes();
   }
 
   setTheme(theme) {
@@ -416,8 +499,24 @@ export class CafeAudio {
     if (theme?.rain) this._startRain(); else this._stopRain();
     this._setTrafficMix();
     this._applyAmbienceProfile();
+    const room = this._profile().room;
+    if (room && this.reverb) {
+      if (!this._irCache.has(theme.id)) {
+        this._irCache.set(theme.id, this._makeImpulseResponse(room.seconds, room.decay));
+      }
+      this.reverb.buffer = this._irCache.get(theme.id);
+      this.reverbGain.gain.setTargetAtTime(room.wet, this.ctx.currentTime, 0.8);
+    }
     this.styleId = theme?.id in STYLES ? theme.id : 'goldenhour';
-    this._newSong(); // switching cafés changes the record
+    this.recordTextureGain?.gain.setTargetAtTime(theme?.vinyl ? 1 : theme?.id === 'goldenhour' ? 0.12 : 0.02, this.ctx.currentTime, 1.2);
+    if (this._musicStarted) {
+      if (this.recordedMusic) {
+        if (this._recordThemeId !== theme.id) {
+          this._recordThemeId = theme.id;
+          this._playRecordedTrack(true);
+        }
+      } else this._newSong();
+    }
   }
 
   // ---------- buffers ----------
@@ -497,13 +596,13 @@ export class CafeAudio {
     const src = this._noiseSource(this._brownBuf);
     const lp = this.ctx.createBiquadFilter();
     lp.type = 'lowpass'; lp.frequency.value = 300;
-    const g = this.ctx.createGain(); g.gain.value = 0.14;
+    const g = this.ctx.createGain(); g.gain.value = 0.035;
     src.connect(lp).connect(g).connect(this.ambienceBus);
     src.start();
     // fridge/AC hum
     const hum = this.ctx.createOscillator();
     hum.frequency.value = 120; hum.type = 'triangle';
-    const hg = this.ctx.createGain(); hg.gain.value = 0.006;
+    const hg = this.ctx.createGain(); hg.gain.value = 0.0015;
     hum.connect(hg).connect(this.ambienceBus);
     hum.start();
   }
@@ -565,11 +664,15 @@ export class CafeAudio {
     this.musicMuter.gain.value = this.musicOn ? 1 : 0;
     this.musicMuter.connect(this.musicBus);
 
+    this.recordTextureGain = this.ctx.createGain();
+    this.recordTextureGain.gain.value = this.theme?.vinyl ? 1 : 0.08;
+    this.recordTextureGain.connect(this.musicMuter);
+
     const hiss = this._noiseSource(this._noiseBuf);
     const hp = this.ctx.createBiquadFilter();
     hp.type = 'highpass'; hp.frequency.value = 3200;
     const hg = this.ctx.createGain(); hg.gain.value = 0.005;
-    hiss.connect(hp).connect(hg).connect(this.musicMuter);
+    hiss.connect(hp).connect(hg).connect(this.recordTextureGain);
     hiss.start();
 
     const pop = () => {
@@ -581,9 +684,9 @@ export class CafeAudio {
       f.type = 'bandpass'; f.frequency.value = rand(1000, 4500); f.Q.value = 1.2;
       g.gain.setValueAtTime(rand(0.015, 0.08), t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.02, 0.05));
-      src.connect(f).connect(g).connect(this.musicMuter);
+      src.connect(f).connect(g).connect(this.recordTextureGain);
       src.start(t, rand(0, 1), 0.06);
-      this._timer(pop, rand(180, 2600));
+      this._timer(pop, rand(2600, 9500));
     };
     this._timer(pop, 500);
   }
@@ -699,12 +802,14 @@ export class CafeAudio {
   playClink(pos) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const out = pos ? this._panner(pos.x, 0.9, pos.z) : this.ambienceBus;
+    const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;
     if (this._buf('cup_clinks')) {
-      // a random little slice of the dishes recording, repitched for variety
+      const entry = this._buf('cup_clinks');
+      const offset = pick(CLINK_ONSETS);
       this._playBuf('cup_clinks', {
         out, vol: rand(0.35, 0.7), rate: rand(0.92, 1.1),
-        randomSlice: true, dur: rand(0.5, 1.2),
+        offset: Math.max(0, offset - 0.025),
+        dur: Math.min(rand(0.38, 0.7), entry.buffer.duration - offset - 0.02),
       });
       return;
     }
@@ -730,8 +835,8 @@ export class CafeAudio {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const out = this.anchors?.door
-      ? this._panner(this.anchors.door.x, 2.2, this.anchors.door.z)
-      : this.ambienceBus;
+      ? this._panner(this.anchors.door.x, 2.2, this.anchors.door.z, this.foleyBus)
+      : this.foleyBus;
     if (this._buf('door_open') && Math.random() < 0.8) {
       this._playBuf('door_open', { out, vol: 0.45, rate: rand(0.95, 1.05) });
     }
@@ -754,7 +859,8 @@ export class CafeAudio {
   playEspresso() {
     if (!this.ctx) return;
     const a = this.anchors?.counter;
-    const out = a ? this._panner(a.x, 1.1, a.z) : this.ambienceBus;
+    const out = a ? this._panner(a.x, 1.1, a.z, this.machineryBus) : this.machineryBus;
+    this._duckMusic(0.58, this._buf('espresso') ? 15.8 : 14.5);
     if (this._buf('espresso')) {
       // real machine recording, then real milk steaming, then the cup goes down
       const e = this._buf('espresso');
@@ -881,7 +987,7 @@ export class CafeAudio {
   playChairScrape(pos) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const out = pos ? this._panner(pos.x, 0.3, pos.z) : this.ambienceBus;
+    const out = pos ? this._panner(pos.x, 0.3, pos.z, this.foleyBus) : this.foleyBus;
     if (this._buf('chair_scrape')) {
       this._playBuf('chair_scrape', { out, vol: rand(0.35, 0.6), rate: rand(0.9, 1.1) });
       return;
@@ -903,7 +1009,7 @@ export class CafeAudio {
   playPageTurn(pos) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const out = pos ? this._panner(pos.x, 0.9, pos.z) : this.ambienceBus;
+    const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;
     if (this._buf('page_turn')) {
       this._playBuf('page_turn', { out, vol: rand(0.3, 0.5), rate: rand(0.92, 1.08) });
       return;
@@ -923,13 +1029,15 @@ export class CafeAudio {
     if (!this.ctx) return;
     const p = this._profile();
     vol *= p.stepVol;
-    const out = pos ? this._panner(pos.x, 0.1, pos.z) : this.ambienceBus;
+    const out = pos ? this._panner(pos.x, 0.1, pos.z, this.foleyBus) : this.foleyBus;
     if (this._buf('footsteps')) {
-      // one random step out of the walking recording; per-café floor character
-      // (brighter/faster on concrete, low wooden thud in the night café)
+      this._footstepIndex = ((this._footstepIndex ?? Math.floor(rand(0, FOOTSTEP_ONSETS.length))) + 1) % FOOTSTEP_ONSETS.length;
+      const offset = FOOTSTEP_ONSETS[this._footstepIndex];
+      // Onset-marked step from the walking recording; per-café playback rate
+      // supplies floor character without chopping into an impact.
       this._playBuf('footsteps', {
         out, vol: vol * rand(0.7, 1.1), rate: p.stepRate * rand(0.94, 1.08),
-        randomSlice: true, dur: 0.35,
+        offset: Math.max(0, offset - 0.025), dur: 0.34,
       });
       return;
     }
@@ -950,14 +1058,15 @@ export class CafeAudio {
     if (!this.ctx || !this._buf('carpass')) return;
     // a car sweeping across the street outside: pan the panner while it plays
     const front = this.anchors?.door ?? { x: 0, z: 5 };
-    const p = this._panner(-16, 1.2, front.z + 2.5);
+    const p = this._panner(-16, 1.2, front.z + 2.5, this.exteriorBus);
     const muffle = this.ctx.createBiquadFilter();
     muffle.type = 'lowpass';
     muffle.frequency.value = 1300;
     muffle.connect(p);
     const entry = this._buf('carpass');
-    const dur = Math.min(entry.buffer.duration, 8);
-    const played = this._playBuf('carpass', { out: muffle, vol: 0.5, rate: rand(0.92, 1.05) });
+    const rate = rand(0.92, 1.05);
+    const dur = entry.buffer.duration / rate;
+    const played = this._playBuf('carpass', { out: muffle, vol: 0.5, rate });
     if (played && p.positionX) {
       const t = this.ctx.currentTime;
       const dir = Math.random() < 0.5 ? 1 : -1;
@@ -969,7 +1078,7 @@ export class CafeAudio {
   playRegister() {
     if (!this.ctx) return;
     const a = this.anchors?.counter;
-    const out = a ? this._panner(a.x + 3.6, 1.1, a.z) : this.ambienceBus;
+    const out = a ? this._panner(a.x + 3.6, 1.1, a.z, this.machineryBus) : this.machineryBus;
     if (this._buf('register')) {
       this._playBuf('register', { out, vol: 0.4, rate: rand(0.97, 1.03) });
       return;
@@ -989,13 +1098,13 @@ export class CafeAudio {
 
   playPour(pos) {
     if (!this.ctx || !this._buf('pour')) return;
-    const out = pos ? this._panner(pos.x, 1.0, pos.z) : this.ambienceBus;
+    const out = pos ? this._panner(pos.x, 1.0, pos.z, this.machineryBus) : this.machineryBus;
     this._playBuf('pour', { out, vol: 0.4, rate: rand(0.95, 1.05) });
   }
 
   _typeBurst(pos) {
     if (!this.ctx) return;
-    const out = pos ? this._panner(pos.x, 0.9, pos.z) : this.ambienceBus;
+    const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;
     if (this._buf('typing')) {
       this._playBuf('typing', {
         out, vol: rand(0.2, 0.4), rate: rand(0.95, 1.05),
@@ -1020,8 +1129,7 @@ export class CafeAudio {
 
   _scheduleEvents() {
     const clinks = () => {
-      const spot = this.clinkSpots.length ? pick(this.clinkSpots) : null;
-      this.playClink(spot);
+      if (this.clinkSpots.length) this.playClink(pick(this.clinkSpots));
       const [a, b] = this._profile().clinkMs;
       this._timer(clinks, rand(a, b));
     };
@@ -1031,23 +1139,127 @@ export class CafeAudio {
       this._timer(typing, rand(a, b));
     };
     const pages = () => {
-      const spot = this.clinkSpots.length ? pick(this.clinkSpots) : null;
-      if (Math.random() < 0.5) this.playPageTurn(spot);
+      if (this.pageSpots.length && Math.random() < 0.65) this.playPageTurn(pick(this.pageSpots));
       this._timer(pages, rand(9000, 25000));
-    };
-    const scrapes = () => {
-      if (Math.random() < 0.4) this.playChairScrape(this.clinkSpots.length ? pick(this.clinkSpots) : null);
-      this._timer(scrapes, rand(20000, 60000));
     };
     this._timer(clinks, 4000);
     this._timer(typing, 6000);
     this._timer(pages, 12000);
-    this._timer(scrapes, 30000);
   }
 
   // ---------- music engine ----------
 
   _startMusic() {
+    this._musicStarted = true;
+    if (MUSIC_MANIFEST[this.styleId]?.length) {
+      this._startRecordedMusic();
+      return;
+    }
+    this._startGenerativeMusic();
+  }
+
+  _startRecordedMusic() {
+    this.recordedMusic = true;
+    this._recordThemeId = this.styleId;
+    this._recordBags = {};
+    this._recordDeckIndex = -1;
+    this._musicDecks = [0, 1].map(() => {
+      const el = new Audio();
+      el.preload = 'metadata';
+      el.playsInline = true;
+      el.hidden = true;
+      document.body.appendChild(el);
+      return { el, mix: 0 };
+    });
+    this._playRecordedTrack(false);
+  }
+
+  _nextRecordedTrack(themeId) {
+    const pool = MUSIC_MANIFEST[themeId] ?? [];
+    if (!pool.length) return null;
+    let bag = this._recordBags[themeId];
+    if (!bag?.length) {
+      bag = pool.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      if (bag.length > 1 && pool[bag[bag.length - 1]].id === this._lastRecordedId) {
+        [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+      }
+      this._recordBags[themeId] = bag;
+    }
+    const track = pool[bag.pop()];
+    this._lastRecordedId = track.id;
+    return track;
+  }
+
+  async _playRecordedTrack(themeChange = false) {
+    if (!this.recordedMusic || !this.ctx) return;
+    const themeId = this.styleId || 'goldenhour';
+    const track = this._nextRecordedTrack(themeId);
+    if (!track) return;
+    const token = (this._recordToken ?? 0) + 1;
+    this._recordToken = token;
+    const oldIndex = this._recordDeckIndex;
+    const nextIndex = (oldIndex + 1) % this._musicDecks.length;
+    const next = this._musicDecks[nextIndex];
+    const old = oldIndex >= 0 ? this._musicDecks[oldIndex] : null;
+    const fade = old ? (themeChange ? 4.5 : 7) : 2.2;
+
+    next.mix = 0;
+    this._applyRecordedVolumes();
+    next.el.src = track.url;
+    try {
+      await next.el.play();
+    } catch (error) {
+      // A blocked media element should not leave the café silent: retain the
+      // synth playlist as an automatic local fallback.
+      console.warn(`[music] recorded playback unavailable (${error?.name}: ${error?.message})`);
+      this.recordedMusic = false;
+      this._startGenerativeMusic();
+      return;
+    }
+    if (token !== this._recordToken) { next.el.pause(); return; }
+    this._recordDeckIndex = nextIndex;
+    this._crossfadeRecorded(old, next, fade, oldIndex);
+
+    window.dispatchEvent(new CustomEvent('cafe-track-change', {
+      detail: { title: track.title, artist: track.artist, recorded: true },
+    }));
+    const lead = 7;
+    this._timer(() => {
+      if (this.recordedMusic && this._recordToken === token) this._playRecordedTrack(false);
+    }, Math.max(1000, (track.duration - lead) * 1000));
+  }
+
+  _applyRecordedVolumes() {
+    if (!this._musicDecks) return;
+    const master = (this.musicOn ? 1 : 0) * this.recordedVolume * this.recordedDuck;
+    for (const deck of this._musicDecks) deck.el.volume = clamp(deck.mix * master, 0, 1);
+  }
+
+  _crossfadeRecorded(old, next, seconds, oldIndex) {
+    if (this._recordFadeTimer) clearInterval(this._recordFadeTimer);
+    const started = performance.now();
+    const oldStart = old?.mix ?? 0;
+    const tick = () => {
+      const p = clamp((performance.now() - started) / (seconds * 1000), 0, 1);
+      next.mix = p;
+      if (old) old.mix = oldStart * (1 - p);
+      this._applyRecordedVolumes();
+      if (p >= 1) {
+        clearInterval(this._recordFadeTimer);
+        this._recordFadeTimer = null;
+        if (old && this._recordDeckIndex !== oldIndex) old.el.pause();
+      }
+    };
+    tick();
+    this._recordFadeTimer = setInterval(tick, 50);
+  }
+
+  _startGenerativeMusic() {
+    this.recordedMusic = false;
     this.styleId = this.theme?.id in STYLES ? this.theme.id : 'goldenhour';
     this._newSong();
     this._nextNoteTime = this.ctx.currentTime + 0.3;
@@ -1080,7 +1292,22 @@ export class CafeAudio {
 
   _newSong() {
     const pool = STYLES[this.styleId || 'goldenhour'];
-    const style = pick(pool);
+    this._styleBags ??= {};
+    let bag = this._styleBags[this.styleId];
+    if (!bag?.length) {
+      bag = pool.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      if (bag.length > 1 && bag[bag.length - 1] === this._lastStyleIndex) {
+        [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+      }
+      this._styleBags[this.styleId] = bag;
+    }
+    const styleIndex = bag.pop();
+    this._lastStyleIndex = styleIndex;
+    const style = pool[styleIndex];
     const hasDrums = style.drums !== 'none';
     const prog = pick(style.progressions);
     const progB = pick(style.progressions);
@@ -1105,6 +1332,9 @@ export class CafeAudio {
       motif: this._makeMotif(style.scale),
       usePluckComp: Math.random() < style.pluckChance,
     };
+    window.dispatchEvent(new CustomEvent('cafe-track-change', {
+      detail: { style: style.name, bpm: Math.round(this.song.bpm) },
+    }));
   }
 
   _makeMotif(scale) {

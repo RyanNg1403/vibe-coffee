@@ -1,0 +1,20 @@
+{
+  "wood_floor": {
+    "title": "Wood Floor",
+    "author": "Dimitrios Savva",
+    "license": "CC0 1.0",
+    "item_url": "https://polyhaven.com/a/wood_floor"
+  },
+  "white_plaster_02": {
+    "title": "White Plaster 02",
+    "author": "Rob Tuytel",
+    "license": "CC0 1.0",
+    "item_url": "https://polyhaven.com/a/white_plaster_02"
+  },
+  "concrete_floor_painted": {
+    "title": "Concrete Floor Painted",
+    "author": "Rob Tuytel",
+    "license": "CC0 1.0",
+    "item_url": "https://polyhaven.com/a/concrete_floor_painted"
+  }
+}

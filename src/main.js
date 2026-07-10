@@ -9,6 +9,7 @@ import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
 import { loadModelLibrary } from './modelLoader.js';
+import { loadMaterialLibrary } from './materialLoader.js';
 
 // ---------- renderer / scene ----------
 
@@ -162,7 +163,7 @@ async function loadTheme(index) {
   currentThemeIndex = index;
   const theme = THEMES[index];
   const token = ++loadToken;
-  const models = await loadModelLibrary();
+  const [models, materials] = await Promise.all([loadModelLibrary(), loadMaterialLibrary()]);
   if (token !== loadToken) return; // a newer switch superseded this one
 
   if (crowd) { crowd.dispose(); crowd = null; }
@@ -172,7 +173,7 @@ async function loadTheme(index) {
     cafe = null;
   }
 
-  cafe = buildCafe(theme, models);
+  cafe = buildCafe(theme, models, materials);
   scene.add(cafe.group);
   cafe.group.add(ring);
 
@@ -331,6 +332,17 @@ document.getElementById('walk-btn').addEventListener('click', () => {
 });
 
 const musicToggle = document.getElementById('music-toggle');
+const trackStyle = document.getElementById('track-style');
+window.addEventListener('cafe-track-change', (e) => {
+  if (!trackStyle) return;
+  if (e.detail.recorded) {
+    trackStyle.textContent = `${e.detail.title} — ${e.detail.artist}`;
+    trackStyle.title = `Now playing: ${e.detail.title} by ${e.detail.artist}`;
+  } else {
+    trackStyle.textContent = `${e.detail.style} · ${e.detail.bpm} bpm`;
+    trackStyle.title = `Now playing: ${e.detail.style}, ${e.detail.bpm} beats per minute`;
+  }
+});
 musicToggle.addEventListener('click', () => {
   const on = musicToggle.classList.toggle('on');
   audio.setMusicOn(on);
@@ -445,18 +457,15 @@ function frame() {
     }
     camera.position.set(
       walkPos.x,
-      STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : Math.sin(elapsed * 1.1) * 0.008),
+      STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : 0),
       walkPos.z
     );
   } else if (seatIndex >= 0 && cafe) {
-    // subtle breathing sway while seated
+    // Keep a seated view pixel-stable. Sub-pixel idle motion made GTAO and
+    // detailed PBR textures shimmer even though the user was not moving.
     const seat = cafe.seats[seatIndex];
     const eye = seatEye(seat);
-    camera.position.set(
-      eye.x + Math.sin(elapsed * 0.5) * 0.006,
-      eye.y + Math.sin(elapsed * 1.1) * 0.008,
-      eye.z + Math.cos(elapsed * 0.43) * 0.006
-    );
+    camera.position.copy(eye);
   }
 
   // keep the audio engine's ears where the eyes are (throttled)

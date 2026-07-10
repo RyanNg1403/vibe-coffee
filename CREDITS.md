@@ -1,9 +1,10 @@
-# Sound credits
+# Asset credits
 
-The recorded sound assets in `public/sounds/` come from the sources below
-(Creative Commons / public domain). Trimming was the only modification.
-Everything not listed here (all music, plus any sound whose recording failed
-to load) is synthesized at runtime with WebAudio.
+## Sound effects and 3D models
+
+The recorded sound and model assets come from the sources below. Audio may be
+trimmed and loudness-normalized for in-app playback. Missing sound assets retain
+procedural WebAudio fallbacks.
 
 - **carpass** — "VEHBy_Car by (single car pass-by, from SSE Library: VEHICLES)" by USC Cinema / Sunset Editorial Collection (SSE Library) — CC0 1.0 (public domain dedication) — https://creativecommons.org/publicdomain/zero/1.0/ — [source](https://archive.org/details/SSE_Library_VEHICLES)
 - **chair_scrape** — "R21-40a - Bed or Chair Movement (Red Library: Foley Props 2)" by Red Library (foley sound effects collection, archive.org) — CC0 1.0 (public domain) — https://creativecommons.org/publicdomain/zero/1.0/ — [source](https://archive.org/details/Red_Library_Foley_Props_2)
@@ -58,3 +59,25 @@ to load) is synthesized at runtime with WebAudio.
 - **teapot** — source metadata missing (see git history of tools/sound-credits.json)
 - **trashcan** — source metadata missing (see git history of tools/sound-credits.json)
 - **wall_shelf** — source metadata missing (see git history of tools/sound-credits.json)
+
+## Recorded music
+
+The local playlist files are loudness-normalized transcodes of the credited
+source recordings. They stream on demand rather than being decoded into memory.
+
+- **Beyond (Piano Edit)** by Pablo Perez — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/pablo-perez/single/beyond-piano-edit/)
+- **Busted Jazz** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/index.php/music/holiznacc0/lo-fi-and-chill/busted-jazz/)
+- **Cellar Door** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/cellar-door/)
+- **Everything You Ever Dreamed.** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/everything-you-ever-dreamed)
+- **1 (jazz)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/1-jazz/)
+- **2 (jazz)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/2-jazz/)
+- **Warm Fuzz (LoFi, Retro)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/warm-fuzz-lofi-retro/)
+
+## PBR materials
+
+The 1K diffuse, OpenGL normal and roughness maps below are local derivatives of
+the credited Poly Haven CC0 materials.
+
+- **Wood Floor** by Dimitrios Savva — CC0 1.0 — [source](https://polyhaven.com/a/wood_floor)
+- **White Plaster 02** by Rob Tuytel — CC0 1.0 — [source](https://polyhaven.com/a/white_plaster_02)
+- **Concrete Floor Painted** by Rob Tuytel — CC0 1.0 — [source](https://polyhaven.com/a/concrete_floor_painted)

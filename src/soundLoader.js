@@ -7,17 +7,31 @@
 // common RMS target (peak-limited so nothing clips).
 
 function analyze(buffer) {
-  const d = buffer.getChannelData(0);
   let sum = 0, peak = 0;
-  const stride = Math.max(1, Math.floor(d.length / 200000)); // sample large files
+  const stride = Math.max(1, Math.floor(buffer.length / 200000)); // sample large files
   let n = 0;
-  for (let i = 0; i < d.length; i += stride) {
-    const v = d[i];
-    sum += v * v;
-    if (Math.abs(v) > peak) peak = Math.abs(v);
-    n++;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const d = buffer.getChannelData(ch);
+    for (let i = 0; i < d.length; i += stride) {
+      const v = d[i];
+      sum += v * v;
+      if (Math.abs(v) > peak) peak = Math.abs(v);
+      n++;
+    }
   }
   return { rms: Math.sqrt(sum / Math.max(1, n)), peak };
+}
+
+const BED_KEYS = new Set(['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet']);
+const EXTERIOR_KEYS = new Set(['traffic_day', 'traffic_night', 'rain_window']);
+const MACHINE_KEYS = new Set(['espresso', 'steam_milk', 'pour']);
+
+function targetRms(key, def) {
+  if (def.targetRms) return def.targetRms;
+  if (BED_KEYS.has(key)) return 0.075;
+  if (EXTERIOR_KEYS.has(key)) return 0.055;
+  if (MACHINE_KEYS.has(key)) return 0.1;
+  return 0.115;
 }
 
 // data: URIs must bypass fetch(): strict CSPs (like the Claude artifact
@@ -32,7 +46,6 @@ function dataUriToArrayBuffer(uri) {
 
 export async function loadSoundLibrary(ctx, manifest, onLoaded) {
   const buffers = new Map();
-  const TARGET_RMS = 0.14;
   await Promise.all(Object.entries(manifest).map(async ([key, def]) => {
     try {
       let ab;
@@ -45,7 +58,7 @@ export async function loadSoundLibrary(ctx, manifest, onLoaded) {
       }
       const buf = await ctx.decodeAudioData(ab);
       const { rms, peak } = analyze(buf);
-      let gain = rms > 0.0001 ? TARGET_RMS / rms : 1;
+      let gain = rms > 0.0001 ? targetRms(key, def) / rms : 1;
       gain = Math.min(gain, 6, peak > 0.0001 ? 0.95 / peak : 6);
       buffers.set(key, { buffer: buf, ...def, gain: gain * (def.trim ?? 1) });
       onLoaded?.(key, buf);

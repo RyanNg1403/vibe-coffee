@@ -19,12 +19,35 @@ const PANTS = [0x37414f, 0x4a4038, 0x2f3438, 0x5a4a5f, 0x39504a, 0x54452f];
 const HAIR = [0x241a12, 0x3f2a17, 0x6b4a26, 0x8a8a8a, 0x151515, 0x743e21, 0x4a3b32];
 
 const EYE_MAT = new THREE.MeshStandardMaterial({ color: 0x1c1410, roughness: 0.3 });
+const EYE_WHITE_MAT = new THREE.MeshPhysicalMaterial({ color: 0xf4eee7, roughness: 0.35, clearcoat: 0.15 });
+
+let _clothTex = null;
+function clothTexture() {
+  if (_clothTex) return _clothTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const x = c.getContext('2d');
+  x.fillStyle = '#a8a8a8';
+  x.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 96; i += 3) {
+    x.fillStyle = i % 6 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+    x.fillRect(i, 0, 1, 96);
+    x.fillRect(0, i, 96, 1);
+  }
+  _clothTex = new THREE.CanvasTexture(c);
+  _clothTex.wrapS = _clothTex.wrapT = THREE.RepeatWrapping;
+  _clothTex.repeat.set(4, 6);
+  return _clothTex;
+}
 
 export function makePerson(tint = 1) {
   const g = new THREE.Group();
   const dim = (c) => new THREE.Color(c).multiplyScalar(tint);
   const skin = new THREE.MeshStandardMaterial({ color: dim(pick(SKIN_TONES)), roughness: 0.9 });
-  const shirt = new THREE.MeshStandardMaterial({ color: dim(pick(SHIRT)), roughness: 0.95 });
+  const cloth = clothTexture();
+  const shirt = new THREE.MeshStandardMaterial({
+    color: dim(pick(SHIRT)), roughness: 0.88, map: cloth, bumpMap: cloth, bumpScale: 0.003,
+  });
   const pants = new THREE.MeshStandardMaterial({ color: dim(pick(PANTS)), roughness: 0.95 });
   const hair = new THREE.MeshStandardMaterial({ color: dim(pick(HAIR)), roughness: 0.95 });
   const shoeMat = new THREE.MeshStandardMaterial({ color: dim(pick([0x2a2118, 0x1e1e22, 0x4a3a2a, 0x50505a])), roughness: 0.8 });
@@ -38,19 +61,20 @@ export function makePerson(tint = 1) {
     // so seated people fold naturally instead of sticking straight out
     const hip = new THREE.Group();
     hip.position.set(side * 0.09 * build, 0.5, 0);
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.15, 3, 8), pants);
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.17, 4, 12), pants);
     thigh.position.y = -0.125;
     thigh.castShadow = true;
     hip.add(thigh);
     const knee = new THREE.Group();
     knee.position.y = -0.25;
     hip.add(knee);
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.048, 0.13, 3, 8), pants);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.052, 0.15, 4, 12), pants);
     shin.position.y = -0.11;
     shin.castShadow = true;
     knee.add(shin);
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.15), shoeMat);
+    const foot = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.075, 4, 10), shoeMat);
     foot.position.set(0, -0.225, 0.035);
+    foot.rotation.x = Math.PI / 2;
     foot.castShadow = true;
     knee.add(foot);
     g.add(hip);
@@ -58,7 +82,7 @@ export function makePerson(tint = 1) {
     parts[side === -1 ? 'kneeL' : 'kneeR'] = knee;
   }
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.34, 4, 10), shirt);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.29, 6, 16), shirt);
   torso.scale.x = build;
   torso.position.y = 0.82;
   torso.castShadow = true;
@@ -68,11 +92,11 @@ export function makePerson(tint = 1) {
   for (const side of [-1, 1]) {
     const shoulder = new THREE.Group();
     shoulder.position.set(side * 0.2 * build, 0.98, 0);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.3, 3, 8), shirt);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.3, 4, 12), shirt);
     arm.position.y = -0.19;
     arm.castShadow = true;
     shoulder.add(arm);
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.046, 12, 9), skin);
     hand.position.y = -0.38;
     shoulder.add(hand);
     g.add(shoulder);
@@ -80,29 +104,58 @@ export function makePerson(tint = 1) {
   }
 
   // neck connects head to shoulders instead of a floating head
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.09, 8), skin);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.09, 12), skin);
   neck.position.y = 1.1;
   g.add(neck);
 
   const headG = new THREE.Group();
   headG.position.y = 1.22;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 12, 10), skin);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 16), skin);
   head.scale.set(0.95, 1.05, 0.98);
   head.castShadow = true;
   headG.add(head);
 
-  // eyes — the single cheapest thing that makes them read as people
+  // Proper eye whites, irises, a nose and a restrained mouth keep faces
+  // readable at café distance without the toy-like dot-eye look.
+  parts.eyes = [];
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 5), EYE_MAT);
-    eye.position.set(s * 0.045, 0.015, 0.102);
-    headG.add(eye);
+    const white = new THREE.Mesh(new THREE.SphereGeometry(0.0145, 10, 8), EYE_WHITE_MAT);
+    white.scale.y = 0.62;
+    white.position.set(s * 0.041, 0.018, 0.105);
+    headG.add(white);
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.0065, 8, 6), EYE_MAT);
+    iris.position.set(s * 0.041, 0.018, 0.116);
+    headG.add(iris);
+    parts.eyes.push({ white, iris });
+
+    const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.003, 0.026, 2, 6), hair);
+    brow.rotation.z = Math.PI / 2 + s * 0.08;
+    brow.position.set(s * 0.043, 0.052, 0.107);
+    headG.add(brow);
+  }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), skin);
+  nose.scale.set(0.65, 1.05, 1.2);
+  nose.position.set(0, -0.005, 0.117);
+  headG.add(nose);
+  const mouth = new THREE.Mesh(
+    new THREE.TorusGeometry(0.018, 0.0022, 5, 12, Math.PI * 0.9),
+    new THREE.MeshStandardMaterial({ color: 0x7d413c, roughness: 0.8 })
+  );
+  mouth.rotation.set(0, 0, Math.PI * 0.05);
+  mouth.position.set(0, -0.045, 0.109);
+  headG.add(mouth);
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.024, 10, 8), skin);
+    ear.scale.set(0.55, 1, 0.55);
+    ear.position.set(s * 0.112, 0, 0);
+    headG.add(ear);
   }
 
   // hair: cap, long, or beanie
   const style = Math.random();
   if (style < 0.16) {
     const beanie = new THREE.Mesh(
-      new THREE.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.42),
+      new THREE.SphereGeometry(0.125, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
       new THREE.MeshStandardMaterial({ color: dim(pick([0x8a4a3a, 0x3a4a5c, 0x54683f, 0x6a5a4a])), roughness: 1 })
     );
     beanie.position.y = 0.028;
@@ -114,7 +167,7 @@ export function makePerson(tint = 1) {
   } else {
     const long = style > 0.72;
     const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI * (style < 0.32 ? 0.35 : 0.52)),
+      new THREE.SphereGeometry(0.12, 18, 12, 0, Math.PI * 2, 0, Math.PI * (style < 0.32 ? 0.35 : 0.52)),
       hair
     );
     cap.position.y = 0.015;
@@ -137,13 +190,22 @@ export function makePerson(tint = 1) {
   if (Math.random() < 0.28) {
     const glassMat = new THREE.MeshStandardMaterial({ color: 0x24211c, roughness: 0.4 });
     for (const s of [-1, 1]) {
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.006, 6, 12), glassMat);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.027, 0.0045, 6, 14), glassMat);
       rim.position.set(s * 0.048, 0.018, 0.105);
       headG.add(rim);
     }
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.008, 0.008), glassMat);
     bridge.position.set(0, 0.018, 0.108);
     headG.add(bridge);
+  }
+
+  // Layered clothing details break the one-piece capsule silhouette.
+  if (Math.random() < 0.58) {
+    const collarMat = new THREE.MeshStandardMaterial({ color: dim(pick([0xe5ddcc, 0x2c3138, 0x7d684e])), roughness: 0.9 });
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.105 * build, 0.012, 6, 18, Math.PI), collarMat);
+    collar.rotation.set(Math.PI / 2, 0, 0);
+    collar.position.set(0, 1.045, 0.09);
+    g.add(collar);
   }
 
   g.add(headG);
@@ -186,6 +248,19 @@ export function makePerson(tint = 1) {
 
   g.userData.parts = parts;
   return g;
+}
+
+function animateMicroMotion(parts, t, phase = 0) {
+  if (!parts) return;
+  // Each person gets a different phase. The narrow waveform produces a quick
+  // double-sided blink rather than a slow mechanical eyelid animation.
+  const blinkWave = Math.sin(t * 0.64 + phase * 1.71);
+  const closure = Math.pow(Math.max(0, (blinkWave - 0.972) / 0.028), 0.42);
+  for (const eye of parts.eyes ?? []) {
+    eye.white.scale.y = 0.62 * (1 - closure * 0.92);
+    eye.iris.scale.y = 1 - closure * 0.92;
+  }
+  if (parts.torso) parts.torso.scale.z = 1 + Math.sin(t * 1.18 + phase) * 0.012;
 }
 
 let _blobTex = null;
@@ -472,7 +547,10 @@ class NPC {
     } else {
       this.mesh = makePerson();
     }
-    this.mesh.scale.setScalar(rand(0.9, 1.06));
+    // The downloaded characters in this project are deliberately low-poly.
+    // Prefer the smoother procedural rig indoors so faces and silhouettes stay
+    // visually coherent; vary height enough to avoid a cloned crowd.
+    this.mesh.scale.setScalar(this.avatar ? rand(0.9, 1.06) : rand(1.1, 1.23));
     this.seatIndex = opts.seatIndex ?? -1;
     this.partner = null;            // set for pairs
     this.activity = opts.activity ?? pick(ACTIVITIES);
@@ -667,6 +745,7 @@ class NPC {
     this.stateT += dt;
     const p = this.mesh.userData.parts;
     const seat = this.seatIndex >= 0 ? this.sim.cafe.seats[this.seatIndex] : null;
+    animateMicroMotion(p, t, this.walkPhase);
 
     const walking = !!this.path;
     if (walking) {
@@ -781,7 +860,7 @@ class NPC {
         this.sim.ordering = null;
         this.sim.brewFor = this;
         this.sim.brewT = 0;
-        this.sim.brewDuration = rand(6, 10);
+        this.sim.brewDuration = rand(14.8, 16.2);
         this.state = 'waitingPickup';
         this.stateT = 0;
         this._walkTo(this.sim.cafe.nav.pickup);
@@ -927,7 +1006,7 @@ class NPC {
         this.sim.ordering = null;
         this.sim.brewFor = this;
         this.sim.brewT = 0;
-        this.sim.brewDuration = rand(6, 10);
+        this.sim.brewDuration = rand(14.8, 16.2);
         this.state = 'waitingPickup';
         this.stateT = 0;
         this._walkTo(this.sim.cafe.nav.pickup);
@@ -1038,6 +1117,7 @@ class Barista {
 
   update(dt, t) {
     const p = this.avatar ? null : this.mesh.userData.parts;
+    animateMicroMotion(p, t, this.phase);
 
     // where should I be?
     if (this.sim.ordering) this.target.copy(this.registerSpot);
@@ -1230,8 +1310,11 @@ export class CrowdSim {
     this.cafe = cafe;
     this.audio = audio;
     this.models = models;
-    this.charKeys = characterKeys(models);
-    this.sitKeys = sitCharacterKeys(models);
+    // Keep imported rigs available in the loader, but do not mix their faceted
+    // art style into the indoor crowd. The procedural actors have smoother
+    // geometry, richer faces, and reliable seated poses.
+    this.charKeys = [];
+    this.sitKeys = [];
     this.npcs = [];
     this.queue = [];
     this.ordering = null;   // NPC currently at the register
@@ -1420,6 +1503,8 @@ export class CrowdSim {
       const seated = this.npcs.filter((n) => n.state === 'sitting');
       this.audio.setClinkSpots(seated.map((n) => n.mesh.position));
       this.audio.setTypingSpots(seated.filter((n) => n.isTyping).map((n) => n.mesh.position));
+      this.audio.setPageSpots(seated.filter((n) => n.activity === 'book').map((n) => n.mesh.position));
+      this.audio.setOccupancy(this.npcs.length, this.maxCrowd);
     }
   }
 

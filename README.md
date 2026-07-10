@@ -29,11 +29,12 @@ seat, look around, listen to the room, and get things done.
   watching. Pairs arrive together and chat, taking turns talking and nodding. Walkers
   steer around each other, and pedestrians pass by outside the windows (with umbrellas
   when it rains)
-- **Generative music, a different record in every café** — lo-fi hip-hop in the golden
-  hour, bossa-flavored plucked guitar downtown, slow brushed-drum jazz with a walking
-  bass at midnight. Songs have real structure (intro / sections / outro), then the
-  needle lifts, and a new one starts in a new key and tempo. All synthesized live —
-  including a Karplus-Strong plucked string
+- **Recorded, locally bundled café playlists** — seven loudness-matched CC0
+  instrumental recordings cover warm lo-fi, lounge jazz, guitar jazz and ambient
+  piano. Per-café shuffle bags prevent immediate repeats, 4–7 second crossfades keep
+  location changes natural, and the HUD identifies the current track and artist.
+  A twelve-arrangement generative engine remains as an automatic fallback when media
+  playback is unavailable, including a live Karplus-Strong plucked string
 - **Real recorded café sound, positioned in 3D — and different in every café** — 20
   Creative-Commons / public-domain field recordings (see `CREDITS.md`): each location
   mixes its own crowd (relaxed walla at golden hour, a genuinely busy room downtown, a
@@ -43,13 +44,15 @@ seat, look around, listen to the room, and get things done.
   and single cars that audibly drive past outside.
   A procedural convolution reverb puts every sound in the room, and 3D panning puts it
   in its *place* — the machine sounds come from the counter, typing from the actual
-  laptop users, footsteps from whoever is walking past you. Every recording has a
+  laptop users, page turns only come from readers, and footsteps come from whoever is
+  walking past you. Indoor effects use HRTF spatialization, and recorded crowd level
+  follows the actual room occupancy instead of an unrelated event timer. Every recording has a
   synthesized fallback, so the app still works fully offline/asset-free
 - **Focus timer** — a built-in 25/5 pomodoro with a gentle chime
 
-Everything — geometry, textures, music, sound — is generated in code.
-There are no assets to download; the whole café is built from Three.js
-primitives and canvas textures when the page loads.
+The rooms combine procedural geometry and canvas textures with locally bundled,
+credited CC/public-domain models and field recordings. No runtime asset downloads
+or third-party requests are required.
 
 ## Running it
 
@@ -78,6 +81,6 @@ Then open the printed URL (usually http://localhost:5173), click
 
 ## Stack
 
-- [Three.js](https://threejs.org/) — 3D scene, procedural geometry, canvas textures
+- [Three.js](https://threejs.org/) — 3D scene, procedural geometry, and local PBR materials
 - [Vite](https://vitejs.dev/) — dev server and build
 - WebAudio API — generative lo-fi + café soundscape, no samples
