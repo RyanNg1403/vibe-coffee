@@ -65,7 +65,7 @@ don't step on each other. Update Status as you go
 | 1 | Preference persistence (localStorage) | **Claude** ✅ | done | P1 |
 | 2 | Mobile / touch support | Team | todo | P1 |
 | 3 | Clickable world (cat, radio, chalkboard) | Team | todo | P1 |
-| 4 | MacBook typing sounds during focus | **Claude** ✅ | todo | P2 |
+| 4 | MacBook typing sounds during focus | **Claude** ✅ | done | P2 |
 | 5 | Barista table service & bussing | Team | todo | P1 |
 | 6 | NPC–environment interactions | Team | todo | P2 |
 | 7 | Dogs leave with their owners | Team | todo | P3 |
@@ -104,12 +104,15 @@ crackle; click the chalkboard → cycles today's special text. **AC:** hover
 cursor feedback on each; interactions work seated and walking; no
 interference with seat-picking raycasts.
 
-### 4. MacBook typing sounds during focus — **Claude**
+### 4. MacBook typing sounds during focus — **Claude** — done
 When the player's MacBook is out **and** the pomodoro is in a focus block,
 play soft intermittent typing bursts from the laptop's position (reuse the
 NPC `_typeBurst` pipeline, quieter). Pauses during breaks. **AC:** audible
 only when both conditions hold; stops immediately when the laptop is packed
 or the timer stops; volume sits under the ambience bed.
+_Verified 2026-07-10: state-machine walk (boot / laptop-only / focus /
+pause / resume / pack-away / reset) gates exactly as specified; bursts at
+0.45× NPC volume every 2.6–7.5 s from the laptop's panner position._
 
 ### 5. Barista table service & bussing — Team
 After a customer sits, the barista occasionally walks the drink to the table

@@ -388,7 +388,7 @@ function makeMacBook() {
 let laptopOn = prefs.laptop === true;
 function placePlayerLaptop() {
   if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
-  if (!laptopOn || seatIndex < 0 || !cafe) return;
+  if (!laptopOn || seatIndex < 0 || !cafe) { updatePlayerTyping(); return; }
   const seat = cafe.seats[seatIndex];
   const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0);
   const d = toTable.length() || 1;
@@ -402,6 +402,14 @@ function placePlayerLaptop() {
   // open side faces you
   playerLaptop.rotation.y = Math.atan2(toTable.x, toTable.z) + Math.PI;
   cafe.group.add(playerLaptop);
+  updatePlayerTyping();
+}
+
+// soft keystrokes from your MacBook, only while it's out AND a focus block
+// is running — packing up, standing, or a break silences them immediately
+function updatePlayerTyping() {
+  const active = laptopOn && seatIndex >= 0 && playerLaptop && timerRunning && !timerBreak;
+  audio.setPlayerTyping(active ? playerLaptop.position : null);
 }
 
 document.getElementById('laptop-btn')?.addEventListener('click', () => {
@@ -703,12 +711,14 @@ timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   timerBtn.textContent = timerRunning ? '❚❚' : '▶';
   timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
+  updatePlayerTyping();
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = 25 * 60;
   timerBtn.textContent = '▶';
   timerBtn.setAttribute('aria-label', 'Start focus timer');
   renderTimer();
+  updatePlayerTyping();
 });
 renderTimer();
 
@@ -932,6 +942,7 @@ function frame() {
       timerLeft = (timerBreak ? 5 : 25) * 60;
       if (audio.started) { audio.playChime(); }
       toast(timerBreak ? 'Break time — stretch a little 🌿' : 'Back to focus ☕');
+      updatePlayerTyping();
     }
     renderTimer();
   }

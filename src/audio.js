@@ -175,6 +175,7 @@ export class CafeAudio {
     this._timers = new Set();
     this.clinkSpots = [];   // world positions where seated people are
     this.typingSpots = [];  // world positions of laptop users
+    this.playerTypingSpot = null; // the player's own MacBook during focus
     this.pageSpots = [];    // world positions of people actually reading
     this.occupancy = 0;
     this.capacity = 1;
@@ -458,6 +459,8 @@ export class CafeAudio {
 
   setClinkSpots(spots) { this.clinkSpots = spots; }
   setTypingSpots(spots) { this.typingSpots = spots; }
+  // pos (or null) — the player's laptop keys, only while a focus block runs
+  setPlayerTyping(pos) { this.playerTypingSpot = pos ?? null; }
   setPageSpots(spots) { this.pageSpots = spots; }
   setOccupancy(count, capacity) {
     this.occupancy = count;
@@ -1250,12 +1253,12 @@ export class CafeAudio {
     });
   }
 
-  _typeBurst(pos) {
+  _typeBurst(pos, volumeScale = 1) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;
     if (this._buf('typing')) {
       this._playBuf('typing', {
-        out, vol: rand(0.2, 0.4), rate: rand(0.95, 1.05),
+        out, vol: rand(0.2, 0.4) * volumeScale, rate: rand(0.95, 1.05),
         randomSlice: true, dur: rand(1.2, 3),
       });
       return;
@@ -1268,7 +1271,7 @@ export class CafeAudio {
       o.type = 'square';
       o.frequency.value = rand(1800, 2600);
       const g = this.ctx.createGain();
-      g.gain.setValueAtTime(rand(0.002, 0.007), t);
+      g.gain.setValueAtTime(rand(0.002, 0.007) * volumeScale, t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
       o.connect(g).connect(out);
       o.start(t); o.stop(t + 0.02);
@@ -1295,6 +1298,13 @@ export class CafeAudio {
       const [a, b] = this._profile().typeMs;
       this._timer(typing, rand(a, b));
     };
+    // the player's own keys: a steadier work rhythm than the crowd's, and
+    // noticeably softer — it should sit under the ambience bed, not on it
+    const playerTyping = () => {
+      if (this.playerTypingSpot) this._typeBurst(this.playerTypingSpot, 0.45);
+      this._timer(playerTyping, rand(2600, 7500));
+    };
+    this._timer(playerTyping, 3500);
     const pages = () => {
       if (this.pageSpots.length && Math.random() < 0.65) this.playPageTurn(pick(this.pageSpots));
       this._timer(pages, rand(9000, 25000));
