@@ -5,28 +5,25 @@
 
 export const SOUND_MANIFEST = {
   carpass: { url: '/sounds/carpass.mp3', loop: false }, // 14s
-  chair_scrape: { url: '/sounds/chair_scrape.mp3', loop: false }, // 0s
-  chatter: { url: '/sounds/chatter.mp3', loop: true }, // 0s
-  chatter2: { url: '/sounds/chatter2.mp3', loop: true }, // 0s
-  chatter_busy: { url: '/sounds/chatter_busy.mp3', loop: false }, // 0s
-  chatter_quiet: { url: '/sounds/chatter_quiet.mp3', loop: false }, // 0s
+  chair_scrape: { url: '/sounds/chair_scrape.mp3', loop: false }, // 2.5s
+  chatter: { url: '/sounds/chatter.mp3', loop: true }, // 35s
+  chatter2: { url: '/sounds/chatter2.mp3', loop: true }, // 25s
+  chatter_busy: { url: '/sounds/chatter_busy.mp3', loop: false }, // 32s
+  chatter_quiet: { url: '/sounds/chatter_quiet.mp3', loop: false }, // 30s
   cup_clinks: { url: '/sounds/cup_clinks.mp3', loop: false }, // 4.5s
-  door_bell: { url: '/sounds/door_bell.mp3', loop: false }, // 0s
+  door_bell: { url: '/sounds/door_bell.mp3', loop: false }, // 3s
   door_open: { url: '/sounds/door_open.mp3', loop: false }, // 3.6s
   espresso: { url: '/sounds/espresso.mp3', loop: false }, // 10.9s
   footsteps: { url: '/sounds/footsteps.mp3', loop: false }, // 12s
-  music_goldenhour: { url: '/sounds/music_goldenhour.mp3', loop: false }, // 70s
-  music_midnight: { url: '/sounds/music_midnight.mp3', loop: false }, // 70s
-  music_roastery: { url: '/sounds/music_roastery.mp3', loop: false }, // 70s
   page_turn: { url: '/sounds/page_turn.mp3', loop: false }, // 1.8s
-  pour: { url: '/sounds/pour.mp3', loop: false }, // 4s
-  rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 0s
+  pour: { url: '/sounds/pour.mp3', loop: false }, // 5.5s
+  rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 26s
   register: { url: '/sounds/register.mp3', loop: false }, // 2.1s
-  steam_milk: { url: '/sounds/steam_milk.mp3', loop: false }, // 0s
+  steam_milk: { url: '/sounds/steam_milk.mp3', loop: false }, // 4.4s
   thunder: { url: '/sounds/thunder.mp3', loop: false }, // 15.8s
-  traffic_day: { url: '/sounds/traffic_day.mp3', loop: true }, // 0s
+  traffic_day: { url: '/sounds/traffic_day.mp3', loop: true }, // 30s
   traffic_night: { url: '/sounds/traffic_night.mp3', loop: true }, // 34s
-  typing: { url: '/sounds/typing.mp3', loop: false }, // 0s
+  typing: { url: '/sounds/typing.mp3', loop: false }, // 13s
 };
 
 // attribution data lives in CREDITS.md

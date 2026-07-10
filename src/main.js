@@ -14,11 +14,24 @@ import { loadModelLibrary, cloneModel } from './modelLoader.js';
 // ---------- renderer / scene ----------
 
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// The scene is rendered through a multisampled composer target, so enabling
+// antialiasing on the (fullscreen-quad-only) default framebuffer duplicates
+// work without improving geometry edges.
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, 1.5);
+const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
+// Start Auto at a predictable 1x render target. It can add effects and extra
+// supersampling after a sustained period of headroom, instead of allocating the
+// largest half-float buffers first and stuttering while it backs down.
+let renderPixelRatio = Math.min(MAX_PIXEL_RATIO, 1);
+renderer.setPixelRatio(renderPixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Crowd motion is simulated at 30 Hz, so refreshing its shadows faster only
+// re-renders the same poses. The main loop requests a shadow update at 30 Hz.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -34,8 +47,8 @@ scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 // composer would otherwise throw away (clean edges), GTAO adds real contact
 // darkening in corners and under furniture, and bloom makes the lamps glow.
 const W0 = window.innerWidth, H0 = window.innerHeight;
-const rt = new THREE.WebGLRenderTarget(W0, H0, {
-  samples: 4,
+const rt = new THREE.WebGLRenderTarget(1, 1, {
+  samples: 2,
   type: THREE.HalfFloatType,
   colorSpace: THREE.SRGBColorSpace,
 });
@@ -50,11 +63,17 @@ gtaoPass.updateGtaoMaterial({
   distanceExponent: 1.0,
   thickness: 1.0,
   scale: 1.0,
-  samples: 16,
+  samples: 8,
   distanceFallOff: 1.0,
   screenSpaceRadius: false,
 });
-gtaoPass.blendIntensity = 0.85;
+gtaoPass.blendIntensity = 0.72;
+// Contact AO remains soft and convincing at 60% resolution, while avoiding
+// four full-resolution depth/normal/AO buffers on high-DPI displays.
+const setGtaoSize = gtaoPass.setSize.bind(gtaoPass);
+gtaoPass.setSize = (width, height) => {
+  setGtaoSize(Math.max(1, Math.ceil(width * 0.6)), Math.max(1, Math.ceil(height * 0.6)));
+};
 composer.addPass(gtaoPass);
 
 const bloomPass = new UnrealBloomPass(
@@ -63,26 +82,28 @@ const bloomPass = new UnrealBloomPass(
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
-// a whisper of vignette + film grain, the "3am ambience video" finish
+// A gentle vignette and static dither add depth without temporal grain.
+// Animating random grain every frame reads as full-screen flicker.
 const grainPass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
+  uniforms: { tDiffuse: { value: null } },
   vertexShader: /* glsl */`
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse;
-    uniform float uTime;
     varying vec2 vUv;
-    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + uTime) * 43758.5453); }
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
       vec2 d = vUv - 0.5;
       float vig = 1.0 - dot(d, d) * 0.55;          // gentle corner falloff
-      float g = (hash(vUv * vec2(1920.0, 1080.0)) - 0.5) * 0.028;
+      float g = (hash(vUv * vec2(1920.0, 1080.0)) - 0.5) * 0.012;
       gl_FragColor = vec4(c.rgb * vig + g, c.a);
     }`,
 });
 composer.addPass(grainPass);
+composer.setPixelRatio(renderPixelRatio);
+composer.setSize(W0, H0);
 
 const audio = new CafeAudio();
 
@@ -105,6 +126,16 @@ const tween = { active: false, t: 0, dur: 1.4, fromPos: new THREE.Vector3(), toP
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
+const seatHits = [];
+const seatEyeScratch = new THREE.Vector3();
+const walkForward = new THREE.Vector3();
+const walkRight = new THREE.Vector3();
+const walkMove = new THREE.Vector3();
+const listenerForward = new THREE.Vector3();
+const viewEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+let pointerDirty = true;
+let hoveredSeat = -1;
+let canvasCursor = '';
 
 // highlight ring shown over the hovered chair
 const ring = new THREE.Mesh(
@@ -116,8 +147,8 @@ ring.visible = false;
 
 // ---------- seats / camera ----------
 
-function seatEye(seat) {
-  return new THREE.Vector3(seat.pos.x, seat.pos.y + EYE_HEIGHT, seat.pos.z);
+function seatEye(seat, target = new THREE.Vector3()) {
+  return target.set(seat.pos.x, seat.pos.y + EYE_HEIGHT, seat.pos.z);
 }
 
 function anglesFromLook(eye, look) {
@@ -129,7 +160,8 @@ function anglesFromLook(eye, look) {
 }
 
 function applyView() {
-  camera.quaternion.setFromEuler(new THREE.Euler(view.pitch, view.yaw, 0, 'YXZ'));
+  camera.quaternion.setFromEuler(viewEuler.set(view.pitch, view.yaw, 0, 'YXZ'));
+  pointerDirty = true;
 }
 
 function sitAt(index, instant = false) {
@@ -184,13 +216,17 @@ let variantOn = false;
 let lastModels = null;
 let playerCup = null;
 let orderPending = false;
+let currentTheme = THEMES[0];
 function activeTheme(index = currentThemeIndex) {
   const base = THEMES[index];
+  if (index === currentThemeIndex) return currentTheme;
   return variantOn && base.variant ? { ...base, ...base.variant } : base;
 }
 async function loadTheme(index) {
   currentThemeIndex = index;
-  const theme = activeTheme(index);
+  const baseTheme = THEMES[index];
+  const theme = variantOn && baseTheme.variant ? { ...baseTheme, ...baseTheme.variant } : baseTheme;
+  currentTheme = theme;
   const token = ++loadToken;
   const models = await loadModelLibrary();
   if (token !== loadToken) return; // a newer switch superseded this one
@@ -205,6 +241,14 @@ async function loadTheme(index) {
   }
 
   cafe = buildCafe(theme, models);
+  // A 1024px soft sun shadow is visually comparable in this compact room and
+  // quarters the shadow-map fill/memory cost of the original 2048px map.
+  cafe.group.traverse((object) => {
+    if (object.isDirectionalLight && object.castShadow) {
+      object.shadow.mapSize.set(1024, 1024);
+      object.shadow.needsUpdate = true;
+    }
+  });
   scene.add(cafe.group);
   cafe.group.add(ring);
 
@@ -215,6 +259,7 @@ async function loadTheme(index) {
   bloomPass.strength = theme.bloom ?? 0.25;
 
   crowd = new CrowdSim(cafe, audio, models);
+  applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({ counter: cafe.nav.machineWorld, door: cafe.nav.door });
   audio.setClinkSpots([]);
   audio.setTypingSpots([]);
@@ -223,9 +268,13 @@ async function loadTheme(index) {
   const s = defaultSeat();
   crowd.setPlayerSeat(s);
   sitAt(s, true);
+  pointerDirty = true;
+  renderer.shadowMap.needsUpdate = true;
 
   document.querySelectorAll('.loc-btn').forEach((b, i) => {
-    b.classList.toggle('active', i === index);
+    const active = i === index;
+    b.classList.toggle('active', active);
+    if (b.id !== 'variant-btn') b.setAttribute('aria-pressed', String(active));
   });
   document.getElementById('blurb').textContent = theme.blurb;
   const vb = document.getElementById('variant-btn');
@@ -344,6 +393,7 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  pointerDirty = true;
   if (!dragging) return;
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   dragMoved += Math.abs(dx) + Math.abs(dy);
@@ -374,12 +424,18 @@ canvas.addEventListener('pointerup', (e) => {
 function pickSeat() {
   if (!cafe) return -1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(cafe.seatMeshes, true);
-  for (const h of hits) {
+  seatHits.length = 0;
+  raycaster.intersectObjects(cafe.seatMeshes, true, seatHits);
+  for (const h of seatHits) {
     let o = h.object;
     while (o && o.userData.seatIndex === undefined) o = o.parent;
-    if (o) return o.userData.seatIndex;
+    if (o) {
+      const index = o.userData.seatIndex;
+      seatHits.length = 0;
+      return index;
+    }
   }
+  seatHits.length = 0;
   return -1;
 }
 
@@ -406,11 +462,69 @@ document.getElementById('walk-btn').addEventListener('click', () => {
 });
 
 const musicToggle = document.getElementById('music-toggle');
+const trackStyle = document.getElementById('track-style');
+window.addEventListener('cafe-track-change', (e) => {
+  if (!trackStyle) return;
+  if (e.detail.recorded) {
+    trackStyle.textContent = `${e.detail.title} — ${e.detail.artist}`;
+    trackStyle.title = `Now playing: ${e.detail.title} by ${e.detail.artist}`;
+  } else {
+    trackStyle.textContent = `${e.detail.style} · ${e.detail.bpm} bpm`;
+    trackStyle.title = `Now playing: ${e.detail.style}, ${e.detail.bpm} beats per minute`;
+  }
+});
 musicToggle.addEventListener('click', () => {
   const on = musicToggle.classList.toggle('on');
   audio.setMusicOn(on);
   musicToggle.textContent = on ? '♪ music on' : '♪ music off';
+  musicToggle.setAttribute('aria-pressed', String(on));
 });
+
+const qualityToggle = document.getElementById('quality-toggle');
+const QUALITY_MODES = ['auto', 'detail', 'smooth'];
+let qualityMode = 'auto';
+let autoEffectLevel = 1;
+let effectLevel = 1;
+let shadowInterval = 1 / 20;
+
+// Resolution is only one part of the GPU budget. GTAO, bloom and animated
+// shadow maps each render the scene (or a full-screen buffer) again, so the
+// adaptive mode can shed those layers independently before the café starts
+// dropping input frames. Level 0 still keeps PBR lighting and the sun shadow.
+function applyEffectLevel(nextLevel) {
+  effectLevel = THREE.MathUtils.clamp(Math.round(nextLevel), 0, 2);
+  gtaoPass.enabled = effectLevel >= 1;
+  bloomPass.enabled = effectLevel >= 2;
+  shadowInterval = effectLevel === 2 ? 1 / 30 : effectLevel === 1 ? 1 / 20 : 1 / 12;
+  cafe?.setQuality?.(effectLevel);
+  crowd?.setQuality?.(effectLevel);
+  renderer.shadowMap.needsUpdate = true;
+}
+
+function renderQualityMode() {
+  qualityToggle.textContent = `quality · ${qualityMode}`;
+  qualityToggle.setAttribute('aria-label', `Rendering quality: ${qualityMode}`);
+}
+qualityToggle.addEventListener('click', () => {
+  qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
+  perfSampleTime = 0;
+  perfSampleFrames = 0;
+  qualityCooldown = 0;
+  if (qualityMode === 'detail') {
+    applyEffectLevel(2);
+    applyRenderPixelRatio(MAX_PIXEL_RATIO);
+  } else if (qualityMode === 'smooth') {
+    applyEffectLevel(0);
+    applyRenderPixelRatio(Math.min(0.9, MAX_PIXEL_RATIO));
+  } else {
+    applyEffectLevel(autoEffectLevel);
+  }
+  renderQualityMode();
+  toast(qualityMode === 'auto'
+    ? 'quality will adapt to keep the café smooth'
+    : `quality locked to ${qualityMode}`);
+});
+renderQualityMode();
 
 document.getElementById('music-vol').addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -426,19 +540,30 @@ document.getElementById('voices-vol').addEventListener('input', (e) => {
 const timerEl = document.getElementById('timer-display');
 const timerBtn = document.getElementById('timer-btn');
 let timerRunning = false, timerBreak = false, timerLeft = 25 * 60;
+let lastTimerText = '';
+let lastTimerBreak = null;
 function renderTimer() {
   const m = String(Math.floor(timerLeft / 60)).padStart(2, '0');
   const s = String(Math.floor(timerLeft % 60)).padStart(2, '0');
-  timerEl.textContent = `${m}:${s}`;
-  timerEl.classList.toggle('break', timerBreak);
+  const text = `${m}:${s}`;
+  if (text !== lastTimerText) {
+    timerEl.textContent = text;
+    lastTimerText = text;
+  }
+  if (timerBreak !== lastTimerBreak) {
+    timerEl.classList.toggle('break', timerBreak);
+    lastTimerBreak = timerBreak;
+  }
 }
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   timerBtn.textContent = timerRunning ? '❚❚' : '▶';
+  timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = 25 * 60;
   timerBtn.textContent = '▶';
+  timerBtn.setAttribute('aria-label', 'Start focus timer');
   renderTimer();
 });
 renderTimer();
@@ -447,16 +572,27 @@ renderTimer();
 const overlay = document.getElementById('overlay');
 document.getElementById('enter-btn').addEventListener('click', () => {
   overlay.classList.add('hidden');
+  overlay.setAttribute('aria-hidden', 'true');
   audio.start(activeTheme());
   audio.setMusicOn(musicToggle.classList.contains('on'));
 });
 
+function applyRenderPixelRatio(nextRatio) {
+  const clamped = THREE.MathUtils.clamp(nextRatio, MIN_PIXEL_RATIO, MAX_PIXEL_RATIO);
+  const rounded = Math.round(clamped * 20) / 20;
+  if (Math.abs(rounded - renderPixelRatio) < 0.001) return;
+  renderPixelRatio = rounded;
+  renderer.setPixelRatio(renderPixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  composer.setPixelRatio(renderPixelRatio);
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
   composer.setSize(window.innerWidth, window.innerHeight);
-  gtaoPass.setSize(window.innerWidth, window.innerHeight);
+  pointerDirty = true;
 });
 
 // ---------- main loop ----------
@@ -465,7 +601,62 @@ const clock = new THREE.Clock();
 let elapsed = 0;
 let lastListenerSync = 0;
 let simAcc = 0;
+let shadowAcc = 1 / 30;
+let perfSampleTime = 0;
+let perfSampleFrames = 0;
+let qualityCooldown = 0;
 const SIM_STEP = 1 / 30;
+const MAX_SIM_STEPS = 5;
+
+function updateAdaptiveQuality(frameDt) {
+  if (qualityMode !== 'auto') return;
+  // The intro is intentionally cheap and mostly opaque. Measuring it would
+  // over-promote quality before the real café and crowd are visible.
+  if (!overlay.classList.contains('hidden')) {
+    perfSampleTime = 0;
+    perfSampleFrames = 0;
+    return;
+  }
+  // Ignore tab switches and breakpoint pauses; they do not describe rendering
+  // performance and would otherwise force an unnecessary quality drop.
+  if (document.hidden || frameDt > 0.1) {
+    perfSampleTime = 0;
+    perfSampleFrames = 0;
+    return;
+  }
+  qualityCooldown = Math.max(0, qualityCooldown - frameDt);
+  perfSampleTime += frameDt;
+  perfSampleFrames += 1;
+  if (perfSampleTime < 2.5) return;
+
+  const averageFrameMs = (perfSampleTime / perfSampleFrames) * 1000;
+  if (averageFrameMs > 19.5) {
+    if (renderPixelRatio > 1.001) {
+      applyRenderPixelRatio(renderPixelRatio - 0.15);
+    } else if (autoEffectLevel > 0) {
+      autoEffectLevel -= 1;
+      applyEffectLevel(autoEffectLevel);
+    } else if (renderPixelRatio > MIN_PIXEL_RATIO + 0.001) {
+      applyRenderPixelRatio(renderPixelRatio - 0.1);
+    }
+    qualityCooldown = 5;
+  } else if (averageFrameMs < 16.9 && qualityCooldown <= 0) {
+    // Restore scene depth before supersampling: a low-resolution image with
+    // contact light and bloom generally reads better than a sharper flat one.
+    if (autoEffectLevel < 2) {
+      autoEffectLevel += 1;
+      applyEffectLevel(autoEffectLevel);
+    } else if (renderPixelRatio < MAX_PIXEL_RATIO) {
+      applyRenderPixelRatio(renderPixelRatio + 0.1);
+    }
+    // Composer target reallocations and light-count shader changes should be
+    // rare. A long hold prevents a 60 Hz display from repeatedly toggling on
+    // the 16.67 ms boundary.
+    qualityCooldown = 15;
+  }
+  perfSampleTime = 0;
+  perfSampleFrames = 0;
+}
 
 function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 
@@ -474,18 +665,23 @@ function frame() {
   const rawDt = Math.min(clock.getDelta(), 3.0); // real time, survives slow frames
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
+  updateAdaptiveQuality(rawDt);
 
-  // the life of the room runs on real time in fixed substeps, so a slow
-  // renderer or a throttled tab never turns the crowd into a wax museum
-  simAcc = Math.min(simAcc + rawDt, 3.0);
-  while (simAcc >= SIM_STEP) {
+  // Run room life in stable 30 Hz steps, but cap catch-up work after a paused
+  // or throttled tab so returning to the café cannot trigger a long CPU spike.
+  simAcc = Math.min(simAcc + rawDt, SIM_STEP * MAX_SIM_STEPS);
+  let simSteps = 0;
+  while (simAcc >= SIM_STEP && simSteps < MAX_SIM_STEPS) {
     simAcc -= SIM_STEP;
+    simSteps += 1;
     if (cafe) cafe.animate(SIM_STEP);
     if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
   }
 
   // camera tween between seats
+  let cameraMoved = false;
   if (tween.active) {
+    cameraMoved = true;
     tween.t += dt / tween.dur;
     const k = easeInOut(Math.min(tween.t, 1));
     camera.position.lerpVectors(tween.fromPos, tween.toPos, k);
@@ -498,17 +694,22 @@ function frame() {
     }
   } else if (mode === 'walking' && cafe) {
     // first-person stroll
-    const fwd = new THREE.Vector3(-Math.sin(view.yaw), 0, -Math.cos(view.yaw));
-    const right = new THREE.Vector3(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
-    const move = new THREE.Vector3();
-    if (keys.has('KeyW') || keys.has('ArrowUp')) move.add(fwd);
-    if (keys.has('KeyS') || keys.has('ArrowDown')) move.sub(fwd);
-    if (keys.has('KeyD') || keys.has('ArrowRight')) move.add(right);
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) move.sub(right);
-    const moving = move.lengthSq() > 0;
+    walkForward.set(-Math.sin(view.yaw), 0, -Math.cos(view.yaw));
+    walkRight.set(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
+    walkMove.set(0, 0, 0);
+    if (keys.has('KeyW') || keys.has('ArrowUp')) walkMove.add(walkForward);
+    if (keys.has('KeyS') || keys.has('ArrowDown')) walkMove.sub(walkForward);
+    if (keys.has('KeyD') || keys.has('ArrowRight')) walkMove.add(walkRight);
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) walkMove.sub(walkRight);
+    const moving = walkMove.lengthSq() > 0;
     if (moving) {
-      move.normalize();
-      walkPos.addScaledVector(move, dt * 2.0);
+      cameraMoved = true;
+      walkMove.normalize();
+      walkPos.addScaledVector(walkMove, dt * 2.0);
+      resolveCollisions(walkPos);
+      crowd?.resolvePlayerCollision?.(walkPos);
+      // A person can push the player toward a table edge; resolve the room once
+      // more so the two collision systems cannot squeeze the camera into props.
       resolveCollisions(walkPos);
       walkBob += dt * 8;
       // your own footsteps
@@ -520,40 +721,45 @@ function frame() {
     }
     camera.position.set(
       walkPos.x,
-      STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : Math.sin(elapsed * 1.1) * 0.008),
+      STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : 0),
       walkPos.z
     );
   } else if (seatIndex >= 0 && cafe) {
-    // subtle breathing sway while seated
+    // Keep a seated view pixel-stable. Sub-pixel idle motion made GTAO and
+    // detailed PBR textures shimmer even though the user was not moving.
     const seat = cafe.seats[seatIndex];
-    const eye = seatEye(seat);
-    camera.position.set(
-      eye.x + Math.sin(elapsed * 0.5) * 0.006,
-      eye.y + Math.sin(elapsed * 1.1) * 0.008,
-      eye.z + Math.cos(elapsed * 0.43) * 0.006
-    );
+    camera.position.copy(seatEye(seat, seatEyeScratch));
   }
 
   // keep the audio engine's ears where the eyes are (throttled)
   if (audio.started && elapsed - lastListenerSync > 0.08) {
     lastListenerSync = elapsed;
-    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-    audio.setListener(camera.position, fwd);
+    listenerForward.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    audio.setListener(camera.position, listenerForward);
   }
 
   // hover highlight
   if (cafe && !tween.active && !dragging) {
-    const hit = pickSeat();
-    if (hit >= 0 && hit !== seatIndex) {
-      const seat = cafe.seats[hit];
+    if (pointerDirty || cameraMoved) {
+      hoveredSeat = pickSeat();
+      pointerDirty = false;
+    }
+    if (hoveredSeat >= 0 && hoveredSeat !== seatIndex) {
+      const seat = cafe.seats[hoveredSeat];
       ring.position.set(seat.pos.x, seat.pos.y + 0.72, seat.pos.z);
       ring.visible = true;
-      ring.material.color.set(crowd.isSeatTaken(hit) ? 0xd06050 : 0xffe2a8);
+      ring.material.color.set(crowd.isSeatTaken(hoveredSeat) ? 0xd06050 : 0xffe2a8);
       ring.material.opacity = 0.6 + Math.sin(elapsed * 5) * 0.25;
-      canvas.style.cursor = 'pointer';
+      if (canvasCursor !== 'pointer') {
+        canvas.style.cursor = 'pointer';
+        canvasCursor = 'pointer';
+      }
     } else {
       ring.visible = false;
-      canvas.style.cursor = 'grab';
+      if (canvasCursor !== 'grab') {
+        canvas.style.cursor = 'grab';
+        canvasCursor = 'grab';
+      }
     }
   } else {
     ring.visible = false;
@@ -561,7 +767,7 @@ function frame() {
 
   // focus mode gently dims the room; break/idle brings the light back
   {
-    const baseExp = activeTheme().exposure;
+    const baseExp = currentTheme.exposure;
     const targetExp = timerRunning && !timerBreak ? baseExp * 0.84 : baseExp;
     renderer.toneMappingExposure += (targetExp - renderer.toneMappingExposure) * Math.min(1, dt * 1.5);
   }
@@ -578,8 +784,13 @@ function frame() {
     renderTimer();
   }
 
-  grainPass.uniforms.uTime.value = elapsed % 10;
-  composer.render();
+  shadowAcc += rawDt;
+  if (shadowAcc >= shadowInterval) {
+    renderer.shadowMap.needsUpdate = true;
+    shadowAcc %= shadowInterval;
+  }
+
+  composer.render(dt);
 }
 
 loadTheme(0);

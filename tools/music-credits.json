@@ -1,0 +1,72 @@
+{
+  "everything": {
+    "theme": "goldenhour",
+    "title": "Everything You Ever Dreamed.",
+    "artist": "HoliznaCC0",
+    "license": "CC0 1.0 Universal",
+    "item_url": "https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/everything-you-ever-dreamed"
+  },
+  "warm-fuzz": {
+    "theme": "goldenhour",
+    "title": "Warm Fuzz (LoFi, Retro)",
+    "artist": "HoliznaCC0",
+    "license": "CC0 1.0 Universal",
+    "item_url": "https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/warm-fuzz-lofi-retro/"
+  },
+  "cellar-door": {
+    "theme": "roastery",
+    "title": "Cellar Door",
+    "artist": "HoliznaCC0",
+    "license": "CC0 1.0 Universal",
+    "item_url": "https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/cellar-door/"
+  },
+  "busted-jazz": {
+    "theme": "roastery",
+    "title": "Busted Jazz",
+    "artist": "HoliznaCC0",
+    "license": "CC0 1.0 Universal",
+    "item_url": "https://freemusicarchive.org/index.php/music/holiznacc0/lo-fi-and-chill/busted-jazz/"
+  },
+  "jazz-one": {
+    "theme": "midnight",
+    "title": "1 (jazz)",
+    "artist": "HoliznaCC0",
+    "license": "CC0 1.0 Universal",
+    "item_url": "https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/1-jazz/"
+  },
+  "jazz-two": {
+    "theme": "midnight",
+    "title": "2 (jazz)",
+    "artist": "HoliznaCC0",
+    "license": "CC0 1.0 Universal",
+    "item_url": "https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/2-jazz/"
+  },
+  "beyond-piano": {
+    "theme": "midnight",
+    "title": "Beyond (Piano Edit)",
+    "artist": "Pablo Perez",
+    "license": "CC0 1.0 Universal",
+    "item_url": "https://freemusicarchive.org/music/pablo-perez/single/beyond-piano-edit/"
+  },
+  "airport-lounge": {
+    "theme": "goldenhour",
+    "title": "Airport Lounge",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "bossa-antigua": {
+    "theme": "roastery",
+    "title": "Bossa Antigua",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "lobby-time": {
+    "theme": "midnight",
+    "title": "Lobby Time",
+    "artist": "Kevin MacLeod",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  }
+}

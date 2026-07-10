@@ -174,12 +174,26 @@
     "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/Models/GLTF%20format/stoolBar.glb",
     "item_url": "https://github.com/RetroDECK/RetroQUEST/tree/main/assets/kenney_furniture-kit"
   },
-  "char_b": {
-    "title": "Animated Woman (idle/walk/run/interact/wave clips; unused clips stripped, keyframes resampled)",
-    "creator": "Quaternius",
-    "license": "CC0 / Public Domain",
-    "source_url": "https://static.poly.pizza/46d6db5a-3c9f-4238-8cdf-8eb7194498dc.glb",
-    "item_url": "https://poly.pizza/m/nIItLV9nxS"
+  "char_hero_female": {
+    "title": "Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb"
+  },
+  "char_hero_male": {
+    "title": "Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91"
+  },
+  "patron_seated_female": {
+    "title": "Seated woman in a red outfit with pedestal chair (PBR, web-optimized)",
+    "creator": "edgardbrittoribeiro / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/0198aac8-553b-7721-95d9-8cac5fac80c0",
+    "item_url": "https://www.meshy.ai/3d-models/0198aac8-553b-7721-95d9-8cac5fac80c0"
   },
   "char_j": {
     "title": "Man in Suit (rigged; Idle/Walk/Run/Sitting/Clapping clips)",
@@ -331,35 +345,11 @@
     "license": "CC0",
     "item_url": "https://ambientcg.com/view?id=Wood067"
   },
-  "char_k": {
-    "title": "Animated Woman (Idle/Walking/SitIdle/PickUp clips; combat clips stripped)",
-    "creator": "Quaternius",
-    "license": "CC0 1.0 (Public Domain)",
-    "source_url": "https://poly.pizza/m/qJ2gsTUBHL"
-  },
   "char_l": {
     "title": "Man (casual; Idle/Walk/Sitting/Clapping clips)",
     "creator": "Quaternius",
     "license": "CC0 1.0 (Public Domain)",
     "source_url": "https://poly.pizza/m/HMnuH5geEG"
-  },
-  "music_goldenhour": {
-    "title": "Airport Lounge (trimmed to a 78s loop)",
-    "creator": "Kevin MacLeod (incompetech.com)",
-    "license": "CC BY 4.0",
-    "item_url": "https://incompetech.com/music/royalty-free/"
-  },
-  "music_roastery": {
-    "title": "Bossa Antigua (trimmed to a 78s loop)",
-    "creator": "Kevin MacLeod (incompetech.com)",
-    "license": "CC BY 4.0",
-    "item_url": "https://incompetech.com/music/royalty-free/"
-  },
-  "music_midnight": {
-    "title": "Lobby Time (trimmed to a 78s loop)",
-    "creator": "Kevin MacLeod (incompetech.com)",
-    "license": "CC BY 4.0",
-    "item_url": "https://incompetech.com/music/royalty-free/"
   },
   "cat": {
     "title": "Dingus the cat (a.k.a. Maxwell)",

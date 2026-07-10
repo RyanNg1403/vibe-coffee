@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODEL_MANIFEST } from './modelManifest.js';
 
@@ -46,6 +47,7 @@ const NORMALIZE = {
   lantern: { height: 0.3 },
   plant_small: { height: 0.35 },
   cat: { height: 0.32 },
+  patron_seated_female: { height: 1.7 },
 };
 // any key starting char_ is a rigged character
 function specFor(key) {
@@ -91,6 +93,9 @@ let libraryPromise = null;
 export function loadModelLibrary() {
   if (libraryPromise) return libraryPromise;
   const loader = new GLTFLoader();
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('/draco/');
+  loader.setDRACOLoader(dracoLoader);
   const models = new Map();
   libraryPromise = Promise.all(Object.entries(MODEL_MANIFEST).map(async ([key, def]) => {
     try {

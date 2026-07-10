@@ -1,9 +1,10 @@
-# Sound credits
+# Asset credits
 
-The recorded sound assets in `public/sounds/` come from the sources below
-(Creative Commons / public domain). Trimming was the only modification.
-Everything not listed here (all music, plus any sound whose recording failed
-to load) is synthesized at runtime with WebAudio.
+## Sound effects, 3D models, and surface textures
+
+The recorded sound and model assets come from the sources below. Audio may be
+trimmed and loudness-normalized for in-app playback. Missing sound assets retain
+procedural WebAudio fallbacks.
 
 - **carpass** — "VEHBy_Car by (single car pass-by, from SSE Library: VEHICLES)" by USC Cinema / Sunset Editorial Collection (SSE Library) — CC0 1.0 (public domain dedication) — https://creativecommons.org/publicdomain/zero/1.0/ — [source](https://archive.org/details/SSE_Library_VEHICLES)
 - **chair_scrape** — "R21-40a - Bed or Chair Movement (Red Library: Foley Props 2)" by Red Library (foley sound effects collection, archive.org) — CC0 1.0 (public domain) — https://creativecommons.org/publicdomain/zero/1.0/ — [source](https://archive.org/details/Red_Library_Foley_Props_2)
@@ -16,9 +17,6 @@ to load) is synthesized at runtime with WebAudio.
 - **door_open** — "Closing an old door" by ezwa — Public domain — [source](https://commons.wikimedia.org/wiki/File:Closing_an_old_door.ogg)
 - **espresso** — "Splat! Cakes N Such - Coffee Grinder (10s grinding segment, trimmed from 13.4s of the original 111s field recording)" by edtolb3 (via radio aporee maps) — Public Domain Mark 1.0 (http://creativecommons.org/publicdomain/mark/1.0/) — [source](https://archive.org/details/aporee_47702_54212)
 - **footsteps** — "Footsteps on wood floor (from "Walking Sound Effects")" by peacefl0wer (archive.org uploader; compilation of public-domain sound files from pixabay.com/soundbible.com) — CC0 1.0 (public domain, per item licenseurl http://creativecommons.org/publicdomain/zero/1.0/) — [source](https://archive.org/details/walking-sound-effects)
-- **music_goldenhour** — "Airport Lounge (trimmed to a 78s loop)" by Kevin MacLeod (incompetech.com) — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
-- **music_midnight** — "Lobby Time (trimmed to a 78s loop)" by Kevin MacLeod (incompetech.com) — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
-- **music_roastery** — "Bossa Antigua (trimmed to a 78s loop)" by Kevin MacLeod (incompetech.com) — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
 - **page_turn** — "Turning a page (hard-cover book page turn)" by planish — Public domain (released into the public domain by the author via pdsounds.org) — [source](https://commons.wikimedia.org/wiki/File:Turning_a_page.ogg)
 - **pour** — "Pouring Water in Mug in Sink" by earthcalling — Public domain (released by author via pdsounds.org) — [source](https://commons.wikimedia.org/wiki/File:Pouring_water_in_mug_in_sink.ogg)
 - **rain_window** — "Troon, Camborne, Cornwall TR14, UK - Rain On The Window From Inside" by djake@live... (radio aporee field recording) — CC BY 3.0 (http://creativecommons.org/licenses/by/3.0/) — [source](https://archive.org/details/aporee_30723_35334)
@@ -35,9 +33,9 @@ to load) is synthesized at runtime with WebAudio.
 - **cake** — source metadata missing (see git history of tools/sound-credits.json)
 - **cakeSlice** — "Cake Birthday Slice" by Isa Lousberg — CC0 1.0 — [source](https://poly.pizza/m/YxYKsrZnwd)
 - **cat** — "Dingus the cat (a.k.a. Maxwell)" by alwayshasbean — CC BY 3.0 — [source](https://poly.pizza/m/4dXgbKLHD9)
-- **char_b** — "Animated Woman (idle/walk/run/interact/wave clips; unused clips stripped, keyframes resampled)" by Quaternius — CC0 / Public Domain — [source](https://poly.pizza/m/nIItLV9nxS)
+- **char_hero_female** — "Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)" by suhakiylioglu / Meshy — CC0 1.0 (Public Domain) — [source](https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb)
+- **char_hero_male** — "Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)" by suhakiylioglu / Meshy — CC0 1.0 (Public Domain) — [source](https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91)
 - **char_j** — "Man in Suit (rigged; Idle/Walk/Run/Sitting/Clapping clips)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/mQnGoME1ez)
-- **char_k** — "Animated Woman (Idle/Walking/SitIdle/PickUp clips; combat clips stripped)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/qJ2gsTUBHL)
 - **char_l** — "Man (casual; Idle/Walk/Sitting/Clapping clips)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/HMnuH5geEG)
 - **coat_rack** — "Coat Rack (Kenney Furniture Kit)" by Kenney — CC0 1.0 — [source](https://kenney.nl/assets/furniture-kit)
 - **cookie** — "Chocolate Chip Cookie" by Jarlan Perez — CC-BY — [source](https://poly.pizza/m/evU5g-OJDdr)
@@ -54,6 +52,7 @@ to load) is synthesized at runtime with WebAudio.
 - **mug** — "Mug (Kenney Food Kit)" by Kenney — CC0 1.0 — [source](https://poly.pizza/m/fis2ugeLbn)
 - **painting** — source metadata missing (see git history of tools/sound-credits.json)
 - **pancakes** — "Pancakes Stack" by Quaternius — CC0 — [source](https://poly.pizza/m/rNr63sFa69)
+- **patron_seated_female** — "Seated woman in a red outfit with pedestal chair (PBR, web-optimized)" by edgardbrittoribeiro / Meshy — CC0 1.0 (Public Domain) — [source](https://www.meshy.ai/3d-models/0198aac8-553b-7721-95d9-8cac5fac80c0)
 - **pendant_lamp** — "Ceiling Lamp (Kenney Furniture Kit)" by Kenney — CC0 1.0 — [source](https://kenney.nl/assets/furniture-kit)
 - **plant** — "Potted Plant (Kenney Furniture Kit 2.0)" by Kenney (www.kenney.nl) — CC0 1.0 (Creative Commons Zero, public domain) — confirmed via the kit's License.txt in the same repo folder: "Furniture Kit (2.0) License ... Creative Commons Zero (CC0), http://creativecommons.org/publicdomain/zero/1.0/" — [source](https://kenney.nl/assets/furniture-kit)
 - **plant_small** — source metadata missing (see git history of tools/sound-credits.json)
@@ -75,3 +74,19 @@ to load) is synthesized at runtime with WebAudio.
 - **wall_plaster_n.jpg** — "Plaster001" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Plaster001)
 - **wood_dark.jpg** — "Wood067" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Wood067)
 - **wood_dark_n.jpg** — "Wood067" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Wood067)
+
+## Recorded music
+
+The local playlist files are loudness-normalized transcodes of the credited
+source recordings. They stream on demand rather than being decoded into memory.
+
+- **Airport Lounge** by Kevin MacLeod — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
+- **Beyond (Piano Edit)** by Pablo Perez — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/pablo-perez/single/beyond-piano-edit/)
+- **Bossa Antigua** by Kevin MacLeod — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
+- **Busted Jazz** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/index.php/music/holiznacc0/lo-fi-and-chill/busted-jazz/)
+- **Cellar Door** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/cellar-door/)
+- **Everything You Ever Dreamed.** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/everything-you-ever-dreamed)
+- **1 (jazz)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/1-jazz/)
+- **2 (jazz)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/2-jazz/)
+- **Lobby Time** by Kevin MacLeod — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
+- **Warm Fuzz (LoFi, Retro)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/warm-fuzz-lofi-retro/)

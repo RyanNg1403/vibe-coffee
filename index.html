@@ -41,6 +41,9 @@
     }
     .loc-btn:hover { background: rgba(240, 230, 212, 0.16); }
     .loc-btn.active { background: #c98e4e; border-color: #c98e4e; color: #241809; }
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid #f2c27b; outline-offset: 2px;
+    }
 
     #hud-bottom {
       bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -53,7 +56,7 @@
     input[type='range'] {
       width: 86px; accent-color: #c98e4e; cursor: pointer;
     }
-    #music-toggle, #walk-btn, #order-btn {
+    #music-toggle, #walk-btn, #order-btn, #quality-toggle {
       font-family: inherit; font-size: 12.5px; cursor: pointer;
       color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
       border: 1px solid rgba(240, 230, 212, 0.18);
@@ -62,7 +65,20 @@
     }
     #walk-btn:hover { background: rgba(240, 230, 212, 0.16); }
     #music-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
+    #quality-toggle { color: rgba(240, 230, 212, .76); min-width: 102px; }
     .divider { width: 1px; height: 22px; background: rgba(240, 230, 212, 0.15); }
+    #track-style {
+      min-width: 92px; max-width: 148px; overflow: hidden; text-overflow: ellipsis;
+      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+      color: rgba(240, 230, 212, .62);
+    }
+
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 3; pointer-events: none;
+      box-shadow: inset 0 0 140px rgba(12, 7, 3, .26);
+      background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 26%, rgba(12,7,3,.035));
+      mix-blend-mode: multiply;
+    }
 
     #timer { display: flex; align-items: center; gap: 8px; }
     #timer-display { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
@@ -108,60 +124,71 @@
     #enter-btn:hover { background: #e0a763; transform: translateY(-2px); }
 
     @media (max-width: 720px) {
-      #hud-bottom { flex-wrap: wrap; white-space: normal; justify-content: center; max-width: 92vw; }
+      #hud-bottom {
+        flex-wrap: wrap; white-space: normal; justify-content: center;
+        width: min(94vw, 540px); max-height: 38vh; overflow-y: auto;
+        gap: 10px 14px; bottom: 8px; padding: 9px 12px;
+      }
+      #hud-top { top: 8px; left: 8px; max-width: calc(100vw - 16px); }
+      input[type='range'] { width: 72px; }
       #hint { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
     }
   </style>
 </head>
 <body>
-  <canvas id="scene"></canvas>
+  <canvas id="scene" aria-label="Interactive three-dimensional coffee shop"></canvas>
 
   <div id="overlay">
     <h1>vibe coffee ☕</h1>
     <p>a small corner of the internet that feels like your favourite café.<br/>
        find a seat, put something warm on the table, and get to work.</p>
-    <button id="enter-btn">step inside</button>
+    <button id="enter-btn" aria-label="Enter the coffee shop">step inside</button>
   </div>
 
   <div id="hud-top" class="panel">
     <h1>vibe coffee <span>☕</span></h1>
     <div id="blurb"></div>
     <div id="locations">
-      <button class="loc-btn active">Golden Hour Café</button>
-      <button class="loc-btn">Downtown Roastery</button>
-      <button class="loc-btn">Midnight Jazz Corner</button>
-      <button class="loc-btn">Garden Terrace</button>
-      <button id="variant-btn" class="loc-btn" title="change the time of day / weather">☀</button>
+      <button class="loc-btn active" aria-pressed="true">Golden Hour Café</button>
+      <button class="loc-btn" aria-pressed="false">Downtown Roastery</button>
+      <button class="loc-btn" aria-pressed="false">Midnight Jazz Corner</button>
+      <button class="loc-btn" aria-pressed="false">Garden Terrace</button>
+      <button id="variant-btn" class="loc-btn" title="change the time of day / weather" aria-label="Change time of day or weather">☀</button>
     </div>
   </div>
 
   <div id="hint">drag to look around · WASD to walk · click any free chair to sit</div>
 
   <div id="hud-bottom" class="panel">
-    <button id="walk-btn">stand up &amp; walk</button>
-    <button id="order-btn">☕ order</button>
-    <button id="music-toggle" class="on">♪ music on</button>
+    <button id="walk-btn" aria-label="Stand up and walk">stand up &amp; walk</button>
+    <button id="order-btn" aria-label="Order a drink">☕ order</button>
+    <button id="music-toggle" class="on" aria-pressed="true">♪ music on</button>
+    <button id="quality-toggle" aria-label="Rendering quality: automatic">quality · auto</button>
+    <span id="track-style" aria-live="polite">playlist loading</span>
     <div class="ctl">
-      <label>music</label>
-      <input id="music-vol" type="range" min="0" max="1" step="0.01" value="0.5" />
+      <label for="music-vol">music</label>
+      <input id="music-vol" aria-label="Music volume" type="range" min="0" max="1" step="0.01" value="0.5" />
     </div>
     <div class="ctl">
-      <label>café</label>
-      <input id="amb-vol" type="range" min="0" max="1" step="0.01" value="0.7" />
+      <label for="amb-vol">café</label>
+      <input id="amb-vol" aria-label="Café ambience volume" type="range" min="0" max="1" step="0.01" value="0.7" />
     </div>
     <div class="ctl">
-      <label>voices</label>
-      <input id="voices-vol" type="range" min="0" max="1.5" step="0.01" value="1" />
+      <label for="voices-vol">voices</label>
+      <input id="voices-vol" aria-label="Crowd voices volume" type="range" min="0" max="1.5" step="0.01" value="1" />
     </div>
     <div class="divider"></div>
     <div id="timer">
       <span id="timer-display">25:00</span>
-      <button id="timer-btn">▶</button>
-      <button id="timer-reset">↺</button>
+      <button id="timer-btn" aria-label="Start focus timer">▶</button>
+      <button id="timer-reset" aria-label="Reset focus timer">↺</button>
     </div>
   </div>
 
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/src/main.js"></script>
 </body>
