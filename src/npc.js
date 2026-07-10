@@ -415,6 +415,7 @@ class SkinnedAvatar {
     this.inner = mesh;
     this._ownedMaterials = new Set();
     this._ownedGeometries = new Set();
+    this._ownedSkeletons = new Set();
     this._animationDebt = 0;
     this._forcePose = true;
 
@@ -428,6 +429,7 @@ class SkinnedAvatar {
     const hairTone = new THREE.Color(IMPORTED_HAIR[(appearanceIndex * 3 + keySalt) % IMPORTED_HAIR.length]);
     mesh.traverse((o) => {
       if (o.isMesh) {
+        if (o.isSkinnedMesh && o.skeleton) this._ownedSkeletons.add(o.skeleton);
         // Each high-detail hero is a single 159–171k-triangle draw. Keeping it out
         // of the shadow map retains the close-up silhouette and texture quality
         // without rendering that geometry twice every shadow refresh.
@@ -686,6 +688,11 @@ class SkinnedAvatar {
     this.root.parent?.remove(this.root);
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.inner);
+    // Three creates one GPU bone texture for every cloned skeleton on first
+    // render. SkeletonUtils owns those clones per avatar, so release them here
+    // instead of retaining an invisible texture for every departed patron and
+    // every café switch.
+    this._ownedSkeletons.forEach((skeleton) => skeleton.dispose());
     // SkeletonUtils clones share the library's geometries.  Disposing them here
     // invalidated every other customer using that template; only per-instance
     // materials and helper geometry are owned by this avatar.
@@ -693,6 +700,7 @@ class SkinnedAvatar {
     this._ownedMaterials.forEach((material) => material.dispose());
     this._ownedGeometries.clear();
     this._ownedMaterials.clear();
+    this._ownedSkeletons.clear();
   }
 }
 

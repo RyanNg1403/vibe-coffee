@@ -13,6 +13,24 @@ import { loadModelLibrary, cloneModel } from './modelLoader.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 
 const preferences = loadPreferences();
+// A deterministic lifecycle probe used by the checked-in P0 benchmark. It
+// freezes autonomous crowd churn so renderer counts compare equivalent scenes
+// instead of different random patron populations. Normal visits are unchanged.
+const MEMORY_AUDIT_MODE = new URLSearchParams(window.location.search).has('memory-audit');
+function resetMemoryAuditRandom(themeIndex) {
+  if (!MEMORY_AUDIT_MODE) return;
+  // Make every rebuild of a location contain the same patrons and procedural
+  // props. This keeps the renderer lifecycle benchmark comparable without
+  // changing the normal experience's variety.
+  let state = (0x9e3779b9 ^ ((themeIndex + 1) * 0x85ebca6b)) >>> 0;
+  Math.random = () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 // ---------- renderer / scene ----------
 
@@ -255,6 +273,7 @@ async function loadTheme(index) {
     cafe = null;
   }
 
+  resetMemoryAuditRandom(index);
   cafe = buildCafe(theme, models);
   // A 1024px soft sun shadow is visually comparable in this compact room and
   // quarters the shadow-map fill/memory cost of the original 2048px map.
@@ -845,13 +864,17 @@ function frame() {
 
   // Run room life in stable 30 Hz steps, but cap catch-up work after a paused
   // or throttled tab so returning to the café cannot trigger a long CPU spike.
-  simAcc = Math.min(simAcc + rawDt, SIM_STEP * MAX_SIM_STEPS);
-  let simSteps = 0;
-  while (simAcc >= SIM_STEP && simSteps < MAX_SIM_STEPS) {
-    simAcc -= SIM_STEP;
-    simSteps += 1;
-    if (cafe) cafe.animate(SIM_STEP);
-    if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
+  if (MEMORY_AUDIT_MODE) {
+    simAcc = 0;
+  } else {
+    simAcc = Math.min(simAcc + rawDt, SIM_STEP * MAX_SIM_STEPS);
+    let simSteps = 0;
+    while (simAcc >= SIM_STEP && simSteps < MAX_SIM_STEPS) {
+      simAcc -= SIM_STEP;
+      simSteps += 1;
+      if (cafe) cafe.animate(SIM_STEP);
+      if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
+    }
   }
 
   // camera tween between seats
@@ -1022,7 +1045,7 @@ window.__vibe = {
       decodedAudioBytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
     }
     return {
-      theme: currentTheme.id,
+      theme: cafe?.theme.id ?? currentTheme.id,
       qualityMode,
       pixelRatio: renderPixelRatio,
       effects: effectLevel,
