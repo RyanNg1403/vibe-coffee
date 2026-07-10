@@ -80,6 +80,7 @@
     #music-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
     #laptop-btn.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
     #quality-toggle { color: rgba(240, 230, 212, .76); min-width: 102px; }
+    #fullscreen-btn { min-width: 42px; }
     .divider { width: 1px; height: 22px; background: rgba(240, 230, 212, 0.15); }
     #track-style {
       min-width: 92px; max-width: 148px; overflow: hidden; text-overflow: ellipsis;
@@ -136,6 +137,26 @@
       transition: all 0.25s; letter-spacing: 0.5px;
     }
     #enter-btn:hover { background: #e0a763; transform: translateY(-2px); }
+
+    /* Fullscreen is an immersive view: keep only a quiet escape control. */
+    :fullscreen #hud-top, :fullscreen #hint,
+    :-webkit-full-screen #hud-top, :-webkit-full-screen #hint {
+      display: none;
+    }
+    :fullscreen #hud-bottom > :not(#fullscreen-btn),
+    :-webkit-full-screen #hud-bottom > :not(#fullscreen-btn) {
+      display: none;
+    }
+    :fullscreen #hud-bottom, :-webkit-full-screen #hud-bottom {
+      left: auto; right: 16px; transform: none;
+      padding: 0; border: 0; background: transparent;
+      backdrop-filter: none;
+    }
+    :fullscreen #fullscreen-btn, :-webkit-full-screen #fullscreen-btn {
+      width: 42px; height: 42px; padding: 0;
+      background: rgba(20, 14, 8, 0.52);
+      font-size: 18px;
+    }
 
     @media (max-width: 720px) {
       #hud-bottom {

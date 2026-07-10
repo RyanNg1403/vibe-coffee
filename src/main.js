@@ -651,7 +651,7 @@ const fullscreenElement = () => document.fullscreenElement ?? document.webkitFul
 function syncFullscreenButton() {
   if (!fullscreenButton) return;
   const active = Boolean(fullscreenElement());
-  fullscreenButton.textContent = active ? '⛶ exit full screen' : '⛶ full screen';
+  fullscreenButton.textContent = active ? '⛶' : '⛶ full screen';
   fullscreenButton.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
   fullscreenButton.setAttribute('aria-pressed', String(active));
   fullscreenButton.title = active ? 'exit fullscreen' : 'enter fullscreen';
