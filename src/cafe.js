@@ -642,17 +642,137 @@ export function buildCafe(theme, models = null) {
     group.add(t);
   }
 
-  // outside backdrops (emissive planes past the windows)
+  // outside backdrops (emissive planes far past the street)
   const outTex = track(outsideTexture(theme.outside));
   const outMat = new THREE.MeshBasicMaterial({ map: outTex, fog: false });
-  const back1 = new THREE.Mesh(new THREE.PlaneGeometry(W * 2.4, 9), outMat);
-  back1.position.set(0, 2.6, D / 2 + 3.2);
+  const back1 = new THREE.Mesh(new THREE.PlaneGeometry(W * 3.2, 13), outMat);
+  back1.position.set(0, 4.2, D / 2 + 17);
   back1.rotation.y = Math.PI;
   group.add(back1);
-  const back2 = new THREE.Mesh(new THREE.PlaneGeometry(D * 2.4, 9), outMat);
-  back2.position.set(-W / 2 - 3.2, 2.6, 0);
+  const back2 = new THREE.Mesh(new THREE.PlaneGeometry(D * 3.2, 13), outMat);
+  back2.position.set(-W / 2 - 14, 4.2, 0);
   back2.rotation.y = Math.PI / 2;
   group.add(back2);
+
+  // ---------- a real street outside the windows ----------
+  let passingCar = null;
+  {
+    const night = theme.outside === 'rainNight';
+    const dusk = theme.outside === 'sunset';
+    const paveMat = new THREE.MeshStandardMaterial({ color: night ? 0x232630 : dusk ? 0xa08a70 : 0xa9adb2, roughness: 0.95 });
+    const roadMat = new THREE.MeshStandardMaterial({ color: night ? 0x131620 : 0x3d4046, roughness: 0.9 });
+
+    // near sidewalk (the pedestrians walk here), curb, road, far sidewalk
+    const walk1 = new THREE.Mesh(new THREE.BoxGeometry(W + 30, 0.06, 2.9), paveMat);
+    walk1.position.set(0, -0.03, D / 2 + 1.45);
+    group.add(walk1);
+    const road = new THREE.Mesh(new THREE.BoxGeometry(W + 30, 0.02, 4.6), roadMat);
+    road.position.set(0, -0.06, D / 2 + 2.9 + 2.3);
+    group.add(road);
+    const walk2 = new THREE.Mesh(new THREE.BoxGeometry(W + 30, 0.06, 1.6), paveMat);
+    walk2.position.set(0, -0.03, D / 2 + 7.5 + 0.8);
+    group.add(walk2);
+    // dashed center line
+    const lineMat = new THREE.MeshBasicMaterial({ color: night ? 0x6a6f52 : 0xd8d3a8 });
+    for (let x = -W / 2 - 12; x < W / 2 + 12; x += 2.2) {
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.12), lineMat);
+      dash.rotation.x = -Math.PI / 2;
+      dash.position.set(x, -0.045, D / 2 + 5.2);
+      group.add(dash);
+    }
+
+    // facing building facades with lit windows
+    const faceRow = new THREE.Group();
+    let fx = -W / 2 - 11;
+    while (fx < W / 2 + 11) {
+      const bw = rand(4.5, 7), bh = rand(4.5, 8.5), bd = 2.2;
+      const hue = night ? rand(222, 240) : dusk ? rand(14, 30) : rand(200, 220);
+      const light = night ? rand(9, 14) : dusk ? rand(38, 52) : rand(56, 70);
+      const faceMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${Math.round(hue)}, 18%, ${Math.round(light)}%)`), roughness: 0.9 });
+      const b = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), faceMat);
+      b.position.set(fx + bw / 2, bh / 2, D / 2 + 9.5);
+      faceRow.add(b);
+      // lit window grid on the facade
+      const winMat = new THREE.MeshBasicMaterial({
+        color: night ? 0xffc46a : dusk ? 0xffe1b0 : 0xdfeaf2,
+        transparent: true, opacity: night ? 0.95 : 0.75,
+      });
+      for (let wy = 1.2; wy < bh - 0.8; wy += 1.3) {
+        for (let wx = -bw / 2 + 0.7; wx < bw / 2 - 0.5; wx += 1.1) {
+          if (Math.random() < (night ? 0.55 : 0.8)) {
+            const win = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.75), winMat);
+            win.position.set(fx + bw / 2 + wx, wy, D / 2 + 9.5 - bd / 2 - 0.01);
+            win.rotation.y = Math.PI;
+            faceRow.add(win);
+          }
+        }
+      }
+      // ground-floor awning on some buildings
+      if (Math.random() < 0.5) {
+        const awn = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.7, 0.06, 0.9),
+          new THREE.MeshStandardMaterial({ color: [0x8a3b2e, 0x2e5e6e, 0x777a3c][Math.floor(rand(0, 3))], roughness: 0.9 }));
+        awn.position.set(fx + bw / 2, 2.5, D / 2 + 9.5 - bd / 2 - 0.45);
+        awn.rotation.x = 0.18;
+        faceRow.add(awn);
+      }
+      fx += bw + rand(0.4, 1.4);
+    }
+    group.add(faceRow);
+
+    // street lamps on the near sidewalk
+    const lampMat2 = new THREE.MeshStandardMaterial({ color: 0x2c2e33, roughness: 0.5, metalness: 0.5 });
+    for (const lx of [-W / 2 - 4, -1.5, W / 2 + 4]) {
+      const pole = cyl(0.05, 0.06, 3.4, lampMat2, 8);
+      pole.position.set(lx, 1.7, D / 2 + 2.55);
+      group.add(pole);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8),
+        new THREE.MeshBasicMaterial({ color: night || dusk ? 0xffd9a0 : 0xcfd4d8 }));
+      head.position.set(lx, 3.45, D / 2 + 2.55);
+      group.add(head);
+      if (night || dusk) {
+        const gl = new THREE.PointLight(0xffc46a, night ? 5 : 2, 7);
+        gl.position.set(lx, 3.3, D / 2 + 2.55);
+        group.add(gl);
+      }
+    }
+
+    // a parked car and one that drives by now and then
+    const mkCar = (color) => {
+      const car = new THREE.Group();
+      const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.3 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.55, 1.5), bodyMat2);
+      body.position.y = 0.55;
+      car.add(body);
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 1.35), bodyMat2);
+      cab.position.set(-0.2, 1.05, 0);
+      car.add(cab);
+      const glassMat2 = new THREE.MeshStandardMaterial({ color: 0x1c2126, roughness: 0.15, metalness: 0.4 });
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.36, 1.37), glassMat2);
+      glass.position.set(-0.2, 1.08, 0);
+      car.add(glass);
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.8 });
+      for (const [wx2, wz2] of [[-1.15, 0.72], [1.15, 0.72], [-1.15, -0.72], [1.15, -0.72]]) {
+        const wh = cyl(0.32, 0.32, 0.2, wheelMat, 12);
+        wh.rotation.x = Math.PI / 2;
+        wh.position.set(wx2, 0.32, wz2);
+        car.add(wh);
+      }
+      if (night) {
+        const hl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.14), new THREE.MeshBasicMaterial({ color: 0xfff2c8 }));
+        hl.position.set(1.71, 0.6, 0.45); hl.rotation.y = Math.PI / 2; car.add(hl);
+        const hl2 = hl.clone(); hl2.position.z = -0.45; car.add(hl2);
+      }
+      return car;
+    };
+    const parked = mkCar([0x7a4a3a, 0x39505e, 0x5c5f64][Math.floor(rand(0, 3))]);
+    parked.position.set(W / 2 - 1, 0, D / 2 + 3.6);
+    group.add(parked);
+    passingCar = mkCar(night ? 0x2a3340 : [0xa04638, 0x3d6070, 0xb8b4a8][Math.floor(rand(0, 3))]);
+    passingCar.position.set(-30, 0, D / 2 + 6.2);
+    passingCar.rotation.y = Math.PI; // faces -x on the far lane
+    passingCar.userData = { t: rand(4, 10), dir: -1 };
+    group.add(passingCar);
+  }
 
   // ---------- counter along back wall ----------
   const counterMat = new THREE.MeshStandardMaterial({ color: theme.counter, roughness: 0.7 });
@@ -1697,6 +1817,26 @@ export function buildCafe(theme, models = null) {
   let t = 0;
   function animate(dt) {
     t += dt;
+    // a car drives past every so often
+    if (passingCar) {
+      const u = passingCar.userData;
+      if (u.t > 0) {
+        u.t -= dt;
+        if (u.t <= 0) {
+          u.dir = Math.random() < 0.5 ? -1 : 1;
+          passingCar.position.x = -u.dir * 32;
+          passingCar.position.z = D / 2 + (u.dir > 0 ? 3.9 : 6.2);
+          passingCar.rotation.y = u.dir > 0 ? 0 : Math.PI;
+          u.driving = true;
+        }
+      } else if (u.driving) {
+        passingCar.position.x += u.dir * dt * rand(8.6, 9);
+        if (Math.abs(passingCar.position.x) > 33) {
+          u.driving = false;
+          u.t = rand(9, 26);
+        }
+      }
+    }
     for (const s of steamSprites) {
       const cycle = (t * s.speed + s.phase) % 3;
       const f = cycle / 3;
