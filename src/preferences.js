@@ -9,6 +9,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   variantOn: false,
   qualityMode: 'auto',
   laptopOn: false,
+  focusMinutes: 25,
 });
 
 const numberIn = (value, min, max, fallback) => {
@@ -30,6 +31,7 @@ export function loadPreferences() {
         ? saved.qualityMode
         : DEFAULT_PREFERENCES.qualityMode,
       laptopOn: typeof saved.laptopOn === 'boolean' ? saved.laptopOn : DEFAULT_PREFERENCES.laptopOn,
+      focusMinutes: Math.round(numberIn(saved.focusMinutes, 1, 180, DEFAULT_PREFERENCES.focusMinutes)),
     };
   } catch {
     return { ...DEFAULT_PREFERENCES };
