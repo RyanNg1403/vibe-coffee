@@ -23,6 +23,7 @@ test('round-trips every preference', () => {
     variantOn: true,
     qualityMode: 'smooth',
     laptopOn: true,
+    focusMinutes: 42,
   };
   savePreferences(preferences);
   assert.deepEqual(loadPreferences(), preferences);
@@ -36,6 +37,7 @@ test('sanitizes corrupt and out-of-range values', () => {
       voicesVolume: 'bad',
       cafeIndex: 99,
       qualityMode: 'cinematic',
+      focusMinutes: 999,
     }),
     setItem: () => {},
   };
@@ -44,5 +46,6 @@ test('sanitizes corrupt and out-of-range values', () => {
     musicVolume: 1,
     ambienceVolume: 0,
     cafeIndex: 3,
+    focusMinutes: 180,
   });
 });

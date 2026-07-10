@@ -1251,6 +1251,37 @@ export class CafeAudio {
     });
   }
 
+  // A distinct focus-timer alarm: two warm three-note strikes that remain
+  // audible over the café mix without sounding like a harsh phone buzzer.
+  playTimerAlarm() {
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    this._duckMusic(0.28, 4.5);
+    const start = this.ctx.currentTime + 0.04;
+    const notes = [784, 988, 1175];
+    for (const repeat of [0, 1.15]) {
+      notes.forEach((frequency, index) => {
+        const when = start + repeat + index * 0.18;
+        const fundamental = this.ctx.createOscillator();
+        const overtone = this.ctx.createOscillator();
+        fundamental.type = 'sine';
+        overtone.type = 'sine';
+        fundamental.frequency.value = frequency;
+        overtone.frequency.value = frequency * 2.01;
+        const gain = this.ctx.createGain();
+        const overtoneGain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.075, when);
+        gain.gain.exponentialRampToValueAtTime(0.0001, when + 1.05);
+        overtoneGain.gain.setValueAtTime(0.018, when);
+        overtoneGain.gain.exponentialRampToValueAtTime(0.0001, when + 0.42);
+        fundamental.connect(gain).connect(this.master);
+        overtone.connect(overtoneGain).connect(this.master);
+        fundamental.start(when); fundamental.stop(when + 1.1);
+        overtone.start(when); overtone.stop(when + 0.46);
+      });
+    }
+  }
+
   _typeBurst(pos, volumeScale = 1, trackPlayer = false) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;

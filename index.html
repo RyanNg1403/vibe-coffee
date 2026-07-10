@@ -96,6 +96,13 @@
     }
 
     #timer { display: flex; align-items: center; gap: 8px; }
+    #timer-setting { display: flex; align-items: center; gap: 4px; font-size: 11px; opacity: .76; }
+    #timer-minutes {
+      width: 42px; padding: 4px 3px; color: #f0e6d4; text-align: center;
+      font: inherit; background: rgba(240, 230, 212, .07);
+      border: 1px solid rgba(240, 230, 212, .18); border-radius: 6px;
+    }
+    #timer-minutes:disabled { opacity: .52; cursor: not-allowed; }
     #timer-display { font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
     #timer-display.break { color: #8fc9a0; }
     #timer button {
@@ -227,6 +234,9 @@
     <button id="fullscreen-btn" aria-label="Enter fullscreen" aria-pressed="false" title="enter fullscreen">⛶ full screen</button>
     <div class="divider"></div>
     <div id="timer">
+      <label id="timer-setting" for="timer-minutes">
+        <input id="timer-minutes" type="number" min="1" max="180" step="1" value="25" inputmode="numeric" aria-label="Focus duration in minutes" /> min
+      </label>
       <span id="timer-display">25:00</span>
       <button id="timer-btn" aria-label="Start focus timer">▶</button>
       <button id="timer-reset" aria-label="Reset focus timer">↺</button>

@@ -697,6 +697,7 @@ function persistPreferences() {
     variantOn,
     qualityMode,
     laptopOn,
+    focusMinutes,
   });
 }
 window.addEventListener('cafe-track-change', (e) => {
@@ -779,12 +780,15 @@ voicesVolume.addEventListener('input', (e) => {
   persistPreferences();
 });
 
-// focus timer (pomodoro-style 25/5)
+// focus timer (adjustable focus interval / five-minute break)
 const timerEl = document.getElementById('timer-display');
 const timerBtn = document.getElementById('timer-btn');
-let timerRunning = false, timerBreak = false, timerLeft = 25 * 60;
+const timerMinutesInput = document.getElementById('timer-minutes');
+let focusMinutes = preferences.focusMinutes;
+let timerRunning = false, timerBreak = false, timerLeft = focusMinutes * 60;
 let lastTimerText = '';
 let lastTimerBreak = null;
+timerMinutesInput.value = String(focusMinutes);
 function renderTimer() {
   const m = String(Math.floor(timerLeft / 60)).padStart(2, '0');
   const s = String(Math.floor(timerLeft % 60)).padStart(2, '0');
@@ -801,14 +805,24 @@ function renderTimer() {
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   if (!timerRunning) audio.stopPlayerTyping();
+  timerMinutesInput.disabled = timerRunning;
   timerBtn.textContent = timerRunning ? '❚❚' : '▶';
   timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
-  timerRunning = false; timerBreak = false; timerLeft = 25 * 60;
+  timerRunning = false; timerBreak = false; timerLeft = focusMinutes * 60;
   audio.stopPlayerTyping();
+  timerMinutesInput.disabled = false;
   timerBtn.textContent = '▶';
   timerBtn.setAttribute('aria-label', 'Start focus timer');
+  renderTimer();
+});
+timerMinutesInput.addEventListener('change', () => {
+  focusMinutes = Math.round(THREE.MathUtils.clamp(Number(timerMinutesInput.value) || 25, 1, 180));
+  timerMinutesInput.value = String(focusMinutes);
+  timerBreak = false;
+  timerLeft = focusMinutes * 60;
+  persistPreferences();
   renderTimer();
 });
 renderTimer();
@@ -1040,8 +1054,8 @@ function frame() {
     if (timerLeft <= 0) {
       timerBreak = !timerBreak;
       if (timerBreak) audio.stopPlayerTyping();
-      timerLeft = (timerBreak ? 5 : 25) * 60;
-      if (audio.started) { audio.playChime(); }
+      timerLeft = (timerBreak ? 5 : focusMinutes) * 60;
+      if (audio.started) audio.playTimerAlarm();
       toast(timerBreak ? 'Break time — stretch a little 🌿' : 'Back to focus ☕');
     }
     renderTimer();
