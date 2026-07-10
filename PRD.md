@@ -62,7 +62,7 @@ don't step on each other. Update Status as you go
 | # | Feature | Owner | Status | Priority |
 |---|---------|-------|--------|----------|
 | P0 | Runtime efficiency (RAM/draw calls/leaks) | **Claude** ✅ | done | P0 |
-| 1 | Preference persistence (localStorage) | **Claude** ✅ | todo | P1 |
+| 1 | Preference persistence (localStorage) | **Claude** ✅ | done | P1 |
 | 2 | Mobile / touch support | Team | todo | P1 |
 | 3 | Clickable world (cat, radio, chalkboard) | Team | todo | P1 |
 | 4 | MacBook typing sounds during focus | **Claude** ✅ | todo | P2 |
@@ -82,11 +82,14 @@ don't step on each other. Update Status as you go
 
 ## Feature specs
 
-### 1. Preference persistence — **Claude**
+### 1. Preference persistence — **Claude** — done
 Volume sliders (music/café/voices), music on/off, selected café, variant
 (time-of-day), quality mode, and laptop-out state survive a reload via
 `localStorage`. **AC:** reload restores all seven values; a fresh profile
 gets today's defaults; no errors when storage is unavailable (private mode).
+_Verified 2026-07-10: all seven restore across reload (incl. laptop back on
+the table); fresh context gets defaults; a page whose `localStorage` getter
+throws boots with zero errors._
 
 ### 2. Mobile / touch support — Team
 Touch drag to look; an on-screen joystick (or tap-to-walk) replacing WASD;

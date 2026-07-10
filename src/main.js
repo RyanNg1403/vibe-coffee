@@ -114,6 +114,22 @@ const audio = new CafeAudio();
 
 let cafe = null;
 let crowd = null;
+// ---------- preference persistence ----------
+// sliders, toggles, café, variant, quality and laptop state survive a reload;
+// every storage touch is wrapped so private browsing (or blocked storage)
+// silently degrades to session-only defaults
+const PREFS_KEY = 'vibe-coffee-prefs';
+const prefs = (() => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch { return {}; }
+})();
+function savePref(key, value) {
+  prefs[key] = value;
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* storage unavailable */ }
+}
+
 let currentThemeIndex = 0;
 let seatIndex = -1;
 let mode = 'seated'; // 'seated' | 'walking'
@@ -216,7 +232,7 @@ function defaultSeat() {
 // ---------- scene switching ----------
 
 let loadToken = 0;
-let variantOn = false;
+let variantOn = prefs.variant === true;
 let lastModels = null;
 let playerCup = null;
 let playerLaptop = null;
@@ -229,6 +245,7 @@ function activeTheme(index = currentThemeIndex) {
 }
 async function loadTheme(index) {
   currentThemeIndex = index;
+  savePref('theme', index);
   const baseTheme = THEMES[index];
   const theme = variantOn && baseTheme.variant ? { ...baseTheme, ...baseTheme.variant } : baseTheme;
   currentTheme = theme;
@@ -292,6 +309,7 @@ async function loadTheme(index) {
 
 document.getElementById('variant-btn')?.addEventListener('click', () => {
   variantOn = !variantOn;
+  savePref('variant', variantOn);
   loadTheme(currentThemeIndex);
 });
 
@@ -367,7 +385,7 @@ function makeMacBook() {
   return g;
 }
 
-let laptopOn = false;
+let laptopOn = prefs.laptop === true;
 function placePlayerLaptop() {
   if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
   if (!laptopOn || seatIndex < 0 || !cafe) return;
@@ -389,6 +407,7 @@ function placePlayerLaptop() {
 document.getElementById('laptop-btn')?.addEventListener('click', () => {
   if (seatIndex < 0) { toast('sit down first, then set up your laptop'); return; }
   laptopOn = !laptopOn;
+  savePref('laptop', laptopOn);
   placePlayerLaptop();
   document.getElementById('laptop-btn').classList.toggle('on', laptopOn);
   toast(laptopOn ? 'MacBook out — focus time 💻' : 'laptop packed away');
@@ -579,11 +598,16 @@ window.addEventListener('cafe-track-change', (e) => {
     trackStyle.title = `Now playing: ${e.detail.style}, ${e.detail.bpm} beats per minute`;
   }
 });
-musicToggle.addEventListener('click', () => {
-  const on = musicToggle.classList.toggle('on');
-  audio.setMusicOn(on);
+function renderMusicToggle(on) {
+  musicToggle.classList.toggle('on', on);
   musicToggle.textContent = on ? '♪ music on' : '♪ music off';
   musicToggle.setAttribute('aria-pressed', String(on));
+}
+musicToggle.addEventListener('click', () => {
+  const on = !musicToggle.classList.contains('on');
+  renderMusicToggle(on);
+  audio.setMusicOn(on);
+  savePref('musicOn', on);
 });
 
 const qualityToggle = document.getElementById('quality-toggle');
@@ -611,8 +635,7 @@ function renderQualityMode() {
   qualityToggle.textContent = `quality · ${qualityMode}`;
   qualityToggle.setAttribute('aria-label', `Rendering quality: ${qualityMode}`);
 }
-qualityToggle.addEventListener('click', () => {
-  qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
+function applyQualityMode() {
   perfSampleTime = 0;
   perfSampleFrames = 0;
   qualityCooldown = 0;
@@ -626,21 +649,36 @@ qualityToggle.addEventListener('click', () => {
     applyEffectLevel(autoEffectLevel);
   }
   renderQualityMode();
+}
+qualityToggle.addEventListener('click', () => {
+  qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
+  savePref('quality', qualityMode);
+  applyQualityMode();
   toast(qualityMode === 'auto'
     ? 'quality will adapt to keep the café smooth'
     : `quality locked to ${qualityMode}`);
 });
 renderQualityMode();
 
-document.getElementById('music-vol').addEventListener('input', (e) => {
-  audio.setMusicVolume(parseFloat(e.target.value));
-});
-document.getElementById('amb-vol').addEventListener('input', (e) => {
-  audio.setAmbienceVolume(parseFloat(e.target.value));
-});
-document.getElementById('voices-vol').addEventListener('input', (e) => {
-  audio.setVoicesVolume(parseFloat(e.target.value));
-});
+// volume sliders: apply, persist, and restore
+const VOLUME_CONTROLS = [
+  ['music-vol', 'musicVol', (v) => audio.setMusicVolume(v)],
+  ['amb-vol', 'ambVol', (v) => audio.setAmbienceVolume(v)],
+  ['voices-vol', 'voicesVol', (v) => audio.setVoicesVolume(v)],
+];
+for (const [id, key, apply] of VOLUME_CONTROLS) {
+  const el = document.getElementById(id);
+  const saved = prefs[key];
+  if (typeof saved === 'number' && Number.isFinite(saved)) {
+    el.value = saved; // the input clamps to its own min/max
+    apply(parseFloat(el.value));
+  }
+  el.addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    apply(v);
+    savePref(key, v);
+  });
+}
 
 // focus timer (pomodoro-style 25/5)
 const timerEl = document.getElementById('timer-display');
@@ -681,6 +719,10 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   overlay.setAttribute('aria-hidden', 'true');
   audio.start(activeTheme());
   audio.setMusicOn(musicToggle.classList.contains('on'));
+  // buses exist only now — re-assert the restored slider levels
+  for (const [id, , apply] of VOLUME_CONTROLS) {
+    apply(parseFloat(document.getElementById(id).value));
+  }
 });
 
 function applyRenderPixelRatio(nextRatio) {
@@ -903,7 +945,14 @@ function frame() {
   composer.render(dt);
 }
 
-loadTheme(0);
+// restore the remembered session: toggles first, then the saved café
+if (prefs.musicOn === false) renderMusicToggle(false);
+if (QUALITY_MODES.includes(prefs.quality) && prefs.quality !== 'auto') {
+  qualityMode = prefs.quality;
+  applyQualityMode();
+}
+if (laptopOn) document.getElementById('laptop-btn')?.classList.add('on');
+loadTheme(Number.isInteger(prefs.theme) && THEMES[prefs.theme] ? prefs.theme : 0);
 frame();
 
 // tiny debug handle for automated tests: place the camera, inspect audio
