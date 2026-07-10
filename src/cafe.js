@@ -1128,13 +1128,27 @@ export function buildCafe(theme, models = null) {
         });
         faceRow.add(windowMesh);
       }
-      // ground-floor awning on some buildings
+      // ground-floor awning on some buildings — rear edge buried in the
+      // facade, front edge held by two visible support rods so it reads as
+      // mounted rather than hovering
       if (Math.random() < 0.5) {
-        const awn = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.7, 0.06, 0.9),
-          new THREE.MeshStandardMaterial({ color: [0x8a3b2e, 0x2e5e6e, 0x777a3c][Math.floor(rand(0, 3))], roughness: 0.9 }));
-        awn.position.set(fx + bw / 2, 2.5, D / 2 + 9.5 - bd / 2 - 0.45);
-        awn.rotation.x = 0.18;
+        const awnMat = new THREE.MeshStandardMaterial({ color: [0x8a3b2e, 0x2e5e6e, 0x777a3c][Math.floor(rand(0, 3))], roughness: 0.9 });
+        const wallZ = D / 2 + 9.5 - bd / 2;
+        const awn = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.7, 0.05, 0.9), awnMat);
+        awn.position.set(fx + bw / 2, 2.42, wallZ - 0.38);
+        awn.rotation.x = 0.22;
         faceRow.add(awn);
+        // valance strip on the front edge
+        const valance = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.7, 0.14, 0.03), awnMat);
+        valance.position.set(fx + bw / 2, 2.28, wallZ - 0.82);
+        faceRow.add(valance);
+        const rodMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.5, metalness: 0.6 });
+        for (const s2 of [-1, 1]) {
+          const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6), rodMat);
+          rod.position.set(fx + bw / 2 + s2 * bw * 0.3, 2.05, wallZ - 0.55);
+          rod.rotation.x = 0.75;
+          faceRow.add(rod);
+        }
       }
       fx += bw + rand(0.4, 1.4);
     }
