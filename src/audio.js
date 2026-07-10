@@ -127,6 +127,13 @@ const AMBIENCE_PROFILES = {
     traffic: 0.55, murmur: 0.14, stepRate: 0.88, stepVol: 0.8,
     clinkMs: [9000, 26000], typeMs: [4000, 14000],
   },
+  terrace: {
+    // open air: conversation floats away, distant road, gravel underfoot
+    beds: { chatter: 0.35, chatter2: 0.2, chatter_busy: 0, chatter_quiet: 0.5 },
+    chatterRate: 0.98, chatterLP: 6000,
+    traffic: 0.18, murmur: 0.2, stepRate: 0.85, stepVol: 0.65,
+    clinkMs: [7000, 20000], typeMs: [2500, 9000],
+  },
 };
 
 export class CafeAudio {
@@ -430,6 +437,7 @@ export class CafeAudio {
     this.theme = theme;
     if (!this.ctx) return;
     if (theme?.rain) this._startRain(); else this._stopRain();
+    if (theme?.birds) this._startBirds(); else this._stopBirds();
     this._setTrafficMix();
     this._applyAmbienceProfile();
     this.styleId = theme?.id in STYLES ? theme.id : 'goldenhour';
@@ -639,6 +647,45 @@ export class CafeAudio {
   }
 
   // ---------- rain (layered) ----------
+
+  // birdsong for the terrace: short synth chirp phrases, panned around the trees
+  _startBirds() {
+    if (this.birdsOn) return;
+    this.birdsOn = true;
+    const chirp = () => {
+      if (!this.ctx || !this.birdsOn) return;
+      const t = this.ctx.currentTime;
+      const notes = Math.floor(rand(2, 6));
+      const base = rand(2400, 4200);
+      const pan = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+      const out = this.ctx.createGain();
+      out.gain.value = rand(0.35, 1);
+      if (pan) { pan.pan.value = rand(-0.95, 0.95); out.connect(pan).connect(this.ambienceBus); }
+      else out.connect(this.ambienceBus);
+      let d = 0;
+      for (let i = 0; i < notes; i++) {
+        const o = this.ctx.createOscillator();
+        o.type = 'sine';
+        const f = base * rand(0.9, 1.25);
+        o.frequency.setValueAtTime(f, t + d);
+        o.frequency.exponentialRampToValueAtTime(f * rand(0.75, 1.35), t + d + rand(0.04, 0.1));
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0, t + d);
+        g.gain.linearRampToValueAtTime(rand(0.006, 0.014), t + d + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d + rand(0.07, 0.16));
+        o.connect(g).connect(out);
+        o.start(t + d); o.stop(t + d + 0.2);
+        d += rand(0.08, 0.22);
+      }
+      this._birdTimer = this._timer(chirp, rand(900, 5200));
+    };
+    chirp();
+  }
+
+  _stopBirds() {
+    this.birdsOn = false;
+    if (this._birdTimer) { clearTimeout(this._birdTimer); this._birdTimer = null; }
+  }
 
   _startRain() {
     if (this.rainNodes) {

@@ -6,6 +6,7 @@ import { cloneModel } from './modelLoader.js';
 import { TEXTURE_MANIFEST } from './textureManifest.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Room shell is shared across themes; palette, light, view and layout differ.
 export const ROOM = { W: 17, D: 13.5, H: 3.8 };
@@ -83,6 +84,31 @@ export const THEMES = [
     ],
     windowBar: true, plants: 6, crowd: 13, candles: true,
     pendant: 'drum', bookshelf: true, vinyl: true, cat: 0x9a6a38,
+  },
+  {
+    id: 'terrace',
+    name: 'Garden Terrace',
+    blurb: 'Open air under a pergola — birdsong, leaves, and sun on the pavers.',
+    musicKey: 2, rain: false, exposure: 1.0, envIntensity: 0.8, bloom: 0.12,
+    fog: { color: 0xe4ecd8, density: 0.004 },
+    floor: '#b9a888', floorLine: '#a08f70', wall: '#d9d2bc', wallTrim: '#8a7a5c',
+    wood: 0x7a5c38, woodDark: 0x54401f, accent: 0x4a7a52, cushion: 0x6a8a5c,
+    counter: 0x6a5638, counterTop: 0xe4dcc4,
+    hemi: [0xcfe4ff, 0x5c6e46, 0.9],
+    sun: { color: 0xfff2d8, intensity: 2.4, pos: [8, 9, 6] },
+    lampColor: 0xffe2b0, lampIntensity: 3, lampY: 2.45,
+    outside: 'garden',
+    dust: true, neon: null,
+    tables: [
+      { x: -4.9, z: 2.4, type: 'round', lounge: true }, { x: -5.0, z: -0.8, type: 'round' },
+      { x: -4.6, z: -3.5, type: 'round' }, { x: -2.2, z: 1.0, type: 'round' },
+      { x: -2.5, z: -2.2, type: 'square' }, { x: -1.9, z: 4.0, type: 'round' },
+      { x: 2.2, z: 2.7, type: 'round' }, { x: 2.1, z: -0.4, type: 'round' },
+      { x: 2.4, z: -3.3, type: 'square' }, { x: 5.1, z: 1.2, type: 'round' },
+      { x: 5.2, z: -2.1, type: 'round' },
+    ],
+    windowBar: false, plants: 12, crowd: 14, openAir: true, birds: true,
+    pendant: 'cone', stringLights: true, hangingPlants: true, chalkboard: true, cat: 0xc9924e,
   },
 ];
 
@@ -194,6 +220,28 @@ function outsideTexture(kind) {
       }
       g.fillStyle = '#9aa1a6'; g.fillRect(0, h * 0.86, w, h * 0.14); // street
       g.fillStyle = '#c6ccd1'; g.fillRect(0, h * 0.86, w, 6);
+    } else if (kind === 'garden') {
+      const sky = g.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#9ecbf2'); sky.addColorStop(0.6, '#cfe6f5'); sky.addColorStop(1, '#e8f2e0');
+      g.fillStyle = sky; g.fillRect(0, 0, w, h);
+      // puffy clouds
+      for (let i = 0; i < 9; i++) {
+        const cx = rand(0, w), cy = rand(h * 0.08, h * 0.4);
+        g.fillStyle = 'rgba(255,255,255,0.85)';
+        for (let j = 0; j < 4; j++) {
+          g.beginPath(); g.arc(cx + rand(-38, 38), cy + rand(-8, 8), rand(12, 30), 0, 7); g.fill();
+        }
+      }
+      // layered tree line
+      g.fillStyle = '#5d7d4a';
+      for (let x = 0; x < w; x += rand(30, 70)) {
+        g.beginPath(); g.arc(x, h * 0.72, rand(28, 60), 0, 7); g.fill();
+      }
+      g.fillStyle = '#48663c';
+      for (let x = 0; x < w; x += rand(24, 60)) {
+        g.beginPath(); g.arc(x, h * 0.8, rand(24, 48), 0, 7); g.fill();
+      }
+      g.fillStyle = '#6f8a52'; g.fillRect(0, h * 0.82, w, h * 0.18);
     } else { // rainNight
       const sky = g.createLinearGradient(0, 0, 0, h);
       sky.addColorStop(0, '#060810'); sky.addColorStop(1, '#101627');
@@ -498,6 +546,7 @@ const FLOOR_SURF = {
   goldenhour: { c: 'floor_wood.jpg', n: 'floor_wood_n.jpg', r: 'floor_wood_r.jpg', tint: 0xe8cba2 },
   roastery: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd8dadc },
   midnight: { c: 'floor_dark.jpg', n: 'floor_dark_n.jpg', tint: 0xb08a62 },
+  terrace: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd8c4a0 }, // sun-warmed pavers
 };
 
 export function buildCafe(theme, models = null) {
@@ -533,14 +582,41 @@ export function buildCafe(theme, models = null) {
   floor.receiveShadow = true;
   group.add(floor);
 
-  // ceiling
-  const ceil = new THREE.Mesh(
-    new THREE.PlaneGeometry(W, D),
-    new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.95 })
-  );
-  ceil.rotation.x = Math.PI / 2;
-  ceil.position.y = H;
-  group.add(ceil);
+  // ceiling — or, outdoors, a pergola of slats on posts
+  if (!theme.openAir) {
+    const ceil = new THREE.Mesh(
+      new THREE.PlaneGeometry(W, D),
+      new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.95 })
+    );
+    ceil.rotation.x = Math.PI / 2;
+    ceil.position.y = H;
+    group.add(ceil);
+  } else {
+    const pergY = 3.15;
+    for (const [px, pz] of [[-W / 2 + 0.3, -D / 2 + 0.3], [W / 2 - 0.3, -D / 2 + 0.3], [-W / 2 + 0.3, D / 2 - 0.3], [W / 2 - 0.3, D / 2 - 0.3], [-W / 2 + 0.3, 0], [W / 2 - 0.3, 0]]) {
+      const post = box(0.16, pergY, 0.16, woodDarkMat);
+      post.position.set(px, pergY / 2, pz);
+      group.add(post);
+    }
+    // main beams along x, slats along z
+    for (const bz of [-D / 2 + 0.3, -D / 4, 0, D / 4, D / 2 - 0.3]) {
+      const beam = box(W, 0.14, 0.1, woodDarkMat);
+      beam.position.set(0, pergY + 0.07, bz);
+      group.add(beam);
+    }
+    for (let sx = -W / 2 + 0.5; sx < W / 2; sx += 0.85) {
+      const slat = box(0.07, 0.05, D, woodMat);
+      slat.position.set(sx, pergY + 0.19, 0);
+      group.add(slat);
+      // a few vines draped over the slats
+      if (Math.random() < 0.4) {
+        const vine = cyl(0.02, 0.012, rand(0.4, 0.9), new THREE.MeshStandardMaterial({ color: 0x4e7a3c, roughness: 0.9 }), 5);
+        vine.position.set(sx, pergY - 0.15, rand(-D / 2 + 1, D / 2 - 1));
+        vine.rotation.z = rand(-0.3, 0.3);
+        group.add(vine);
+      }
+    }
+  }
 
   // walls — front (+z) and left (-x) get window openings
   const wallMat = new THREE.MeshStandardMaterial({
@@ -586,7 +662,7 @@ export function buildCafe(theme, models = null) {
 
   // front wall: door in the middle, windows either side
   const doorW = 1.1, doorH = 2.3;
-  {
+  if (!theme.openAir) {
     const half = (W - doorW) / 2;
     for (const s of [-1, 1]) {
       const w = windowedWall(half);
@@ -609,37 +685,70 @@ export function buildCafe(theme, models = null) {
     const handle = box(0.03, 0.5, 0.03, metalMat);
     handle.position.set(-0.35, 1.1, D / 2 - 0.06);
     group.add(handle);
-  }
 
-  // left wall with windows
-  {
-    const w = windowedWall(D);
-    w.rotation.y = Math.PI / 2;
-    w.position.set(-W / 2, 0, 0);
-    group.add(w);
-  }
+    // left wall with windows
+    const lw = windowedWall(D);
+    lw.rotation.y = Math.PI / 2;
+    lw.position.set(-W / 2, 0, 0);
+    group.add(lw);
 
-  // right + back walls solid
-  for (const [len, pos, rotY] of [
-    [D, [W / 2, 0, 0], -Math.PI / 2],
-    [W, [0, 0, -D / 2], 0],
-  ]) {
-    const m = box(len, H, 0.15, wallMat);
-    m.position.set(pos[0], H / 2, pos[2]);
-    m.rotation.y = rotY;
-    m.position.y = H / 2;
-    group.add(m);
-  }
+    // right + back walls solid
+    for (const [len, pos, rotY] of [
+      [D, [W / 2, 0, 0], -Math.PI / 2],
+      [W, [0, 0, -D / 2], 0],
+    ]) {
+      const m = box(len, H, 0.15, wallMat);
+      m.position.set(pos[0], H / 2, pos[2]);
+      m.rotation.y = rotY;
+      m.position.y = H / 2;
+      group.add(m);
+    }
 
-  // baseboard trim
-  const trimMat = new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.9 });
-  for (const [len, pos, rotY] of [
-    [W, [0, 0.06, -D / 2 + 0.09], 0],
-    [D, [W / 2 - 0.09, 0.06, 0], Math.PI / 2],
-  ]) {
-    const t = box(len, 0.12, 0.04, trimMat);
-    t.position.set(...pos); t.rotation.y = rotY;
-    group.add(t);
+    // baseboard trim
+    const trimMat = new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.9 });
+    for (const [len, pos, rotY] of [
+      [W, [0, 0.06, -D / 2 + 0.09], 0],
+      [D, [W / 2 - 0.09, 0.06, 0], Math.PI / 2],
+    ]) {
+      const t = box(len, 0.12, 0.04, trimMat);
+      t.position.set(...pos); t.rotation.y = rotY;
+      group.add(t);
+    }
+  } else {
+    // open air: waist-high planter boxes ring the terrace, hedge on top,
+    // with the same gap at the front for the entrance path
+    const planterMat = new THREE.MeshStandardMaterial({ color: 0x8a7458, roughness: 0.9, map: surfTex('wood_dark.jpg', { srgb: true }) });
+    const hedgeMat = new THREE.MeshStandardMaterial({ color: 0x4a6e3c, roughness: 1 });
+    const ring = [
+      // front, split around the entrance gap
+      { w: (W - doorW) / 2 - 0.6, x: -(doorW / 2 + ((W - doorW) / 2 - 0.6) / 2 + 0.3), z: D / 2 - 0.15, ry: 0 },
+      { w: (W - doorW) / 2 - 0.6, x: doorW / 2 + ((W - doorW) / 2 - 0.6) / 2 + 0.3, z: D / 2 - 0.15, ry: 0 },
+      { w: D - 0.6, x: -W / 2 + 0.15, z: 0, ry: Math.PI / 2 },
+      { w: D - 0.6, x: W / 2 - 0.15, z: 0, ry: Math.PI / 2 },
+      // back: leave a solid kiosk wall behind the counter instead
+    ];
+    for (const seg of ring) {
+      const pl = box(seg.w, 0.5, 0.34, planterMat);
+      pl.position.set(seg.x, 0.25, seg.z);
+      pl.rotation.y = seg.ry;
+      group.add(pl);
+      const hedge = box(seg.w - 0.1, 0.42, 0.3, hedgeMat);
+      hedge.position.set(seg.x, 0.68, seg.z);
+      hedge.rotation.y = seg.ry;
+      group.add(hedge);
+    }
+    // the kiosk: a pavilion wall behind the counter carrying menu + shelves
+    const kioskMat = new THREE.MeshStandardMaterial({
+      map: surfTex('wall_plaster.jpg', { srgb: true, rx: 2, ry: 1 }),
+      normalMap: surfTex('wall_plaster_n.jpg', { rx: 2, ry: 1 }),
+      color: theme.wall, roughness: 0.95,
+    });
+    const kiosk = box(W * 0.72, H - 0.6, 0.18, kioskMat);
+    kiosk.position.set(-0.6, (H - 0.6) / 2, -D / 2 + 0.1);
+    group.add(kiosk);
+    const kioskRoof = box(W * 0.76, 0.1, 1.4, woodDarkMat);
+    kioskRoof.position.set(-0.6, H - 0.55, -D / 2 + 0.6);
+    group.add(kioskRoof);
   }
 
   // outside backdrops (emissive planes far past the street)
@@ -656,7 +765,65 @@ export function buildCafe(theme, models = null) {
 
   // ---------- a real street outside the windows ----------
   let passingCar = null;
-  {
+  if (theme.openAir) {
+    // a park instead: lawn, gravel path, trees and bushes all around
+    const lawn = new THREE.Mesh(new THREE.PlaneGeometry(70, 60),
+      new THREE.MeshStandardMaterial({ color: 0x6f8a52, roughness: 1 }));
+    lawn.rotation.x = -Math.PI / 2;
+    lawn.position.y = -0.02;
+    lawn.receiveShadow = true;
+    group.add(lawn);
+    const path = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 9),
+      new THREE.MeshStandardMaterial({ color: 0xc9bda2, roughness: 1 }));
+    path.rotation.x = -Math.PI / 2;
+    path.position.set(0, -0.01, D / 2 + 4.5);
+    group.add(path);
+    const leafMats = [0x4e7a3c, 0x5d8a44, 0x6f9a50].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4630, roughness: 0.95 });
+    const mkTree = (tx, tz, s) => {
+      const tr = new THREE.Group();
+      const trunk = cyl(0.09 * s, 0.14 * s, 1.4 * s, trunkMat, 7);
+      trunk.position.y = 0.7 * s;
+      tr.add(trunk);
+      for (let i = 0; i < 4; i++) {
+        const blob = new THREE.Mesh(new THREE.SphereGeometry(rand(0.6, 0.95) * s, 8, 7), pick(leafMats));
+        blob.position.set(rand(-0.5, 0.5) * s, (1.7 + rand(0, 0.8)) * s, rand(-0.5, 0.5) * s);
+        blob.castShadow = true;
+        tr.add(blob);
+      }
+      tr.position.set(tx, 0, tz);
+      group.add(tr);
+    };
+    for (const [tx, tz, s] of [[-12, 4, 1.3], [-11, -4, 1.0], [12, 2, 1.2], [11.5, -5, 0.9],
+      [-6, 11.5, 1.1], [5, 12.5, 1.4], [12, 10, 1.0], [-12.5, 10.5, 1.2], [-4, -11, 1.1], [6, -11.5, 1.3]]) {
+      mkTree(tx, tz, s);
+    }
+    for (let i = 0; i < 14; i++) {
+      const bush = new THREE.Mesh(new THREE.SphereGeometry(rand(0.3, 0.6), 7, 6), pick(leafMats));
+      const ang = rand(0, Math.PI * 2), rr = rand(10, 16);
+      bush.position.set(Math.cos(ang) * rr, 0.25, Math.sin(ang) * rr);
+      bush.castShadow = true;
+      group.add(bush);
+    }
+    // a park bench along the path
+    const bench = new THREE.Group();
+    for (const by of [0.42, 0.52]) {
+      const slat = box(1.6, 0.05, 0.14, woodMat);
+      slat.position.set(0, by === 0.42 ? 0.42 : 0.44, by === 0.42 ? 0 : -0.16);
+      bench.add(slat);
+    }
+    const backSlat = box(1.6, 0.3, 0.05, woodMat);
+    backSlat.position.set(0, 0.72, -0.24);
+    bench.add(backSlat);
+    for (const bx of [-0.7, 0.7]) {
+      const leg = box(0.06, 0.42, 0.4, woodDarkMat);
+      leg.position.set(bx, 0.21, -0.05);
+      bench.add(leg);
+    }
+    bench.position.set(2.6, 0, D / 2 + 5.5);
+    bench.rotation.y = -0.3;
+    group.add(bench);
+  } else {
     const night = theme.outside === 'rainNight';
     const dusk = theme.outside === 'sunset';
     const paveMat = new THREE.MeshStandardMaterial({ color: night ? 0x232630 : dusk ? 0xa08a70 : 0xa9adb2, roughness: 0.95 });
@@ -963,7 +1130,7 @@ export function buildCafe(theme, models = null) {
   }
 
   // wall art on right wall
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < (theme.openAir ? 0 : 4); i++) {
     const art = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.95),
       new THREE.MeshStandardMaterial({ map: track(artTexture('#' + theme.accent.toString(16).padStart(6, '0'))), roughness: 0.9 }));
     art.rotation.y = -Math.PI / 2;
@@ -1192,8 +1359,13 @@ export function buildCafe(theme, models = null) {
     };
     clockGroup.userData.hourHand = mkHand(0.14, 0.02);
     clockGroup.userData.minHand = mkHand(0.2, 0.014);
-    clockGroup.position.set(W / 2 - 0.12, 2.55, 2.2);
-    clockGroup.rotation.y = -Math.PI / 2;
+    if (theme.openAir) {
+      // hangs on the kiosk face instead — there is no right wall out here
+      clockGroup.position.set(-4.9, 2.75, -D / 2 + 0.22);
+    } else {
+      clockGroup.position.set(W / 2 - 0.12, 2.55, 2.2);
+      clockGroup.rotation.y = -Math.PI / 2;
+    }
     group.add(clockGroup);
   }
 
@@ -1479,9 +1651,12 @@ export function buildCafe(theme, models = null) {
     contactShadow(1.5, D / 2 - 1.6, 1.0);
   }
 
-  // warm wall sconces on the solid walls
+  // warm wall sconces on the solid walls (kiosk face only, outdoors)
   {
-    const sconceSpots = [
+    const sconceSpots = theme.openAir ? [
+      [-3.9, 2.3, -D / 2 + 0.22, 0],
+      [4.6, 2.3, -D / 2 + 0.22, 0],
+    ] : [
       [W / 2 - 0.12, 2.3, -5.2, -Math.PI / 2],
       [W / 2 - 0.12, 2.3, 5.4, -Math.PI / 2],
       [-3.9, 2.3, -D / 2 + 0.12, 0],
@@ -1503,7 +1678,8 @@ export function buildCafe(theme, models = null) {
   }
 
   // a reading nook against the right wall: sofa, floor lamp, side table
-  {
+  // (indoor cafés only — the terrace keeps its perimeter green)
+  if (!theme.openAir) {
     const sofa = cloneModel(models, 'sofa');
     if (sofa) {
       sofa.position.set(W / 2 - 0.85, 0, -4.9);
