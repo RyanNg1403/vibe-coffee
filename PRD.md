@@ -71,8 +71,8 @@ don't step on each other. Update Status as you go
 | 7 | Dogs leave with their owners | Team | todo | P3 |
 | 8 | Seasonal particles (leaves / snow) | Team | todo | P2 |
 | 9 | Night lamp shadows (budgeted) | Team | todo | P3 |
-| 10 | Artifact: restore hero patrons | **Claude** ✅ | todo | P2 |
-| 11 | Artifact: second music track per café | **Claude** ✅ | todo | P3 |
+| 10 | Artifact: restore hero patrons | **Claude** ✅ | done | P2 |
+| 11 | Artifact: second music track per café | **Claude** ✅ | done | P3 |
 | 12 | Focus stats (pomodoro history) | Team | todo | P3 |
 
 > Note: #8 (instancing) from the original suggestion list is folded into P0
@@ -145,17 +145,24 @@ In Midnight, promote 1–2 lounge lamps to shadow-casting point lights
 (512 px maps, tight radius). **AC:** stays within the quality budget (off at
 low quality); no shadow acne on the rug; measure frame-time before/after.
 
-### 10. Artifact: restore hero patrons — **Claude**
+### 10. Artifact: restore hero patrons — **Claude** — done
 The two Draco-compressed hero GLBs fail under the artifact CSP (decoder
 fetch blocked) and silently fall back. Decompress them at bundle time in
 `make-artifact.mjs` (gltf-transform in Node), re-quantize without Draco, and
 inline if the total stays ≤ 15.5 MB. **AC:** heroes appear in the published
 artifact; bundle ≤ 16 MB; no decoder fetches at runtime.
+_Verified 2026-07-10: dedraco.mjs decodes → welds → simplifies (≈170 k →
+≈50 k tris) → recomputes smooth normals → re-quantizes; all three Draco
+models (both heroes + seated patron) inlined; heroes confirmed walking in the
+published artifact; bundle 15.42 MB; no decoder or network fetches._
 
-### 11. Artifact: second music track per café — **Claude**
+### 11. Artifact: second music track per café — **Claude** — done
 Re-encode the OGG playlist at a lower bitrate (~64 kbps, they sit under
 ambience) so two tracks per café fit the artifact. **AC:** playlist rotation
 audible in the artifact; bundle ≤ 16 MB; titles in the HUD match the audio.
+_Verified 2026-07-10: six tracks (two per playlist) at 64 kbps vorbis; HUD
+showed both goldenhour titles across runs; sound beds also re-encoded for the
+bundle (5.5 → 2.9 MB), keeping the total at 15.42 MB._
 
 ### 12. Focus stats — Team
 Track completed pomodoro blocks per day in `localStorage`; a small tooltip on
