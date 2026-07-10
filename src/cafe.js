@@ -30,6 +30,7 @@ function mergeStaticDecor(group, animatedRoots) {
   group.traverse((o) => {
     if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
     if (skip.has(o) || o.children.length > 0 || !o.visible) return;
+    if (o.userData.seatServiceProp) return;
     if (o.userData.seatIndex !== undefined) return;
     const material = o.material;
     if (!material || Array.isArray(material) || material.transparent) return;
@@ -1818,9 +1819,11 @@ export function buildCafe(theme, models = null) {
     away.normalize();
     const approach = seatPos.clone().addScaledVector(away, 0.38);
     const facingYaw = Math.atan2(tableCenter.x - seatPos.x, tableCenter.z - seatPos.z);
-    seats.push({
+    const seat = {
       pos: seatPos, look: lookAt, tableCenter, chair, tableTopY, approach, facingYaw,
-    });
+    };
+    seats.push(seat);
+    return seat;
   }
 
   function addTable(tx, tz, type, lounge = false) {
@@ -1956,7 +1959,7 @@ export function buildCafe(theme, models = null) {
         const stool = cloneModel(models, 'bar_stool') ?? makeStool(woodDarkMat, cushionMat);
         stool.position.set(sx, 0, D / 2 - 1.05);
         group.add(stool);
-        addSeat(stool,
+        const barSeat = addSeat(stool,
           new THREE.Vector3(sx, 0.15, D / 2 - 1.05),
           new THREE.Vector3(sx, 1.5, D / 2 + 3),
           new THREE.Vector3(sx, 0, D / 2 - 0.45),
@@ -1964,8 +1967,12 @@ export function buildCafe(theme, models = null) {
         if (Math.random() < 0.5) {
           const cup = makeDrink(theme.accent, models);
           cup.position.set(sx + rand(-0.1, 0.1), 1.03, D / 2 - 0.45);
+          // This place-setting cup is cleared while the player uses the seat
+          // as a laptop workstation, then restored when they move away.
+          cup.traverse((object) => { object.userData.seatServiceProp = true; });
           group.add(cup);
           cups.push(cup);
+          barSeat.serviceCup = cup;
         }
       }
     }

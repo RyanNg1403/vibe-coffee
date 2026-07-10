@@ -248,6 +248,7 @@ let variantOn = preferences.variantOn;
 let lastModels = null;
 let playerCup = null;
 let playerLaptop = null;
+let playerLaptopSeatIndex = -1;
 let orderPending = false;
 let currentTheme = variantOn && THEMES[currentThemeIndex].variant
   ? { ...THEMES[currentThemeIndex], ...THEMES[currentThemeIndex].variant }
@@ -268,6 +269,7 @@ async function loadTheme(index) {
   lastModels = models;
   playerCup = null; // the old room takes the old cup with it
   playerLaptop = null;
+  playerLaptopSeatIndex = -1;
 
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -427,6 +429,9 @@ function placePlayerCup() {
   }
 }
 function placePlayerLaptop() {
+  const previousSeat = cafe?.seats[playerLaptopSeatIndex];
+  if (previousSeat?.serviceCup) previousSeat.serviceCup.visible = true;
+  playerLaptopSeatIndex = -1;
   if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
   if (!laptopOn || seatIndex < 0 || !cafe) {
     placePlayerCup();
@@ -449,6 +454,8 @@ function placePlayerLaptop() {
   // open side faces you
   playerLaptop.rotation.y = Math.atan2(toTable.x, toTable.z) + Math.PI;
   cafe.group.add(playerLaptop);
+  if (seat.serviceCup) seat.serviceCup.visible = false;
+  playerLaptopSeatIndex = seatIndex;
   placePlayerCup();
 }
 
