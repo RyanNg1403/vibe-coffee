@@ -325,7 +325,7 @@ export class CafeAudio {
     const p = this._profile();
     const t = this.ctx.currentTime;
     const beds = this.chatterBeds || {};
-    const voices = this.voicesLevel ?? 1;
+    const voices = (this.voicesLevel ?? 1) * (this.crowdFactor ?? 1);
     if (Object.keys(beds).length) {
       // desired mix, with weight falling back to the generic bed when a
       // café-specific recording didn't make it
@@ -343,6 +343,15 @@ export class CafeAudio {
       // synth-only fallback still gets scaled per café
       this.murmurGain?.gain.setTargetAtTime(Math.max(0.45, p.murmur * 2.4) * voices, t, 0.4);
     }
+  }
+
+  // the room's talk level follows the actual crowd: an emptying café gets
+  // noticeably quieter, a filling one livelier. ratio = social NPCs / capacity
+  setCrowdFactor(ratio) {
+    const f = 0.35 + Math.min(1, Math.max(0, ratio)) * 0.75; // 0.35 empty → 1.1 packed
+    if (Math.abs(f - (this.crowdFactor ?? 1)) < 0.03) return;
+    this.crowdFactor = f;
+    this._applyAmbienceProfile();
   }
 
   // ---------- listener / spatial ----------

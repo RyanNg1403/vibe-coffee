@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { cloneModel } from './modelLoader.js';
+import { TEXTURE_MANIFEST } from './textureManifest.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -476,6 +477,29 @@ function makeBooks(n) {
 
 // ---------- the café ----------
 
+// photographic PBR surface maps (public/textures, CC0 from ambientCG),
+// cached across theme switches — these never get disposed
+const _texLoader = new THREE.TextureLoader();
+const _texCache = new Map();
+function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
+  const key = `${name}|${rx}|${ry}`;
+  if (_texCache.has(key)) return _texCache.get(key);
+  const t = _texLoader.load(TEXTURE_MANIFEST[name] ?? '/textures/' + name);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(rx, ry);
+  t.anisotropy = 8;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  _texCache.set(key, t);
+  return t;
+}
+
+// per-café floor surface
+const FLOOR_SURF = {
+  goldenhour: { c: 'floor_wood.jpg', n: 'floor_wood_n.jpg', r: 'floor_wood_r.jpg', tint: 0xe8cba2 },
+  roastery: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd8dadc },
+  midnight: { c: 'floor_dark.jpg', n: 'floor_dark_n.jpg', tint: 0xb08a62 },
+};
+
 export function buildCafe(theme, models = null) {
   const group = new THREE.Group();
   const { W, D, H } = ROOM;
@@ -483,22 +507,28 @@ export function buildCafe(theme, models = null) {
   const track = (t) => { disposables.push(t); return t; };
   const extraColliders = []; // decor added before the collider list is built
 
-  const grain = woodGrainTexture();
+  const woodMap = surfTex('wood_dark.jpg', { srgb: true });
+  const woodNorm = surfTex('wood_dark_n.jpg');
   const woodMat = new THREE.MeshStandardMaterial({
-    color: theme.wood, roughness: 0.7, map: grain, bumpMap: grain, bumpScale: 0.01,
+    color: new THREE.Color(theme.wood).lerp(new THREE.Color(0xffffff), 0.55),
+    roughness: 0.7, map: woodMap, normalMap: woodNorm,
   });
   const woodDarkMat = new THREE.MeshStandardMaterial({
-    color: theme.woodDark, roughness: 0.75, map: grain, bumpMap: grain, bumpScale: 0.008,
+    color: new THREE.Color(theme.woodDark).lerp(new THREE.Color(0xffffff), 0.3),
+    roughness: 0.75, map: woodMap, normalMap: woodNorm,
   });
   const cushionMat = new THREE.MeshStandardMaterial({ color: theme.cushion, roughness: 0.95 });
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x6a6d70, roughness: 0.35, metalness: 0.7 });
 
-  // floor
-  const floorTex = track(woodFloorTexture(theme.floor, theme.floorLine));
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(W, D),
-    new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8, bumpMap: floorTex, bumpScale: 0.015 })
-  );
+  // floor: photographic planks/concrete per café
+  const fs = FLOOR_SURF[theme.id] ?? FLOOR_SURF.goldenhour;
+  const floorMat = new THREE.MeshStandardMaterial({
+    map: surfTex(fs.c, { srgb: true, rx: 4, ry: 3 }),
+    normalMap: surfTex(fs.n, { rx: 4, ry: 3 }),
+    roughnessMap: fs.r ? surfTex(fs.r, { rx: 4, ry: 3 }) : null,
+    color: fs.tint, roughness: fs.r ? 1.0 : 0.9,
+  });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   group.add(floor);
@@ -513,8 +543,11 @@ export function buildCafe(theme, models = null) {
   group.add(ceil);
 
   // walls — front (+z) and left (-x) get window openings
-  const wallTex = track(plasterTexture(theme.wall));
-  const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.95 });
+  const wallMat = new THREE.MeshStandardMaterial({
+    map: surfTex('wall_plaster.jpg', { srgb: true, rx: 2, ry: 1 }),
+    normalMap: surfTex('wall_plaster_n.jpg', { rx: 2, ry: 1 }),
+    color: theme.wall, roughness: 0.95,
+  });
   const sillY = 0.9, winH = 1.9, headY = sillY + winH;
 
   function windowedWall(len) {

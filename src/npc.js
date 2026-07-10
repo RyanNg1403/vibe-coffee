@@ -1364,6 +1364,14 @@ export class CrowdSim {
     this.barista.update(dt, t);
     this.outside.update(dt);
 
+    // let the soundscape breathe with the actual room population
+    this.crowdPollT = (this.crowdPollT ?? 0) - dt;
+    if (this.crowdPollT <= 0 && this.audio?.started) {
+      this.crowdPollT = 1.5;
+      const social = this.npcs.filter((n) => n.state === 'sitting' || n.state === 'queueing' || n.state === 'ordering').length;
+      this.audio.setCrowdFactor(social / Math.max(1, this.maxCrowd * 0.8));
+    }
+
     // brewing timer
     if (this.brewFor) {
       this.brewT += dt;
