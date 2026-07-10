@@ -10,6 +10,8 @@ export const MODEL_MANIFEST = {
   cakeSlice: { url: '/models/cakeSlice.glb' },
   char_b: { url: '/models/char_b.glb' },
   char_j: { url: '/models/char_j.glb' },
+  char_k: { url: '/models/char_k.glb' },
+  char_l: { url: '/models/char_l.glb' },
   coat_rack: { url: '/models/coat_rack.glb' },
   cookie: { url: '/models/cookie.glb' },
   croissant: { url: '/models/croissant.glb' },

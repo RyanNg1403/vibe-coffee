@@ -33,6 +33,8 @@ to load) is synthesized at runtime with WebAudio.
 - **cakeSlice** — "Cake Birthday Slice" by Isa Lousberg — CC0 1.0 — [source](https://poly.pizza/m/YxYKsrZnwd)
 - **char_b** — "Animated Woman (idle/walk/run/interact/wave clips; unused clips stripped, keyframes resampled)" by Quaternius — CC0 / Public Domain — [source](https://poly.pizza/m/nIItLV9nxS)
 - **char_j** — "Man in Suit (rigged; Idle/Walk/Run/Sitting/Clapping clips)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/mQnGoME1ez)
+- **char_k** — "Animated Woman (Idle/Walking/SitIdle/PickUp clips; combat clips stripped)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/qJ2gsTUBHL)
+- **char_l** — "Man (casual; Idle/Walk/Sitting/Clapping clips)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/HMnuH5geEG)
 - **coat_rack** — "Coat Rack (Kenney Furniture Kit)" by Kenney — CC0 1.0 — [source](https://kenney.nl/assets/furniture-kit)
 - **cookie** — "Chocolate Chip Cookie" by Jarlan Perez — CC-BY — [source](https://poly.pizza/m/evU5g-OJDdr)
 - **croissant** — source metadata missing (see git history of tools/sound-credits.json)

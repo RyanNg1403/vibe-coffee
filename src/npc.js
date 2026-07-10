@@ -261,7 +261,7 @@ class SkinnedAvatar {
     this.actions = {
       idle: mk(find('idle')),
       walk: mk(find('walk')),
-      work: mk(find('working', 'interact-right', 'pick-up', 'interact')),
+      work: mk(find('working', 'interact-right', 'pick-up', 'pickup', 'interact')),
       wave: mk(find('wave', 'emote-yes', 'interact')),
       sit: mk(sitClip),
     };
