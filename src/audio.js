@@ -277,6 +277,13 @@ export class CafeAudio {
       void t;
     }
 
+    // the café's signature record takes over as soon as it arrives
+    if (!this._recHandle) {
+      this._stopRecorded();
+      this._recTurn = false;
+      this._maybeRecorded();
+    }
+
     // street heard from inside, localized at the shopfront
     if (this._buf('traffic_day') || this._buf('traffic_night')) {
       const front = this.anchors?.door ?? { x: 0, z: 5 };
@@ -426,7 +433,41 @@ export class CafeAudio {
     this._setTrafficMix();
     this._applyAmbienceProfile();
     this.styleId = theme?.id in STYLES ? theme.id : 'goldenhour';
-    this._newSong(); // switching cafés changes the record
+    // switching cafés changes the record: lead with the café's own track
+    this._stopRecorded();
+    this._recTurn = false;
+    if (!this._maybeRecorded()) this._newSong();
+  }
+
+  // ---------- recorded music ----------
+
+  // every other "record" is a real recording when the café has one; the
+  // generative engine fills the gaps so the playlist never repeats exactly
+  _maybeRecorded() {
+    const key = 'music_' + (this.styleId || 'goldenhour');
+    const entry = this._buf?.(key) ? this.buffers.get(key) : null;
+    if (!entry) return false;
+    this._recTurn = !this._recTurn;
+    if (!this._recTurn) return false;
+    this.songPaused = true;
+    this.beat = 0;
+    this._recHandle = this._playBuf(key, { out: this.musicMuter, vol: 0.3 });
+    this._recTimer = this._timer(() => {
+      this._recHandle = null;
+      this._newSong();
+      this._nextNoteTime = this.ctx.currentTime + 0.3;
+      this.songPaused = false;
+    }, (entry.buffer.duration + rand(2.5, 5)) * 1000);
+    return true;
+  }
+
+  _stopRecorded() {
+    if (this._recHandle) {
+      try { this._recHandle.src.stop(); } catch { /* already ended */ }
+      this._recHandle = null;
+    }
+    if (this._recTimer) { clearTimeout(this._recTimer); this._recTimer = null; }
+    this.songPaused = false;
   }
 
   // ---------- buffers ----------
@@ -1076,6 +1117,7 @@ export class CafeAudio {
           this.songPaused = true;
           this.beat = 0;
           this._timer(() => {
+            if (this._maybeRecorded()) return; // a real record takes this turn
             this._newSong();
             this._nextNoteTime = this.ctx.currentTime + 0.2;
             this.songPaused = false;

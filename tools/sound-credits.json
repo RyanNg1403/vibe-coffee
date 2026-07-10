@@ -342,5 +342,23 @@
     "creator": "Quaternius",
     "license": "CC0 1.0 (Public Domain)",
     "source_url": "https://poly.pizza/m/HMnuH5geEG"
+  },
+  "music_goldenhour": {
+    "title": "Airport Lounge (trimmed to a 78s loop)",
+    "creator": "Kevin MacLeod (incompetech.com)",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "music_roastery": {
+    "title": "Bossa Antigua (trimmed to a 78s loop)",
+    "creator": "Kevin MacLeod (incompetech.com)",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
+  },
+  "music_midnight": {
+    "title": "Lobby Time (trimmed to a 78s loop)",
+    "creator": "Kevin MacLeod (incompetech.com)",
+    "license": "CC BY 4.0",
+    "item_url": "https://incompetech.com/music/royalty-free/"
   }
 }

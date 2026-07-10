@@ -15,6 +15,9 @@ export const SOUND_MANIFEST = {
   door_open: { url: '/sounds/door_open.mp3', loop: false }, // 3.6s
   espresso: { url: '/sounds/espresso.mp3', loop: false }, // 10.9s
   footsteps: { url: '/sounds/footsteps.mp3', loop: false }, // 12s
+  music_goldenhour: { url: '/sounds/music_goldenhour.mp3', loop: false }, // 78s
+  music_midnight: { url: '/sounds/music_midnight.mp3', loop: false }, // 78s
+  music_roastery: { url: '/sounds/music_roastery.mp3', loop: false }, // 78s
   page_turn: { url: '/sounds/page_turn.mp3', loop: false }, // 1.8s
   pour: { url: '/sounds/pour.mp3', loop: false }, // 4s
   rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 0s
