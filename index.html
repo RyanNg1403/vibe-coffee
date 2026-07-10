@@ -69,7 +69,7 @@
     #mixer-pop .ctl label { width: 42px; text-align: right; }
     #mixer-pop input[type='range'] { width: 128px; }
     #mixer-btn.open { background: rgba(240, 230, 212, 0.18); }
-    #music-toggle, #walk-btn, #order-btn, #quality-toggle, #laptop-btn, #mixer-btn {
+    #music-toggle, #walk-btn, #order-btn, #quality-toggle, #laptop-btn, #mixer-btn, #fullscreen-btn {
       font-family: inherit; font-size: 12.5px; cursor: pointer;
       color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
       border: 1px solid rgba(240, 230, 212, 0.18);
@@ -202,6 +202,7 @@
     <span id="track-style" aria-live="polite">playlist loading</span>
     <div class="divider"></div>
     <button id="quality-toggle" aria-label="Rendering quality: automatic">quality · auto</button>
+    <button id="fullscreen-btn" aria-label="Enter fullscreen" aria-pressed="false" title="enter fullscreen">⛶ full screen</button>
     <div class="divider"></div>
     <div id="timer">
       <span id="timer-display">25:00</span>

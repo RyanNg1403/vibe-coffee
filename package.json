@@ -4,6 +4,7 @@
   "description": "A 3D coffee shop vibe simulator — study and work with virtual café ambience",
   "type": "module",
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "vite build",
     "artifact": "node tools/make-artifact.mjs",

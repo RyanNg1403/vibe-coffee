@@ -403,7 +403,11 @@ function placePlayerLaptop() {
   const seat = cafe.seats[seatIndex];
   const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0);
   const d = toTable.length() || 1;
-  const edge = Math.max(0.2, d - 0.52); // your side of the table, clear of the centre clutter
+  // Keep the whole 22 cm-deep base supported by the tabletop. Regular tables
+  // leave the laptop near the player's edge; the shallower window bar needs it
+  // almost centred so its front edge does not hang over the counter.
+  const distanceFromCenter = seat.pos.y > 0.05 ? 0.075 : 0.34;
+  const edge = Math.max(0, d - distanceFromCenter);
   playerLaptop = makeMacBook();
   playerLaptop.position.set(
     seat.pos.x + (toTable.x / d) * edge,
@@ -641,6 +645,39 @@ document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
 audio.setMusicVolume(preferences.musicVolume);
 audio.setAmbienceVolume(preferences.ambienceVolume);
 audio.setVoicesVolume(preferences.voicesVolume);
+
+const fullscreenButton = document.getElementById('fullscreen-btn');
+const fullscreenElement = () => document.fullscreenElement ?? document.webkitFullscreenElement;
+function syncFullscreenButton() {
+  if (!fullscreenButton) return;
+  const active = Boolean(fullscreenElement());
+  fullscreenButton.textContent = active ? '⛶ exit full screen' : '⛶ full screen';
+  fullscreenButton.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+  fullscreenButton.setAttribute('aria-pressed', String(active));
+  fullscreenButton.title = active ? 'exit fullscreen' : 'enter fullscreen';
+}
+async function toggleFullscreen() {
+  try {
+    if (fullscreenElement()) {
+      const exit = document.exitFullscreen ?? document.webkitExitFullscreen;
+      await exit?.call(document);
+    } else {
+      const enter = document.documentElement.requestFullscreen
+        ?? document.documentElement.webkitRequestFullscreen;
+      if (!enter) {
+        toast('full screen is not supported in this browser');
+        return;
+      }
+      await enter.call(document.documentElement);
+    }
+  } catch {
+    toast('could not change full screen mode');
+  }
+}
+fullscreenButton?.addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', syncFullscreenButton);
+document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+syncFullscreenButton();
 
 function persistPreferences() {
   savePreferences({
