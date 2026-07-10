@@ -20,7 +20,10 @@ const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, 1.5);
 const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
-let renderPixelRatio = MAX_PIXEL_RATIO;
+// Start Auto at a predictable 1x render target. It can add effects and extra
+// supersampling after a sustained period of headroom, instead of allocating the
+// largest half-float buffers first and stuttering while it backs down.
+let renderPixelRatio = Math.min(MAX_PIXEL_RATIO, 1);
 renderer.setPixelRatio(renderPixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -256,6 +259,7 @@ async function loadTheme(index) {
   bloomPass.strength = theme.bloom ?? 0.25;
 
   crowd = new CrowdSim(cafe, audio, models);
+  applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({ counter: cafe.nav.machineWorld, door: cafe.nav.door });
   audio.setClinkSpots([]);
   audio.setTypingSpots([]);
@@ -479,6 +483,24 @@ musicToggle.addEventListener('click', () => {
 const qualityToggle = document.getElementById('quality-toggle');
 const QUALITY_MODES = ['auto', 'detail', 'smooth'];
 let qualityMode = 'auto';
+let autoEffectLevel = 1;
+let effectLevel = 1;
+let shadowInterval = 1 / 20;
+
+// Resolution is only one part of the GPU budget. GTAO, bloom and animated
+// shadow maps each render the scene (or a full-screen buffer) again, so the
+// adaptive mode can shed those layers independently before the café starts
+// dropping input frames. Level 0 still keeps PBR lighting and the sun shadow.
+function applyEffectLevel(nextLevel) {
+  effectLevel = THREE.MathUtils.clamp(Math.round(nextLevel), 0, 2);
+  gtaoPass.enabled = effectLevel >= 1;
+  bloomPass.enabled = effectLevel >= 2;
+  shadowInterval = effectLevel === 2 ? 1 / 30 : effectLevel === 1 ? 1 / 20 : 1 / 12;
+  cafe?.setQuality?.(effectLevel);
+  crowd?.setQuality?.(effectLevel);
+  renderer.shadowMap.needsUpdate = true;
+}
+
 function renderQualityMode() {
   qualityToggle.textContent = `quality · ${qualityMode}`;
   qualityToggle.setAttribute('aria-label', `Rendering quality: ${qualityMode}`);
@@ -488,8 +510,15 @@ qualityToggle.addEventListener('click', () => {
   perfSampleTime = 0;
   perfSampleFrames = 0;
   qualityCooldown = 0;
-  if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
-  else if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(1, MAX_PIXEL_RATIO));
+  if (qualityMode === 'detail') {
+    applyEffectLevel(2);
+    applyRenderPixelRatio(MAX_PIXEL_RATIO);
+  } else if (qualityMode === 'smooth') {
+    applyEffectLevel(0);
+    applyRenderPixelRatio(Math.min(0.9, MAX_PIXEL_RATIO));
+  } else {
+    applyEffectLevel(autoEffectLevel);
+  }
   renderQualityMode();
   toast(qualityMode === 'auto'
     ? 'quality will adapt to keep the café smooth'
@@ -581,6 +610,13 @@ const MAX_SIM_STEPS = 5;
 
 function updateAdaptiveQuality(frameDt) {
   if (qualityMode !== 'auto') return;
+  // The intro is intentionally cheap and mostly opaque. Measuring it would
+  // over-promote quality before the real café and crowd are visible.
+  if (!overlay.classList.contains('hidden')) {
+    perfSampleTime = 0;
+    perfSampleFrames = 0;
+    return;
+  }
   // Ignore tab switches and breakpoint pauses; they do not describe rendering
   // performance and would otherwise force an unnecessary quality drop.
   if (document.hidden || frameDt > 0.1) {
@@ -591,15 +627,32 @@ function updateAdaptiveQuality(frameDt) {
   qualityCooldown = Math.max(0, qualityCooldown - frameDt);
   perfSampleTime += frameDt;
   perfSampleFrames += 1;
-  if (perfSampleTime < 2.5 || qualityCooldown > 0) return;
+  if (perfSampleTime < 2.5) return;
 
   const averageFrameMs = (perfSampleTime / perfSampleFrames) * 1000;
-  if (averageFrameMs > 19.5 && renderPixelRatio > MIN_PIXEL_RATIO) {
-    applyRenderPixelRatio(renderPixelRatio - 0.15);
-    qualityCooldown = 3;
-  } else if (averageFrameMs < 17.4 && renderPixelRatio < MAX_PIXEL_RATIO) {
-    applyRenderPixelRatio(renderPixelRatio + 0.1);
-    qualityCooldown = 4;
+  if (averageFrameMs > 19.5) {
+    if (renderPixelRatio > 1.001) {
+      applyRenderPixelRatio(renderPixelRatio - 0.15);
+    } else if (autoEffectLevel > 0) {
+      autoEffectLevel -= 1;
+      applyEffectLevel(autoEffectLevel);
+    } else if (renderPixelRatio > MIN_PIXEL_RATIO + 0.001) {
+      applyRenderPixelRatio(renderPixelRatio - 0.1);
+    }
+    qualityCooldown = 5;
+  } else if (averageFrameMs < 16.9 && qualityCooldown <= 0) {
+    // Restore scene depth before supersampling: a low-resolution image with
+    // contact light and bloom generally reads better than a sharper flat one.
+    if (autoEffectLevel < 2) {
+      autoEffectLevel += 1;
+      applyEffectLevel(autoEffectLevel);
+    } else if (renderPixelRatio < MAX_PIXEL_RATIO) {
+      applyRenderPixelRatio(renderPixelRatio + 0.1);
+    }
+    // Composer target reallocations and light-count shader changes should be
+    // rare. A long hold prevents a 60 Hz display from repeatedly toggling on
+    // the 16.67 ms boundary.
+    qualityCooldown = 15;
   }
   perfSampleTime = 0;
   perfSampleFrames = 0;
@@ -653,6 +706,10 @@ function frame() {
       cameraMoved = true;
       walkMove.normalize();
       walkPos.addScaledVector(walkMove, dt * 2.0);
+      resolveCollisions(walkPos);
+      crowd?.resolvePlayerCollision?.(walkPos);
+      // A person can push the player toward a table edge; resolve the room once
+      // more so the two collision systems cannot squeeze the camera into props.
       resolveCollisions(walkPos);
       walkBob += dt * 8;
       // your own footsteps
@@ -728,9 +785,9 @@ function frame() {
   }
 
   shadowAcc += rawDt;
-  if (shadowAcc >= SIM_STEP) {
+  if (shadowAcc >= shadowInterval) {
     renderer.shadowMap.needsUpdate = true;
-    shadowAcc %= SIM_STEP;
+    shadowAcc %= shadowInterval;
   }
 
   composer.render(dt);

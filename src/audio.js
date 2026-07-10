@@ -172,7 +172,7 @@ export class CafeAudio {
     this.started = false;
     this.musicOn = true;
     this.theme = null;
-    this._timers = [];
+    this._timers = new Set();
     this.clinkSpots = [];   // world positions where seated people are
     this.typingSpots = [];  // world positions of laptop users
     this.pageSpots = [];    // world positions of people actually reading
@@ -583,8 +583,12 @@ export class CafeAudio {
   }
 
   _timer(fn, ms) {
-    const id = setTimeout(fn, ms);
-    this._timers.push(id);
+    let id = null;
+    id = setTimeout(() => {
+      this._timers.delete(id);
+      fn();
+    }, ms);
+    this._timers.add(id);
     return id;
   }
 
@@ -746,7 +750,11 @@ export class CafeAudio {
 
   _stopBirds() {
     this.birdsOn = false;
-    if (this._birdTimer) { clearTimeout(this._birdTimer); this._birdTimer = null; }
+    if (this._birdTimer) {
+      clearTimeout(this._birdTimer);
+      this._timers.delete(this._birdTimer);
+      this._birdTimer = null;
+    }
   }
 
   _startRain() {

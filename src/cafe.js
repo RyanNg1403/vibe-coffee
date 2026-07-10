@@ -2,6 +2,7 @@
 // from Three.js primitives + canvas textures (no external assets).
 
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { cloneModel } from './modelLoader.js';
 import { TEXTURE_MANIFEST } from './textureManifest.js';
 
@@ -424,6 +425,49 @@ function box(w, h, d, mat) {
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
+function roundedBox(w, h, d, mat, radius = 0.025, segments = 2) {
+  const safeRadius = Math.min(radius, w * 0.22, h * 0.22, d * 0.22);
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, segments, safeRadius), mat);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+let _chairBackGeometry = null;
+function drawRoundedRect(path, x, y, width, height, radius, clockwise = false) {
+  const x1 = x + width, y1 = y + height;
+  if (!clockwise) {
+    path.moveTo(x + radius, y);
+    path.lineTo(x1 - radius, y); path.quadraticCurveTo(x1, y, x1, y + radius);
+    path.lineTo(x1, y1 - radius); path.quadraticCurveTo(x1, y1, x1 - radius, y1);
+    path.lineTo(x + radius, y1); path.quadraticCurveTo(x, y1, x, y1 - radius);
+    path.lineTo(x, y + radius); path.quadraticCurveTo(x, y, x + radius, y);
+  } else {
+    path.moveTo(x + radius, y);
+    path.lineTo(x, y + radius); path.quadraticCurveTo(x, y, x + radius, y);
+    path.lineTo(x, y1 - radius); path.quadraticCurveTo(x, y1, x + radius, y1);
+    path.lineTo(x1 - radius, y1); path.quadraticCurveTo(x1, y1, x1, y1 - radius);
+    path.lineTo(x1, y + radius); path.quadraticCurveTo(x1, y, x1 - radius, y);
+    path.lineTo(x + radius, y);
+  }
+}
+function chairBackGeometry() {
+  if (_chairBackGeometry) return _chairBackGeometry;
+  const shape = new THREE.Shape();
+  drawRoundedRect(shape, -0.21, -0.22, 0.42, 0.44, 0.055);
+  const opening = new THREE.Path();
+  drawRoundedRect(opening, -0.13, -0.1, 0.26, 0.23, 0.045, true);
+  shape.holes.push(opening);
+  _chairBackGeometry = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.045,
+    steps: 1,
+    curveSegments: 5,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: 0.008,
+    bevelThickness: 0.007,
+  });
+  _chairBackGeometry.center();
+  return _chairBackGeometry;
+}
 function cyl(rt, rb, h, mat, seg = 20) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
   m.castShadow = true; m.receiveShadow = true;
@@ -432,9 +476,12 @@ function cyl(rt, rb, h, mat, seg = 20) {
 
 function makeChair(woodMat, cushionMat) {
   const g = new THREE.Group();
-  const seat = box(0.42, 0.05, 0.42, woodMat); seat.position.y = 0.45; g.add(seat);
-  const cushion = box(0.38, 0.045, 0.38, cushionMat); cushion.position.y = 0.49; g.add(cushion);
-  const back = box(0.42, 0.45, 0.05, woodMat); back.position.set(0, 0.72, -0.19); g.add(back);
+  const seat = roundedBox(0.42, 0.05, 0.42, woodMat, 0.018); seat.position.y = 0.45; g.add(seat);
+  const cushion = roundedBox(0.38, 0.045, 0.38, cushionMat, 0.022); cushion.position.y = 0.49; g.add(cushion);
+  const back = new THREE.Mesh(chairBackGeometry(), woodMat);
+  back.position.set(0, 0.72, -0.19);
+  back.castShadow = true; back.receiveShadow = true;
+  g.add(back);
   for (const [x, z] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) {
     const leg = box(0.04, 0.45, 0.04, woodMat);
     leg.position.set(x, 0.225, z); g.add(leg);
@@ -968,12 +1015,22 @@ export function buildCafe(theme, models = null) {
     group.add(walk2);
     // dashed center line
     const lineMat = new THREE.MeshBasicMaterial({ color: night ? 0x6a6f52 : 0xd8d3a8 });
+    const dashPositions = [];
     for (let x = -W / 2 - 12; x < W / 2 + 12; x += 2.2) {
-      const dash = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.12), lineMat);
-      dash.rotation.x = -Math.PI / 2;
-      dash.position.set(x, -0.045, D / 2 + 5.2);
-      group.add(dash);
+      dashPositions.push(x);
     }
+    const dashes = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1, 0.12), lineMat, dashPositions.length);
+    const dashMatrix = new THREE.Matrix4();
+    const dashRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+    dashPositions.forEach((x, index) => {
+      dashMatrix.compose(
+        new THREE.Vector3(x, -0.045, D / 2 + 5.2),
+        dashRotation,
+        new THREE.Vector3(1, 1, 1),
+      );
+      dashes.setMatrixAt(index, dashMatrix);
+    });
+    group.add(dashes);
 
     // facing building facades with lit windows
     const faceRow = new THREE.Group();
@@ -991,15 +1048,27 @@ export function buildCafe(theme, models = null) {
         color: night ? 0xffc46a : dusk ? 0xffe1b0 : 0xdfeaf2,
         transparent: true, opacity: night ? 0.95 : 0.75,
       });
+      const windows = [];
       for (let wy = 1.2; wy < bh - 0.8; wy += 1.3) {
         for (let wx = -bw / 2 + 0.7; wx < bw / 2 - 0.5; wx += 1.1) {
           if (Math.random() < (night ? 0.55 : 0.8)) {
-            const win = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.75), winMat);
-            win.position.set(fx + bw / 2 + wx, wy, D / 2 + 9.5 - bd / 2 - 0.01);
-            win.rotation.y = Math.PI;
-            faceRow.add(win);
+            windows.push(new THREE.Vector3(fx + bw / 2 + wx, wy, D / 2 + 9.5 - bd / 2 - 0.01));
           }
         }
+      }
+      if (windows.length) {
+        const windowMesh = new THREE.InstancedMesh(
+          new THREE.PlaneGeometry(0.55, 0.75),
+          winMat,
+          windows.length,
+        );
+        const windowMatrix = new THREE.Matrix4();
+        const windowRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
+        windows.forEach((position, index) => {
+          windowMatrix.compose(position, windowRotation, new THREE.Vector3(1, 1, 1));
+          windowMesh.setMatrixAt(index, windowMatrix);
+        });
+        faceRow.add(windowMesh);
       }
       // ground-floor awning on some buildings
       if (Math.random() < 0.5) {
@@ -1087,10 +1156,10 @@ export function buildCafe(theme, models = null) {
     roughness: theme.id === 'roastery' ? 0.42 : theme.id === 'midnight' ? 0.48 : 0.4,
     metalness: 0,
   });
-  const counter = box(8.2, 1.0, 0.75, counterMat);
+  const counter = roundedBox(8.2, 1.0, 0.75, counterMat, 0.045);
   counter.position.set(-0.6, 0.5, -D / 2 + 1.15);
   group.add(counter);
-  const ctop = box(8.4, 0.06, 0.85, counterTopMat);
+  const ctop = roundedBox(8.4, 0.06, 0.85, counterTopMat, 0.025);
   ctop.position.set(-0.6, 1.03, -D / 2 + 1.15);
   group.add(ctop);
   // counter front panel detail: vertical wood slats
@@ -1324,7 +1393,14 @@ export function buildCafe(theme, models = null) {
   function addSeat(chair, seatPos, lookAt, tableCenter, tableTopY = 0.81) {
     chair.traverse((o) => { o.userData.seatIndex = seats.length; });
     chair.userData.seatIndex = seats.length;
-    seats.push({ pos: seatPos, look: lookAt, tableCenter, chair, tableTopY });
+    const away = new THREE.Vector3().subVectors(seatPos, tableCenter).setY(0);
+    if (away.lengthSq() < 0.0001) away.set(0, 0, 1);
+    away.normalize();
+    const approach = seatPos.clone().addScaledVector(away, 0.38);
+    const facingYaw = Math.atan2(tableCenter.x - seatPos.x, tableCenter.z - seatPos.z);
+    seats.push({
+      pos: seatPos, look: lookAt, tableCenter, chair, tableTopY, approach, facingYaw,
+    });
     seatMeshes.push(chair);
   }
 
@@ -1334,13 +1410,13 @@ export function buildCafe(theme, models = null) {
     let topY = 0.78;
     if (lounge) topY = 0.55; // lounge tables sit lower, armchair height
     if (type === 'long') {
-      const top = box(1.1, 0.06, 2.6, woodMat); top.position.y = topY; tGroup.add(top);
+      const top = roundedBox(1.1, 0.06, 2.6, woodMat, 0.028); top.position.y = topY; tGroup.add(top);
       for (const [lx, lz] of [[-0.45, -1.15], [0.45, -1.15], [-0.45, 1.15], [0.45, 1.15]]) {
         const leg = box(0.07, topY, 0.07, woodDarkMat);
         leg.position.set(lx, topY / 2, lz); tGroup.add(leg);
       }
     } else if (type === 'square') {
-      const top = box(0.95, 0.055, 0.95, woodMat); top.position.y = topY; tGroup.add(top);
+      const top = roundedBox(0.95, 0.055, 0.95, woodMat, 0.026); top.position.y = topY; tGroup.add(top);
       for (const [lx, lz] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) {
         const leg = box(0.06, topY, 0.06, woodDarkMat);
         leg.position.set(lx, topY / 2, lz); tGroup.add(leg);
@@ -1426,7 +1502,8 @@ export function buildCafe(theme, models = null) {
         addSeat(stool,
           new THREE.Vector3(sx, 0.15, D / 2 - 1.05),
           new THREE.Vector3(sx, 1.5, D / 2 + 3),
-          new THREE.Vector3(sx, 0, D / 2 - 0.45));
+          new THREE.Vector3(sx, 0, D / 2 - 0.45),
+          1.035);
         if (Math.random() < 0.5) {
           const cup = makeDrink(theme.accent, models);
           cup.position.set(sx + rand(-0.1, 0.1), 1.03, D / 2 - 0.45);
@@ -1478,10 +1555,13 @@ export function buildCafe(theme, models = null) {
     g.fillStyle = grad;
     g.fillRect(0, 0, 64, 64);
   }));
+  const contactShadowMat = new THREE.MeshBasicMaterial({
+    map: blobTex, transparent: true, depthWrite: false, opacity: 0.34,
+  });
   function contactShadow(x, z, size) {
     const m = new THREE.Mesh(
       new THREE.PlaneGeometry(size, size),
-      new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, opacity: 0.7 })
+      contactShadowMat,
     );
     m.rotation.x = -Math.PI / 2;
     m.position.set(x, 0.012, z);
@@ -1667,15 +1747,26 @@ export function buildCafe(theme, models = null) {
 
   // Architectural surface details give each room an identity beyond palette.
   if (theme.id === 'roastery') {
-    const grout = new THREE.MeshStandardMaterial({ color: 0xc9ccca, roughness: 0.92, metalness: 0 });
     const tile = new THREE.MeshStandardMaterial({ color: 0xe9ebe7, roughness: 0.24, metalness: 0 });
+    const tiles = new THREE.InstancedMesh(
+      new RoundedBoxGeometry(0.34, 0.16, 0.018, 1, 0.008),
+      tile,
+      6 * 22,
+    );
+    const tileMatrix = new THREE.Matrix4();
+    let tileIndex = 0;
     for (let row = 0; row < 6; row++) {
       for (let col = 0; col < 22; col++) {
-        const t = box(0.34, 0.16, 0.018, (row + col) % 9 === 0 ? grout : tile);
-        t.position.set(-4.0 + col * 0.37 + (row % 2) * 0.18, 1.25 + row * 0.19, -D / 2 + 0.17);
-        group.add(t);
+        tileMatrix.makeTranslation(
+          -4.0 + col * 0.37 + (row % 2) * 0.18,
+          1.25 + row * 0.19,
+          -D / 2 + 0.17,
+        );
+        tiles.setMatrixAt(tileIndex++, tileMatrix);
       }
     }
+    tiles.receiveShadow = true;
+    group.add(tiles);
   } else if (theme.id === 'midnight') {
     const velvet = new THREE.MeshStandardMaterial({ color: 0x241c22, roughness: 1, map: clothTex, bumpMap: clothTex, bumpScale: 0.008 });
     for (const x of [-4.8, -3.8, 3.8, 4.8]) {
@@ -1782,23 +1873,33 @@ export function buildCafe(theme, models = null) {
     const lacquer = new THREE.MeshStandardMaterial({ color: 0x171416, roughness: 0.2, metalness: 0 });
     const ivory = new THREE.MeshStandardMaterial({ color: 0xe3ddcf, roughness: 0.38, metalness: 0 });
     const ebony = new THREE.MeshStandardMaterial({ color: 0x111014, roughness: 0.3, metalness: 0 });
-    const body = box(1.55, 1.18, 0.42, lacquer); body.position.y = 0.83; piano.add(body);
-    const keyboardBed = box(1.68, 0.08, 0.46, lacquer); keyboardBed.position.set(0, 0.94, 0.25); piano.add(keyboardBed);
-    const whiteKeys = new THREE.InstancedMesh(new THREE.BoxGeometry(0.105, 0.026, 0.32), ivory, 14);
-    const blackKeys = new THREE.InstancedMesh(new THREE.BoxGeometry(0.065, 0.045, 0.2), ebony, 10);
+    const body = roundedBox(1.55, 1.18, 0.42, lacquer, 0.035); body.position.y = 0.83; piano.add(body);
+    const keyboardBed = roundedBox(1.68, 0.08, 0.46, lacquer, 0.025); keyboardBed.position.set(0, 0.94, 0.25); piano.add(keyboardBed);
+    const whiteKeys = new THREE.InstancedMesh(new THREE.BoxGeometry(0.074, 0.026, 0.32), ivory, 21);
+    const blackKeys = new THREE.InstancedMesh(new THREE.BoxGeometry(0.046, 0.045, 0.2), ebony, 15);
     const matrix = new THREE.Matrix4();
-    for (let i = 0; i < 14; i++) {
-      matrix.makeTranslation(-0.6825 + i * 0.105, 1.0, 0.36); whiteKeys.setMatrixAt(i, matrix);
+    for (let i = 0; i < 21; i++) {
+      matrix.makeTranslation(-0.74 + i * 0.074, 1.0, 0.36); whiteKeys.setMatrixAt(i, matrix);
     }
-    const blackPattern = [0, 1, 3, 4, 5, 7, 8, 10, 11, 12];
+    const blackPattern = [0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19];
     blackPattern.forEach((key, i) => {
-      matrix.makeTranslation(-0.63 + key * 0.105, 1.035, 0.29); blackKeys.setMatrixAt(i, matrix);
+      matrix.makeTranslation(-0.703 + key * 0.074, 1.035, 0.29); blackKeys.setMatrixAt(i, matrix);
     });
     piano.add(whiteKeys, blackKeys);
     for (const lx of [-0.59, 0.59]) {
       const leg = box(0.09, 0.68, 0.09, lacquer); leg.position.set(lx, 0.34, 0.08); piano.add(leg);
     }
     const musicRest = box(0.72, 0.42, 0.035, lacquer); musicRest.position.set(0, 1.36, 0.24); musicRest.rotation.x = -0.12; piano.add(musicRest);
+    const sheet = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.56, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0xe9e1cf, roughness: 0.92, side: THREE.DoubleSide }),
+    );
+    sheet.position.set(0, 1.39, 0.265); sheet.rotation.x = -0.12; piano.add(sheet);
+    const pedalMat = new THREE.MeshStandardMaterial({ color: 0xa57b3e, roughness: 0.32, metalness: 0.85 });
+    for (const x of [-0.09, 0.09]) {
+      const pedal = roundedBox(0.08, 0.025, 0.18, pedalMat, 0.01, 1);
+      pedal.position.set(x, 0.12, 0.34); piano.add(pedal);
+    }
     const benchTop = box(0.75, 0.12, 0.34, new THREE.MeshStandardMaterial({ color: 0x3f2830, roughness: 0.8, map: clothTex }));
     benchTop.position.set(0, 0.5, 0.98); piano.add(benchTop);
     for (const x of [-0.27, 0.27]) {
@@ -2529,5 +2630,27 @@ export function buildCafe(theme, models = null) {
     disposables.forEach((d) => d.dispose());
   }
 
-  return { group, seats, seatMeshes, nav, colliders, theme, animate, dispose, woodMat, cushionMat };
+  // Forward-shaded point lights are one of the most expensive scene features:
+  // every visible light is evaluated for every PBR fragment. Keep the strongest
+  // interior pools first, while emissive bulbs preserve the fixtures themselves.
+  const pointLights = [];
+  group.traverse((object) => {
+    if (!object.isPointLight) return;
+    const outsidePenalty = Math.abs(object.position.x) > W / 2 || object.position.z > D / 2 ? 0.35 : 1;
+    pointLights.push({
+      light: object,
+      importance: object.intensity * Math.max(1, object.distance) * outsidePenalty,
+    });
+  });
+  pointLights.sort((a, b) => b.importance - a.importance);
+
+  function setQuality(level) {
+    const keep = level >= 2
+      ? pointLights.length
+      : level === 1 ? Math.min(9, pointLights.length) : Math.min(6, pointLights.length);
+    pointLights.forEach(({ light }, index) => { light.visible = index < keep; });
+    contactShadowMat.opacity = level >= 1 ? 0.3 : 0.48;
+  }
+
+  return { group, seats, seatMeshes, nav, colliders, theme, animate, setQuality, dispose, woodMat, cushionMat };
 }

@@ -55,9 +55,13 @@ seat, look around, listen to the room, and get things done.
 - **Focus timer** — a built-in 25/5 pomodoro with a gentle chime
 - **Order from your table** — request a drink and watch the barista prepare and
   deliver it into the scene
-- **Adaptive graphics quality** — automatic render scaling protects frame rate;
-  the HUD can also lock `detail` or `smooth` mode without disabling HDR, bloom,
-  soft shadows, or spatial audio
+- **Adaptive graphics quality** — automatic quality protects frame rate by tuning
+  render scale, contact lighting, bloom, practical-light count, shadow cadence and
+  distant animation rate. The HUD can lock `detail` or `smooth`; spatial audio is
+  unaffected
+- **Grounded crowd motion** — patrons use padded skinned-mesh culling, personal-space
+  steering, furniture look-ahead and approach/turn/sit transitions. First-person
+  walking collides with moving customers instead of passing through them
 
 The rooms combine procedural geometry and canvas textures with locally bundled,
 credited CC/public-domain models and field recordings. No runtime asset downloads

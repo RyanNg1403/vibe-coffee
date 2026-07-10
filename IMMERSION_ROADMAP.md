@@ -6,9 +6,9 @@ audible event should have a reason to be there.
 
 ## Completed in the immersion pass
 
-- Indoor customers now use one coherent, smoother character language with richer
-  faces, cloth detail, layered clothing and more natural proportions. The two
-  textureless, faceted character models are no longer mixed into the room.
+- Indoor customers now default to four lightweight skinned, clothed characters
+  with real locomotion and seated clips. They remain intentionally temporary:
+  close-up anatomy and facial/material fidelity are still below the final target.
 - Upholstery, rugs, tables and theme walls gained surface detail. Imported lounge
   seating is retinted into the café palette instead of keeping bright kit colors.
 - Wood flooring, plaster and industrial painted concrete now use compact local CC0
@@ -16,6 +16,14 @@ audible event should have a reason to be there.
 - Table decoration uses four curated vignettes rather than unrelated random props.
 - The four cafés now have distinct architectural treatments: timber display rail,
   tiled roastery service wall, and velvet acoustic panels.
+- Dominant chair, table, counter and piano silhouettes now use rounded highlight
+  edges; the roastery tile wall is one instanced draw instead of 132 meshes.
+- Patrons approach chairs from behind, align and ease into/out of seated poses.
+  They steer around furniture and stationary queues, and the player collides with
+  the live crowd. Lounge work props now use each table's actual surface height.
+- Automatic quality starts from a stable balanced target, changes slowly, and can
+  reduce bloom, GTAO, point-light count, shadow cadence and distant animation rate
+  before repeated render-target resizing causes hitches.
 - Crowd level follows actual occupancy. Typing and page sounds come from NPCs doing
   those activities; phantom chair scrapes were removed.
 - Positional effects use HRTF. Synthetic room noise and record artifacts were
@@ -97,8 +105,8 @@ same RMS.
   bean workflow, and Midnight a small stage plus acoustic treatment.
 - Replace painted exterior planes with a lightweight layered street for parallax,
   glass reflections and believable passing traffic.
-- Extend the current Auto/Detail/Smooth DPR control to tune light count and NPC
-  detail as well; GTAO and shadow costs are already reduced adaptively.
+- Profile the current Auto/Detail/Smooth light, post-effect, shadow and NPC tiers on
+  integrated GPUs; batch exterior windows, road markings and repeated book/cup props.
 - Add KTX2 textures and Meshopt/Draco before significantly increasing asset density.
 
 ## Character fidelity path
@@ -110,10 +118,11 @@ load-failure fallback. Distance-based mixer updates keep the larger crowd viable
 The next source-art milestone is a curated six-person café cast rather than more
 runtime geometry tricks:
 
-- Immediate web-ready option: Quaternius Universal Base Characters and Universal
-  Animation Library (CC0, humanoid glTF, approximately 13k triangles per base).
-- Final anatomy/skin target: MakeHuman or MPFB2 exports using only verified CC0
-  core clothes/hair, retargeted in Blender and exported as optimized GLBs.
+- Rejected source: the free Quaternius Universal Base archive only exposes the
+  exaggerated underwear-clad superhero bases, so it is not appropriate café art.
+- Validated final route: MakeHuman CC0 core bodies, casual clothing, hair and shoes
+  on the 53-bone game rig. Use 35–39k-triangle hero patrons close to the camera and
+  11–14k dressed proxies farther away, then convert FBX to optimized GLB.
 - Author café-specific additive clips for sipping, typing, reading, carrying a
   tray, wiping the counter and using the espresso machine.
 - Target 8–15k triangles, one 1K atlas per person, compressed geometry/textures,

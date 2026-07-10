@@ -382,7 +382,15 @@ class SkinnedAvatar {
       if (o.isMesh) {
         o.castShadow = options.castShadow !== false;
         o.receiveShadow = options.receiveShadow !== false;
-        o.frustumCulled = false; // skinned bounds lag the pose; avoid pop-out
+        // SkinnedMesh caches a bind-pose bound. Pad it for arm swings and seated
+        // poses, then allow Three.js to reject patrons fully outside the camera.
+        // The previous blanket opt-out kept every street pedestrian in every
+        // colour, depth, AO and shadow pass even while looking the other way.
+        if (o.isSkinnedMesh) {
+          o.computeBoundingSphere();
+          o.boundingSphere.radius *= 1.45;
+        }
+        o.frustumCulled = true;
         const source = Array.isArray(o.material) ? o.material : [o.material];
         const materials = source.map((sourceMaterial, materialIndex) => {
           const material = sourceMaterial.clone();
@@ -529,13 +537,15 @@ class SkinnedAvatar {
     });
   }
 
-  update(dt, distance = 0) {
+  update(dt, distance = 0, qualityLevel = 2) {
     // Full-rate animation is reserved for people close enough to read facial
     // and hand motion.  Far indoor customers update at 20 Hz and figures seen
     // through the windows at 10 Hz.  Time is accumulated, so clips stay in sync
     // with world time instead of slowing down.
     this._animationDebt += dt;
-    const interval = distance > 13 ? 0.1 : distance > 8 ? 0.05 : 0;
+    const interval = qualityLevel === 0
+      ? (distance > 10 ? 0.1 : distance > 5 ? 0.05 : 0)
+      : (distance > 13 ? 0.1 : distance > 8 ? 0.05 : 0);
     if (!this._forcePose && interval && this._animationDebt < interval) return;
     const animationDt = this._animationDebt;
     this._animationDebt = 0;
@@ -863,6 +873,71 @@ class NPC {
     }
   }
 
+  _beginLeavingSeat(seat) {
+    this.state = 'standingSeat';
+    this.stateT = 0;
+    this.transitionFrom = this.mesh.position.clone();
+    this._clearProps();
+    if (this.sim.audio?.started && Math.random() < 0.7) this.sim.audio.playChairScrape(seat.pos);
+  }
+
+  _updateSeatTransition(seat) {
+    if (!seat) return;
+    const entering = this.state === 'aligningSeat';
+    const duration = entering ? 0.72 : 0.62;
+    const raw = THREE.MathUtils.clamp(this.stateT / duration, 0, 1);
+    const eased = raw * raw * (3 - 2 * raw);
+    const from = this.transitionFrom ?? this.mesh.position;
+    const target = entering ? seat.pos : (seat.approach ?? seat.pos);
+    this.mesh.position.x = THREE.MathUtils.lerp(from.x, target.x, eased);
+    this.mesh.position.z = THREE.MathUtils.lerp(from.z, target.z, eased);
+
+    const desiredYaw = seat.facingYaw ?? Math.atan2(
+      seat.tableCenter.x - seat.pos.x,
+      seat.tableCenter.z - seat.pos.z,
+    );
+    let yawDelta = desiredYaw - this.mesh.rotation.y;
+    while (yawDelta > Math.PI) yawDelta -= Math.PI * 2;
+    while (yawDelta < -Math.PI) yawDelta += Math.PI * 2;
+    this.mesh.rotation.y += yawDelta * Math.min(1, 0.18 + eased * 0.42);
+
+    const sitAmount = entering
+      ? THREE.MathUtils.smoothstep(raw, 0.18, 1)
+      : 1 - THREE.MathUtils.smoothstep(raw, 0, 0.82);
+    if (this.avatar) {
+      this.avatar.sitting = sitAmount > 0.18;
+      if (this.avatar.sitting) {
+        this.avatar.setMode(this.avatar.hasSitClip ? 'sit' : 'idle', 0.8);
+      } else {
+        this.avatar.setMode('idle', 0.8);
+      }
+      this._setRootY(THREE.MathUtils.lerp(0, this.sitY, sitAmount));
+    } else {
+      const p = this.mesh.userData.parts;
+      p.legL.rotation.x = p.legR.rotation.x = -1.25 * sitAmount;
+      p.kneeL.rotation.x = p.kneeR.rotation.x = 1.45 * sitAmount;
+      this._setRootY(THREE.MathUtils.lerp(0, this.sitY, sitAmount));
+    }
+
+    if (raw < 1) return;
+    if (entering) {
+      this.state = 'sitting';
+      this.stateT = 0;
+      this.mesh.position.x = seat.pos.x;
+      this.mesh.position.z = seat.pos.z;
+      this._setPose(true);
+      this._addProps();
+    } else {
+      this.state = 'leaving';
+      this.stateT = 0;
+      this._setPose(false);
+      this.sim.releaseSeat(this.seatIndex);
+      this.seatIndex = -1;
+      this._walkTo(this.sim.cafe.nav.door);
+    }
+    this.transitionFrom = null;
+  }
+
   setCup(v) {
     if (this.avatar) this.avatar.setCup(v);
     else this.mesh.userData.parts.cup.visible = v;
@@ -881,7 +956,7 @@ class NPC {
       const laptop = makeLaptop();
       const d = toTable.length();
       const edge = Math.max(0.25, d - 0.42);
-      const surfaceY = seat.pos.y > 0.05 ? 1.035 : 0.815; // window bar is taller
+      const surfaceY = seat.tableTopY ?? 0.815;
       laptop.position.set(
         seat.pos.x + (toTable.x / d) * edge,
         surfaceY,
@@ -927,7 +1002,7 @@ class NPC {
       const pad = makeSketchpad();
       const d = toTable.length();
       const edge = Math.max(0.25, d - 0.45);
-      const surfaceY = seat.pos.y > 0.05 ? 1.04 : 0.82;
+      const surfaceY = seat.tableTopY ?? 0.82;
       pad.position.set(
         seat.pos.x + (toTable.x / d) * edge,
         surfaceY,
@@ -959,6 +1034,20 @@ class NPC {
     }
     this.props = [];
     this.isTyping = false;
+    this.queuePhone = null;
+  }
+
+  _stowQueuePhone() {
+    const phone = this.queuePhone;
+    if (!phone) return;
+    phone.parent?.remove(phone);
+    const index = this.props.indexOf(phone);
+    if (index >= 0) this.props.splice(index, 1);
+    phone.traverse?.((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) o.material.dispose();
+    });
+    this.queuePhone = null;
   }
 
   // occasional toast between a chatting pair: the lead starts it, both raise
@@ -983,7 +1072,11 @@ class NPC {
       const dx = other.mesh.position.x - pos.x;
       const dz = other.mesh.position.z - pos.z;
       const d2 = dx * dx + dz * dz;
-      if (d2 < 2.0 && d2 > 0.05) {
+      const distance = Math.sqrt(d2);
+      const facingDot = distance > 0.001
+        ? (Math.sin(this.mesh.rotation.y) * dx + Math.cos(this.mesh.rotation.y) * dz) / distance
+        : -1;
+      if (d2 < 2.0 && d2 > 0.05 && facingDot > 0.2) {
         this.greeting = 1.4;
         this.greetT = rand(9, 22);
         // the other person, if idle-ish, waves back a beat later
@@ -1003,7 +1096,12 @@ class NPC {
   _separation(dir) {
     const pos = this.mesh.position;
     for (const other of this.sim.npcs) {
-      if (other === this || !other.path) continue;
+      if (other === this) continue;
+      const otherMoving = !!other.path;
+      const blocksAisle = other.state === 'queueing'
+        || other.state === 'ordering'
+        || other.state === 'waitingPickup';
+      if (!otherMoving && !blocksAisle) continue;
       const dx = pos.x - other.mesh.position.x;
       const dz = pos.z - other.mesh.position.z;
       const d2 = dx * dx + dz * dz;
@@ -1015,7 +1113,7 @@ class NPC {
         dir.z += (dz / d) * k;
       }
 
-      if (d2 < 1.7 && d2 > 0.06) {
+      if (otherMoving && d2 < 1.7 && d2 > 0.06) {
         const d = Math.sqrt(d2);
         const toward = -(dir.x * dx + dir.z * dz) / d;
         const otherToward = other.walkDir
@@ -1029,6 +1127,42 @@ class NPC {
           dir.x += px * side * k;
           dir.z += pz * side * k;
         }
+      }
+    }
+    return dir;
+  }
+
+  _avoidFurniture(dir) {
+    const pos = this.mesh.position;
+    const lookAhead = 0.52;
+    const x = pos.x + dir.x * lookAhead;
+    const z = pos.z + dir.z * lookAhead;
+    for (const collider of this.sim.cafe.colliders) {
+      if (collider.r) {
+        const radius = collider.r + 0.25;
+        const dx = x - collider.x;
+        const dz = z - collider.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= radius * radius || d2 < 0.0001) continue;
+        const d = Math.sqrt(d2);
+        const nx = dx / d, nz = dz / d;
+        const tangentSign = dir.x * -nz + dir.z * nx >= 0 ? 1 : -1;
+        const strength = (1 - d / radius) * 1.7 + 0.35;
+        dir.x += nx * strength + -nz * tangentSign * 0.28;
+        dir.z += nz * strength + nx * tangentSign * 0.28;
+      } else if (collider.rect) {
+        const r = collider.rect;
+        const margin = 0.24;
+        if (x <= r.x0 - margin || x >= r.x1 + margin || z <= r.z0 - margin || z >= r.z1 + margin) continue;
+        const edges = [
+          { distance: x - (r.x0 - margin), x: -1, z: 0 },
+          { distance: (r.x1 + margin) - x, x: 1, z: 0 },
+          { distance: z - (r.z0 - margin), x: 0, z: -1 },
+          { distance: (r.z1 + margin) - z, x: 0, z: 1 },
+        ];
+        edges.sort((a, b) => a.distance - b.distance);
+        dir.x += edges[0].x * 1.25;
+        dir.z += edges[0].z * 1.25;
       }
     }
     return dir;
@@ -1077,6 +1211,7 @@ class NPC {
         }
 
         this._separation(dir);
+        this._avoidFurniture(dir);
         const steerLength = Math.hypot(dir.x, dir.z) || 1;
         dir.x /= steerLength;
         dir.z /= steerLength;
@@ -1118,7 +1253,7 @@ class NPC {
         this.avatar.sitting = false;
         this.avatar.headPitch = 0;
         this.avatar.setMode(
-          greetingNow && this.avatar.hasWave ? 'wave' : 'walk',
+          greetingNow && this.avatar.hasWave && this.currentSpeed < 0.2 ? 'wave' : 'walk',
           Math.max(0.45, this.currentSpeed * 1.25)
         );
         this._setRootY(0);
@@ -1163,16 +1298,24 @@ class NPC {
       }
       if (this.avatar) {
         this.avatar.headYawTarget = this.headTarget;
-        this.avatar.update(dt, this._distanceToListener());
+        this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
       }
       else p.head.rotation.y += (this.headTarget - p.head.rotation.y) * dt * 3;
+      return;
+    }
+
+    if (this.state === 'aligningSeat' || this.state === 'standingSeat') {
+      this._updateSeatTransition(seat);
+      if (this.avatar) {
+        this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
+      }
       return;
     }
 
     // ---- stationary states, skinned branch: drive the rig and bail ----
     if (this.avatar) {
       this._updateSkinnedStationary(dt, t, seat);
-      this.avatar.update(dt, this._distanceToListener());
+      this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
       return;
     }
 
@@ -1194,6 +1337,7 @@ class NPC {
       }
       // reached the front and the register is free?
       if (this.queueIndex === 0 && !this.sim.ordering) {
+        this._stowQueuePhone();
         this.sim.ordering = this;
         this.state = 'ordering';
         this.stateT = 0;
@@ -1225,7 +1369,8 @@ class NPC {
         this.stateT = 0;
         if (this.seatIndex >= 0) {
           this.state = 'toSeat';
-          this._walkTo(this.sim.cafe.seats[this.seatIndex].pos);
+          const seatTarget = this.sim.cafe.seats[this.seatIndex];
+          this._walkTo(seatTarget.approach ?? seatTarget.pos);
         } else {
           this.state = 'leaving';
           this._walkTo(this.sim.cafe.nav.door);
@@ -1311,16 +1456,7 @@ class NPC {
           p.torso.rotation.x = 0;
         }
       }
-      if (this.stateT > this.sitDuration) {
-        this.state = 'leaving';
-        this.stateT = 0;
-        this._setPose(false);
-        this._clearProps();
-        if (this.sim.audio?.started && Math.random() < 0.7) this.sim.audio.playChairScrape(seat.pos);
-        this._walkTo(this.sim.cafe.nav.door);
-        this.sim.releaseSeat(this.seatIndex);
-        this.seatIndex = -1;
-      }
+      if (this.stateT > this.sitDuration) this._beginLeavingSeat(seat);
     }
   }
 
@@ -1352,6 +1488,7 @@ class NPC {
         av.headYawTarget = Math.sin(t * 0.5 + this.walkPhase) * 0.35;
       }
       if (this.queueIndex === 0 && !this.sim.ordering) {
+        this._stowQueuePhone();
         this.sim.ordering = this;
         this.state = 'ordering';
         this.stateT = 0;
@@ -1381,7 +1518,8 @@ class NPC {
         this.stateT = 0;
         if (this.seatIndex >= 0) {
           this.state = 'toSeat';
-          this._walkTo(this.sim.cafe.seats[this.seatIndex].pos);
+          const seatTarget = this.sim.cafe.seats[this.seatIndex];
+          this._walkTo(seatTarget.approach ?? seatTarget.pos);
         } else {
           this.state = 'leaving';
           this._walkTo(this.sim.cafe.nav.door);
@@ -1394,9 +1532,14 @@ class NPC {
         const pp = this.partner.mesh.position;
         const yaw = Math.atan2(pp.x - seat.pos.x, pp.z - seat.pos.z);
         this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
+        this._pairCheers(dt, seat);
         const turn = Math.sin(t * 0.13 + (this.pairLead ? 0 : Math.PI));
-        av.headPitch = turn > 0 ? 0.05 : 0.12 + Math.sin(t * 2.8) * 0.05;
-        av.headYawTarget = Math.sin(t * 0.4 + this.walkPhase) * 0.12;
+        av.headPitch = this.cheers > 0
+          ? -0.06
+          : turn > 0 ? 0.05 : 0.12 + Math.sin(t * 2.8) * 0.05;
+        av.headYawTarget = this.cheers > 0
+          ? 0
+          : Math.sin(t * 0.4 + this.walkPhase) * 0.12;
       } else {
         const look = seat.tableCenter;
         const yaw = Math.atan2(look.x - seat.pos.x, look.z - seat.pos.z);
@@ -1410,15 +1553,8 @@ class NPC {
         }
       }
       if (this.stateT > this.sitDuration) {
-        this.state = 'leaving';
-        this.stateT = 0;
         av.headPitch = 0;
-        this._setPose(false);
-        this._clearProps();
-        if (this.sim.audio?.started && Math.random() < 0.7) this.sim.audio.playChairScrape(seat.pos);
-        this._walkTo(this.sim.cafe.nav.door);
-        this.sim.releaseSeat(this.seatIndex);
-        this.seatIndex = -1;
+        this._beginLeavingSeat(seat);
       }
     }
   }
@@ -1427,13 +1563,11 @@ class NPC {
     if (this.state === 'queueing') {
       // settled into the current queue slot; update() takes it from here
     } else if (this.state === 'toSeat') {
-      this.state = 'sitting';
+      this.state = 'aligningSeat';
       this.stateT = 0;
       const seat = this.sim.cafe.seats[this.seatIndex];
       this.sitY = sitYFor(this, seat);
-      this.mesh.position.set(seat.pos.x, 0, seat.pos.z);
-      this._setPose(true);
-      this._addProps();
+      this.transitionFrom = this.mesh.position.clone();
     } else if (this.state === 'leaving') {
       this.state = 'gone';
       if (this.sim.audio?.started && Math.random() < 0.5) this.sim.audio.playChime();
@@ -1580,7 +1714,7 @@ class Barista {
         this.espressoPlayed = false;
       }
     }
-    if (this.avatar) this.avatar.update(dt);
+    if (this.avatar) this.avatar.update(dt, 0, this.sim.qualityLevel);
   }
 
   dispose() {
@@ -1600,6 +1734,8 @@ class OutsideLife {
     this.group = new THREE.Group();
     cafe.group.add(this.group);
     this.walkers = [];
+    this.qualityLevel = 2;
+    this.updateDebt = 0;
     const night = !!cafe.theme.rain;
     const n = 8;
     for (let i = 0; i < n; i++) {
@@ -1671,14 +1807,20 @@ class OutsideLife {
     return ROOM.D / 2 + 1.7; // just past the front windows
   }
 
+  setQuality(level) { this.qualityLevel = level; }
+
   update(dt) {
+    this.updateDebt += dt;
+    if (this.qualityLevel === 0 && this.updateDebt < 1 / 15) return;
+    dt = this.updateDebt;
+    this.updateDebt = 0;
     for (const w of this.walkers) {
       w.x += w.dir * w.speed * dt;
       if (w.x > 15) { w.x = -15; this.reroll(w); }
       if (w.x < -15) { w.x = 15; this.reroll(w); }
       w.phase += dt * 7 * w.speed;
       if (w.avatar) {
-        w.avatar.update(dt, 16);
+        w.avatar.update(dt, 16, this.qualityLevel);
         w.mesh.position.set(w.x, 0, w.z);
         continue;
       }
@@ -1725,10 +1867,12 @@ export class CrowdSim {
     this.models = models;
     this.charKeys = characterKeys(models);
     this.authoredSitKeys = sitCharacterKeys(models);
-    // Every bundled model has the upper/lower leg bones used by the manual
-    // seated fallback. Dedicated clips remain preferred automatically, while
-    // char_b adds a fourth silhouette to larger seated crowds.
-    this.sitKeys = [...this.charKeys];
+    // Manual leg folding cannot reproduce hip translation, spine balance and
+    // chair clearance reliably across rigs. Only use authored seated clips when
+    // they exist; keep the wider cast for walking, queues and the barista.
+    this.sitKeys = this.authoredSitKeys.length
+      ? [...this.authoredSitKeys]
+      : [...this.charKeys];
     this._characterBags = { standing: [], sitting: [] };
     this._lastCharacter = null;
     this._appearanceSerial = Math.floor(rand(0, IMPORTED_OUTFITS.length));
@@ -1741,6 +1885,7 @@ export class CrowdSim {
     this.takenSeats = new Set();
     this.playerSeat = -1;
     this.maxCrowd = cafe.theme.crowd ?? 9;
+    this.qualityLevel = 2;
     this.barista = new Barista(this);
     this.outside = new OutsideLife(cafe, models, this.charKeys);
     this.spawnCooldown = rand(3, 7);
@@ -1780,6 +1925,37 @@ export class CrowdSim {
 
   nextAppearanceIndex() {
     return this._appearanceSerial++;
+  }
+
+  setQuality(level) {
+    this.qualityLevel = THREE.MathUtils.clamp(Math.round(level), 0, 2);
+    this.outside.setQuality(this.qualityLevel);
+  }
+
+  // Treat every patron as a soft capsule in first-person mode. Static furniture
+  // already has room colliders; this closes the conspicuous gap where the camera
+  // could walk straight through a moving customer or somebody in the queue.
+  resolvePlayerCollision(position, playerRadius = 0.3) {
+    for (let pass = 0; pass < 2; pass++) {
+      for (const npc of this.npcs) {
+        if (npc.state === 'gone') continue;
+        const dx = position.x - npc.mesh.position.x;
+        const dz = position.z - npc.mesh.position.z;
+        const minDistance = playerRadius + (npc.state === 'sitting' ? 0.28 : 0.32);
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= minDistance * minDistance) continue;
+        if (d2 < 0.000001) {
+          position.x += Math.sin(npc.mesh.rotation.y) * minDistance;
+          position.z += Math.cos(npc.mesh.rotation.y) * minDistance;
+          continue;
+        }
+        const distance = Math.sqrt(d2);
+        const push = (minDistance - distance) / distance;
+        position.x += dx * push;
+        position.z += dz * push;
+      }
+    }
+    return position;
   }
 
   _preseat() {
