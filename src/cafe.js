@@ -36,6 +36,16 @@ export const THEMES = [
     ],
     windowBar: true, plants: 9, crowd: 16, shafts: true, stringLights: true,
     pendant: 'cone', beams: true, hangingPlants: true, chalkboard: true, cat: 0xb0713a,
+    varName: 'sunset',
+    variant: {
+      name: 'morning',
+      blurb: 'Early light, quiet tables, the first pour of the day.',
+      exposure: 1.0, envIntensity: 0.5, bloom: 0.18,
+      fog: { color: 0xe8e6da, density: 0.007 },
+      hemi: [0xdff0ff, 0x5c4a34, 0.85],
+      sun: { color: 0xfff6e2, intensity: 2.2, pos: [-7, 7, 10] },
+      lampIntensity: 3, outside: 'morning', crowd: 10,
+    },
   },
   {
     id: 'roastery',
@@ -60,6 +70,16 @@ export const THEMES = [
     ],
     windowBar: true, plants: 5, crowd: 18, fan: true,
     pendant: 'bulb', ducts: true, roaster: true, chalkboard: true, cat: 0x3a3d42,
+    varName: 'noon',
+    variant: {
+      name: 'evening',
+      blurb: 'The rush is over — low sun on steel, lamps coming on.',
+      exposure: 1.15, envIntensity: 0.3, bloom: 0.3,
+      fog: { color: 0x2e2a22, density: 0.012 },
+      hemi: [0xffd9b0, 0x3a3630, 0.5],
+      sun: { color: 0xffb469, intensity: 1.2, pos: [10, 4, 8] },
+      lampIntensity: 9, outside: 'sunset', crowd: 12,
+    },
   },
   {
     id: 'midnight',
@@ -84,6 +104,12 @@ export const THEMES = [
     ],
     windowBar: true, plants: 6, crowd: 13, candles: true,
     pendant: 'drum', bookshelf: true, vinyl: true, cat: 0x9a6a38,
+    varName: 'rainy',
+    variant: {
+      name: 'clear night',
+      blurb: 'The rain moved on — city lights, quiet jazz, a clear sky.',
+      rain: false, bloom: 0.55, crowd: 15,
+    },
   },
   {
     id: 'terrace',
@@ -109,6 +135,16 @@ export const THEMES = [
     ],
     windowBar: false, plants: 12, crowd: 14, openAir: true, birds: true,
     pendant: 'cone', stringLights: true, hangingPlants: true, chalkboard: true, cat: 0xc9924e,
+    varName: 'noon',
+    variant: {
+      name: 'golden evening',
+      blurb: 'Long shadows on the pavers, string lights against a warm sky.',
+      exposure: 1.12, envIntensity: 0.45, bloom: 0.3,
+      fog: { color: 0xe8d2b0, density: 0.005 },
+      hemi: [0xffd9a8, 0x4a5638, 0.55],
+      sun: { color: 0xffc478, intensity: 1.6, pos: [10, 4, 6] },
+      lampIntensity: 8, outside: 'garden_dusk', crowd: 16,
+    },
   },
 ];
 
@@ -220,28 +256,51 @@ function outsideTexture(kind) {
       }
       g.fillStyle = '#9aa1a6'; g.fillRect(0, h * 0.86, w, h * 0.14); // street
       g.fillStyle = '#c6ccd1'; g.fillRect(0, h * 0.86, w, 6);
-    } else if (kind === 'garden') {
+    } else if (kind === 'morning') {
       const sky = g.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, '#9ecbf2'); sky.addColorStop(0.6, '#cfe6f5'); sky.addColorStop(1, '#e8f2e0');
+      sky.addColorStop(0, '#a8cfe8'); sky.addColorStop(0.7, '#e8ddc8'); sky.addColorStop(1, '#f2e2c4');
       g.fillStyle = sky; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#fff8e0';
+      g.beginPath(); g.arc(w * 0.22, h * 0.55, 34, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,244,210,0.5)';
+      g.beginPath(); g.arc(w * 0.22, h * 0.55, 62, 0, 7); g.fill();
+      g.fillStyle = '#8d8574';
+      for (let x = 0; x < w; x += rand(60, 140)) {
+        const bh = rand(50, 130);
+        g.fillRect(x, h * 0.74 - bh, rand(50, 120), bh + 40);
+      }
+      g.fillStyle = '#6f6a5c'; g.fillRect(0, h * 0.8, w, h * 0.2);
+    } else if (kind === 'garden' || kind === 'garden_dusk') {
+      const dusk = kind === 'garden_dusk';
+      const sky = g.createLinearGradient(0, 0, 0, h);
+      if (dusk) {
+        sky.addColorStop(0, '#e8a86a'); sky.addColorStop(0.6, '#f2c88a'); sky.addColorStop(1, '#d9b284');
+      } else {
+        sky.addColorStop(0, '#9ecbf2'); sky.addColorStop(0.6, '#cfe6f5'); sky.addColorStop(1, '#e8f2e0');
+      }
+      g.fillStyle = sky; g.fillRect(0, 0, w, h);
+      if (dusk) {
+        g.fillStyle = '#fff0d0';
+        g.beginPath(); g.arc(w * 0.7, h * 0.5, 40, 0, 7); g.fill();
+      }
       // puffy clouds
       for (let i = 0; i < 9; i++) {
         const cx = rand(0, w), cy = rand(h * 0.08, h * 0.4);
-        g.fillStyle = 'rgba(255,255,255,0.85)';
+        g.fillStyle = dusk ? 'rgba(255,224,190,0.8)' : 'rgba(255,255,255,0.85)';
         for (let j = 0; j < 4; j++) {
           g.beginPath(); g.arc(cx + rand(-38, 38), cy + rand(-8, 8), rand(12, 30), 0, 7); g.fill();
         }
       }
       // layered tree line
-      g.fillStyle = '#5d7d4a';
+      g.fillStyle = dusk ? '#4e5636' : '#5d7d4a';
       for (let x = 0; x < w; x += rand(30, 70)) {
         g.beginPath(); g.arc(x, h * 0.72, rand(28, 60), 0, 7); g.fill();
       }
-      g.fillStyle = '#48663c';
+      g.fillStyle = dusk ? '#3c452c' : '#48663c';
       for (let x = 0; x < w; x += rand(24, 60)) {
         g.beginPath(); g.arc(x, h * 0.8, rand(24, 48), 0, 7); g.fill();
       }
-      g.fillStyle = '#6f8a52'; g.fillRect(0, h * 0.82, w, h * 0.18);
+      g.fillStyle = dusk ? '#5c6640' : '#6f8a52'; g.fillRect(0, h * 0.82, w, h * 0.18);
     } else { // rainNight
       const sky = g.createLinearGradient(0, 0, 0, h);
       sky.addColorStop(0, '#060810'); sky.addColorStop(1, '#101627');

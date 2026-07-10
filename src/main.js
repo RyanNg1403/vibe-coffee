@@ -158,9 +158,14 @@ function defaultSeat() {
 // ---------- scene switching ----------
 
 let loadToken = 0;
+let variantOn = false;
+function activeTheme(index = currentThemeIndex) {
+  const base = THEMES[index];
+  return variantOn && base.variant ? { ...base, ...base.variant } : base;
+}
 async function loadTheme(index) {
   currentThemeIndex = index;
-  const theme = THEMES[index];
+  const theme = activeTheme(index);
   const token = ++loadToken;
   const models = await loadModelLibrary();
   if (token !== loadToken) return; // a newer switch superseded this one
@@ -196,7 +201,17 @@ async function loadTheme(index) {
     b.classList.toggle('active', i === index);
   });
   document.getElementById('blurb').textContent = theme.blurb;
+  const vb = document.getElementById('variant-btn');
+  if (vb) {
+    const base = THEMES[index];
+    vb.textContent = '☀ ' + (variantOn && base.variant ? base.variant.name : base.varName ?? 'now');
+  }
 }
+
+document.getElementById('variant-btn')?.addEventListener('click', () => {
+  variantOn = !variantOn;
+  loadTheme(currentThemeIndex);
+});
 
 // ---------- walk mode ----------
 
@@ -319,7 +334,7 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
 
-document.querySelectorAll('.loc-btn').forEach((b, i) => {
+document.querySelectorAll('.loc-btn:not(#variant-btn)').forEach((b, i) => {
   b.addEventListener('click', () => {
     if (i !== currentThemeIndex) loadTheme(i);
   });
@@ -372,7 +387,7 @@ renderTimer();
 const overlay = document.getElementById('overlay');
 document.getElementById('enter-btn').addEventListener('click', () => {
   overlay.classList.add('hidden');
-  audio.start(THEMES[currentThemeIndex]);
+  audio.start(activeTheme());
   audio.setMusicOn(musicToggle.classList.contains('on'));
 });
 
