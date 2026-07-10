@@ -521,10 +521,57 @@ function latteArtTexture() {
 function makeDrink(accent, models) {
   const drinkKeys = ['cup', 'mug', 'latte'].filter((k) => models?.get?.(k));
   if (drinkKeys.length && Math.random() < 0.7) {
-    const g = cloneModel(models, drinkKeys[Math.floor(rand(0, drinkKeys.length))]);
-    if (g) return g;
+    const key = drinkKeys[Math.floor(rand(0, drinkKeys.length))];
+    const g = cloneModel(models, key);
+    if (g) {
+      // the library cups are empty shells — pour something into them.
+      // A crema/latte-art disc just below the rim reads perfectly from the
+      // seated player's top-down view of the table.
+      const bb = new THREE.Box3().setFromObject(g);
+      const size = bb.getSize(new THREE.Vector3());
+      const rimR = Math.min(size.x, size.z) * 0.335;
+      const surfaceY = bb.min.y + size.y * (key === 'latte' ? 0.8 : 0.76);
+      const art = Math.random() < 0.45;
+      const liquid = new THREE.Mesh(
+        new THREE.CircleGeometry(rimR, 20),
+        art
+          ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.42 })
+          : new THREE.MeshStandardMaterial({ map: cremaTexture(), roughness: 0.38 })
+      );
+      liquid.rotation.x = -Math.PI / 2;
+      const center = bb.getCenter(new THREE.Vector3());
+      liquid.position.set(center.x, surfaceY, center.z);
+      g.add(liquid);
+      return g;
+    }
   }
   return makeCup(accent, models, Math.random() < 0.4);
+}
+
+// espresso surface: dark centre blooming into a hazelnut crema ring
+let _cremaTex = null;
+function cremaTexture() {
+  if (_cremaTex) return _cremaTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 4, 32, 32, 32);
+  grad.addColorStop(0, '#2c170d');
+  grad.addColorStop(0.55, '#3a2010');
+  grad.addColorStop(0.82, '#8a5a2e');
+  grad.addColorStop(1, '#a8763e');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  // fine crema flecks
+  for (let i = 0; i < 60; i++) {
+    g.fillStyle = `rgba(190,140,80,${rand(0.1, 0.3)})`;
+    g.beginPath();
+    g.arc(rand(6, 58), rand(6, 58), rand(0.4, 1.4), 0, 7);
+    g.fill();
+  }
+  _cremaTex = new THREE.CanvasTexture(c);
+  _cremaTex.colorSpace = THREE.SRGBColorSpace;
+  return _cremaTex;
 }
 
 function makeCup(accent, models, latteArt = false) {
@@ -1113,28 +1160,83 @@ export function buildCafe(theme, models = null) {
     // a parked car and one that drives by now and then
     const mkCar = (color) => {
       const car = new THREE.Group();
-      const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.22, metalness: 0.08 });
-      const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.55, 1.5), bodyMat2);
-      body.position.y = 0.55;
+      // metallic paint over a darker rocker panel, chrome trim, real lights
+      const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.28, metalness: 0.55 });
+      const trimMat2 = new THREE.MeshStandardMaterial({ color: 0x1c1e21, roughness: 0.6 });
+      const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcfd4d8, roughness: 0.15, metalness: 0.95 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.42, 1.5), bodyMat2);
+      body.position.y = 0.62;
       car.add(body);
+      const rocker = new THREE.Mesh(new THREE.BoxGeometry(3.36, 0.16, 1.46), trimMat2);
+      rocker.position.y = 0.36;
+      car.add(rocker);
+      // hood and trunk step down from the cabin line
+      const hood = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 1.44), bodyMat2);
+      hood.position.set(1.25, 0.87, 0);
+      car.add(hood);
+      const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 1.44), bodyMat2);
+      trunk.position.set(-1.38, 0.86, 0);
+      car.add(trunk);
       const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 1.35), bodyMat2);
       cab.position.set(-0.2, 1.05, 0);
       car.add(cab);
-      const glassMat2 = new THREE.MeshStandardMaterial({ color: 0x171d22, roughness: 0.12, metalness: 0.05 });
-      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.36, 1.37), glassMat2);
-      glass.position.set(-0.2, 1.08, 0);
+      const glassMat2 = new THREE.MeshStandardMaterial({ color: 0x1b2830, roughness: 0.08, metalness: 0.4 });
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.34, 1.37), glassMat2);
+      glass.position.set(-0.2, 1.1, 0);
       car.add(glass);
-      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.8 });
+      // window pillars keep the glass from reading as one black band
+      for (const px2 of [-1.05, -0.2, 0.65]) {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.36, 1.38), bodyMat2);
+        pillar.position.set(px2 - 0.2 + 0.2, 1.1, 0);
+        car.add(pillar);
+      }
+      // chrome bumpers and door handles
+      for (const bx2 of [1.71, -1.71]) {
+        const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 1.52), chromeMat);
+        bumper.position.set(bx2, 0.46, 0);
+        car.add(bumper);
+      }
+      for (const s2 of [-1, 1]) {
+        for (const hx2 of [0.35, -0.6]) {
+          const dh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.02), chromeMat);
+          dh.position.set(hx2, 0.78, s2 * 0.755);
+          car.add(dh);
+        }
+      }
+      // wheels with tyres + hubcaps
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.85 });
+      const hubMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.25, metalness: 0.9 });
       for (const [wx2, wz2] of [[-1.15, 0.72], [1.15, 0.72], [-1.15, -0.72], [1.15, -0.72]]) {
-        const wh = cyl(0.32, 0.32, 0.2, wheelMat, 12);
+        const wh = cyl(0.32, 0.32, 0.2, wheelMat, 14);
         wh.rotation.x = Math.PI / 2;
         wh.position.set(wx2, 0.32, wz2);
         car.add(wh);
+        const hub = cyl(0.14, 0.14, 0.02, hubMat, 10);
+        hub.rotation.x = Math.PI / 2;
+        hub.position.set(wx2, 0.32, wz2 + Math.sign(wz2) * 0.105);
+        car.add(hub);
       }
-      if (night) {
-        const hl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.14), new THREE.MeshBasicMaterial({ color: 0xfff2c8 }));
-        hl.position.set(1.71, 0.6, 0.45); hl.rotation.y = Math.PI / 2; car.add(hl);
-        const hl2 = hl.clone(); hl2.position.z = -0.45; car.add(hl2);
+      // lights: lit at night, glass-like by day; red tails both ways
+      const headMat = night
+        ? new THREE.MeshBasicMaterial({ color: 0xfff2c8 })
+        : new THREE.MeshStandardMaterial({ color: 0xe8ecef, roughness: 0.2, metalness: 0.3 });
+      const tailMat = night
+        ? new THREE.MeshBasicMaterial({ color: 0xff5040 })
+        : new THREE.MeshStandardMaterial({ color: 0x8a2018, roughness: 0.3 });
+      for (const s2 of [-1, 1]) {
+        const hl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.26), headMat);
+        hl.position.set(1.72, 0.66, s2 * 0.5);
+        car.add(hl);
+        const tl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.3), tailMat);
+        tl.position.set(-1.72, 0.66, s2 * 0.5);
+        car.add(tl);
+      }
+      // licence plates
+      const plateMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d4, roughness: 0.5 });
+      for (const bx2 of [1.73, -1.73]) {
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.11, 0.34), plateMat);
+        plate.position.set(bx2, 0.5, 0);
+        car.add(plate);
       }
       return car;
     };
@@ -1185,36 +1287,31 @@ export function buildCafe(theme, models = null) {
   if (machineModel) {
     machineModel.position.set(-2.2, 1.06, -D / 2 + 1.15);
     group.add(machineModel);
-    // dress the plain model up: brushed steel + espresso-red panels,
-    // portafilter handles on the front, warm cups staged on top
-    machineModel.updateMatrixWorld(true);
-    const bb = new THREE.Box3().setFromObject(machineModel);
-    let biggest = null, biggestVol = 0;
+    // the asset ships with flat near-white palette colours; retint by
+    // material name (never by guessed geometry) into a café machine:
+    // espresso-red body panels over brushed steel
     machineModel.traverse((o) => {
-      if (!o.isMesh || !o.material?.color) return;
+      if (!o.isMesh || !o.material?.name) return;
       o.material = o.material.clone();
-      const b2 = new THREE.Box3().setFromObject(o);
-      const s2 = b2.getSize(new THREE.Vector3());
-      const vol = s2.x * s2.y * s2.z;
-      o.material.metalness = 0.88;
-      o.material.roughness = 0.28;
-      if (vol > biggestVol) { biggestVol = vol; biggest = o; }
+      const name = o.material.name.toLowerCase();
+      if (name.includes('carpetwhite')) {
+        o.material.color.set(0xa33b2e);
+        o.material.metalness = 0.15;
+        o.material.roughness = 0.4;
+      } else if (name.includes('metalmedium')) {
+        o.material.color.set(0x2e3236);
+        o.material.metalness = 0.85;
+        o.material.roughness = 0.3;
+      } else if (name.includes('metal')) {
+        o.material.color.set(0xb8bec4);
+        o.material.metalness = 0.9;
+        o.material.roughness = 0.25;
+      }
     });
-    if (biggest) {
-      biggest.material.color.set(0xa33b2e); // the classic café-red body
-      biggest.material.metalness = 0.12;
-      biggest.material.roughness = 0.38;
-    }
-    const darkM = new THREE.MeshStandardMaterial({ color: 0x24262a, roughness: 0.5 });
-    for (const hx of [-0.12, 0.08]) {
-      const handle = cyl(0.016, 0.02, 0.11, darkM, 8);
-      handle.rotation.x = Math.PI / 2 - 0.25;
-      handle.position.set(-2.2 + hx, bb.min.y + (bb.max.y - bb.min.y) * 0.3, bb.max.z + 0.05);
-      group.add(handle);
-    }
+    const cupRowY = 1.06 + 0.52 + 0.028; // a row of warm cups staged on top
     for (let ci = 0; ci < 3; ci++) {
       const c2 = cyl(0.028, 0.022, 0.05, new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.5 }), 10);
-      c2.position.set(-2.32 + ci * 0.12, bb.max.y + 0.028, -D / 2 + 1.15);
+      c2.position.set(-2.32 + ci * 0.12, cupRowY, -D / 2 + 1.15);
       group.add(c2);
     }
   } else {
@@ -2609,13 +2706,37 @@ export function buildCafe(theme, models = null) {
         const d = Math.hypot(dx, dz);
         if (d < 0.12) {
           cu.walkTo = null;
+          cu.walkT = 0;
           cu.naptime = rand(30, 90);
           cat.rotation.y = rand(0, Math.PI * 2);
         } else {
-          cat.position.x += (dx / d) * dt * 0.45;
-          cat.position.z += (dz / d) * dt * 0.45;
-          cat.rotation.y = Math.atan2(dx, dz) - Math.PI / 2;
+          // cats don't phase through table legs: steer around colliders
+          let sx = dx / d, sz = dz / d;
+          const aheadX = cat.position.x + sx * 0.5;
+          const aheadZ = cat.position.z + sz * 0.5;
+          for (const col of colliders) {
+            if (!col.r) continue;
+            const cdx = aheadX - col.x, cdz = aheadZ - col.z;
+            const cd = Math.hypot(cdx, cdz);
+            const rr = col.r + 0.18;
+            if (cd < rr && cd > 0.001) {
+              const push = (1 - cd / rr) * 1.8;
+              sx += (cdx / cd) * push;
+              sz += (cdz / cd) * push;
+            }
+          }
+          const sl = Math.hypot(sx, sz) || 1;
+          cat.position.x += (sx / sl) * dt * 0.45;
+          cat.position.z += (sz / sl) * dt * 0.45;
+          cat.rotation.y = Math.atan2(sx, sz) - Math.PI / 2;
           cat.position.y = 0.02 + Math.abs(Math.sin(t * 6)) * 0.015; // soft pad
+          // steering can park the cat against a planter forever: nap there instead
+          cu.walkStuck = (cu.walkStuck ?? 0) + (Math.abs(sx / sl) + Math.abs(sz / sl) < 0.2 ? dt : -cu.walkStuck);
+          if ((cu.walkT = (cu.walkT ?? 0) + dt) > 40) {
+            cu.walkTo = null;
+            cu.walkT = 0;
+            cu.naptime = rand(20, 60);
+          }
         }
       } else {
         cu.naptime -= dt;

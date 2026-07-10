@@ -606,7 +606,11 @@ let perfSampleTime = 0;
 let perfSampleFrames = 0;
 let qualityCooldown = 0;
 const SIM_STEP = 1 / 30;
-const MAX_SIM_STEPS = 5;
+// Catch-up budget after a slow frame or a throttled tab. Crowd updates are
+// renderer-free math (~20 NPCs), so even the full 3 s budget costs only a few
+// milliseconds — while a small cap makes café time crawl on slow machines,
+// which reads as "everyone is stuck".
+const MAX_SIM_STEPS = 90;
 
 function updateAdaptiveQuality(frameDt) {
   if (qualityMode !== 'auto') return;

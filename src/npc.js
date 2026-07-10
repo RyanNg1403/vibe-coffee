@@ -68,6 +68,33 @@ function clothTexture(style = 0) {
   return texture;
 }
 
+// one shared strand-streak texture makes every hair cap read as combed hair
+// instead of a painted shell; the material colour supplies the hue
+let _hairTex = null;
+function hairStrandTexture() {
+  if (_hairTex) return _hairTex;
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#d8d8d8';
+  g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 260; i++) {
+    const x = Math.random() * 128;
+    const w = 0.6 + Math.random() * 1.6;
+    const shade = 165 + Math.floor(Math.random() * 90);
+    g.strokeStyle = `rgba(${shade},${shade},${shade},0.55)`;
+    g.lineWidth = w;
+    g.beginPath();
+    g.moveTo(x, -4);
+    g.bezierCurveTo(x + rand(-9, 9), 40, x + rand(-9, 9), 88, x + rand(-14, 14), 132);
+    g.stroke();
+  }
+  _hairTex = new THREE.CanvasTexture(c);
+  _hairTex.colorSpace = THREE.SRGBColorSpace;
+  _hairTex.wrapS = _hairTex.wrapT = THREE.RepeatWrapping;
+  return _hairTex;
+}
+
 export function makePerson(tint = 1) {
   const g = new THREE.Group();
   const dim = (c) => new THREE.Color(c).multiplyScalar(tint);
@@ -77,7 +104,10 @@ export function makePerson(tint = 1) {
     color: dim(pick(SHIRT)), roughness: 0.88, map: cloth, bumpMap: cloth, bumpScale: 0.003,
   });
   const pants = new THREE.MeshStandardMaterial({ color: dim(pick(PANTS)), roughness: 0.95 });
-  const hair = new THREE.MeshStandardMaterial({ color: dim(pick(HAIR)), roughness: 0.95 });
+  const hair = new THREE.MeshStandardMaterial({
+    color: dim(pick(HAIR)), roughness: 0.82,
+    map: hairStrandTexture(), bumpMap: hairStrandTexture(), bumpScale: 0.0016,
+  });
   const shoeMat = new THREE.MeshStandardMaterial({ color: dim(pick([0x2a2118, 0x1e1e22, 0x4a3a2a, 0x50505a])), roughness: 0.8 });
 
   // body-shape variety: slim to broad
@@ -386,15 +416,10 @@ class SkinnedAvatar {
         // without rendering that geometry twice every shadow refresh.
         o.castShadow = options.castShadow !== false && !this.isHero;
         o.receiveShadow = options.receiveShadow !== false;
-        // SkinnedMesh caches a bind-pose bound. Pad it for arm swings and seated
-        // poses, then allow Three.js to reject patrons fully outside the camera.
-        // The previous blanket opt-out kept every street pedestrian in every
-        // colour, depth, AO and shadow pass even while looking the other way.
-        if (o.isSkinnedMesh) {
-          o.computeBoundingSphere();
-          o.boundingSphere.radius *= 1.45;
-        }
-        o.frustumCulled = true;
+        // Skinned parts get culled below with one shared whole-body bound;
+        // per-part bind-pose spheres made heads and limbs pop out of view
+        // whenever an animated pose (sitting, waving) left the bind volume.
+        o.frustumCulled = !o.isSkinnedMesh;
         const source = Array.isArray(o.material) ? o.material : [o.material];
         const materials = source.map((sourceMaterial, materialIndex) => {
           const material = sourceMaterial.clone();
@@ -437,6 +462,31 @@ class SkinnedAvatar {
         o.material = Array.isArray(o.material) ? materials : materials[0];
       }
     });
+
+    // One conservative whole-body bound shared by every skinned part: culling
+    // still rejects patrons fully off-screen, but no animated pose (sitting,
+    // waving, folded legs) can drift outside its own culling sphere the way
+    // small per-part bind-pose bounds allowed.
+    {
+      const skinnedParts = [];
+      mesh.traverse((o) => { if (o.isSkinnedMesh) skinnedParts.push(o); });
+      if (skinnedParts.length) {
+        const union = new THREE.Box3();
+        const corner = new THREE.Vector3();
+        for (const part of skinnedParts) {
+          part.computeBoundingSphere();
+          const sp = part.boundingSphere;
+          union.expandByPoint(corner.set(sp.center.x - sp.radius, sp.center.y - sp.radius, sp.center.z - sp.radius));
+          union.expandByPoint(corner.set(sp.center.x + sp.radius, sp.center.y + sp.radius, sp.center.z + sp.radius));
+        }
+        const center = union.getCenter(new THREE.Vector3());
+        const radius = union.getSize(new THREE.Vector3()).length() * 0.5 * 1.3;
+        for (const part of skinnedParts) {
+          part.boundingSphere = new THREE.Sphere(center.clone(), radius);
+          part.frustumCulled = true;
+        }
+      }
+    }
 
     this.mixer = new THREE.AnimationMixer(mesh);
     const find = (...names) => {
@@ -568,6 +618,15 @@ class SkinnedAvatar {
     const animationDt = this._animationDebt;
     this._animationDebt = 0;
     this._forcePose = false;
+    // Remove last update's look offset before the mixer runs. When the clip
+    // animates the head the mixer overwrites this anyway; when it doesn't
+    // (static single-key hold poses), this stops the offset from integrating
+    // into a broken neck at +0.28 rad per update.
+    const lookBone = this.bones.Head ?? this.bones.Neck;
+    if (lookBone && this._appliedLook) {
+      lookBone.rotation.y -= this._appliedLook.y;
+      lookBone.rotation.x -= this._appliedLook.x;
+    }
     this.mixer.update(animationDt);
     // one-time compensation for armature scale so the cup is world-sized
     if (!this._cupScaled && this.cup.visible && this.bones.RightHand) {
@@ -592,8 +651,12 @@ class SkinnedAvatar {
     this._headYaw += (this.headYawTarget - this._headYaw) * Math.min(1, animationDt * 3);
     const head = this.bones.Head ?? this.bones.Neck;
     if (head) {
-      head.rotation.y += this._headYaw;
-      head.rotation.x += this.headPitch;
+      // keep the look natural even if a state feeds a runaway target
+      const pitch = THREE.MathUtils.clamp(this.headPitch, -0.6, 0.6);
+      const yaw = THREE.MathUtils.clamp(this._headYaw, -1.1, 1.1);
+      head.rotation.y += yaw;
+      head.rotation.x += pitch;
+      this._appliedLook = { y: yaw, x: pitch };
     }
   }
 
@@ -861,6 +924,8 @@ class NPC {
   _walkTo(target) {
     this.path = routeBetween(this.mesh.position, target, this.sim.cafe.nav.corridorX);
     this.pathI = 1;
+    this._bestDist = Infinity;
+    this._stallT = 0;
   }
 
   _setRootY(y) {
@@ -1200,10 +1265,30 @@ class NPC {
       const dx = target.x - pos.x;
       const dz = target.z - pos.z;
       const dist = Math.hypot(dx, dz);
-      if (dist < 0.07) {
+      // Stall rescue: steering equilibria (a crowded pickup counter, a
+      // waypoint grazing a planter's avoidance margin) can hold a walker at
+      // a fixed distance forever. When no progress is made for a while,
+      // accept a generous arrival instead of walking in place.
+      if (dist < (this._bestDist ?? Infinity) - 0.015) {
+        this._bestDist = dist;
+        this._stallT = 0;
+      } else {
+        this._stallT = (this._stallT ?? 0) + dt;
+      }
+      const stalled = this._stallT > 2.5 && dist < 0.9;
+      if (this._stallT > 7) {
+        // truly wedged: replan from here to the final destination
+        this._stallT = 0;
+        this._bestDist = Infinity;
+        this._walkTo(this.path[this.path.length - 1]);
+        return;
+      }
+      if (dist < 0.07 || stalled) {
         pos.x = target.x;
         pos.z = target.z;
         this.pathI++;
+        this._bestDist = Infinity;
+        this._stallT = 0;
         if (this.pathI >= this.path.length) {
           this.path = null;
           this.currentSpeed = 0;
@@ -2210,7 +2295,11 @@ export class CrowdSim {
         }
       } else {
         const seat = this._freeSeat();
-        const toGo = Math.random() < 0.3 || seat < 0;
+        // lead the session with the hero patrons — they only walk through
+        // (order + pick up at the counter), so give them the early arrivals
+        // instead of leaving their appearance to a rare to-go roll
+        const heroWaiting = this.heroKeys.length > this._usedHeroKeys.size;
+        const toGo = heroWaiting || Math.random() < 0.3 || seat < 0;
         if (!toGo) this.takenSeats.add(seat);
         this.npcs.push(new NPC(this, { seatIndex: toGo ? -1 : seat }));
       }
