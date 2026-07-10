@@ -1660,6 +1660,159 @@ export function buildCafe(theme, models = null) {
     group.add(rail);
   }
 
+  // Give the quiet end of the back wall a single, legible purpose in every
+  // room. These are composed as compact hospitality stations rather than
+  // scattered props, and repeated details are instanced to keep draw calls low.
+  const signatureZ = -D / 2 + 0.6;
+  const makePlaque = (lines, ink, paper, width = 1.45, height = 0.62) => {
+    const tex = track(canvasTexture(384, 164, (g, w, h) => {
+      g.fillStyle = paper; g.fillRect(0, 0, w, h);
+      g.strokeStyle = ink; g.lineWidth = 7; g.strokeRect(9, 9, w - 18, h - 18);
+      g.fillStyle = ink; g.textAlign = 'center';
+      lines.forEach((line, i) => {
+        g.font = i === 0 ? 'bold 34px Georgia' : '18px Arial';
+        g.fillText(line, w / 2, 61 + i * 38);
+      });
+    }));
+    return new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })
+    );
+  };
+
+  if (theme.id === 'goldenhour') {
+    // A dedicated filter-coffee bar: fitted joinery, a small ceramic library,
+    // and one working pour-over setup. It balances the heavy service counter.
+    const station = new THREE.Group();
+    const ceramic = new THREE.MeshStandardMaterial({ color: 0xd8c7a6, roughness: 0.5 });
+    const brass = new THREE.MeshStandardMaterial({ color: 0xa77a3c, roughness: 0.32, metalness: 0.55 });
+    const cabinet = box(2.05, 0.76, 0.46, woodMat); cabinet.position.y = 0.38; station.add(cabinet);
+    const top = box(2.15, 0.055, 0.54, counterTopMat); top.position.y = 0.79; station.add(top);
+    for (const sx of [-0.98, 0.98]) {
+      const side = box(0.055, 1.0, 0.3, woodDarkMat); side.position.set(sx, 1.35, -0.08); station.add(side);
+    }
+    for (const sy of [1.02, 1.7]) {
+      const shelf = box(2.02, 0.045, 0.32, woodDarkMat); shelf.position.set(0, sy, -0.08); station.add(shelf);
+    }
+    const jarGeo = new THREE.CylinderGeometry(0.105, 0.11, 0.23, 12);
+    const jars = new THREE.InstancedMesh(jarGeo, ceramic, 5);
+    const matrix = new THREE.Matrix4();
+    [-0.72, -0.36, 0, 0.36, 0.72].forEach((x, i) => {
+      matrix.makeTranslation(x, 1.16, -0.08); jars.setMatrixAt(i, matrix);
+    });
+    station.add(jars);
+    const standStem = cyl(0.015, 0.015, 0.38, brass, 8); standStem.position.set(0.45, 1.01, 0.02); station.add(standStem);
+    const standArm = box(0.35, 0.025, 0.025, brass); standArm.position.set(0.29, 1.18, 0.02); station.add(standArm);
+    const dripper = new THREE.Mesh(new THREE.ConeGeometry(0.105, 0.16, 14, 1, true), ceramic);
+    dripper.rotation.x = Math.PI; dripper.position.set(0.13, 1.11, 0.02); station.add(dripper);
+    const plaque = makePlaque(['FILTER BAR', 'single origin · hand brewed'], '#4b3523', '#e9ddc6');
+    plaque.position.set(0, 2.12, -0.22); station.add(plaque);
+    const kettle = cloneModel(models, 'teapot');
+    if (kettle) { kettle.position.set(-0.52, 0.84, 0.03); kettle.scale.multiplyScalar(0.82); station.add(kettle); }
+    station.position.set(5.25, 0, signatureZ);
+    group.add(station);
+    contactShadow(5.25, signatureZ, 2.35);
+    extraColliders.push({ x: 5.25, z: signatureZ, r: 1.05 });
+  } else if (theme.id === 'roastery') {
+    // A green-bean sample library explains what this café actually roasts.
+    // Opaque jars read more cleanly than costly transmissive glass at this scale.
+    const station = new THREE.Group();
+    const steel = new THREE.MeshStandardMaterial({ color: 0x45494e, roughness: 0.38, metalness: 0.6 });
+    const beanMat = new THREE.MeshStandardMaterial({ color: 0x9a8350, roughness: 0.82 });
+    const cabinet = box(2.1, 0.78, 0.48, steel); cabinet.position.y = 0.39; station.add(cabinet);
+    const top = box(2.18, 0.045, 0.54, counterTopMat); top.position.y = 0.8; station.add(top);
+    const shelf = box(2.08, 0.04, 0.32, steel); shelf.position.set(0, 1.35, -0.08); station.add(shelf);
+    const jarGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.3, 12);
+    const jars = new THREE.InstancedMesh(jarGeo, beanMat, 8);
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < 8; i++) {
+      const row = Math.floor(i / 4);
+      matrix.makeTranslation(-0.7 + (i % 4) * 0.46, 0.98 + row * 0.55, -0.02);
+      jars.setMatrixAt(i, matrix);
+    }
+    station.add(jars);
+    const bowls = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.13, 0.09, 0.07, 14),
+      new THREE.MeshStandardMaterial({ color: 0xe4e5df, roughness: 0.42 }),
+      3
+    );
+    [-0.42, 0, 0.42].forEach((x, i) => {
+      matrix.makeTranslation(x, 0.86, 0.08); bowls.setMatrixAt(i, matrix);
+    });
+    station.add(bowls);
+    const plaque = makePlaque(['GREEN COFFEE', 'Ethiopia · Colombia · House'], '#ece8da', '#303338');
+    plaque.position.set(0, 2.05, -0.22); station.add(plaque);
+    station.position.set(5.25, 0, signatureZ);
+    group.add(station);
+    contactShadow(5.25, signatureZ, 2.35);
+    extraColliders.push({ x: 5.25, z: signatureZ, r: 1.05 });
+  } else if (theme.id === 'midnight') {
+    // A restrained upright piano beneath the neon makes the jazz identity
+    // spatial, not just musical. Keys are instanced into two draw calls.
+    const piano = new THREE.Group();
+    const lacquer = new THREE.MeshStandardMaterial({ color: 0x171416, roughness: 0.27, metalness: 0.06 });
+    const ivory = new THREE.MeshStandardMaterial({ color: 0xe6dfcf, roughness: 0.42 });
+    const ebony = new THREE.MeshStandardMaterial({ color: 0x121114, roughness: 0.32 });
+    const body = box(1.55, 1.18, 0.42, lacquer); body.position.y = 0.83; piano.add(body);
+    const keyboardBed = box(1.68, 0.08, 0.46, lacquer); keyboardBed.position.set(0, 0.94, 0.25); piano.add(keyboardBed);
+    const whiteKeys = new THREE.InstancedMesh(new THREE.BoxGeometry(0.105, 0.026, 0.32), ivory, 14);
+    const blackKeys = new THREE.InstancedMesh(new THREE.BoxGeometry(0.065, 0.045, 0.2), ebony, 10);
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < 14; i++) {
+      matrix.makeTranslation(-0.6825 + i * 0.105, 1.0, 0.36); whiteKeys.setMatrixAt(i, matrix);
+    }
+    const blackPattern = [0, 1, 3, 4, 5, 7, 8, 10, 11, 12];
+    blackPattern.forEach((key, i) => {
+      matrix.makeTranslation(-0.63 + key * 0.105, 1.035, 0.29); blackKeys.setMatrixAt(i, matrix);
+    });
+    piano.add(whiteKeys, blackKeys);
+    for (const lx of [-0.59, 0.59]) {
+      const leg = box(0.09, 0.68, 0.09, lacquer); leg.position.set(lx, 0.34, 0.08); piano.add(leg);
+    }
+    const musicRest = box(0.72, 0.42, 0.035, lacquer); musicRest.position.set(0, 1.36, 0.24); musicRest.rotation.x = -0.12; piano.add(musicRest);
+    const benchTop = box(0.75, 0.12, 0.34, new THREE.MeshStandardMaterial({ color: 0x3f2830, roughness: 0.8, map: clothTex }));
+    benchTop.position.set(0, 0.5, 0.98); piano.add(benchTop);
+    for (const x of [-0.27, 0.27]) {
+      const leg = box(0.065, 0.46, 0.065, lacquer); leg.position.set(x, 0.23, 0.98); piano.add(leg);
+    }
+    piano.position.set(5.4, 0, signatureZ);
+    group.add(piano);
+    contactShadow(5.4, signatureZ + 0.25, 2.5);
+    extraColliders.push({ x: 5.4, z: signatureZ + 0.22, r: 1.1 });
+  } else if (theme.id === 'terrace') {
+    // A working herb bench connects the terrace greenery to the drinks menu.
+    const bench = new THREE.Group();
+    const terracotta = new THREE.MeshStandardMaterial({ color: 0xa76543, roughness: 0.92 });
+    const leaf = new THREE.MeshStandardMaterial({ color: 0x4f7549, roughness: 0.96 });
+    const top = box(2.25, 0.1, 0.62, woodMat); top.position.y = 0.82; bench.add(top);
+    const lower = box(2.05, 0.07, 0.5, woodDarkMat); lower.position.y = 0.28; bench.add(lower);
+    for (const x of [-0.91, 0.91]) {
+      const leg = box(0.1, 0.82, 0.1, woodDarkMat); leg.position.set(x, 0.41, 0); bench.add(leg);
+    }
+    const pots = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.11, 0.22, 12), terracotta, 5);
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < 5; i++) {
+      matrix.makeTranslation(-0.76 + i * 0.38, i < 3 ? 0.97 : 0.43, i < 3 ? 0 : -0.02);
+      pots.setMatrixAt(i, matrix);
+    }
+    bench.add(pots);
+    const leaves = new THREE.InstancedMesh(new THREE.SphereGeometry(0.075, 8, 6), leaf, 12);
+    for (let i = 0; i < 12; i++) {
+      const pot = i % 3;
+      const scale = new THREE.Vector3(0.7, 1.4, 0.5);
+      const position = new THREE.Vector3(-0.76 + pot * 0.38 + ((i % 2) - 0.5) * 0.08, 1.17 + Math.floor(i / 6) * 0.08, ((i % 4) - 1.5) * 0.035);
+      const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, i * 0.8, (i % 2 ? 1 : -1) * 0.35));
+      matrix.compose(position, quaternion, scale); leaves.setMatrixAt(i, matrix);
+    }
+    bench.add(leaves);
+    const plaque = makePlaque(['HERB BENCH', 'mint · rosemary · lemon thyme'], '#385239', '#ddd9bf');
+    plaque.position.set(0, 1.75, -0.24); bench.add(plaque);
+    bench.position.set(5.2, 0, signatureZ);
+    group.add(bench);
+    contactShadow(5.2, signatureZ, 2.45);
+    extraColliders.push({ x: 5.2, z: signatureZ, r: 1.05 });
+  }
+
   // exposed wooden ceiling beams (golden hour)
   if (theme.beams) {
     for (const bx of [-6.2, -2.6, 1.0, 4.6]) {

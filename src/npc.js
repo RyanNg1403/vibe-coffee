@@ -18,33 +18,52 @@ const SHIRT = [0x7a5c8f, 0x4a7a6f, 0xa85751, 0x4f6d9c, 0xb08d4f, 0x5a5f66, 0x8a4
 const PANTS = [0x37414f, 0x4a4038, 0x2f3438, 0x5a4a5f, 0x39504a, 0x54452f];
 const HAIR = [0x241a12, 0x3f2a17, 0x6b4a26, 0x8a8a8a, 0x151515, 0x743e21, 0x4a3b32];
 
-const EYE_MAT = new THREE.MeshStandardMaterial({ color: 0x1c1410, roughness: 0.3 });
+const EYE_MAT = new THREE.MeshStandardMaterial({ color: 0x110e0c, roughness: 0.3 });
 const EYE_WHITE_MAT = new THREE.MeshPhysicalMaterial({ color: 0xf4eee7, roughness: 0.35, clearcoat: 0.15 });
 
-let _clothTex = null;
-function clothTexture() {
-  if (_clothTex) return _clothTex;
+const _clothTextures = [];
+function clothTexture(style = 0) {
+  if (_clothTextures[style]) return _clothTextures[style];
   const c = document.createElement('canvas');
   c.width = c.height = 96;
   const x = c.getContext('2d');
-  x.fillStyle = '#a8a8a8';
+  x.fillStyle = style === 1 ? '#b2b2b2' : '#a8a8a8';
   x.fillRect(0, 0, c.width, c.height);
-  for (let i = 0; i < 96; i += 3) {
-    x.fillStyle = i % 6 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
-    x.fillRect(i, 0, 1, 96);
-    x.fillRect(0, i, 96, 1);
+  if (style === 1) {
+    // Fine yarn-dyed stripes read as fabric without introducing noisy moire.
+    for (let i = 0; i < 96; i += 12) {
+      x.fillStyle = 'rgba(255,255,255,.13)';
+      x.fillRect(i, 0, 3, 96);
+      x.fillStyle = 'rgba(0,0,0,.08)';
+      x.fillRect(i + 3, 0, 1, 96);
+    }
+  } else if (style === 2) {
+    // A restrained diagonal twill for jackets and heavier shirts.
+    x.strokeStyle = 'rgba(255,255,255,.09)';
+    x.lineWidth = 1;
+    for (let i = -96; i < 192; i += 6) {
+      x.beginPath(); x.moveTo(i, 0); x.lineTo(i - 96, 96); x.stroke();
+    }
+  } else {
+    for (let i = 0; i < 96; i += 3) {
+      x.fillStyle = i % 6 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+      x.fillRect(i, 0, 1, 96);
+      x.fillRect(0, i, 96, 1);
+    }
   }
-  _clothTex = new THREE.CanvasTexture(c);
-  _clothTex.wrapS = _clothTex.wrapT = THREE.RepeatWrapping;
-  _clothTex.repeat.set(4, 6);
-  return _clothTex;
+  const texture = new THREE.CanvasTexture(c);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(style === 1 ? 2 : 4, 6);
+  texture.anisotropy = 2;
+  _clothTextures[style] = texture;
+  return texture;
 }
 
 export function makePerson(tint = 1) {
   const g = new THREE.Group();
   const dim = (c) => new THREE.Color(c).multiplyScalar(tint);
-  const skin = new THREE.MeshStandardMaterial({ color: dim(pick(SKIN_TONES)), roughness: 0.9 });
-  const cloth = clothTexture();
+  const skin = new THREE.MeshStandardMaterial({ color: dim(pick(SKIN_TONES)), roughness: rand(0.72, 0.86) });
+  const cloth = clothTexture(Math.floor(rand(0, 3)));
   const shirt = new THREE.MeshStandardMaterial({
     color: dim(pick(SHIRT)), roughness: 0.88, map: cloth, bumpMap: cloth, bumpScale: 0.003,
   });
@@ -111,21 +130,28 @@ export function makePerson(tint = 1) {
   const headG = new THREE.Group();
   headG.position.y = 1.22;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 16), skin);
-  head.scale.set(0.95, 1.05, 0.98);
+  head.scale.set(rand(0.9, 1.02), rand(1.0, 1.1), rand(0.94, 1.02));
   head.castShadow = true;
   headG.add(head);
 
   // Proper eye whites, irises, a nose and a restrained mouth keep faces
   // readable at café distance without the toy-like dot-eye look.
   parts.eyes = [];
+  const irisMat = new THREE.MeshStandardMaterial({
+    color: pick([0x33251b, 0x4d3825, 0x52614b, 0x40586a, 0x241d18]),
+    roughness: 0.25,
+  });
   for (const s of [-1, 1]) {
     const white = new THREE.Mesh(new THREE.SphereGeometry(0.0145, 10, 8), EYE_WHITE_MAT);
     white.scale.y = 0.62;
     white.position.set(s * 0.041, 0.018, 0.105);
     headG.add(white);
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.0065, 8, 6), EYE_MAT);
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.0075, 8, 6), irisMat);
     iris.position.set(s * 0.041, 0.018, 0.116);
     headG.add(iris);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.0032, 7, 5), EYE_MAT);
+    pupil.position.set(s * 0.041, 0.018, 0.122);
+    headG.add(pupil);
     parts.eyes.push({ white, iris });
 
     const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.003, 0.026, 2, 6), hair);
@@ -134,7 +160,7 @@ export function makePerson(tint = 1) {
     headG.add(brow);
   }
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), skin);
-  nose.scale.set(0.65, 1.05, 1.2);
+  nose.scale.set(rand(0.55, 0.75), rand(0.9, 1.15), rand(1.05, 1.35));
   nose.position.set(0, -0.005, 0.117);
   headG.add(nose);
   const mouth = new THREE.Mesh(
@@ -208,6 +234,39 @@ export function makePerson(tint = 1) {
     g.add(collar);
   }
 
+  // Small, silhouette-safe wardrobe details create variety without adding
+  // expensive textures or making every customer look like the same capsule.
+  const outfitDetail = Math.random();
+  if (outfitDetail < 0.24) {
+    const jacketMat = new THREE.MeshStandardMaterial({
+      color: dim(pick([0x35434b, 0x665044, 0x465442, 0x51445c, 0x7a6452])),
+      roughness: 0.9,
+      map: clothTexture(2),
+    });
+    for (const side of [-1, 1]) {
+      const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.075 * build, 0.27, 0.018), jacketMat);
+      lapel.position.set(side * 0.07 * build, 0.87, 0.137);
+      lapel.rotation.z = side * 0.16;
+      lapel.castShadow = true;
+      g.add(lapel);
+    }
+  } else if (outfitDetail < 0.4) {
+    const scarfMat = new THREE.MeshStandardMaterial({
+      color: dim(pick([0x9b594b, 0x446271, 0x8b794d, 0x6d4968])), roughness: 1,
+    });
+    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.105 * build, 0.022, 7, 20), scarfMat);
+    scarf.rotation.x = Math.PI / 2;
+    scarf.position.set(0, 1.075, 0.005);
+    g.add(scarf);
+  } else if (outfitDetail < 0.54) {
+    const buttonMat = new THREE.MeshStandardMaterial({ color: 0x302a25, roughness: 0.5 });
+    for (let i = 0; i < 3; i++) {
+      const button = new THREE.Mesh(new THREE.SphereGeometry(0.009, 7, 5), buttonMat);
+      button.position.set(0, 0.94 - i * 0.09, 0.145);
+      g.add(button);
+    }
+  }
+
   g.add(headG);
   parts.head = headG;
 
@@ -276,6 +335,13 @@ function personBlobTexture() {
   g.fillRect(0, 0, 64, 64);
   _blobTex = new THREE.CanvasTexture(c);
   return _blobTex;
+}
+
+// Keep the soft contact shadow planted while the root rises and falls with a
+// gait cycle or moves down into a seated pose.
+function setGroundedY(root, y, blob) {
+  root.position.y = y;
+  if (blob) blob.position.y = (0.015 - y) / Math.max(0.001, root.scale.y);
 }
 
 // ---------- skinned avatar: downloaded rigged character ----------
@@ -656,6 +722,13 @@ class NPC {
     this.pathI = 0;
     this.walkPhase = rand(0, 10);
     this.speed = rand(0.72, 1.05);
+    this.currentSpeed = 0;
+    this.velocity = new THREE.Vector3();
+    this.walkDir = new THREE.Vector3(0, 0, 1);
+    this.avoidanceSide = 1; // shared keep-right convention for head-on passes
+    this.personalSpace = rand(0.44, 0.56);
+    this.strideScale = rand(0.9, 1.08);
+    this.turnRate = rand(6.2, 8.4);
     this.sitDuration = rand(40, 150);
     this.orderTime = rand(3.5, 7);
     this.sitY = -0.10;
@@ -686,10 +759,14 @@ class NPC {
     this.pathI = 1;
   }
 
+  _setRootY(y) {
+    setGroundedY(this.mesh, y, this.avatar?.blob ?? this.mesh.userData.parts?.blob);
+  }
+
   _setPose(sitting) {
     if (this.avatar) {
       this.avatar.sitting = sitting;
-      this.mesh.position.y = sitting ? this.sitY : 0;
+      this._setRootY(sitting ? this.sitY : 0);
       if (sitting) {
         if (this.avatar.hasSitClip) this.avatar.setMode('sit');
         else this.avatar.setMode('idle', 0.5);
@@ -701,11 +778,12 @@ class NPC {
       // thighs forward, shins folded back down toward the floor
       p.legL.rotation.x = p.legR.rotation.x = -1.25;
       p.kneeL.rotation.x = p.kneeR.rotation.x = 1.45;
-      this.mesh.position.y = this.sitY;
+      this._setRootY(this.sitY);
     } else {
       p.legL.rotation.x = p.legR.rotation.x = 0;
       p.kneeL.rotation.x = p.kneeR.rotation.x = 0;
-      this.mesh.position.y = 0;
+      p.torso.rotation.x = 0;
+      this._setRootY(0);
     }
   }
 
@@ -843,7 +921,9 @@ class NPC {
     this.greetT = rand(2, 5); // nobody near; check again soon
   }
 
-  // gentle steering away from other walkers
+  // Soft personal-space steering plus an earlier sidestep for oncoming
+  // walkers. A stable preferred side avoids the left-right indecision common
+  // to simple collision repulsion.
   _separation(dir) {
     const pos = this.mesh.position;
     for (const other of this.sim.npcs) {
@@ -851,10 +931,28 @@ class NPC {
       const dx = pos.x - other.mesh.position.x;
       const dz = pos.z - other.mesh.position.z;
       const d2 = dx * dx + dz * dz;
-      if (d2 < 0.45 && d2 > 0.0001) {
+      const radius = (this.personalSpace + (other.personalSpace ?? 0.48)) * 0.62;
+      if (d2 < radius * radius && d2 > 0.0001) {
         const d = Math.sqrt(d2);
-        dir.x += (dx / d) * (0.45 - d) * 2.2;
-        dir.z += (dz / d) * (0.45 - d) * 2.2;
+        const k = (1 - d / radius) ** 2 * 2.6;
+        dir.x += (dx / d) * k;
+        dir.z += (dz / d) * k;
+      }
+
+      if (d2 < 1.7 && d2 > 0.06) {
+        const d = Math.sqrt(d2);
+        const toward = -(dir.x * dx + dir.z * dz) / d;
+        const otherToward = other.walkDir
+          ? (other.walkDir.x * dx + other.walkDir.z * dz) / d
+          : 0;
+        if (toward > 0.35 && otherToward > 0.15) {
+          const side = this.avoidanceSide;
+          const k = (1 - d / Math.sqrt(1.7)) * 0.42;
+          const px = dir.z;
+          const pz = -dir.x;
+          dir.x += px * side * k;
+          dir.z += pz * side * k;
+        }
       }
     }
     return dir;
@@ -870,27 +968,71 @@ class NPC {
     if (walking) {
       const target = this.path[this.pathI];
       const pos = this.mesh.position;
-      const dir = new THREE.Vector3(target.x - pos.x, 0, target.z - pos.z);
-      const dist = dir.length();
+      const dir = this.walkDir;
+      const dx = target.x - pos.x;
+      const dz = target.z - pos.z;
+      const dist = Math.hypot(dx, dz);
       if (dist < 0.07) {
+        pos.x = target.x;
+        pos.z = target.z;
         this.pathI++;
         if (this.pathI >= this.path.length) {
           this.path = null;
+          this.currentSpeed = 0;
+          this.velocity.set(0, 0, 0);
           this._arrived();
           return;
         }
       } else {
-        dir.normalize();
-        this._separation(dir).normalize();
-        pos.addScaledVector(dir, this.speed * dt);
-        const targetYaw = Math.atan2(dir.x, dir.z);
-        // turn smoothly instead of snapping
+        dir.set(dx / dist, 0, dz / dist);
+
+        // Start looking through a corner before reaching its exact waypoint.
+        // This preserves the safe corridor route but removes right-angle pivots.
+        if (this.pathI < this.path.length - 1 && dist < 0.58) {
+          const next = this.path[this.pathI + 1];
+          const ndx = next.x - target.x;
+          const ndz = next.z - target.z;
+          const nd = Math.hypot(ndx, ndz);
+          if (nd > 0.001) {
+            const blend = (1 - dist / 0.58) * 0.68;
+            dir.x = THREE.MathUtils.lerp(dir.x, ndx / nd, blend);
+            dir.z = THREE.MathUtils.lerp(dir.z, ndz / nd, blend);
+          }
+        }
+
+        this._separation(dir);
+        const steerLength = Math.hypot(dir.x, dir.z) || 1;
+        dir.x /= steerLength;
+        dir.z /= steerLength;
+
+        const finalSegment = this.pathI === this.path.length - 1;
+        const arrivalScale = finalSegment
+          ? Math.max(0.16, THREE.MathUtils.smoothstep(dist, 0.04, 0.68))
+          : 1;
+        const desiredSpeed = this.speed * arrivalScale;
+        const response = desiredSpeed > this.currentSpeed ? 3.4 : 6.2;
+        this.currentSpeed += (desiredSpeed - this.currentSpeed) * (1 - Math.exp(-response * dt));
+
+        // Velocity smoothing absorbs avoidance corrections instead of turning
+        // each neighbour update into a visible lateral twitch.
+        const velocityBlend = 1 - Math.exp(-5.2 * dt);
+        this.velocity.x += (dir.x * this.currentSpeed - this.velocity.x) * velocityBlend;
+        this.velocity.z += (dir.z * this.currentSpeed - this.velocity.z) * velocityBlend;
+        pos.x += this.velocity.x * dt;
+        pos.z += this.velocity.z * dt;
+        const actualSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+        if (actualSpeed > 0.025) {
+          this.walkDir.set(this.velocity.x / actualSpeed, 0, this.velocity.z / actualSpeed);
+        }
+
+        const targetYaw = Math.atan2(this.walkDir.x, this.walkDir.z);
         let dy = targetYaw - this.mesh.rotation.y;
         while (dy > Math.PI) dy -= Math.PI * 2;
         while (dy < -Math.PI) dy += Math.PI * 2;
-        this.mesh.rotation.y += dy * Math.min(1, dt * 10);
+        this.mesh.rotation.y += dy * (1 - Math.exp(-this.turnRate * dt));
       }
-      this.walkPhase += dt * 7 * this.speed;
+      const speedRatio = THREE.MathUtils.clamp(this.currentSpeed / Math.max(0.01, this.speed), 0, 1);
+      this.walkPhase += dt * 6.7 * this.currentSpeed * this.strideScale;
       // passing greeting: when two people cross paths, one waves hello
       this.greetT -= dt;
       if (this.greeting > 0) this.greeting -= dt;
@@ -898,24 +1040,33 @@ class NPC {
       const greetingNow = this.greeting > 0;
       if (this.avatar) {
         this.avatar.sitting = false;
-        this.avatar.setMode(greetingNow && this.avatar.hasWave ? 'wave' : 'walk', this.speed * 1.25);
-        this.mesh.position.y = 0;
+        this.avatar.setMode(
+          greetingNow && this.avatar.hasWave ? 'wave' : 'walk',
+          Math.max(0.45, this.currentSpeed * 1.25)
+        );
+        this._setRootY(0);
       } else {
         const s = Math.sin(this.walkPhase);
-        p.legL.rotation.x = s * 0.55;
-        p.legR.rotation.x = -s * 0.55;
-        p.kneeL.rotation.x = Math.max(0, -s) * 0.8;
-        p.kneeR.rotation.x = Math.max(0, s) * 0.8;
+        const stride = 0.5 * this.strideScale * speedRatio;
+        p.legL.rotation.x = s * stride;
+        p.legR.rotation.x = -s * stride;
+        p.kneeL.rotation.x = Math.max(0, -s) * 0.72 * speedRatio;
+        p.kneeR.rotation.x = Math.max(0, s) * 0.72 * speedRatio;
         // procedural: raise the free hand in a wave during a greeting
         if (greetingNow && !p.cup.visible) {
           p.armR.rotation.x = -2.4;
           p.armR.rotation.z = Math.sin(this.greeting * 12) * 0.3;
         } else {
           p.armR.rotation.z = 0;
-          p.armR.rotation.x = p.cup.visible ? -0.9 : s * 0.4;
+          p.armR.rotation.x = p.cup.visible ? -0.9 : s * 0.34 * speedRatio;
         }
-        p.armL.rotation.x = -s * 0.4;
-        this.mesh.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.03;
+        p.armL.rotation.x = -s * 0.34 * speedRatio;
+        // Human centre-of-mass motion is subtle and peaks twice per stride.
+        // Counter-rotation keeps the upper body balanced above planted feet.
+        p.torso.rotation.x = 0.035 * speedRatio;
+        p.torso.rotation.z = -s * 0.025 * speedRatio;
+        const bob = (0.5 - 0.5 * Math.cos(this.walkPhase * 2)) * 0.014 * speedRatio;
+        this._setRootY(bob);
       }
       // audible footsteps when they're near the listener
       const stepNow = Math.floor(this.walkPhase / Math.PI);
@@ -949,7 +1100,7 @@ class NPC {
       this._setPose(false);
       this.mesh.rotation.y = Math.PI; // face the counter
       // idle shifting weight
-      this.mesh.position.y = 0;
+      this._setRootY(0);
       p.torso.rotation.z = Math.sin(t * 0.9 + this.walkPhase) * 0.03;
       // half of them kill queue time on their phone
       if (this.checksPhone === undefined) this.checksPhone = Math.random() < 0.5;
@@ -1237,6 +1388,7 @@ class Barista {
     this.mesh.position.copy(this.home);
     this.phase = rand(0, 10);
     this.target = this.home.clone();
+    this.velocityX = 0;
     this.espressoPlayed = false;
     sim.cafe.group.add(this.mesh);
   }
@@ -1251,19 +1403,39 @@ class Barista {
     else if (Math.random() < 0.002) this.target.set(this.home.x + rand(-1.7, 1.7), 0, this.home.z);
 
     const dx = this.target.x - this.mesh.position.x;
-    if (Math.abs(dx) > 0.06) {
-      this.mesh.position.x += Math.sign(dx) * Math.min(Math.abs(dx), dt * 1.0);
-      this.phase += dt * 6;
+    const moving = Math.abs(dx) > 0.06 || Math.abs(this.velocityX) > 0.025;
+    if (moving) {
+      const desired = Math.abs(dx) > 0.06
+        ? Math.sign(dx) * Math.max(0.16, THREE.MathUtils.smoothstep(Math.abs(dx), 0.03, 0.55))
+        : 0;
+      const response = Math.abs(desired) > Math.abs(this.velocityX) ? 3.8 : 7;
+      this.velocityX += (desired - this.velocityX) * (1 - Math.exp(-response * dt));
+      const step = this.velocityX * dt;
+      if (Math.sign(step) === Math.sign(dx) && Math.abs(step) >= Math.abs(dx)) {
+        this.mesh.position.x = this.target.x;
+        this.velocityX = 0;
+      } else {
+        this.mesh.position.x += step;
+      }
+      const motion = Math.abs(this.velocityX);
+      this.phase += dt * 6.2 * motion;
       if (this.avatar) {
-        this.avatar.setMode('walk', 1.1);
+        this.avatar.setMode('walk', Math.max(0.5, motion * 1.1));
       } else {
         const s = Math.sin(this.phase);
-        p.legL.rotation.x = s * 0.4;
-        p.legR.rotation.x = -s * 0.4;
-        p.kneeL.rotation.x = Math.max(0, -s) * 0.6;
-        p.kneeR.rotation.x = Math.max(0, s) * 0.6;
+        p.legL.rotation.x = s * 0.4 * motion;
+        p.legR.rotation.x = -s * 0.4 * motion;
+        p.kneeL.rotation.x = Math.max(0, -s) * 0.6 * motion;
+        p.kneeR.rotation.x = Math.max(0, s) * 0.6 * motion;
+        p.torso.rotation.z = -s * 0.02 * motion;
+        const bob = (0.5 - 0.5 * Math.cos(this.phase * 2)) * 0.012 * motion;
+        setGroundedY(this.mesh, bob, p.blob);
       }
-      this.mesh.rotation.y = dx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      const targetYaw = this.velocityX >= 0 ? Math.PI / 2 : -Math.PI / 2;
+      let turn = targetYaw - this.mesh.rotation.y;
+      while (turn > Math.PI) turn -= Math.PI * 2;
+      while (turn < -Math.PI) turn += Math.PI * 2;
+      this.mesh.rotation.y += turn * (1 - Math.exp(-8 * dt));
       this.espressoPlayed = false;
     } else if (this.avatar) {
       if (this.sim.brewFor) {
@@ -1292,6 +1464,8 @@ class Barista {
     } else {
       p.legL.rotation.x = p.legR.rotation.x = 0;
       p.kneeL.rotation.x = p.kneeR.rotation.x = 0;
+      p.torso.rotation.z = 0;
+      setGroundedY(this.mesh, 0, p.blob);
       if (this.sim.brewFor) {
         // working the machine, back half-turned
         this.mesh.rotation.y = Math.PI;
@@ -1415,13 +1589,16 @@ class OutsideLife {
       }
       const p = w.mesh.userData.parts;
       const s = Math.sin(w.phase);
-      p.legL.rotation.x = s * 0.55;
-      p.legR.rotation.x = -s * 0.55;
-      p.kneeL.rotation.x = Math.max(0, -s) * 0.8;
-      p.kneeR.rotation.x = Math.max(0, s) * 0.8;
-      p.armL.rotation.x = -s * 0.35;
-      p.armR.rotation.x = s * 0.35;
-      w.mesh.position.set(w.x, Math.abs(s) * 0.03, w.z);
+      const stride = THREE.MathUtils.clamp(w.speed / 1.2, 0.72, 1.08);
+      p.legL.rotation.x = s * 0.5 * stride;
+      p.legR.rotation.x = -s * 0.5 * stride;
+      p.kneeL.rotation.x = Math.max(0, -s) * 0.72 * stride;
+      p.kneeR.rotation.x = Math.max(0, s) * 0.72 * stride;
+      p.armL.rotation.x = -s * 0.32 * stride;
+      p.armR.rotation.x = s * 0.32 * stride;
+      p.torso.rotation.z = -s * 0.02;
+      const bob = (0.5 - 0.5 * Math.cos(w.phase * 2)) * 0.012;
+      w.mesh.position.set(w.x, bob, w.z);
     }
   }
 
