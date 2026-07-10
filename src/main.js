@@ -5,11 +5,11 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { CafeAudio } from './audio.js';
-import { loadModelLibrary } from './modelLoader.js';
-import { loadMaterialLibrary } from './materialLoader.js';
+import { loadModelLibrary, cloneModel } from './modelLoader.js';
 
 // ---------- renderer / scene ----------
 
@@ -62,6 +62,27 @@ const bloomPass = new UnrealBloomPass(
 );
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
+
+// A gentle vignette and static dither add depth without temporal grain.
+// Animating random grain every frame reads as full-screen flicker.
+const grainPass = new ShaderPass({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 d = vUv - 0.5;
+      float vig = 1.0 - dot(d, d) * 0.55;          // gentle corner falloff
+      float g = (hash(vUv * vec2(1920.0, 1080.0)) - 0.5) * 0.012;
+      gl_FragColor = vec4(c.rgb * vig + g, c.a);
+    }`,
+});
+composer.addPass(grainPass);
 
 const audio = new CafeAudio();
 
@@ -159,12 +180,22 @@ function defaultSeat() {
 // ---------- scene switching ----------
 
 let loadToken = 0;
+let variantOn = false;
+let lastModels = null;
+let playerCup = null;
+let orderPending = false;
+function activeTheme(index = currentThemeIndex) {
+  const base = THEMES[index];
+  return variantOn && base.variant ? { ...base, ...base.variant } : base;
+}
 async function loadTheme(index) {
   currentThemeIndex = index;
-  const theme = THEMES[index];
+  const theme = activeTheme(index);
   const token = ++loadToken;
-  const [models, materials] = await Promise.all([loadModelLibrary(), loadMaterialLibrary()]);
+  const models = await loadModelLibrary();
   if (token !== loadToken) return; // a newer switch superseded this one
+  lastModels = models;
+  playerCup = null; // the old room takes the old cup with it
 
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -173,7 +204,7 @@ async function loadTheme(index) {
     cafe = null;
   }
 
-  cafe = buildCafe(theme, models, materials);
+  cafe = buildCafe(theme, models);
   scene.add(cafe.group);
   cafe.group.add(ring);
 
@@ -197,7 +228,50 @@ async function loadTheme(index) {
     b.classList.toggle('active', i === index);
   });
   document.getElementById('blurb').textContent = theme.blurb;
+  const vb = document.getElementById('variant-btn');
+  if (vb) {
+    const base = THEMES[index];
+    vb.textContent = '☀ ' + (variantOn && base.variant ? base.variant.name : base.varName ?? 'now');
+  }
 }
+
+document.getElementById('variant-btn')?.addEventListener('click', () => {
+  variantOn = !variantOn;
+  loadTheme(currentThemeIndex);
+});
+
+// order a drink: the barista actually makes it, then it lands on your table
+document.getElementById('order-btn')?.addEventListener('click', () => {
+  if (!crowd || !cafe) return;
+  if (seatIndex < 0) { toast('find a seat first — click any free chair'); return; }
+  if (orderPending) { toast('your drink is already on its way ☕'); return; }
+  if (playerCup) { cafe.group.remove(playerCup); playerCup = null; }
+  const ok = crowd.orderDrink(() => {
+    orderPending = false;
+    if (seatIndex < 0 || !cafe) return; // stood up meanwhile
+    const seat = cafe.seats[seatIndex];
+    const cup = cloneModel(lastModels, Math.random() < 0.5 ? 'latte' : 'mug');
+    if (!cup) return;
+    // set it down between you and the middle of the table
+    const tc = seat.tableCenter;
+    const topY = seat.pos.y > 0.05 ? 1.03 : (seat.tableTopY ?? 0.81);
+    cup.position.set(
+      tc.x + (seat.pos.x - tc.x) * 0.45,
+      topY,
+      tc.z + (seat.pos.z - tc.z) * 0.45
+    );
+    cafe.group.add(cup);
+    playerCup = cup;
+    toast('order up — enjoy ☕');
+  });
+  if (ok) {
+    orderPending = true;
+    toast('coming right up…');
+    setTimeout(() => { orderPending = false; }, 20000); // safety net
+  } else {
+    toast('the barista has their hands full — one moment');
+  }
+});
 
 // ---------- walk mode ----------
 
@@ -320,7 +394,7 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
 
-document.querySelectorAll('.loc-btn').forEach((b, i) => {
+document.querySelectorAll('.loc-btn:not(#variant-btn)').forEach((b, i) => {
   b.addEventListener('click', () => {
     if (i !== currentThemeIndex) loadTheme(i);
   });
@@ -384,7 +458,7 @@ renderTimer();
 const overlay = document.getElementById('overlay');
 document.getElementById('enter-btn').addEventListener('click', () => {
   overlay.classList.add('hidden');
-  audio.start(THEMES[currentThemeIndex]);
+  audio.start(activeTheme());
   audio.setMusicOn(musicToggle.classList.contains('on'));
 });
 
@@ -408,13 +482,13 @@ function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2)
 
 function frame() {
   requestAnimationFrame(frame);
-  const rawDt = Math.min(clock.getDelta(), 1.0); // real time, survives slow frames
+  const rawDt = Math.min(clock.getDelta(), 3.0); // real time, survives slow frames
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
 
   // the life of the room runs on real time in fixed substeps, so a slow
   // renderer or a throttled tab never turns the crowd into a wax museum
-  simAcc = Math.min(simAcc + rawDt, 1.0);
+  simAcc = Math.min(simAcc + rawDt, 3.0);
   while (simAcc >= SIM_STEP) {
     simAcc -= SIM_STEP;
     if (cafe) cafe.animate(SIM_STEP);
@@ -491,6 +565,13 @@ function frame() {
     }
   } else {
     ring.visible = false;
+  }
+
+  // focus mode gently dims the room; break/idle brings the light back
+  {
+    const baseExp = activeTheme().exposure;
+    const targetExp = timerRunning && !timerBreak ? baseExp * 0.84 : baseExp;
+    renderer.toneMappingExposure += (targetExp - renderer.toneMappingExposure) * Math.min(1, dt * 1.5);
   }
 
   // focus timer

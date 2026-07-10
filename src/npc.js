@@ -336,7 +336,7 @@ class SkinnedAvatar {
     this.actions = {
       idle: mk(find('idle')),
       walk: mk(find('walk')),
-      work: mk(find('working', 'interact-right', 'pick-up', 'interact')),
+      work: mk(find('working', 'interact-right', 'pick-up', 'pickup', 'interact')),
       wave: mk(find('wave', 'emote-yes', 'interact')),
       sit: mk(sitClip),
     };
@@ -474,7 +474,7 @@ function routeBetween(a, b, corridorX) {
 }
 
 // seated activities and their props
-const ACTIVITIES = ['laptop', 'book', 'phone', 'none', 'laptop', 'book'];
+const ACTIVITIES = ['laptop', 'book', 'phone', 'none', 'laptop', 'book', 'sketch'];
 
 function makeLaptop() {
   const g = new THREE.Group();
@@ -518,6 +518,102 @@ function makePhone() {
     new THREE.BoxGeometry(0.045, 0.09, 0.008),
     new THREE.MeshStandardMaterial({ color: 0x1c1e22, roughness: 0.3, emissive: 0x6a7c96, emissiveIntensity: 0.7 })
   );
+}
+
+function makeSketchpad() {
+  const g = new THREE.Group();
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.008, 0.18),
+    new THREE.MeshStandardMaterial({ color: 0xf2ecd8, roughness: 0.95 }));
+  g.add(pad);
+  // a half-finished drawing
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 48;
+  const cg = c.getContext('2d');
+  cg.fillStyle = '#f2ecd8'; cg.fillRect(0, 0, 64, 48);
+  cg.strokeStyle = '#6a625250'; cg.lineWidth = 1.4;
+  cg.beginPath();
+  cg.moveTo(10, 36);
+  for (let x = 10; x < 54; x += 4) cg.lineTo(x, 36 - Math.random() * 22);
+  cg.stroke();
+  cg.beginPath(); cg.arc(40, 18, 8, 0, 7); cg.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.16),
+    new THREE.MeshBasicMaterial({ map: tex }));
+  sheet.rotation.x = -Math.PI / 2;
+  sheet.position.y = 0.006;
+  g.add(sheet);
+  const pencil = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.11, 6),
+    new THREE.MeshStandardMaterial({ color: 0xc9a03a, roughness: 0.7 }));
+  pencil.rotation.z = Math.PI / 2.3;
+  pencil.position.set(0.09, 0.012, 0.05);
+  g.add(pencil);
+  return g;
+}
+
+function makeBoardGame() {
+  const g = new THREE.Group();
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const cg = c.getContext('2d');
+  for (let y = 0; y < 8; y++)
+    for (let x = 0; x < 8; x++) {
+      cg.fillStyle = (x + y) % 2 ? '#5c4630' : '#e2d4b4';
+      cg.fillRect(x * 8, y * 8, 8, 8);
+    }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.014, 0.36),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }));
+  g.add(board);
+  // a mid-game scatter of pieces
+  for (let i = 0; i < 12; i++) {
+    const piece = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.02, 0.035, 8),
+      new THREE.MeshStandardMaterial({ color: i % 2 ? 0x2a2118 : 0xe8e0cc, roughness: 0.6 }));
+    piece.position.set(rand(-0.15, 0.15), 0.025, rand(-0.15, 0.15));
+    g.add(piece);
+  }
+  return g;
+}
+
+function makeDog() {
+  const g = new THREE.Group();
+  const fur = new THREE.MeshStandardMaterial({ color: pick([0x8a6a44, 0x4a3a2c, 0xc9b490, 0x2c2c2c]), roughness: 1 });
+  // lying down: body low, head resting forward on the paws
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.28, 4, 8), fur);
+  body.rotation.z = Math.PI / 2;
+  body.position.y = 0.12;
+  body.castShadow = true;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), fur);
+  head.scale.set(1.15, 0.9, 0.9);
+  head.position.set(0.26, 0.1, 0);
+  head.castShadow = true;
+  g.add(head);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.06), fur);
+  snout.position.set(0.36, 0.07, 0);
+  g.add(snout);
+  const noseMat = new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 0.4 });
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 5), noseMat);
+  nose.position.set(0.41, 0.08, 0);
+  g.add(nose);
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.07, 0.03), fur);
+    ear.position.set(0.24, 0.17, s * 0.07);
+    ear.rotation.x = s * 0.35;
+    g.add(ear);
+    // front paws stretched out
+    const paw = new THREE.Mesh(new THREE.CapsuleGeometry(0.028, 0.14, 3, 6), fur);
+    paw.rotation.z = Math.PI / 2;
+    paw.position.set(0.28, 0.035, s * 0.06);
+    g.add(paw);
+  }
+  const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.02, 0.16, 3, 6), fur);
+  tail.rotation.z = Math.PI / 2.6;
+  tail.position.set(-0.24, 0.08, 0.05);
+  g.add(tail);
+  g.userData.tail = tail;
+  return g;
 }
 
 // vertical mesh offset while seated: bar stools (elevated seat.pos) need the
@@ -673,6 +769,29 @@ class NPC {
         this.mesh.userData.parts.armR.add(phone);
       }
       this.props.push(phone);
+    } else if (this.activity === 'sketch') {
+      const pad = makeSketchpad();
+      const d = toTable.length();
+      const edge = Math.max(0.25, d - 0.45);
+      const surfaceY = seat.pos.y > 0.05 ? 1.04 : 0.82;
+      pad.position.set(
+        seat.pos.x + (toTable.x / d) * edge,
+        surfaceY,
+        seat.pos.z + (toTable.z / d) * edge
+      );
+      pad.rotation.y = yaw + rand(-0.4, 0.4);
+      this.sim.cafe.group.add(pad);
+      this.props.push(pad);
+    }
+    // some regulars bring a sleepy dog that settles beside the chair
+    if (this.activity !== 'chat' && seat.pos.y < 0.05 && Math.random() < 0.14) {
+      const dog = makeDog();
+      const perp = new THREE.Vector3(toTable.z, 0, -toTable.x).normalize();
+      dog.position.copy(seat.pos).addScaledVector(perp, 0.62);
+      dog.position.y = 0;
+      dog.rotation.y = rand(0, Math.PI * 2);
+      this.sim.cafe.group.add(dog);
+      this.props.push(dog);
     }
   }
 
@@ -854,7 +973,7 @@ class NPC {
       p.armL.rotation.x = Math.sin(t * 1.6 + this.walkPhase) * 0.12;
       p.armR.rotation.x = Math.sin(t * 1.3 + this.walkPhase) * 0.12;
       p.head.rotation.y = Math.sin(t * 0.8) * 0.1;
-      if (this.stateT > this.orderTime) {
+      if (this.stateT > this.orderTime && !this.sim.brewFor) {
         if (this.sim.audio?.started) this.sim.audio.playRegister();
         this.sim.dequeue(this);
         this.sim.ordering = null;
@@ -930,6 +1049,13 @@ class NPC {
           p.armL.rotation.x = -0.4;
           p.head.rotation.x = 0.3;
           p.head.rotation.y = 0.1;
+        } else if (this.activity === 'sketch') {
+          // bent over the pad, drawing hand moving in little strokes
+          p.armR.rotation.x = -0.95 + Math.sin(t * 3.1 + this.walkPhase) * 0.08;
+          p.armR.rotation.z = Math.sin(t * 1.7) * 0.06;
+          p.armL.rotation.x = -0.55;
+          p.head.rotation.x = 0.34;
+          p.head.rotation.y = Math.sin(t * 0.15) * 0.05;
         } else {
           // people-watching, sipping
           p.head.rotation.x = Math.sin(t * 0.5 + this.walkPhase * 2) * 0.06;
@@ -1000,7 +1126,7 @@ class NPC {
       av.headPitch = 0;
       this.mesh.rotation.y = Math.PI;
       av.headYawTarget = Math.sin(t * 0.8) * 0.12;
-      if (this.stateT > this.orderTime) {
+      if (this.stateT > this.orderTime && !this.sim.brewFor) {
         if (this.sim.audio?.started) this.sim.audio.playRegister();
         this.sim.dequeue(this);
         this.sim.ordering = null;
@@ -1040,7 +1166,7 @@ class NPC {
         const look = seat.tableCenter;
         const yaw = Math.atan2(look.x - seat.pos.x, look.z - seat.pos.z);
         this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
-        if (this.activity === 'laptop' || this.activity === 'book' || this.activity === 'phone') {
+        if (this.activity === 'laptop' || this.activity === 'book' || this.activity === 'phone' || this.activity === 'sketch') {
           av.headPitch = 0.28;
           av.headYawTarget = Math.sin(t * 0.2 + this.walkPhase) * 0.08;
         } else {
@@ -1146,7 +1272,11 @@ class Barista {
         this.avatar.setMode('work');
         if (!this.espressoPlayed) {
           this.espressoPlayed = true;
-          if (this.sim.audio?.started) this.sim.audio.playEspresso();
+          if (this.sim.audio?.started) {
+            const a = this.sim.audio;
+            a.playGrinder(this.sim.cafe.nav.machineWorld);
+            a._timer(() => a.playEspresso(), 2300);
+          }
         }
       } else if (this.sim.ordering) {
         this.mesh.rotation.y = 0;
@@ -1169,7 +1299,11 @@ class Barista {
         p.armR.rotation.x = -0.7 + Math.cos(t * 2.7) * 0.25;
         if (!this.espressoPlayed) {
           this.espressoPlayed = true;
-          if (this.sim.audio?.started) this.sim.audio.playEspresso();
+          if (this.sim.audio?.started) {
+            const a = this.sim.audio;
+            a.playGrinder(this.sim.cafe.nav.machineWorld);
+            a._timer(() => a.playEspresso(), 2300);
+          }
         }
       } else if (this.sim.ordering) {
         // face the customer, take the order
@@ -1378,6 +1512,28 @@ export class CrowdSim {
     members[0].partner = members[1];
     members[1].partner = members[0];
     members[0].pairLead = true;
+    // some pairs are here for a long game, not just the coffee
+    if (Math.random() < 0.3) {
+      const seatA = this.cafe.seats[pair[0]];
+      const board = makeBoardGame();
+      board.position.set(seatA.tableCenter.x, (seatA.tableTopY ?? 0.81) + 0.008, seatA.tableCenter.z);
+      board.rotation.y = rand(0, Math.PI * 2);
+      this.cafe.group.add(board);
+      members[0].props.push(board);
+      members[0].sitDuration = members[1].sitDuration = rand(150, 300);
+    }
+  }
+
+  // the player orders a drink: the barista brews it for real, then `done`
+  // fires so the UI can put a cup on their table
+  orderDrink(done) {
+    if (this.brewFor) return false; // barista's hands are full
+    if (this.audio?.started) this.audio.playRegister();
+    this.brewFor = 'player';
+    this.brewT = 0;
+    this.brewDuration = 6 + Math.random() * 4;
+    this._playerOrderDone = done;
+    return true;
   }
 
   // position of slot i in the order queue (a line from the register toward the door)
@@ -1447,13 +1603,30 @@ export class CrowdSim {
     this.barista.update(dt, t);
     this.outside.update(dt);
 
+    // let the soundscape breathe with the actual room population
+    this.crowdPollT = (this.crowdPollT ?? 0) - dt;
+    if (this.crowdPollT <= 0 && this.audio?.started) {
+      this.crowdPollT = 1.5;
+      const social = this.npcs.filter((n) => n.state === 'sitting' || n.state === 'queueing' || n.state === 'ordering').length;
+      this.audio.setCrowdFactor(social / Math.max(1, this.maxCrowd * 0.8));
+    }
+
     // brewing timer
     if (this.brewFor) {
       this.brewT += dt;
       if (this.brewT > this.brewDuration) {
+        const wasPlayer = this.brewFor === 'player';
         this.brewFor = null;
-        // the drink gets its final pour as it's handed over
-        if (this.audio?.started) this.audio.playPour(this.cafe.nav.machineWorld);
+        // the drink gets its final pour and an "order up" ding as it's handed over
+        if (this.audio?.started) {
+          this.audio.playPour(this.cafe.nav.machineWorld);
+          if (wasPlayer || Math.random() < 0.6) this.audio.playOrderUp(this.cafe.nav.pickup);
+        }
+        if (wasPlayer && this._playerOrderDone) {
+          const cb = this._playerOrderDone;
+          this._playerOrderDone = null;
+          cb();
+        }
       }
     }
 

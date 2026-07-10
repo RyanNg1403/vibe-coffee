@@ -14,7 +14,7 @@ audible event should have a reason to be there.
 - Wood flooring, plaster and industrial painted concrete now use compact local CC0
   PBR diffuse, OpenGL normal and roughness maps rather than color noise alone.
 - Table decoration uses four curated vignettes rather than unrelated random props.
-- The three cafés now have distinct architectural treatments: timber display rail,
+- The four cafés now have distinct architectural treatments: timber display rail,
   tiled roastery service wall, and velvet acoustic panels.
 - Crowd level follows actual occupancy. Typing and page sounds come from NPCs doing
   those activities; phantom chair scrapes were removed.
@@ -66,7 +66,7 @@ between reloads.
 
 ## Next: expand the recorded music library
 
-The first seven studio recordings replace synthesis as the primary music source.
+The first ten credited recordings replace synthesis as the primary music source.
 Expand that foundation toward 8–12 mastered tracks per café:
 
 - Golden Hour: acoustic soul, gentle lo-fi, minimal piano, warm instrumental folk

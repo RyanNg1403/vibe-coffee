@@ -2,17 +2,20 @@
 // Attribution and license source URLs live in CREDITS.md.
 
 export const MUSIC_MANIFEST = {
+  goldenhour: [
+    { id: 'airport-lounge', title: "Airport Lounge", artist: "Kevin MacLeod", url: '/music/airport-lounge.ogg', duration: 70 },
+    { id: 'everything', title: "Everything You Ever Dreamed.", artist: "HoliznaCC0", url: '/music/everything.ogg', duration: 80 },
+    { id: 'warm-fuzz', title: "Warm Fuzz (LoFi, Retro)", artist: "HoliznaCC0", url: '/music/warm-fuzz.ogg', duration: 80 },
+  ],
   midnight: [
-    { id: 'beyond-piano', title: "Beyond (Piano Edit)", artist: "Pablo Perez", url: '/music/beyond-piano.mp3', duration: 266.1 },
-    { id: 'jazz-one', title: "1 (jazz)", artist: "HoliznaCC0", url: '/music/jazz-one.mp3', duration: 123 },
-    { id: 'jazz-two', title: "2 (jazz)", artist: "HoliznaCC0", url: '/music/jazz-two.mp3', duration: 164.1 },
+    { id: 'beyond-piano', title: "Beyond (Piano Edit)", artist: "Pablo Perez", url: '/music/beyond-piano.ogg', duration: 80 },
+    { id: 'jazz-one', title: "1 (jazz)", artist: "HoliznaCC0", url: '/music/jazz-one.ogg', duration: 80 },
+    { id: 'jazz-two', title: "2 (jazz)", artist: "HoliznaCC0", url: '/music/jazz-two.ogg', duration: 80 },
+    { id: 'lobby-time', title: "Lobby Time", artist: "Kevin MacLeod", url: '/music/lobby-time.ogg', duration: 70 },
   ],
   roastery: [
-    { id: 'busted-jazz', title: "Busted Jazz", artist: "HoliznaCC0", url: '/music/busted-jazz.mp3', duration: 149.3 },
-    { id: 'cellar-door', title: "Cellar Door", artist: "HoliznaCC0", url: '/music/cellar-door.mp3', duration: 132.4 },
-  ],
-  goldenhour: [
-    { id: 'everything', title: "Everything You Ever Dreamed.", artist: "HoliznaCC0", url: '/music/everything.mp3', duration: 220.1 },
-    { id: 'warm-fuzz', title: "Warm Fuzz (LoFi, Retro)", artist: "HoliznaCC0", url: '/music/warm-fuzz.mp3', duration: 172.6 },
+    { id: 'bossa-antigua', title: "Bossa Antigua", artist: "Kevin MacLeod", url: '/music/bossa-antigua.ogg', duration: 70 },
+    { id: 'busted-jazz', title: "Busted Jazz", artist: "HoliznaCC0", url: '/music/busted-jazz.ogg', duration: 80 },
+    { id: 'cellar-door', title: "Cellar Door", artist: "HoliznaCC0", url: '/music/cellar-door.ogg', duration: 80 },
   ],
 };

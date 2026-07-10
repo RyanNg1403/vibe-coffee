@@ -157,6 +157,13 @@ const AMBIENCE_PROFILES = {
     room: { seconds: 1.85, decay: 3.1, wet: 0.46 },
     clinkMs: [9000, 26000], typeMs: [4000, 14000],
   },
+  terrace: {
+    // open air: conversation floats away, distant road, gravel underfoot
+    beds: { chatter: 0.35, chatter2: 0.2, chatter_busy: 0, chatter_quiet: 0.5 },
+    chatterRate: 0.98, chatterLP: 6000,
+    traffic: 0.18, murmur: 0.2, stepRate: 0.85, stepVol: 0.65,
+    clinkMs: [7000, 20000], typeMs: [2500, 9000],
+  },
 };
 
 export class CafeAudio {
@@ -378,7 +385,7 @@ export class CafeAudio {
     const p = this._profile();
     const t = this.ctx.currentTime;
     const beds = this.chatterBeds || {};
-    const voices = this.voicesLevel ?? 1;
+    const voices = (this.voicesLevel ?? 1) * (this.crowdFactor ?? 1);
     const occupancy = clamp(this.occupancy / Math.max(1, this.capacity), 0.08, 1);
     if (Object.keys(beds).length) {
       // desired mix, with weight falling back to the generic bed when a
@@ -397,6 +404,15 @@ export class CafeAudio {
       // synth-only fallback still gets scaled per café
       this.murmurGain?.gain.setTargetAtTime(Math.max(0.45, p.murmur * 2.4) * voices, t, 0.4);
     }
+  }
+
+  // the room's talk level follows the actual crowd: an emptying café gets
+  // noticeably quieter, a filling one livelier. ratio = social NPCs / capacity
+  setCrowdFactor(ratio) {
+    const f = 0.35 + Math.min(1, Math.max(0, ratio)) * 0.75; // 0.35 empty → 1.1 packed
+    if (Math.abs(f - (this.crowdFactor ?? 1)) < 0.03) return;
+    this.crowdFactor = f;
+    this._applyAmbienceProfile();
   }
 
   // ---------- listener / spatial ----------
@@ -497,6 +513,7 @@ export class CafeAudio {
     this.theme = theme;
     if (!this.ctx) return;
     if (theme?.rain) this._startRain(); else this._stopRain();
+    if (theme?.birds) this._startBirds(); else this._stopBirds();
     this._setTrafficMix();
     this._applyAmbienceProfile();
     const room = this._profile().room;
@@ -693,6 +710,45 @@ export class CafeAudio {
 
   // ---------- rain (layered) ----------
 
+  // birdsong for the terrace: short synth chirp phrases, panned around the trees
+  _startBirds() {
+    if (this.birdsOn) return;
+    this.birdsOn = true;
+    const chirp = () => {
+      if (!this.ctx || !this.birdsOn) return;
+      const t = this.ctx.currentTime;
+      const notes = Math.floor(rand(2, 6));
+      const base = rand(2400, 4200);
+      const pan = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+      const out = this.ctx.createGain();
+      out.gain.value = rand(0.35, 1);
+      if (pan) { pan.pan.value = rand(-0.95, 0.95); out.connect(pan).connect(this.ambienceBus); }
+      else out.connect(this.ambienceBus);
+      let d = 0;
+      for (let i = 0; i < notes; i++) {
+        const o = this.ctx.createOscillator();
+        o.type = 'sine';
+        const f = base * rand(0.9, 1.25);
+        o.frequency.setValueAtTime(f, t + d);
+        o.frequency.exponentialRampToValueAtTime(f * rand(0.75, 1.35), t + d + rand(0.04, 0.1));
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0, t + d);
+        g.gain.linearRampToValueAtTime(rand(0.006, 0.014), t + d + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d + rand(0.07, 0.16));
+        o.connect(g).connect(out);
+        o.start(t + d); o.stop(t + d + 0.2);
+        d += rand(0.08, 0.22);
+      }
+      this._birdTimer = this._timer(chirp, rand(900, 5200));
+    };
+    chirp();
+  }
+
+  _stopBirds() {
+    this.birdsOn = false;
+    if (this._birdTimer) { clearTimeout(this._birdTimer); this._birdTimer = null; }
+  }
+
   _startRain() {
     if (this.rainNodes) {
       this.rainNodes.master.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
@@ -760,12 +816,19 @@ export class CafeAudio {
     };
     drop();
 
-    // far-off thunder, rarely
+    // far-off thunder, rarely — the rain leans in just before the sky answers
     const thunder = () => {
       if (!this.ctx || !this.rainNodes) return;
       if (this.rainNodes.master.gain.value > 0.05 && Math.random() < 0.5) {
+        const t0 = this.ctx.currentTime;
+        master.gain.cancelScheduledValues(t0);
+        master.gain.setTargetAtTime(1.7, t0, 1.7);
+        master.gain.setTargetAtTime(1, t0 + 8, 2.8);
         if (this._buf('thunder')) {
-          this._playBuf('thunder', { out: master, vol: rand(0.4, 0.8), rate: rand(0.88, 1.04) });
+          this._playBuf('thunder', {
+            out: master, vol: rand(0.4, 0.8), rate: rand(0.88, 1.04),
+            when: t0 + rand(3, 4.5),
+          });
           this._timer(thunder, rand(35000, 120000));
           return;
         }
@@ -1102,6 +1165,83 @@ export class CafeAudio {
     this._playBuf('pour', { out, vol: 0.4, rate: rand(0.95, 1.05) });
   }
 
+  // coffee grinder: motor growl + beans rattling through the burrs
+  playGrinder(pos) {
+    if (!this.ctx) return;
+    const out = pos ? this._panner(pos.x, 1.1, pos.z) : this.ambienceBus;
+    const t = this.ctx.currentTime;
+    const dur = rand(1.4, 2.4);
+    const motor = this.ctx.createOscillator();
+    motor.type = 'sawtooth';
+    motor.frequency.setValueAtTime(82, t);
+    motor.frequency.linearRampToValueAtTime(rand(96, 110), t + 0.25);
+    motor.frequency.setValueAtTime(88, t + dur - 0.15);
+    const mg = this.ctx.createGain();
+    mg.gain.setValueAtTime(0, t);
+    mg.gain.linearRampToValueAtTime(0.016, t + 0.08);
+    mg.gain.setValueAtTime(0.016, t + dur - 0.12);
+    mg.gain.linearRampToValueAtTime(0, t + dur);
+    motor.connect(mg).connect(out);
+    motor.start(t); motor.stop(t + dur + 0.05);
+    const beans = this._noiseSource(this._noiseBuf);
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.7;
+    const bg = this.ctx.createGain();
+    bg.gain.setValueAtTime(0, t);
+    bg.gain.linearRampToValueAtTime(0.05, t + 0.12);
+    bg.gain.linearRampToValueAtTime(0.02, t + dur * 0.7); // hopper empties out
+    bg.gain.linearRampToValueAtTime(0, t + dur);
+    beans.connect(bp).connect(bg).connect(out);
+    beans.start(t); beans.stop(t + dur + 0.05);
+  }
+
+  // dishes being washed behind the counter: a couple of soft ceramic knocks
+  playDishes(pos) {
+    if (!this.ctx) return;
+    const out = pos ? this._panner(pos.x, 0.8, pos.z) : this.ambienceBus;
+    if (this._buf('cup_clinks')) {
+      this._playBuf('cup_clinks', {
+        out, vol: rand(0.25, 0.45), rate: rand(0.8, 0.92),
+        randomSlice: true, dur: rand(1.2, 2.4),
+      });
+      return;
+    }
+    let t = this.ctx.currentTime;
+    for (let k = 0; k < Math.floor(rand(2, 5)); k++) {
+      t += rand(0.1, 0.5);
+      const o = this.ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = rand(1400, 2600);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(rand(0.006, 0.015), t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      o.connect(g).connect(out);
+      o.start(t); o.stop(t + 0.12);
+    }
+  }
+
+  // "order up!" — a bright two-note counter bell when a drink is ready
+  playOrderUp(pos) {
+    if (!this.ctx) return;
+    const out = pos ? this._panner(pos.x, 1.2, pos.z) : this.ambienceBus;
+    const t = this.ctx.currentTime;
+    [[1560, 0], [2080, 0.16]].forEach(([f, d]) => {
+      const o = this.ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = f;
+      const o2 = this.ctx.createOscillator();
+      o2.type = 'sine'; o2.frequency.value = f * 2.7; // bell partial
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.02, t + d);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.7);
+      const g2 = this.ctx.createGain();
+      g2.gain.setValueAtTime(0.006, t + d);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.3);
+      o.connect(g).connect(out);
+      o2.connect(g2).connect(out);
+      o.start(t + d); o.stop(t + d + 0.75);
+      o2.start(t + d); o2.stop(t + d + 0.35);
+    });
+  }
+
   _typeBurst(pos) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;
@@ -1133,6 +1273,15 @@ export class CafeAudio {
       const [a, b] = this._profile().clinkMs;
       this._timer(clinks, rand(a, b));
     };
+    // somebody's always washing up behind the counter
+    const dishes = () => {
+      if (Math.random() < 0.7) {
+        const c = this.anchors?.counter;
+        this.playDishes(c ? { x: c.x + rand(-1.5, 1.5), z: c.z } : null);
+      }
+      this._timer(dishes, rand(24000, 70000));
+    };
+    this._timer(dishes, 15000);
     const typing = () => {
       if (this.typingSpots.length) this._typeBurst(pick(this.typingSpots));
       const [a, b] = this._profile().typeMs;

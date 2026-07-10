@@ -45,6 +45,7 @@ const NORMALIZE = {
   painting: { height: 0.6 },
   lantern: { height: 0.3 },
   plant_small: { height: 0.35 },
+  cat: { height: 0.32 },
 };
 // any key starting char_ is a rigged character
 function specFor(key) {

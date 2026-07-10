@@ -1,6 +1,6 @@
 # Asset credits
 
-## Sound effects and 3D models
+## Sound effects, 3D models, and surface textures
 
 The recorded sound and model assets come from the sources below. Audio may be
 trimmed and loudness-normalized for in-app playback. Missing sound assets retain
@@ -32,8 +32,11 @@ procedural WebAudio fallbacks.
 - **bookcase** — source metadata missing (see git history of tools/sound-credits.json)
 - **cake** — source metadata missing (see git history of tools/sound-credits.json)
 - **cakeSlice** — "Cake Birthday Slice" by Isa Lousberg — CC0 1.0 — [source](https://poly.pizza/m/YxYKsrZnwd)
+- **cat** — "Dingus the cat (a.k.a. Maxwell)" by alwayshasbean — CC BY 3.0 — [source](https://poly.pizza/m/4dXgbKLHD9)
 - **char_b** — "Animated Woman (idle/walk/run/interact/wave clips; unused clips stripped, keyframes resampled)" by Quaternius — CC0 / Public Domain — [source](https://poly.pizza/m/nIItLV9nxS)
 - **char_j** — "Man in Suit (rigged; Idle/Walk/Run/Sitting/Clapping clips)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/mQnGoME1ez)
+- **char_k** — "Animated Woman (Idle/Walking/SitIdle/PickUp clips; combat clips stripped)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/qJ2gsTUBHL)
+- **char_l** — "Man (casual; Idle/Walk/Sitting/Clapping clips)" by Quaternius — CC0 1.0 (Public Domain) — [source](https://poly.pizza/m/HMnuH5geEG)
 - **coat_rack** — "Coat Rack (Kenney Furniture Kit)" by Kenney — CC0 1.0 — [source](https://kenney.nl/assets/furniture-kit)
 - **cookie** — "Chocolate Chip Cookie" by Jarlan Perez — CC-BY — [source](https://poly.pizza/m/evU5g-OJDdr)
 - **croissant** — source metadata missing (see git history of tools/sound-credits.json)
@@ -59,25 +62,30 @@ procedural WebAudio fallbacks.
 - **teapot** — source metadata missing (see git history of tools/sound-credits.json)
 - **trashcan** — source metadata missing (see git history of tools/sound-credits.json)
 - **wall_shelf** — source metadata missing (see git history of tools/sound-credits.json)
+- **floor_conc.jpg** — "Concrete034" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Concrete034)
+- **floor_conc_n.jpg** — "Concrete034" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Concrete034)
+- **floor_dark.jpg** — "WoodFloor041" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=WoodFloor041)
+- **floor_dark_n.jpg** — "WoodFloor041" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=WoodFloor041)
+- **floor_wood.jpg** — "WoodFloor051" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=WoodFloor051)
+- **floor_wood_n.jpg** — "WoodFloor051" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=WoodFloor051)
+- **floor_wood_r.jpg** — "WoodFloor051" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=WoodFloor051)
+- **wall_plaster.jpg** — "Plaster001" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Plaster001)
+- **wall_plaster_n.jpg** — "Plaster001" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Plaster001)
+- **wood_dark.jpg** — "Wood067" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Wood067)
+- **wood_dark_n.jpg** — "Wood067" by ambientCG — CC0 — [source](https://ambientcg.com/view?id=Wood067)
 
 ## Recorded music
 
 The local playlist files are loudness-normalized transcodes of the credited
 source recordings. They stream on demand rather than being decoded into memory.
 
+- **Airport Lounge** by Kevin MacLeod — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
 - **Beyond (Piano Edit)** by Pablo Perez — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/pablo-perez/single/beyond-piano-edit/)
+- **Bossa Antigua** by Kevin MacLeod — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
 - **Busted Jazz** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/index.php/music/holiznacc0/lo-fi-and-chill/busted-jazz/)
 - **Cellar Door** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/cellar-door/)
 - **Everything You Ever Dreamed.** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/lo-fi-and-chill/everything-you-ever-dreamed)
 - **1 (jazz)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/1-jazz/)
 - **2 (jazz)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/busted-guitar-jazz/2-jazz/)
+- **Lobby Time** by Kevin MacLeod — CC BY 4.0 — [source](https://incompetech.com/music/royalty-free/)
 - **Warm Fuzz (LoFi, Retro)** by HoliznaCC0 — CC0 1.0 Universal — [source](https://freemusicarchive.org/music/holiznacc0/public-domain-lofi/warm-fuzz-lofi-retro/)
-
-## PBR materials
-
-The 1K diffuse, OpenGL normal and roughness maps below are local derivatives of
-the credited Poly Haven CC0 materials.
-
-- **Wood Floor** by Dimitrios Savva — CC0 1.0 — [source](https://polyhaven.com/a/wood_floor)
-- **White Plaster 02** by Rob Tuytel — CC0 1.0 — [source](https://polyhaven.com/a/white_plaster_02)
-- **Concrete Floor Painted** by Rob Tuytel — CC0 1.0 — [source](https://polyhaven.com/a/concrete_floor_painted)
