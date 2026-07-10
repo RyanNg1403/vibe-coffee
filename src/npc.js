@@ -541,6 +541,27 @@ class SkinnedAvatar {
         });
         sitClip = new THREE.AnimationClip('sit_hold', 0.5, tracks);
       }
+      // The authored clip walks up to a chair before sitting, so the armature
+      // root ('Body') and the IK foot/knee targets carry that walked distance
+      // in their position tracks. Left in, the frozen pose floats the patron
+      // half a metre off whichever seat the NPC is actually parked on —
+      // re-centre every root-level position track over the rig origin.
+      // (Both branches above created a fresh clip, so this never mutates the
+      // shared library animation.)
+      const body = sitClip.tracks.find((tr) => tr.name === 'Body.position');
+      if (body) {
+        const offsetX = body.values[0];
+        const offsetZ = body.values[2];
+        const ROOT_BONES = ['Body', 'FootL', 'FootR', 'PoleTargetL', 'PoleTargetR'];
+        for (const tr of sitClip.tracks) {
+          if (!tr.name.endsWith('.position')) continue;
+          if (!ROOT_BONES.includes(tr.name.split('.')[0])) continue;
+          for (let i = 0; i < tr.values.length; i += 3) {
+            tr.values[i] -= offsetX;
+            tr.values[i + 2] -= offsetZ;
+          }
+        }
+      }
     }
     this.actions = {
       idle: mk(find('idle')),
@@ -898,8 +919,11 @@ function applySitOffset(npc, seat) {
   const yaw = seat.facingYaw ?? Math.atan2(
     seat.tableCenter.x - seat.pos.x, seat.tableCenter.z - seat.pos.z);
   if (npc.avatar?.hasSitClip) {
-    npc.mesh.position.x -= Math.sin(yaw) * 0.14;
-    npc.mesh.position.z -= Math.cos(yaw) * 0.14;
+    // the re-centred sit pose puts the hips ~6cm behind the rig origin, so
+    // only a small nudge back is needed to settle them mid-pan; the old 0.14
+    // (tuned for the un-centred pose) parked hips on the pan's rear edge
+    npc.mesh.position.x -= Math.sin(yaw) * 0.02;
+    npc.mesh.position.z -= Math.cos(yaw) * 0.02;
   }
 }
 

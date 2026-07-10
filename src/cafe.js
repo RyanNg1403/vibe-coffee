@@ -2790,6 +2790,20 @@ export function buildCafe(theme, models = null) {
     cat = new THREE.Group();
     cat.add(catModel);
     cat.userData.model = catModel;
+    // The asset ships gloss-black (metalness 0.4, roughness 0.3 over a dark
+    // map) and reads as a lump of wet plastic. Re-shade it as fur: fully
+    // matte, and lift the near-black albedo with the theme's cat colour so
+    // the shape reads — ears, tail and all — instead of a silhouette hole.
+    catModel.traverse((o) => {
+      if (!o.isMesh) return;
+      const fur = o.material.clone();
+      fur.metalness = 0;
+      fur.roughness = 0.94;
+      fur.color.set(theme.cat).multiplyScalar(1.35);
+      if (fur.map) { fur.map = null; }
+      fur.needsUpdate = true;
+      o.material = fur;
+    });
     cat.position.set(4.9, 0.02, -0.2);
     cat.rotation.y = rand(0, Math.PI * 2);
     group.add(cat);
