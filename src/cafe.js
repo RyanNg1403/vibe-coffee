@@ -123,7 +123,7 @@ const TIME_PRESETS = {
     fog: { color: 0xdfe4e2, density: 0.006 },
     hemi: [0xd7e8f5, 0x5c5240, 0.95],
     sun: { color: 0xfff3d8, intensity: 2.4, pos: [3, 10, 6] },
-    lampIntensity: 1.6, outside: 'day',
+    lampIntensity: 1.6, outside: 'city',
   },
   sunset: {
     exposure: 1.12, envIntensity: 0.42, bloom: 0.26,
@@ -143,10 +143,14 @@ const TIME_PRESETS = {
   },
 };
 
+// the terrace looks onto a park, not a street — keep its garden panorama
+const GARDEN_OUTSIDE = { morning: 'garden', noon: 'garden', sunset: 'garden_dusk', night: 'garden_night' };
+
 export function resolveEnvironment(theme, time = 'auto', sky = 'auto') {
   let resolved = theme;
   if (time !== 'auto' && TIME_PRESETS[time]) {
     resolved = { ...resolved, ...TIME_PRESETS[time] };
+    if (theme.openAir) resolved.outside = GARDEN_OUTSIDE[time];
   }
   if (sky === 'rain' && !resolved.rain) {
     // damp light, heavier air, streaks on the glass; the rain audio bed and
