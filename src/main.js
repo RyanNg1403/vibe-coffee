@@ -46,7 +46,9 @@ const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
 // largest half-float buffers first and stuttering while it backs down.
 let renderPixelRatio = Math.min(MAX_PIXEL_RATIO, 1);
 renderer.setPixelRatio(renderPixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight);
+// CSS owns the canvas dimensions. Avoid inline pixel dimensions here: they
+// become stale when a browser enters fullscreen without a conventional resize.
+renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // Crowd motion is simulated at 30 Hz, so refreshing its shadows faster only
@@ -655,6 +657,12 @@ function syncFullscreenButton() {
   fullscreenButton.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
   fullscreenButton.setAttribute('aria-pressed', String(active));
   fullscreenButton.title = active ? 'exit fullscreen' : 'enter fullscreen';
+  // Fullscreen layout can settle after fullscreenchange. Resize on the next
+  // two frames so both the canvas and post-processing targets fill it exactly.
+  requestAnimationFrame(() => {
+    resizeViewport();
+    requestAnimationFrame(resizeViewport);
+  });
 }
 async function toggleFullscreen() {
   try {
@@ -827,13 +835,14 @@ function applyRenderPixelRatio(nextRatio) {
   composer.setPixelRatio(renderPixelRatio);
 }
 
-window.addEventListener('resize', () => {
+function resizeViewport() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   composer.setSize(window.innerWidth, window.innerHeight);
   pointerDirty = true;
-});
+}
+window.addEventListener('resize', resizeViewport);
 
 // ---------- main loop ----------
 
