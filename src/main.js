@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { THEMES, ROOM, buildCafe } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { PetSystem } from './pets.js';
@@ -40,7 +41,12 @@ const canvas = document.getElementById('scene');
 // antialiasing on the (fullscreen-quad-only) default framebuffer duplicates
 // work without improving geometry edges.
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio || 1, 1.5);
+const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
+// Auto stays at CSS-native resolution. On Retina screens, 1.5x creates 2.25x
+// as many half-float pixels across every composer target for little visible
+// benefit in a softly lit scene. Detail retains restrained supersampling.
+const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1);
+const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1.25);
 const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
 // Start Auto at a predictable 1x render target. It can add effects and extra
 // supersampling after a sustained period of headroom, instead of allocating the
@@ -71,12 +77,12 @@ const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerH
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-// post-processing chain. A multisampled render target restores the MSAA the
-// composer would otherwise throw away (clean edges), GTAO adds real contact
-// darkening in corners and under furniture, and bloom makes the lamps glow.
+// Post-processing chain. FXAA at the end replaces a persistent multisampled
+// half-float buffer, preserving clean edges at a fraction of its memory cost.
+// GTAO adds contact darkening; bloom makes practical lamps glow.
 const W0 = window.innerWidth, H0 = window.innerHeight;
 const rt = new THREE.WebGLRenderTarget(1, 1, {
-  samples: 2,
+  samples: 0,
   type: THREE.HalfFloatType,
   colorSpace: THREE.SRGBColorSpace,
 });
@@ -133,8 +139,17 @@ const grainPass = new ShaderPass({
     }`,
 });
 composer.addPass(grainPass);
+const fxaaPass = new ShaderPass(FXAAShader);
+composer.addPass(fxaaPass);
+function updateFxaaResolution(width = window.innerWidth, height = window.innerHeight) {
+  fxaaPass.material.uniforms.resolution.value.set(
+    1 / Math.max(1, width * renderPixelRatio),
+    1 / Math.max(1, height * renderPixelRatio),
+  );
+}
 composer.setPixelRatio(renderPixelRatio);
 composer.setSize(W0, H0);
+updateFxaaResolution(W0, H0);
 
 const audio = new CafeAudio();
 
@@ -823,9 +838,10 @@ qualityToggle.addEventListener('click', () => {
     applyRenderPixelRatio(MAX_PIXEL_RATIO);
   } else if (qualityMode === 'smooth') {
     applyEffectLevel(0);
-    applyRenderPixelRatio(Math.min(0.9, MAX_PIXEL_RATIO));
+    applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
   } else {
     applyEffectLevel(autoEffectLevel);
+    applyRenderPixelRatio(Math.min(renderPixelRatio, AUTO_MAX_PIXEL_RATIO));
   }
   renderQualityMode();
   persistPreferences();
@@ -835,7 +851,7 @@ qualityToggle.addEventListener('click', () => {
 });
 renderQualityMode();
 if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
-if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(0.9, MAX_PIXEL_RATIO));
+if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
 
 musicVolume.addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -947,6 +963,7 @@ function applyRenderPixelRatio(nextRatio) {
   renderer.setPixelRatio(renderPixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   composer.setPixelRatio(renderPixelRatio);
+  updateFxaaResolution();
 }
 
 function resizeViewport() {
@@ -954,6 +971,7 @@ function resizeViewport() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   composer.setSize(window.innerWidth, window.innerHeight);
+  updateFxaaResolution();
   pointerDirty = true;
 }
 window.addEventListener('resize', resizeViewport);
@@ -1018,7 +1036,7 @@ function updateAdaptiveQuality(frameDt) {
     if (autoEffectLevel < 2) {
       autoEffectLevel += 1;
       applyEffectLevel(autoEffectLevel);
-    } else if (renderPixelRatio < MAX_PIXEL_RATIO) {
+    } else if (renderPixelRatio < AUTO_MAX_PIXEL_RATIO) {
       applyRenderPixelRatio(renderPixelRatio + 0.1);
     }
     // Composer target reallocations and light-count shader changes should be

@@ -97,6 +97,7 @@ function summarize(metrics) {
   return {
     theme: metrics.theme,
     heapMB: Number((metrics.heapBytes / 1_000_000).toFixed(2)),
+    decodedAudioMB: Number((metrics.decodedAudioBytes / 1_000_000).toFixed(2)),
     geometries: metrics.geometries,
     textures: metrics.textures,
     activeGeometries: metrics.activeGeometries,
