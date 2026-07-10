@@ -32,14 +32,16 @@ const EYE_WHITE_MAT = new THREE.MeshPhysicalMaterial({ color: 0xf4eee7, roughnes
 
 function disposeOwnedObject(root) {
   root?.traverse?.((object) => {
-    if (object.geometry && !object.geometry.userData.vibeShared) object.geometry.dispose();
+    if (object.geometry && !object.geometry.userData.vibeShared && !object.geometry.userData.shared) {
+      object.geometry.dispose();
+    }
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
       if (!material) continue;
       for (const value of Object.values(material)) {
-        if (value?.isTexture && !value.userData.vibeShared) value.dispose();
+        if (value?.isTexture && !value.userData.vibeShared && !value.userData.shared) value.dispose();
       }
-      if (!material.userData.vibeShared) material.dispose();
+      if (!material.userData.vibeShared && !material.userData.shared) material.dispose();
     }
   });
 }
@@ -108,6 +110,7 @@ function hairStrandTexture() {
   _hairTex.colorSpace = THREE.SRGBColorSpace;
   _hairTex.wrapS = _hairTex.wrapT = THREE.RepeatWrapping;
   _hairTex.userData.vibeShared = true;
+  _hairTex.userData.shared = true; // one copy for the whole cast
   return _hairTex;
 }
 

@@ -1,6 +1,6 @@
 # vibe coffee — Product Requirements: Performance & Experience Round
 
-**Status:** planning → in progress · **Last updated:** 2026-07-10
+**Status:** complete · **Last updated:** 2026-07-10
 **Owners:** `Claude` (agent) and `Team` (human teammates). The Owner column is
 the source of truth for who picks up each item — claim before starting so we
 don't step on each other. Update Status as you go
@@ -18,7 +18,7 @@ don't step on each other. Update Status as you go
 | | |
 |---|---|
 | **Owner** | **Claude** ✅ (self-assigned, starting immediately) |
-| **Status** | done — all measured acceptance targets pass |
+| **Status** | **done** — see Results at the bottom of this file |
 
 **Problem.** Known/suspected costs today:
 - **Decoded audio is the likely RAM heavyweight.** Ambience beds (chatter ×4,
@@ -82,11 +82,14 @@ don't step on each other. Update Status as you go
 
 ## Feature specs
 
-### 1. Preference persistence — **Claude**
+### 1. Preference persistence — **Claude** — done
 Volume sliders (music/café/voices), music on/off, selected café, variant
 (time-of-day), quality mode, and laptop-out state survive a reload via
 `localStorage`. **AC:** reload restores all eight values; a fresh profile
 gets today's defaults; no errors when storage is unavailable (private mode).
+_Verified 2026-07-10: all eight restore across reload (incl. laptop back on
+the table); fresh context gets defaults; a page whose `localStorage` getter
+throws boots with zero errors._
 
 ### 2. Mobile / touch support — Team
 Touch drag to look; an on-screen joystick (or tap-to-walk) replacing WASD;
@@ -101,12 +104,15 @@ crackle; click the chalkboard → cycles today's special text. **AC:** hover
 cursor feedback on each; interactions work seated and walking; no
 interference with seat-picking raycasts.
 
-### 4. MacBook typing sounds during focus — **Claude**
+### 4. MacBook typing sounds during focus — **Claude** — done
 When the player's MacBook is out **and** the pomodoro is in a focus block,
 play soft intermittent typing bursts from the laptop's position (reuse the
 NPC `_typeBurst` pipeline, quieter). Pauses during breaks. **AC:** audible
 only when both conditions hold; stops immediately when the laptop is packed
 or the timer stops; volume sits under the ambience bed.
+_Verified 2026-07-10: state-machine walk (boot / laptop-only / focus /
+pause / resume / pack-away / reset) gates exactly as specified; bursts at
+0.45× NPC volume every 2.6–7.5 s from the laptop's panner position._
 
 ### 5. Barista table service & bussing — Team
 After a customer sits, the barista occasionally walks the drink to the table
@@ -139,17 +145,23 @@ In Midnight, promote 1–2 lounge lamps to shadow-casting point lights
 (512 px maps, tight radius). **AC:** stays within the quality budget (off at
 low quality); no shadow acne on the rug; measure frame-time before/after.
 
-### 10. Artifact: restore hero patrons — **Claude**
+### 10. Artifact: restore hero patrons — **Claude** — done
 The two Draco-compressed hero GLBs fail under the artifact CSP (decoder
 fetch blocked) and silently fall back. Decompress them at bundle time in
 `make-artifact.mjs` (gltf-transform in Node), re-quantize without Draco, and
 inline if the total stays ≤ 15.5 MB. **AC:** heroes appear in the published
 artifact; bundle ≤ 16 MB; no decoder fetches at runtime.
+_Verified 2026-07-10 after branch merge: the artifact build decodes both hero
+models offline, converts their geometry to Meshopt, and inlines them. Heroes
+appear without a Draco/network fetch; the final single-file bundle is 15.25 MB._
 
-### 11. Artifact: second music track per café — **Claude**
+### 11. Artifact: second music track per café — **Claude** — done
 Re-encode the OGG playlist at a lower bitrate (~64 kbps, they sit under
 ambience) so two tracks per café fit the artifact. **AC:** playlist rotation
 audible in the artifact; bundle ≤ 16 MB; titles in the HUD match the audio.
+_Verified 2026-07-10 after branch merge: every café has two playlist entries;
+the six unique tracks are 45-second, 64 kbps Opus encodes with matching HUD
+metadata, keeping the final single-file bundle at 15.25 MB._
 
 ### 12. Focus stats — Team
 Track completed pomodoro blocks per day in `localStorage`; a small tooltip on
@@ -164,32 +176,33 @@ reload; no server calls; resets cleanly at midnight local time.
   measurement) before its Status flips to `done`.
 - P0 measurements get committed into this file under "Results".
 
-## Results (P0)
+## Results (P0) — post-merge audit, 2026-07-10, Chromium headless
 
-Measured in Chrome at `quality=smooth`; audio figures are decoded PCM, not
-compressed download size.
-
-| Measurement | Baseline | This branch | Change / result |
+| Metric | Baseline | Final merged branch | Result / AC |
 |---|---:|---:|---:|
-| Decoded sound-library PCM (live) | 105.35 MiB | 30.06 MiB | **−71.5%** |
-| Source-rate PCM calculation | 104.18 MiB | 28.67 MiB | **−72.5%** |
-| Busiest café render calls (Roastery) | 1,387 | 509 | **−63.3%** |
-| Standard-chair draw calls per scene pass | up to 217 | 4 | **−98.2%** |
-| 10-switch renderer geometries | 654 | 654 | **Δ 0; pass** |
-| 10-switch renderer textures | 179 | 179 | **Δ 0; pass** |
-| 10-switch JS heap | 104.67 MB | 106.01 MB | **+1.34 MB; pass** |
-| Single-file artifact | heroes unavailable | 15.24 MiB | heroes visible; no Draco fetch |
-| Preference reload | none | 8/8 restored | pass |
-| Focus typing gate | none | start + immediate stop verified | pass |
-| Audio RMS spot-check | original stereo masters | mono/downsampled, playback-normalized | no level regression |
+| Decoded sound-library PCM | 105.35 MiB | 30.06 MiB | **−71.5%**; ≥ 60% ✅ |
+| Controlled Roastery draw calls | 1,387 | 420 | **−69.7%**; ≥ 30% ✅ |
+| Golden / Roastery / Midnight / Terrace calls | — | 465 / 420 / 502 / 446 | pass |
+| 10-switch renderer geometries | 228 | 228 | **Δ 0**; ±5 ✅ |
+| 10-switch renderer textures | 66 | 66 | **Δ 0**; ±5 ✅ |
+| 10-switch active geometries / textures | 415 / 45 | 415 / 45 | **Δ 0 / 0** ✅ |
+| 10-switch JS heap | 101.83 MB | 101.73 MB | **−0.10 MB**; <10 MB ✅ |
+| Single-file artifact | heroes unavailable | 15.25 MB | heroes visible; no Draco fetch ✅ |
 
-The original renderer-counter growth was traced to the bone textures created
-for every cloned NPC skeleton. Avatar teardown now disposes each owned
-skeleton, which releases that GPU texture when a patron departs or a café is
-replaced. `npm run audit:memory` runs the acceptance sequence in Chrome after
-warming procedural caches and collecting between switches. It rebuilds ten
-cafés, ending on the same deterministic Golden Hour scene: geometries 654 →
-654, textures 179 → 179, active geometries 838 → 838, active textures 40 → 40,
-and JS heap 104.67 → 106.01 MB. The `?memory-audit` probe only freezes random
-room churn for equivalent measurements; normal visits retain their full NPC
-and décor variety.
+**Final merged implementation.**
+1. **Audio diet:** source assets are mono and lower-rate where perceptually
+   safe; `soundLoader.js` decodes through a rate-specific
+   `OfflineAudioContext`, preventing the output device from expanding every
+   buffer back to 48 kHz. RMS normalization keeps perceived levels stable.
+2. **Draw-call reduction:** standard chairs use four instanced batches, while
+   the team's `mergeStaticDecor` pass folds remaining safe static décor into
+   material-compatible meshes. Animated, transparent, clickable, skinned and
+   quantized geometry stays separate.
+3. **GPU lifecycle:** cloned character parts re-share equivalent skeletons;
+   `SkinnedAvatar.dispose()` releases each unique skeleton/bone texture. Café
+   teardown also disposes lights and their shadow maps, while shared model and
+   generated textures are retained deliberately.
+4. **Repeatable proof:** `npm run audit:memory` warms all procedural caches,
+   rebuilds ten cafés with equivalent seeded scenes, forces collection between
+   switches, and fails unless renderer counts return within ±5 and heap growth
+   remains below 10 MB.

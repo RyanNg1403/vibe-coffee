@@ -3,11 +3,103 @@
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { cloneModel } from './modelLoader.js';
 import { TEXTURE_MANIFEST } from './textureManifest.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// Collapse the static decor into one mesh per (material, shadow flags,
+// attribute layout). The room is assembled from hundreds of tiny primitive
+// meshes — tables, shelves, clutter — and each one is a draw call in the
+// beauty pass, the AO prepass and every shadow refresh. Merging runs once at
+// build time, before the first render, so the source geometries never reach
+// the GPU. Skips: anything animated (callers pass those roots), clickable
+// chairs (tagged with seatIndex), transparent materials (draw order),
+// multi-material meshes, and structural parents with children.
+const MERGE_MAP_SLOTS = ['map', 'normalMap', 'roughnessMap', 'bumpMap', 'emissiveMap',
+  'metalnessMap', 'aoMap', 'alphaMap', 'envMap', 'lightMap'];
+function mergeStaticDecor(group, animatedRoots) {
+  const skip = new Set();
+  for (const root of animatedRoots) {
+    if (root) root.traverse((o) => skip.add(o));
+  }
+  group.updateMatrixWorld(true);
+  const buckets = new Map();
+  group.traverse((o) => {
+    if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
+    if (skip.has(o) || o.children.length > 0 || !o.visible) return;
+    if (o.userData.seatIndex !== undefined) return;
+    const material = o.material;
+    if (!material || Array.isArray(material) || material.transparent) return;
+    const geometry = o.geometry;
+    if (!geometry?.attributes?.position) return;
+    if (geometry.morphAttributes && Object.keys(geometry.morphAttributes).length) return;
+    // quantized (normalized-integer) attributes can't survive a baked world
+    // transform — values clamp at the type range; leave those props as-is
+    for (const name of Object.keys(geometry.attributes)) {
+      const attr = geometry.attributes[name];
+      if (attr.normalized || !(attr.array instanceof Float32Array)) return;
+    }
+    const flags = (geometry.index ? 'i' : 'n') + (o.castShadow ? 'c' : '') + (o.receiveShadow ? 'r' : '');
+    // Untextured flat-colour standard materials — most of the procedural
+    // clutter — merge across material instances: their colour moves into a
+    // vertex-colour attribute and near-equal roughness/metalness quantise
+    // into one shared material per bucket.
+    const bakeable = material.isMeshStandardMaterial && !material.isMeshPhysicalMaterial
+      && MERGE_MAP_SLOTS.every((slot) => !material[slot])
+      && (!material.emissive || material.emissive.getHex() === 0)
+      && material.side === THREE.FrontSide && !material.flatShading
+      && !material.polygonOffset && material.opacity === 1
+      && !material.vertexColors && !!geometry.attributes.normal;
+    const sig = bakeable
+      ? `bake|${Math.round(material.roughness * 10)}|${Math.round(material.metalness * 10)}|${flags}`
+      : `mat|${material.uuid}|${Object.keys(geometry.attributes).sort().join(',')}|${flags}`;
+    if (!buckets.has(sig)) buckets.set(sig, []);
+    buckets.get(sig).push(o);
+  });
+  const groupInverse = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const relative = new THREE.Matrix4();
+  for (const [sig, meshes] of buckets) {
+    if (meshes.length < 2) continue;
+    const bake = sig.startsWith('bake|');
+    const baked = meshes.map((o) => {
+      const g = o.geometry.clone(); // originals may be shared (library templates)
+      g.applyMatrix4(relative.multiplyMatrices(groupInverse, o.matrixWorld));
+      if (bake) {
+        // strip unused attributes (no maps ⇒ no uvs) and carry the material
+        // colour per vertex so unrelated materials can share one draw
+        for (const name of Object.keys(g.attributes)) {
+          if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+        }
+        const { r, g: cg, b } = o.material.color;
+        const count = g.attributes.position.count;
+        const colors = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          colors[i * 3] = r; colors[i * 3 + 1] = cg; colors[i * 3 + 2] = b;
+        }
+        g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      }
+      return g;
+    });
+    const mergedGeometry = mergeGeometries(baked, false);
+    baked.forEach((g) => g.dispose());
+    if (!mergedGeometry) continue;
+    const material = bake
+      ? new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: meshes[0].material.roughness,
+        metalness: meshes[0].material.metalness,
+      })
+      : meshes[0].material;
+    const merged = new THREE.Mesh(mergedGeometry, material);
+    merged.castShadow = meshes[0].castShadow;
+    merged.receiveShadow = meshes[0].receiveShadow;
+    group.add(merged);
+    for (const o of meshes) o.parent.remove(o);
+  }
+}
 
 // Room shell is shared across themes; palette, light, view and layout differ.
 export const ROOM = { W: 17, D: 13.5, H: 3.8 };
@@ -408,15 +500,20 @@ function neonTexture(text, color) {
   });
 }
 
+// one soft radial puff shared by every steam wisp and candle flame across all
+// cafés — previously each candle allocated its own copy and never freed it
+let _steamTex = null;
 function steamTexture() {
-  const tex = canvasTexture(64, 64, (g) => {
+  if (_steamTex) return _steamTex;
+  _steamTex = canvasTexture(64, 64, (g) => {
     const grad = g.createRadialGradient(32, 32, 2, 32, 32, 30);
     grad.addColorStop(0, 'rgba(255,255,255,0.65)');
     grad.addColorStop(1, 'transparent');
     g.fillStyle = grad;
     g.fillRect(0, 0, 64, 64);
   });
-  return tex;
+  _steamTex.userData.shared = true;
+  return _steamTex;
 }
 
 // ---------- small builders ----------
@@ -500,6 +597,7 @@ function latteArtTexture() {
     g.fillRect(-1.5, -26, 3, 52);
   });
   _latteArtTex.userData.vibeShared = true;
+  _latteArtTex.userData.shared = true;
   return _latteArtTex;
 }
 
@@ -558,6 +656,7 @@ function cremaTexture() {
   }
   _cremaTex = new THREE.CanvasTexture(c);
   _cremaTex.userData.vibeShared = true;
+  _cremaTex.userData.shared = true;
   _cremaTex.colorSpace = THREE.SRGBColorSpace;
   return _cremaTex;
 }
@@ -869,6 +968,7 @@ function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(rx, ry);
   t.anisotropy = 8;
+  t.userData.shared = true; // cached across theme switches — never dispose
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   t.userData.vibeShared = true;
   _texCache.set(key, t);
@@ -2796,7 +2896,7 @@ export function buildCafe(theme, models = null) {
   });
 
   // ---------- atmosphere particles ----------
-  const steamTex = track(steamTexture());
+  const steamTex = steamTexture();
   const steamSprites = [];
   for (const cup of cups) {
     if (Math.random() < 0.7) continue; // only some cups steam
@@ -3031,18 +3131,23 @@ export function buildCafe(theme, models = null) {
 
   function dispose() {
     group.traverse((o) => {
-      if (o.geometry && !o.geometry.userData.vibeShared) o.geometry.dispose();
+      // lights hold GPU shadow maps (the sun's is 1024–2048px); geometry and
+      // material disposal alone leaked one per theme switch
+      if (o.isLight) o.dispose();
+      if (o.geometry && !o.geometry.userData.vibeShared && !o.geometry.userData.shared) {
+        o.geometry.dispose();
+      }
       if (o.material) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         mats.forEach((m) => {
           for (const value of Object.values(m)) {
-            if (value?.isTexture && !value.userData.vibeShared) value.dispose();
+            if (value?.isTexture && !value.userData.vibeShared && !value.userData.shared) {
+              value.dispose();
+            }
           }
-          if (!m.userData.vibeShared) m.dispose();
+          if (!m.userData.vibeShared && !m.userData.shared) m.dispose();
         });
       }
-      o.shadow?.map?.dispose();
-      o.shadow?.mapPass?.dispose();
     });
     disposables.forEach((d) => d.dispose());
   }
@@ -3068,6 +3173,10 @@ export function buildCafe(theme, models = null) {
     pointLights.forEach(({ light }, index) => { light.visible = index < keep; });
     contactShadowMat.opacity = level >= 1 ? 0.3 : 0.48;
   }
+
+  // Everything is placed — fold the static decor into per-material meshes.
+  // The animate() loop only ever touches the roots excluded here.
+  mergeStaticDecor(group, [passingCar, cat, clockGroup, fan, vinylDisc, neonMesh]);
 
   return { group, seats, seatMeshes, nav, colliders, theme, animate, setQuality, dispose, woodMat, cushionMat };
 }

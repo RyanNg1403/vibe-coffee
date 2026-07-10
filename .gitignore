@@ -4,3 +4,4 @@ dist/
 artifact/
 .DS_Store
 *.log
+tools/.artifact-cache/
