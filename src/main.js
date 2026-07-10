@@ -7,7 +7,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-import { THEMES, ROOM, buildCafe } from './cafe.js';
+import { THEMES, ROOM, buildCafe, resolveEnvironment } from './cafe.js';
 import { CrowdSim } from './npc.js';
 import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
@@ -261,24 +261,23 @@ function defaultSeat() {
 // ---------- scene switching ----------
 
 let loadToken = 0;
-let variantOn = preferences.variantOn;
+let envTime = preferences.envTime;
+let envSky = preferences.envSky;
 let lastModels = null;
 let playerCup = null;
 let playerLaptop = null;
 let playerLaptopSeatIndex = -1;
 let orderPending = false;
-let currentTheme = variantOn && THEMES[currentThemeIndex].variant
-  ? { ...THEMES[currentThemeIndex], ...THEMES[currentThemeIndex].variant }
-  : THEMES[currentThemeIndex];
+let currentTheme = resolveEnvironment(THEMES[currentThemeIndex], envTime, envSky);
 function activeTheme(index = currentThemeIndex) {
   const base = THEMES[index];
   if (index === currentThemeIndex) return currentTheme;
-  return variantOn && base.variant ? { ...base, ...base.variant } : base;
+  return resolveEnvironment(base, envTime, envSky);
 }
 async function loadTheme(index) {
   currentThemeIndex = index;
   const baseTheme = THEMES[index];
-  const theme = variantOn && baseTheme.variant ? { ...baseTheme, ...baseTheme.variant } : baseTheme;
+  const theme = resolveEnvironment(baseTheme, envTime, envSky);
   currentTheme = theme;
   const token = ++loadToken;
   const models = await loadModelLibrary();
@@ -332,24 +331,52 @@ async function loadTheme(index) {
   document.querySelectorAll('.loc-btn').forEach((b, i) => {
     const active = i === index;
     b.classList.toggle('active', active);
-    if (b.id !== 'variant-btn') b.setAttribute('aria-pressed', String(active));
+    b.setAttribute('aria-pressed', String(active));
   });
   document.getElementById('blurb').textContent = theme.blurb;
-  const vb = document.getElementById('variant-btn');
-  if (vb) {
-    const base = THEMES[index];
-    vb.textContent = '☀ ' + (variantOn && base.variant ? base.variant.name : base.varName ?? 'now');
-    const variantActive = Boolean(variantOn && base.variant);
-    vb.classList.toggle('active', variantActive);
-    vb.setAttribute('aria-pressed', String(variantActive));
-  }
 }
 
-document.getElementById('variant-btn')?.addEventListener('click', () => {
-  variantOn = !variantOn;
+// ---------- sky popover: time of day × weather ----------
+const skyBtn = document.getElementById('sky-btn');
+const skyPop = document.getElementById('sky-pop');
+function setSkyOpen(open) {
+  if (!skyBtn || !skyPop) return;
+  skyPop.hidden = !open;
+  skyBtn.classList.toggle('open', open);
+  skyBtn.setAttribute('aria-expanded', String(open));
+}
+function renderSkyChips() {
+  skyPop?.querySelectorAll('[data-time]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.time === envTime);
+  });
+  skyPop?.querySelectorAll('[data-sky]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.sky === envSky);
+  });
+  if (skyBtn) {
+    const label = envTime === 'auto' && envSky === 'auto'
+      ? 'sky'
+      : [envTime !== 'auto' ? envTime : '', envSky !== 'auto' ? envSky : ''].filter(Boolean).join(' · ');
+    skyBtn.textContent = '☀ ' + label;
+    skyBtn.classList.toggle('on', envTime !== 'auto' || envSky !== 'auto');
+  }
+}
+skyBtn?.addEventListener('click', () => setSkyOpen(skyPop.hidden));
+document.addEventListener('pointerdown', (e) => {
+  if (skyPop && !skyPop.hidden && !skyPop.contains(e.target) && !skyBtn.contains(e.target)) {
+    setSkyOpen(false);
+  }
+});
+skyPop?.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.time) envTime = b.dataset.time;
+  else if (b.dataset.sky) envSky = b.dataset.sky;
+  else return;
+  renderSkyChips();
   persistPreferences();
   loadTheme(currentThemeIndex);
 });
+renderSkyChips();
 
 // your MacBook Pro (M series): space-grey unibody, notched display, glowing
 // desktop — placed on whatever table you're sitting at via the HUD toggle
@@ -685,7 +712,7 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
 
-document.querySelectorAll('.loc-btn:not(#variant-btn)').forEach((b, i) => {
+document.querySelectorAll('.loc-btn').forEach((b, i) => {
   b.addEventListener('click', () => {
     if (i !== currentThemeIndex) {
       currentThemeIndex = i;
@@ -779,7 +806,8 @@ function persistPreferences() {
     voicesVolume: Number(voicesVolume.value),
     musicOn: musicToggle.classList.contains('on'),
     cafeIndex: currentThemeIndex,
-    variantOn,
+    envTime,
+    envSky,
     qualityMode,
     laptopOn,
     focusMinutes,

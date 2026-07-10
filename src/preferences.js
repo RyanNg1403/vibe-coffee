@@ -6,7 +6,8 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   voicesVolume: 1,
   musicOn: true,
   cafeIndex: 0,
-  variantOn: false,
+  envTime: 'auto',
+  envSky: 'auto',
   qualityMode: 'auto',
   laptopOn: false,
   focusMinutes: 25,
@@ -26,7 +27,12 @@ export function loadPreferences() {
       voicesVolume: numberIn(saved.voicesVolume, 0, 1.5, DEFAULT_PREFERENCES.voicesVolume),
       musicOn: typeof saved.musicOn === 'boolean' ? saved.musicOn : DEFAULT_PREFERENCES.musicOn,
       cafeIndex: Math.round(numberIn(saved.cafeIndex, 0, 3, DEFAULT_PREFERENCES.cafeIndex)),
-      variantOn: typeof saved.variantOn === 'boolean' ? saved.variantOn : DEFAULT_PREFERENCES.variantOn,
+      envTime: ['auto', 'morning', 'noon', 'sunset', 'night'].includes(saved.envTime)
+        ? saved.envTime
+        : DEFAULT_PREFERENCES.envTime,
+      envSky: ['auto', 'clear', 'rain'].includes(saved.envSky)
+        ? saved.envSky
+        : DEFAULT_PREFERENCES.envSky,
       qualityMode: ['auto', 'detail', 'smooth'].includes(saved.qualityMode)
         ? saved.qualityMode
         : DEFAULT_PREFERENCES.qualityMode,

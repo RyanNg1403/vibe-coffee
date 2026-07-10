@@ -105,6 +105,67 @@ function mergeStaticDecor(group, animatedRoots) {
 // Room shell is shared across themes; palette, light, view and layout differ.
 export const ROOM = { W: 17, D: 13.5, H: 3.8 };
 
+// ---------- environment: time of day × weather ----------
+// Each café keeps its interior palette and layout; these presets only patch
+// the sky-driven fields (sun, ambient light, fog, exposure, street look).
+// 'auto' keeps the café's authored signature look.
+export const TIME_NAMES = ['morning', 'noon', 'sunset', 'night'];
+const TIME_PRESETS = {
+  morning: {
+    exposure: 1.0, envIntensity: 0.5, bloom: 0.18,
+    fog: { color: 0xe8e6da, density: 0.007 },
+    hemi: [0xdff0ff, 0x5c4a34, 0.85],
+    sun: { color: 0xfff6e2, intensity: 2.2, pos: [-7, 7, 10] },
+    lampIntensity: 2.2, outside: 'morning',
+  },
+  noon: {
+    exposure: 1.0, envIntensity: 0.55, bloom: 0.14,
+    fog: { color: 0xdfe4e2, density: 0.006 },
+    hemi: [0xd7e8f5, 0x5c5240, 0.95],
+    sun: { color: 0xfff3d8, intensity: 2.4, pos: [3, 10, 6] },
+    lampIntensity: 1.6, outside: 'day',
+  },
+  sunset: {
+    exposure: 1.12, envIntensity: 0.42, bloom: 0.26,
+    fog: { color: 0x2e2415, density: 0.011 },
+    hemi: [0xffd9a8, 0x46372a, 0.6],
+    sun: { color: 0xffbd77, intensity: 1.9, pos: [9, 4.5, 9] },
+    lampIntensity: 6.5, outside: 'sunset',
+  },
+  night: {
+    exposure: 1.05, envIntensity: 0.18, bloom: 0.4,
+    fog: { color: 0x0b0d14, density: 0.015 },
+    hemi: [0x34435c, 0x120d0a, 0.4],
+    sun: { color: 0x879bc2, intensity: 0.45, pos: [4, 6, 12] },
+    // 'rainNight' selects the street's night palette; whether it actually
+    // rains stays with theme.rain
+    lampIntensity: 6.8, outside: 'rainNight',
+  },
+};
+
+export function resolveEnvironment(theme, time = 'auto', sky = 'auto') {
+  let resolved = theme;
+  if (time !== 'auto' && TIME_PRESETS[time]) {
+    resolved = { ...resolved, ...TIME_PRESETS[time] };
+  }
+  if (sky === 'rain' && !resolved.rain) {
+    // damp light, heavier air, streaks on the glass; the rain audio bed and
+    // thunder follow the rain flag automatically
+    resolved = {
+      ...resolved,
+      rain: true,
+      envIntensity: resolved.envIntensity * 0.7,
+      bloom: resolved.bloom + 0.06,
+      sun: { ...resolved.sun, intensity: resolved.sun.intensity * 0.45, color: 0xaab4c4 },
+      hemi: [0x8fa0b4, resolved.hemi[1], resolved.hemi[2] * 0.8],
+      fog: { color: resolved.fog.color, density: resolved.fog.density * 1.5 },
+    };
+  } else if (sky === 'clear' && resolved.rain) {
+    resolved = { ...resolved, rain: false, bloom: resolved.bloom + 0.12 };
+  }
+  return resolved;
+}
+
 export const THEMES = [
   {
     id: 'goldenhour',
