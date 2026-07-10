@@ -97,5 +97,24 @@ same RMS.
   bean workflow, and Midnight a small stage plus acoustic treatment.
 - Replace painted exterior planes with a lightweight layered street for parallax,
   glass reflections and believable passing traffic.
-- Add Low/Medium/High presets for DPR, GTAO, shadow maps, light count and NPC detail.
+- Extend the current Auto/Detail/Smooth DPR control to tune light count and NPC
+  detail as well; GTAO and shadow costs are already reduced adaptively.
 - Add KTX2 textures and Meshopt/Draco before significantly increasing asset density.
+
+## Character fidelity path
+
+The indoor crowd now defaults to four lightweight skinned GLB characters with
+real idle, walk and seated animation clips; procedural capsule people are only a
+load-failure fallback. Distance-based mixer updates keep the larger crowd viable.
+
+The next source-art milestone is a curated six-person café cast rather than more
+runtime geometry tricks:
+
+- Immediate web-ready option: Quaternius Universal Base Characters and Universal
+  Animation Library (CC0, humanoid glTF, approximately 13k triangles per base).
+- Final anatomy/skin target: MakeHuman or MPFB2 exports using only verified CC0
+  core clothes/hair, retargeted in Blender and exported as optimized GLBs.
+- Author café-specific additive clips for sipping, typing, reading, carrying a
+  tray, wiping the counter and using the espresso machine.
+- Target 8–15k triangles, one 1K atlas per person, compressed geometry/textures,
+  and a lower-detail silhouette beyond the room windows.

@@ -268,7 +268,9 @@ async function loadTheme(index) {
   renderer.shadowMap.needsUpdate = true;
 
   document.querySelectorAll('.loc-btn').forEach((b, i) => {
-    b.classList.toggle('active', i === index);
+    const active = i === index;
+    b.classList.toggle('active', active);
+    if (b.id !== 'variant-btn') b.setAttribute('aria-pressed', String(active));
   });
   document.getElementById('blurb').textContent = theme.blurb;
   const vb = document.getElementById('variant-btn');
@@ -471,7 +473,29 @@ musicToggle.addEventListener('click', () => {
   const on = musicToggle.classList.toggle('on');
   audio.setMusicOn(on);
   musicToggle.textContent = on ? '♪ music on' : '♪ music off';
+  musicToggle.setAttribute('aria-pressed', String(on));
 });
+
+const qualityToggle = document.getElementById('quality-toggle');
+const QUALITY_MODES = ['auto', 'detail', 'smooth'];
+let qualityMode = 'auto';
+function renderQualityMode() {
+  qualityToggle.textContent = `quality · ${qualityMode}`;
+  qualityToggle.setAttribute('aria-label', `Rendering quality: ${qualityMode}`);
+}
+qualityToggle.addEventListener('click', () => {
+  qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
+  perfSampleTime = 0;
+  perfSampleFrames = 0;
+  qualityCooldown = 0;
+  if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
+  else if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(1, MAX_PIXEL_RATIO));
+  renderQualityMode();
+  toast(qualityMode === 'auto'
+    ? 'quality will adapt to keep the café smooth'
+    : `quality locked to ${qualityMode}`);
+});
+renderQualityMode();
 
 document.getElementById('music-vol').addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -505,10 +529,12 @@ function renderTimer() {
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   timerBtn.textContent = timerRunning ? '❚❚' : '▶';
+  timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = 25 * 60;
   timerBtn.textContent = '▶';
+  timerBtn.setAttribute('aria-label', 'Start focus timer');
   renderTimer();
 });
 renderTimer();
@@ -517,6 +543,7 @@ renderTimer();
 const overlay = document.getElementById('overlay');
 document.getElementById('enter-btn').addEventListener('click', () => {
   overlay.classList.add('hidden');
+  overlay.setAttribute('aria-hidden', 'true');
   audio.start(activeTheme());
   audio.setMusicOn(musicToggle.classList.contains('on'));
 });
@@ -553,6 +580,7 @@ const SIM_STEP = 1 / 30;
 const MAX_SIM_STEPS = 5;
 
 function updateAdaptiveQuality(frameDt) {
+  if (qualityMode !== 'auto') return;
   // Ignore tab switches and breakpoint pauses; they do not describe rendering
   // performance and would otherwise force an unnecessary quality drop.
   if (document.hidden || frameDt > 0.1) {

@@ -25,8 +25,9 @@ seat, look around, listen to the room, and get things done.
 - **Sit anywhere, or walk around** — click any free chair or window stool to move there,
   drag to look around, or press **WASD** to stand up and stroll through the café
   (with real collision against tables and the counter)
-- **A living café** — up to ~18 customers with faces, glasses, beanies and varied
-  builds walk in (door chime included), join the queue (half of them on their phones),
+- **A living café** — up to ~18 genuinely skinned, rigged customers with varied
+  proportions, complexions, hair and grounded animation walk in (door chime included),
+  join the queue (half of them on their phones),
   order at the register, wait at pickup while the barista actually brews their drink,
   then settle in with a laptop, a book, or their phone — sipping, stretching, people-
   watching. Pairs arrive together and chat, taking turns talking and nodding. Walkers
@@ -54,6 +55,9 @@ seat, look around, listen to the room, and get things done.
 - **Focus timer** — a built-in 25/5 pomodoro with a gentle chime
 - **Order from your table** — request a drink and watch the barista prepare and
   deliver it into the scene
+- **Adaptive graphics quality** — automatic render scaling protects frame rate;
+  the HUD can also lock `detail` or `smooth` mode without disabling HDR, bloom,
+  soft shadows, or spatial audio
 
 The rooms combine procedural geometry and canvas textures with locally bundled,
 credited CC/public-domain models and field recordings. No runtime asset downloads
@@ -78,6 +82,7 @@ Then open the printed URL (usually http://localhost:5173), click
 | Take a seat | click any free chair (red ring = taken) |
 | Change location | buttons in the top-left panel |
 | Music on/off, volumes | bottom bar |
+| Graphics quality | `quality · auto/detail/smooth` in the bottom bar |
 | Focus timer | bottom-right of the bar (▶ / ↺) |
 
 - **Downloaded 3D props** — CC0 low-poly models (Kenney furniture & food kits): real

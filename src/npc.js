@@ -18,6 +18,15 @@ const SHIRT = [0x7a5c8f, 0x4a7a6f, 0xa85751, 0x4f6d9c, 0xb08d4f, 0x5a5f66, 0x8a4
 const PANTS = [0x37414f, 0x4a4038, 0x2f3438, 0x5a4a5f, 0x39504a, 0x54452f];
 const HAIR = [0x241a12, 0x3f2a17, 0x6b4a26, 0x8a8a8a, 0x151515, 0x743e21, 0x4a3b32];
 
+// Muted, natural-dye colours keep the imported characters in the same visual
+// world as the café.  A controlled palette also prevents the old unrestricted
+// hue rotation from producing fluorescent suits or green hair.
+const IMPORTED_OUTFITS = [
+  0x334653, 0x5b3d35, 0x435744, 0x665345, 0x51465f,
+  0x7a6750, 0x3e5557, 0x6b4149, 0x54585f, 0x796f58,
+];
+const IMPORTED_HAIR = [0x17120f, 0x2b2019, 0x49301f, 0x6a4930, 0x8a8177];
+
 const EYE_MAT = new THREE.MeshStandardMaterial({ color: 0x110e0c, roughness: 0.3 });
 const EYE_WHITE_MAT = new THREE.MeshPhysicalMaterial({ color: 0xf4eee7, roughness: 0.35, clearcoat: 0.15 });
 
@@ -345,42 +354,75 @@ function setGroundedY(root, y, blob) {
 }
 
 // ---------- skinned avatar: downloaded rigged character ----------
-// Wraps a Quaternius/Kenney-style rigged character (mixamo bone names) and
-// exposes the small control surface the NPC brain needs. Sitting is posed
-// manually after the mixer update, since the packs ship no sit clip.
+// Wraps the bundled rigged characters and exposes the small control surface the
+// NPC brain needs. Three rigs use authored seated idles; the manual bone pose is
+// retained for future compatible assets that only provide standing clips.
 
 class SkinnedAvatar {
-  constructor(models, key) {
+  constructor(models, key, options = {}) {
     const { mesh, animations } = cloneCharacter(models, key);
+    this.key = key;
     this.root = new THREE.Group();
     this.root.add(mesh);
     this.inner = mesh;
+    this._ownedMaterials = new Set();
+    this._ownedGeometries = new Set();
+    this._animationDebt = 0;
+    this._forcePose = true;
 
-    // per-instance outfit tint so one model reads as many customers:
-    // clothing materials get a bold hue spin; skin/textured materials don't
-    const outfitShift = rand(0, 1);
+    // Each clone gets a restrained wardrobe/complexion variation.  The source
+    // files mostly use named flat-colour materials, so this costs no additional
+    // textures and makes a balanced rotation of four meshes read as a crowd.
+    const appearanceIndex = options.appearanceIndex ?? Math.floor(rand(0, IMPORTED_OUTFITS.length));
+    const keySalt = Math.max(0, key.charCodeAt(key.length - 1) - 97);
+    const outfit = new THREE.Color(IMPORTED_OUTFITS[(appearanceIndex + keySalt * 2) % IMPORTED_OUTFITS.length]);
+    const skinTone = new THREE.Color(SKIN_TONES[(appearanceIndex * 5 + keySalt) % SKIN_TONES.length]);
+    const hairTone = new THREE.Color(IMPORTED_HAIR[(appearanceIndex * 3 + keySalt) % IMPORTED_HAIR.length]);
     mesh.traverse((o) => {
       if (o.isMesh) {
-        o.castShadow = true;
+        o.castShadow = options.castShadow !== false;
+        o.receiveShadow = options.receiveShadow !== false;
         o.frustumCulled = false; // skinned bounds lag the pose; avoid pop-out
-        o.material = o.material.clone();
-        o.material.metalness = Math.min(o.material.metalness ?? 0, 0.1);
-        const name = (o.material.name || '').toLowerCase();
-        const isSkin = name.includes('skin') || name.includes('face');
-        const hasTex = !!o.material.map;
-        if (o.material.color && !hasTex) {
-          const hsl = { h: 0, s: 0, l: 0 };
-          o.material.color.getHSL(hsl);
-          if (isSkin) {
-            o.material.color.setHSL(hsl.h, hsl.s, Math.min(1, Math.max(0.08, hsl.l * rand(0.75, 1.2))));
-          } else {
-            o.material.color.setHSL(
-              (hsl.h + outfitShift) % 1,
-              Math.min(1, hsl.s * rand(0.8, 1.2)),
-              Math.min(0.8, Math.max(0.05, hsl.l * rand(0.85, 1.15)))
-            );
+        const source = Array.isArray(o.material) ? o.material : [o.material];
+        const materials = source.map((sourceMaterial, materialIndex) => {
+          const material = sourceMaterial.clone();
+          this._ownedMaterials.add(material);
+          material.metalness = Math.min(material.metalness ?? 0, 0.04);
+          const name = (material.name || '').toLowerCase();
+          const isSkin = name.includes('skin') || name.includes('face');
+          const isHair = name.includes('hair') || name.includes('brown');
+          const isEye = name.includes('eye');
+          const hasTexture = !!material.map;
+
+          if (material.color && !hasTexture) {
+            if (isSkin) {
+              material.color.copy(skinTone);
+              material.roughness = rand(0.68, 0.82);
+            } else if (isHair) {
+              material.color.copy(hairTone);
+              material.roughness = 0.88;
+            } else if (isEye) {
+              material.color.setHex(0x171411);
+              material.roughness = 0.36;
+            } else {
+              // Related, rather than identical, tones preserve multi-material
+              // garment details on char_b while keeping the outfit coherent.
+              material.color.copy(outfit).offsetHSL(
+                materialIndex * 0.025 - 0.025,
+                rand(-0.05, 0.05),
+                rand(-0.1, 0.1),
+              );
+              material.roughness = Math.max(0.72, material.roughness ?? 0.82);
+            }
+          } else if (hasTexture) {
+            // char_k uses one tiny atlas for skin and clothes; preserve its
+            // authored colour instead of tinting the person's skin as well.
+            material.roughness = Math.max(0.76, material.roughness ?? 0.85);
           }
-        }
+          material.needsUpdate = true;
+          return material;
+        });
+        o.material = Array.isArray(o.material) ? materials : materials[0];
       }
     });
 
@@ -393,12 +435,10 @@ class SkinnedAvatar {
       return null;
     };
     const mk = (clip) => (clip ? this.mixer.clipAction(clip) : null);
-    // sit clips usually open with a stand-to-sit transition; loop only the
-    // seated hold so the character never pops upright at the loop seam
-    let sitClip = find('sit');
-    if (sitClip && sitClip.duration > 2.5) {
-      sitClip = THREE.AnimationUtils.subclip(sitClip, 'sit_hold', 21, Math.floor(sitClip.duration * 30) - 1, 30);
-    }
+    // These packs provide seated idles (SitIdle / Man_Sitting), not locomotion
+    // transitions.  Keep the authored clip intact: hard-coded frame slicing
+    // previously damaged sparse 8.3-second sitting tracks on char_j/char_l.
+    const sitClip = find('sit');
     this.actions = {
       idle: mk(find('idle')),
       walk: mk(find('walk')),
@@ -409,7 +449,10 @@ class SkinnedAvatar {
     this.hasWave = !!this.actions.wave;
     this.hasSitClip = !!this.actions.sit;
     this.mode = 'idle';
-    this.actions.idle?.play();
+    if (this.actions.idle) {
+      this.actions.idle.play();
+      this.actions.idle.time = Math.random() * this.actions.idle.getClip().duration;
+    }
 
     // rigs differ across packs — resolve bones through alias lists
     const ALIASES = {
@@ -420,8 +463,8 @@ class SkinnedAvatar {
       RightUpLeg: ['RightUpLeg', 'UpperLeg.R', 'UpperLegR', 'leg-right', 'Leg.R'],
       LeftLeg: ['LeftLeg', 'LowerLeg.L', 'LowerLegL'],
       RightLeg: ['RightLeg', 'LowerLeg.R', 'LowerLegR'],
-      LeftHand: ['LeftHand', 'Hand.L', 'HandL', 'hand-left', 'arm-left', 'LowerArm.L'],
-      RightHand: ['RightHand', 'Hand.R', 'HandR', 'hand-right', 'arm-right', 'LowerArm.R'],
+      LeftHand: ['LeftHand', 'Hand.L', 'HandL', 'Palm.L', 'Wrist.L', 'hand-left', 'arm-left', 'LowerArm.L'],
+      RightHand: ['RightHand', 'Hand.R', 'HandR', 'Palm.R', 'Wrist.R', 'hand-right', 'arm-right', 'LowerArm.R'],
     };
     this.bones = {};
     for (const [key, names] of Object.entries(ALIASES)) {
@@ -440,6 +483,8 @@ class SkinnedAvatar {
       new THREE.PlaneGeometry(0.62, 0.62),
       new THREE.MeshBasicMaterial({ map: personBlobTexture(), transparent: true, depthWrite: false, opacity: 0.5 })
     );
+    this._ownedGeometries.add(blob.geometry);
+    this._ownedMaterials.add(blob.material);
     blob.rotation.x = -Math.PI / 2;
     blob.position.y = 0.015;
     this.root.add(blob);
@@ -447,6 +492,10 @@ class SkinnedAvatar {
 
     // to-go cup lives in the right hand
     this.cup = makeToGoCup();
+    this.cup.traverse((o) => {
+      if (o.geometry) this._ownedGeometries.add(o.geometry);
+      if (o.material) this._ownedMaterials.add(o.material);
+    });
     this.cup.visible = false;
     this._cupScaled = false;
     this.bones.RightHand?.add(this.cup);
@@ -458,18 +507,40 @@ class SkinnedAvatar {
     if (action && this.mode !== next) {
       const prev = this.actions[this.mode];
       action.reset().fadeIn(0.22).play();
-      // desync loops so a room of sitters doesn't shift in unison
-      if (next === 'sit') action.time = Math.random() * action.getClip().duration;
+      // Desynchronise every ambient loop, not only sitting.  People entering in
+      // pairs should never breathe, step, or fidget on the same frame.
+      if (next === 'sit' || next === 'idle' || next === 'work') {
+        action.time = Math.random() * action.getClip().duration;
+      }
       prev?.fadeOut(0.22);
       this.mode = next;
+      this._forcePose = true;
     }
     if (action) action.timeScale = timeScale;
   }
 
   setCup(v) { this.cup.visible = v; }
 
-  update(dt) {
-    this.mixer.update(dt);
+  ownObject(object) {
+    object.traverse((o) => {
+      if (o.geometry) this._ownedGeometries.add(o.geometry);
+      const materials = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      materials.forEach((material) => this._ownedMaterials.add(material));
+    });
+  }
+
+  update(dt, distance = 0) {
+    // Full-rate animation is reserved for people close enough to read facial
+    // and hand motion.  Far indoor customers update at 20 Hz and figures seen
+    // through the windows at 10 Hz.  Time is accumulated, so clips stay in sync
+    // with world time instead of slowing down.
+    this._animationDebt += dt;
+    const interval = distance > 13 ? 0.1 : distance > 8 ? 0.05 : 0;
+    if (!this._forcePose && interval && this._animationDebt < interval) return;
+    const animationDt = this._animationDebt;
+    this._animationDebt = 0;
+    this._forcePose = false;
+    this.mixer.update(animationDt);
     // one-time compensation for armature scale so the cup is world-sized
     if (!this._cupScaled && this.cup.visible && this.bones.RightHand) {
       const s = new THREE.Vector3();
@@ -490,7 +561,7 @@ class SkinnedAvatar {
       if (RightLeg) RightLeg.rotation.x = 1.35;
     }
     // head look, applied post-mixer so it composes with the idle sway
-    this._headYaw += (this.headYawTarget - this._headYaw) * Math.min(1, dt * 3);
+    this._headYaw += (this.headYawTarget - this._headYaw) * Math.min(1, animationDt * 3);
     const head = this.bones.Head ?? this.bones.Neck;
     if (head) {
       head.rotation.y += this._headYaw;
@@ -500,10 +571,15 @@ class SkinnedAvatar {
 
   dispose() {
     this.root.parent?.remove(this.root);
-    this.root.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
-    });
+    this.mixer.stopAllAction();
+    this.mixer.uncacheRoot(this.inner);
+    // SkeletonUtils clones share the library's geometries.  Disposing them here
+    // invalidated every other customer using that template; only per-instance
+    // materials and helper geometry are owned by this avatar.
+    this._ownedGeometries.forEach((geometry) => geometry.dispose());
+    this._ownedMaterials.forEach((material) => material.dispose());
+    this._ownedGeometries.clear();
+    this._ownedMaterials.clear();
   }
 }
 
@@ -687,32 +763,32 @@ function makeDog() {
 function sitYFor(npc, seat) {
   const elevated = seat.pos.y > 0.05;
   if (!npc.avatar) return elevated ? 0.17 : -0.10;
-  return npc.avatar.hasSitClip
-    ? (elevated ? 0.2 : -0.05)
-    : (elevated ? -0.24 : -0.38);
+  return npc.avatar.hasSitClip ? (elevated ? 0.15 : -0.04) : (elevated ? -0.24 : -0.38);
 }
 
 class NPC {
   constructor(sim, opts = {}) {
     this.sim = sim;
-    // seated customers use the procedural rig (it can actually sit at a
-    // table); to-go customers who stay on their feet get the downloaded
-    // animated character
     const willSit = (opts.seatIndex ?? -1) >= 0;
-    // walkers draw from every rig; anyone headed straight for a chair may only
-    // use a rig with a real sit clip (half stay procedural for variety)
-    const pool = willSit ? sim.sitKeys : sim.charKeys;
-    const charKey = pool?.length && (!willSit || Math.random() < 0.5) ? pick(pool) : null;
+    // Imported, skinned people are the default. The procedural actor remains a
+    // true resilience fallback for failed/missing assets; seated models use an
+    // authored clip when present and the compatible leg-bone pose otherwise.
+    const charKey = sim.pickCharacter(willSit);
     if (charKey) {
-      this.avatar = new SkinnedAvatar(sim.models, charKey);
+      this.avatar = new SkinnedAvatar(sim.models, charKey, {
+        appearanceIndex: sim.nextAppearanceIndex(),
+      });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
     }
-    // The downloaded characters in this project are deliberately low-poly.
-    // Prefer the smoother procedural rig indoors so faces and silhouettes stay
-    // visually coherent; vary height enough to avoid a cloned crowd.
-    this.mesh.scale.setScalar(this.avatar ? rand(0.9, 1.06) : rand(1.1, 1.23));
+    if (this.avatar) {
+      // 1.60–1.82 m with independent shoulder/depth variation.  The modest
+      // range retains believable anatomy while breaking repeated silhouettes.
+      this.mesh.scale.set(rand(0.93, 1.07), rand(0.94, 1.07), rand(0.94, 1.05));
+    } else {
+      this.mesh.scale.setScalar(rand(1.1, 1.23));
+    }
     this.seatIndex = opts.seatIndex ?? -1;
     this.partner = null;            // set for pairs
     this.activity = opts.activity ?? pick(ACTIVITIES);
@@ -1040,6 +1116,7 @@ class NPC {
       const greetingNow = this.greeting > 0;
       if (this.avatar) {
         this.avatar.sitting = false;
+        this.avatar.headPitch = 0;
         this.avatar.setMode(
           greetingNow && this.avatar.hasWave ? 'wave' : 'walk',
           Math.max(0.45, this.currentSpeed * 1.25)
@@ -1084,7 +1161,10 @@ class NPC {
         this.headTarget = rand(-0.6, 0.6);
         this.glanceT = rand(2, 6);
       }
-      if (this.avatar) { this.avatar.headYawTarget = this.headTarget; this.avatar.update(dt); }
+      if (this.avatar) {
+        this.avatar.headYawTarget = this.headTarget;
+        this.avatar.update(dt, this._distanceToListener());
+      }
       else p.head.rotation.y += (this.headTarget - p.head.rotation.y) * dt * 3;
       return;
     }
@@ -1092,7 +1172,7 @@ class NPC {
     // ---- stationary states, skinned branch: drive the rig and bail ----
     if (this.avatar) {
       this._updateSkinnedStationary(dt, t, seat);
-      this.avatar.update(dt);
+      this.avatar.update(dt, this._distanceToListener());
       return;
     }
 
@@ -1244,6 +1324,10 @@ class NPC {
     }
   }
 
+  _distanceToListener() {
+    return this.sim.listenerPos ? this.mesh.position.distanceTo(this.sim.listenerPos) : 0;
+  }
+
   // same brain as the procedural branch below, driving the rigged character
   _updateSkinnedStationary(dt, t, seat) {
     const av = this.avatar;
@@ -1371,7 +1455,9 @@ class Barista {
   constructor(sim) {
     this.sim = sim;
     if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, pick(sim.charKeys));
+      this.avatar = new SkinnedAvatar(sim.models, sim.pickCharacter(false), {
+        appearanceIndex: sim.nextAppearanceIndex(),
+      });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
@@ -1520,10 +1606,18 @@ class OutsideLife {
       // downloaded animated characters when available, procedural otherwise
       let person, avatar = null;
       if (charKeys.length && Math.random() < 0.85) {
-        avatar = new SkinnedAvatar(models, pick(charKeys));
+        avatar = new SkinnedAvatar(models, charKeys[i % charKeys.length], {
+          castShadow: false,
+          receiveShadow: false,
+          appearanceIndex: i,
+        });
         avatar.blob.visible = false;
         if (night) {
-          avatar.root.traverse((o) => { if (o.isMesh && o.material?.color) o.material.color.multiplyScalar(0.4); });
+          avatar.root.traverse((o) => {
+            if (!o.isMesh) return;
+            const materials = Array.isArray(o.material) ? o.material : [o.material];
+            materials.forEach((material) => material?.color?.multiplyScalar(0.4));
+          });
         }
         avatar.setMode('walk', rand(0.9, 1.2));
         person = avatar.root;
@@ -1555,6 +1649,7 @@ class OutsideLife {
       stick.position.y = 1.35;
       umbrella.add(stick);
       person.add(umbrella);
+      avatar?.ownObject(umbrella);
     }
     const dir = Math.random() < 0.5 ? 1 : -1;
     const walker = {
@@ -1583,7 +1678,7 @@ class OutsideLife {
       if (w.x < -15) { w.x = 15; this.reroll(w); }
       w.phase += dt * 7 * w.speed;
       if (w.avatar) {
-        w.avatar.update(dt);
+        w.avatar.update(dt, 16);
         w.mesh.position.set(w.x, 0, w.z);
         continue;
       }
@@ -1609,10 +1704,17 @@ class OutsideLife {
 
   dispose() {
     this.group.parent?.remove(this.group);
-    this.group.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
-    });
+    for (const walker of this.walkers) {
+      if (walker.avatar) {
+        walker.avatar.dispose();
+      } else {
+        walker.mesh.traverse((o) => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material && o.material.map !== _blobTex) o.material.dispose?.();
+        });
+      }
+    }
+    this.walkers = [];
   }
 }
 
@@ -1621,11 +1723,15 @@ export class CrowdSim {
     this.cafe = cafe;
     this.audio = audio;
     this.models = models;
-    // Keep imported rigs available in the loader, but do not mix their faceted
-    // art style into the indoor crowd. The procedural actors have smoother
-    // geometry, richer faces, and reliable seated poses.
-    this.charKeys = [];
-    this.sitKeys = [];
+    this.charKeys = characterKeys(models);
+    this.authoredSitKeys = sitCharacterKeys(models);
+    // Every bundled model has the upper/lower leg bones used by the manual
+    // seated fallback. Dedicated clips remain preferred automatically, while
+    // char_b adds a fourth silhouette to larger seated crowds.
+    this.sitKeys = [...this.charKeys];
+    this._characterBags = { standing: [], sitting: [] };
+    this._lastCharacter = null;
+    this._appearanceSerial = Math.floor(rand(0, IMPORTED_OUTFITS.length));
     this.npcs = [];
     this.queue = [];
     this.ordering = null;   // NPC currently at the register
@@ -1646,6 +1752,34 @@ export class CrowdSim {
     // a couple of pre-seated chatting pairs if there's room
     this._preseatPair();
     if (this.maxCrowd >= 14) this._preseatPair();
+  }
+
+  // Shuffle-bag selection guarantees all suitable designs appear before one is
+  // repeated.  Moving the previous pick away from the front also prevents the
+  // conspicuous same-model twins produced by independent random selection.
+  pickCharacter(willSit = false) {
+    const pool = willSit ? this.sitKeys : this.charKeys;
+    if (!pool.length) return null;
+    const bagName = willSit ? 'sitting' : 'standing';
+    let bag = this._characterBags[bagName];
+    if (!bag.length) {
+      bag = [...pool];
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      if (bag.length > 1 && bag[bag.length - 1] === this._lastCharacter) {
+        [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+      }
+      this._characterBags[bagName] = bag;
+    }
+    const key = bag.pop();
+    this._lastCharacter = key;
+    return key;
+  }
+
+  nextAppearanceIndex() {
+    return this._appearanceSerial++;
   }
 
   _preseat() {

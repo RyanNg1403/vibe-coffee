@@ -16,14 +16,14 @@ export const THEMES = [
     id: 'goldenhour',
     name: 'Golden Hour Café',
     blurb: 'Warm wood, late-afternoon sun, plants everywhere.',
-    musicKey: 0, rain: false, exposure: 1.15, envIntensity: 0.4, bloom: 0.22,
+    musicKey: 0, rain: false, exposure: 1.12, envIntensity: 0.45, bloom: 0.2,
     fog: { color: 0x2b1d12, density: 0.012 },
     floor: '#8a6242', floorLine: '#6d4b31', wall: '#c9b394', wallTrim: '#8a6242',
-    wood: 0x6f4a2d, woodDark: 0x4e3018, accent: 0x2e6e4e, cushion: 0xa33b2e,
+    wood: 0x6f4a2d, woodDark: 0x4e3018, accent: 0x3e684f, cushion: 0x914438,
     counter: 0x5b3a20, counterTop: 0xd9c9a8,
-    hemi: [0xffe0b0, 0x54371c, 0.55],
-    sun: { color: 0xffb469, intensity: 2.6, pos: [6, 4.5, 12] },
-    lampColor: 0xffb066, lampIntensity: 8, lampY: 2.3,
+    hemi: [0xffe7c7, 0x4d3827, 0.65],
+    sun: { color: 0xffc58a, intensity: 2.25, pos: [6, 4.5, 12] },
+    lampColor: 0xffb46e, lampIntensity: 6.5, lampY: 2.3,
     outside: 'sunset',
     dust: true, neon: null,
     tables: [
@@ -44,7 +44,7 @@ export const THEMES = [
       fog: { color: 0xe8e6da, density: 0.007 },
       hemi: [0xdff0ff, 0x5c4a34, 0.85],
       sun: { color: 0xfff6e2, intensity: 2.2, pos: [-7, 7, 10] },
-      lampIntensity: 3, outside: 'morning', crowd: 10,
+      lampIntensity: 2.2, outside: 'morning', crowd: 10,
     },
   },
   {
@@ -54,11 +54,11 @@ export const THEMES = [
     musicKey: 5, rain: false, exposure: 1.05, envIntensity: 0.55, bloom: 0.15,
     fog: { color: 0x272a2e, density: 0.010 },
     floor: '#7d7f83', floorLine: '#6a6c70', wall: '#b9bcc0', wallTrim: '#55585e',
-    wood: 0x8a6a48, woodDark: 0x2e2f33, accent: 0x1f2124, cushion: 0x3f4a54,
+    wood: 0x806447, woodDark: 0x303238, accent: 0x293137, cushion: 0x48545c,
     counter: 0x2c2e32, counterTop: 0xcfd2d6,
     hemi: [0xdfeaf5, 0x53565c, 1.0],
     sun: { color: 0xf2f7ff, intensity: 2.0, pos: [-10, 6, 6] },
-    lampColor: 0xffd9a0, lampIntensity: 4, lampY: 2.4,
+    lampColor: 0xffd2a0, lampIntensity: 3.2, lampY: 2.4,
     outside: 'city',
     dust: false, neon: null,
     tables: [
@@ -78,7 +78,7 @@ export const THEMES = [
       fog: { color: 0x2e2a22, density: 0.012 },
       hemi: [0xffd9b0, 0x3a3630, 0.5],
       sun: { color: 0xffb469, intensity: 1.2, pos: [10, 4, 8] },
-      lampIntensity: 9, outside: 'sunset', crowd: 12,
+      lampIntensity: 7.5, outside: 'sunset', crowd: 12,
     },
   },
   {
@@ -88,11 +88,11 @@ export const THEMES = [
     musicKey: -3, rain: true, exposure: 1.05, envIntensity: 0.16, bloom: 0.34,
     fog: { color: 0x0b0d14, density: 0.016 },
     floor: '#4a3628', floorLine: '#38281d', wall: '#4e4038', wallTrim: '#2c2119',
-    wood: 0x4e3323, woodDark: 0x2a1a10, accent: 0x7a2c26, cushion: 0x274235,
-    counter: 0x332012, counterTop: 0x1d2b26,
-    hemi: [0x30405e, 0x120c08, 0.4],
-    sun: { color: 0x7e97c8, intensity: 0.5, pos: [4, 6, 12] },
-    lampColor: 0xff9a4d, lampIntensity: 7, lampY: 2.25,
+    wood: 0x4e3323, woodDark: 0x2a1a10, accent: 0x71342e, cushion: 0x304a3d,
+    counter: 0x332419, counterTop: 0x26352e,
+    hemi: [0x34435c, 0x120d0a, 0.36],
+    sun: { color: 0x879bc2, intensity: 0.4, pos: [4, 6, 12] },
+    lampColor: 0xffa05c, lampIntensity: 6.2, lampY: 2.25,
     outside: 'rainNight',
     dust: false, neon: { text: 'open late', color: '#ff5d8f' },
     tables: [
@@ -118,11 +118,11 @@ export const THEMES = [
     musicKey: 2, rain: false, exposure: 1.0, envIntensity: 0.8, bloom: 0.12,
     fog: { color: 0xe4ecd8, density: 0.004 },
     floor: '#b9a888', floorLine: '#a08f70', wall: '#d9d2bc', wallTrim: '#8a7a5c',
-    wood: 0x7a5c38, woodDark: 0x54401f, accent: 0x4a7a52, cushion: 0x6a8a5c,
+    wood: 0x755a3c, woodDark: 0x524026, accent: 0x4f7355, cushion: 0x6d835f,
     counter: 0x6a5638, counterTop: 0xe4dcc4,
-    hemi: [0xcfe4ff, 0x5c6e46, 0.9],
-    sun: { color: 0xfff2d8, intensity: 2.4, pos: [8, 9, 6] },
-    lampColor: 0xffe2b0, lampIntensity: 3, lampY: 2.45,
+    hemi: [0xd7e8f5, 0x566748, 1.0],
+    sun: { color: 0xfff0d2, intensity: 2.15, pos: [8, 9, 6] },
+    lampColor: 0xffd9a3, lampIntensity: 1.8, lampY: 2.45,
     outside: 'garden',
     dust: true, neon: null,
     tables: [
@@ -143,7 +143,7 @@ export const THEMES = [
       fog: { color: 0xe8d2b0, density: 0.005 },
       hemi: [0xffd9a8, 0x4a5638, 0.55],
       sun: { color: 0xffc478, intensity: 1.6, pos: [10, 4, 6] },
-      lampIntensity: 8, outside: 'garden_dusk', crowd: 16,
+      lampIntensity: 6.5, outside: 'garden_dusk', crowd: 16,
     },
   },
 ];
@@ -485,7 +485,7 @@ function makeCup(accent, models, latteArt = false) {
   if (fromLib) return fromLib;
 
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.35 });
+  const mat = new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.26, metalness: 0 });
   // lathe-turned cup body: gentle outward flare with a foot
   const profile = [];
   for (const [r, y] of [[0.018, 0], [0.03, 0.004], [0.033, 0.012], [0.038, 0.035], [0.044, 0.062], [0.047, 0.08], [0.046, 0.082]]) {
@@ -495,8 +495,8 @@ function makeCup(accent, models, latteArt = false) {
   body.castShadow = true;
   g.add(body);
   const coffeeMat = latteArt
-    ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.5 })
-    : new THREE.MeshStandardMaterial({ color: 0x3a2113, roughness: 0.2 });
+    ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.48, metalness: 0 })
+    : new THREE.MeshStandardMaterial({ color: 0x2c170d, roughness: 0.36, metalness: 0 });
   const coffee = cyl(0.041, 0.041, 0.004, coffeeMat, 16);
   coffee.position.y = 0.072;
   g.add(coffee);
@@ -513,7 +513,7 @@ function makeCup(accent, models, latteArt = false) {
   const saucer = new THREE.Mesh(new THREE.LatheGeometry(saucerProfile, 20), mat);
   saucer.receiveShadow = true;
   g.add(saucer);
-  const spoonMat = new THREE.MeshStandardMaterial({ color: 0xb9bcc2, roughness: 0.25, metalness: 0.8 });
+  const spoonMat = new THREE.MeshStandardMaterial({ color: 0xb9bcc2, roughness: 0.22, metalness: 0.95 });
   const spoonBowl = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), spoonMat);
   spoonBowl.scale.set(1, 0.35, 1.4);
   spoonBowl.position.set(-0.055, 0.014, 0.035);
@@ -527,7 +527,7 @@ function makeCup(accent, models, latteArt = false) {
 
 function makePastryPlate(models) {
   const g = new THREE.Group();
-  const plate = cyl(0.085, 0.07, 0.012, new THREE.MeshStandardMaterial({ color: 0xf5f1e8, roughness: 0.3 }), 18);
+  const plate = cyl(0.085, 0.07, 0.012, new THREE.MeshStandardMaterial({ color: 0xeee9de, roughness: 0.3, metalness: 0 }), 18);
   plate.position.y = 0.006;
   g.add(plate);
   // whatever's on the plate today — the full menu of downloaded treats
@@ -541,7 +541,7 @@ function makePastryPlate(models) {
     return g;
   }
   // procedural croissant: three golden lobes in a crescent
-  const doughMat = new THREE.MeshStandardMaterial({ color: 0xc9853e, roughness: 0.7 });
+  const doughMat = new THREE.MeshStandardMaterial({ color: 0xb87335, roughness: 0.76, metalness: 0 });
   for (const [a, s] of [[-0.5, 0.75], [0, 1], [0.5, 0.75]]) {
     const lobe = new THREE.Mesh(new THREE.SphereGeometry(0.028 * s, 10, 8), doughMat);
     lobe.scale.set(1.5, 0.75, 0.9);
@@ -594,11 +594,12 @@ function makeArmchair(fabricMat, woodDarkMat, models) {
   return g;
 }
 
-function makePlant(potColor) {
+function makePlant(potColor, shared = {}) {
   const g = new THREE.Group();
-  const pot = cyl(0.16, 0.12, 0.24, new THREE.MeshStandardMaterial({ color: potColor, roughness: 0.9 }));
+  const potMat = shared.pot ?? new THREE.MeshStandardMaterial({ color: potColor, roughness: 0.92 });
+  const leafMat = shared.leaf ?? new THREE.MeshStandardMaterial({ color: 0x3d7041, roughness: 0.94 });
+  const pot = cyl(0.16, 0.12, 0.24, potMat);
   pot.position.y = 0.12; g.add(pot);
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3d7a3f, roughness: 0.8 });
   for (let i = 0; i < 7; i++) {
     const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.05, rand(0.35, 0.6), 5), leafMat);
     leaf.position.set(rand(-0.07, 0.07), 0.24 + leaf.geometry.parameters.height / 2, rand(-0.07, 0.07));
@@ -644,10 +645,10 @@ function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
 
 // per-café floor surface
 const FLOOR_SURF = {
-  goldenhour: { c: 'floor_wood.jpg', n: 'floor_wood_n.jpg', r: 'floor_wood_r.jpg', tint: 0xe8cba2 },
-  roastery: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd8dadc },
-  midnight: { c: 'floor_dark.jpg', n: 'floor_dark_n.jpg', tint: 0xb08a62 },
-  terrace: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd8c4a0 }, // sun-warmed pavers
+  goldenhour: { c: 'floor_wood.jpg', n: 'floor_wood_n.jpg', r: 'floor_wood_r.jpg', tint: 0xe4c49a, roughness: 0.82, normal: 0.34 },
+  roastery: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd1d2d2, roughness: 0.88, normal: 0.42 },
+  midnight: { c: 'floor_dark.jpg', n: 'floor_dark_n.jpg', tint: 0xa88260, roughness: 0.78, normal: 0.28 },
+  terrace: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd3bea0, roughness: 0.92, normal: 0.38 }, // sun-warmed pavers
 };
 
 export function buildCafe(theme, models = null) {
@@ -660,12 +661,14 @@ export function buildCafe(theme, models = null) {
   const woodMap = surfTex('wood_dark.jpg', { srgb: true });
   const woodNorm = surfTex('wood_dark_n.jpg');
   const woodMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(theme.wood).lerp(new THREE.Color(0xffffff), 0.55),
-    roughness: 0.7, map: woodMap, normalMap: woodNorm,
+    color: new THREE.Color(theme.wood).lerp(new THREE.Color(0xffffff), 0.5),
+    roughness: 0.62, map: woodMap, normalMap: woodNorm,
+    normalScale: new THREE.Vector2(0.32, 0.32),
   });
   const woodDarkMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(theme.woodDark).lerp(new THREE.Color(0xffffff), 0.3),
-    roughness: 0.75, map: woodMap, normalMap: woodNorm,
+    color: new THREE.Color(theme.woodDark).lerp(new THREE.Color(0xffffff), 0.28),
+    roughness: 0.72, map: woodMap, normalMap: woodNorm,
+    normalScale: new THREE.Vector2(0.26, 0.26),
   });
   const clothTex = track(fabricTexture());
   clothTex.wrapS = clothTex.wrapT = THREE.RepeatWrapping;
@@ -674,7 +677,20 @@ export function buildCafe(theme, models = null) {
     color: theme.cushion, roughness: 0.92,
     map: clothTex, bumpMap: clothTex, bumpScale: 0.006,
   });
-  const metalMat = new THREE.MeshStandardMaterial({ color: 0x6a6d70, roughness: 0.35, metalness: 0.7 });
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x73767a, roughness: 0.32, metalness: 0.88 });
+  // A compact material library keeps repeated table dressing visually related
+  // and avoids dozens of near-identical shader/material instances.
+  const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xd9ceba, roughness: 0.3, metalness: 0 });
+  const glazedCeramicMat = new THREE.MeshStandardMaterial({ color: 0xd6c6ad, roughness: 0.24, metalness: 0 });
+  const paperMat = new THREE.MeshStandardMaterial({ color: 0xd3c5aa, roughness: 0.96, metalness: 0 });
+  const foliageMat = new THREE.MeshStandardMaterial({ color: 0x4c7147, roughness: 0.96, metalness: 0 });
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x4d6743, roughness: 0.98, metalness: 0 });
+  const flowerMat = new THREE.MeshStandardMaterial({ color: 0xb96342, roughness: 0.9, metalness: 0 });
+  const waxMat = new THREE.MeshStandardMaterial({ color: 0xe2d5b9, roughness: 0.84, metalness: 0 });
+  const plantPotMat = new THREE.MeshStandardMaterial({
+    color: theme.openAir ? 0x9c6748 : new THREE.Color(theme.woodDark).lerp(new THREE.Color(0x8e725c), 0.42),
+    roughness: 0.94, metalness: 0,
+  });
 
   // floor: photographic planks/concrete per café
   const fs = FLOOR_SURF[theme.id] ?? FLOOR_SURF.goldenhour;
@@ -682,7 +698,8 @@ export function buildCafe(theme, models = null) {
     map: surfTex(fs.c, { srgb: true, rx: 4, ry: 3 }),
     normalMap: surfTex(fs.n, { rx: 4, ry: 3 }),
     roughnessMap: fs.r ? surfTex(fs.r, { rx: 4, ry: 3 }) : null,
-    color: fs.tint, roughness: fs.r ? 1.0 : 0.9,
+    color: fs.tint, roughness: fs.roughness,
+    normalScale: new THREE.Vector2(fs.normal, fs.normal),
   });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
   floor.rotation.x = -Math.PI / 2;
@@ -693,7 +710,7 @@ export function buildCafe(theme, models = null) {
   if (!theme.openAir) {
     const ceil = new THREE.Mesh(
       new THREE.PlaneGeometry(W, D),
-      new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.95 })
+      new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.92, metalness: 0 })
     );
     ceil.rotation.x = Math.PI / 2;
     ceil.position.y = H;
@@ -729,7 +746,8 @@ export function buildCafe(theme, models = null) {
   const wallMat = new THREE.MeshStandardMaterial({
     map: surfTex('wall_plaster.jpg', { srgb: true, rx: 2, ry: 1 }),
     normalMap: surfTex('wall_plaster_n.jpg', { rx: 2, ry: 1 }),
-    color: theme.wall, roughness: 0.95,
+    color: theme.wall, roughness: 0.9, metalness: 0,
+    normalScale: new THREE.Vector2(0.18, 0.18),
   });
   const sillY = 0.9, winH = 1.9, headY = sillY + winH;
 
@@ -757,8 +775,9 @@ export function buildCafe(theme, models = null) {
     const glass = new THREE.Mesh(
       new THREE.PlaneGeometry(len - m * 2, winH),
       new THREE.MeshPhysicalMaterial({
-        color: 0xffffff, transmission: 0.95, transparent: true, opacity: 0.35,
-        roughness: 0.05, metalness: 0, side: THREE.DoubleSide, depthWrite: false,
+        color: 0xf4f8f8, transmission: 0.94, transparent: true, opacity: 0.24,
+        roughness: 0.1, metalness: 0, ior: 1.5, thickness: 0.012,
+        side: THREE.DoubleSide, depthWrite: false,
       })
     );
     glass.position.set(0, sillY + winH / 2, 0);
@@ -785,7 +804,7 @@ export function buildCafe(theme, models = null) {
     group.add(frame);
     const door = new THREE.Mesh(
       new THREE.PlaneGeometry(doorW - 0.1, doorH - 0.1),
-      new THREE.MeshPhysicalMaterial({ color: 0xcfe0e8, transmission: 0.9, transparent: true, opacity: 0.4, roughness: 0.1, side: THREE.DoubleSide, depthWrite: false })
+      new THREE.MeshPhysicalMaterial({ color: 0xe2edf0, transmission: 0.9, transparent: true, opacity: 0.28, roughness: 0.12, ior: 1.5, thickness: 0.015, side: THREE.DoubleSide, depthWrite: false })
     );
     door.position.set(0, doorH / 2, D / 2 + 0.02);
     group.add(door);
@@ -812,7 +831,7 @@ export function buildCafe(theme, models = null) {
     }
 
     // baseboard trim
-    const trimMat = new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.9 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.82, metalness: 0 });
     for (const [len, pos, rotY] of [
       [W, [0, 0.06, -D / 2 + 0.09], 0],
       [D, [W / 2 - 0.09, 0.06, 0], Math.PI / 2],
@@ -848,7 +867,8 @@ export function buildCafe(theme, models = null) {
     const kioskMat = new THREE.MeshStandardMaterial({
       map: surfTex('wall_plaster.jpg', { srgb: true, rx: 2, ry: 1 }),
       normalMap: surfTex('wall_plaster_n.jpg', { rx: 2, ry: 1 }),
-      color: theme.wall, roughness: 0.95,
+      color: theme.wall, roughness: 0.9, metalness: 0,
+      normalScale: new THREE.Vector2(0.18, 0.18),
     });
     const kiosk = box(W * 0.72, H - 0.6, 0.18, kioskMat);
     kiosk.position.set(-0.6, (H - 0.6) / 2, -D / 2 + 0.1);
@@ -933,8 +953,8 @@ export function buildCafe(theme, models = null) {
   } else {
     const night = theme.outside === 'rainNight';
     const dusk = theme.outside === 'sunset';
-    const paveMat = new THREE.MeshStandardMaterial({ color: night ? 0x232630 : dusk ? 0xa08a70 : 0xa9adb2, roughness: 0.95 });
-    const roadMat = new THREE.MeshStandardMaterial({ color: night ? 0x131620 : 0x3d4046, roughness: 0.9 });
+    const paveMat = new THREE.MeshStandardMaterial({ color: night ? 0x232630 : dusk ? 0x98846f : 0xa2a5a8, roughness: 0.96, metalness: 0 });
+    const roadMat = new THREE.MeshStandardMaterial({ color: night ? 0x131620 : 0x373a3e, roughness: 0.94, metalness: 0 });
 
     // near sidewalk (the pedestrians walk here), curb, road, far sidewalk
     const walk1 = new THREE.Mesh(new THREE.BoxGeometry(W + 30, 0.06, 2.9), paveMat);
@@ -994,7 +1014,7 @@ export function buildCafe(theme, models = null) {
     group.add(faceRow);
 
     // street lamps on the near sidewalk
-    const lampMat2 = new THREE.MeshStandardMaterial({ color: 0x2c2e33, roughness: 0.5, metalness: 0.5 });
+    const lampMat2 = new THREE.MeshStandardMaterial({ color: 0x2c2e33, roughness: 0.42, metalness: 0.82 });
     for (const lx of [-W / 2 - 4, -1.5, W / 2 + 4]) {
       const pole = cyl(0.05, 0.06, 3.4, lampMat2, 8);
       pole.position.set(lx, 1.7, D / 2 + 2.55);
@@ -1013,14 +1033,14 @@ export function buildCafe(theme, models = null) {
     // a parked car and one that drives by now and then
     const mkCar = (color) => {
       const car = new THREE.Group();
-      const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.3 });
+      const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.22, metalness: 0.08 });
       const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.55, 1.5), bodyMat2);
       body.position.y = 0.55;
       car.add(body);
       const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 1.35), bodyMat2);
       cab.position.set(-0.2, 1.05, 0);
       car.add(cab);
-      const glassMat2 = new THREE.MeshStandardMaterial({ color: 0x1c2126, roughness: 0.15, metalness: 0.4 });
+      const glassMat2 = new THREE.MeshStandardMaterial({ color: 0x171d22, roughness: 0.12, metalness: 0.05 });
       const glass = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.36, 1.37), glassMat2);
       glass.position.set(-0.2, 1.08, 0);
       car.add(glass);
@@ -1049,8 +1069,24 @@ export function buildCafe(theme, models = null) {
   }
 
   // ---------- counter along back wall ----------
-  const counterMat = new THREE.MeshStandardMaterial({ color: theme.counter, roughness: 0.7 });
-  const counterTopMat = new THREE.MeshStandardMaterial({ color: theme.counterTop, roughness: 0.35 });
+  const counterIsWood = theme.id !== 'roastery';
+  const counterMat = new THREE.MeshStandardMaterial({
+    color: counterIsWood
+      ? new THREE.Color(theme.counter).lerp(new THREE.Color(0xffffff), 0.22)
+      : theme.counter,
+    roughness: counterIsWood ? 0.7 : 0.58,
+    metalness: 0,
+    ...(counterIsWood ? {
+      map: woodMap,
+      normalMap: woodNorm,
+      normalScale: new THREE.Vector2(0.22, 0.22),
+    } : {}),
+  });
+  const counterTopMat = new THREE.MeshStandardMaterial({
+    color: theme.counterTop,
+    roughness: theme.id === 'roastery' ? 0.42 : theme.id === 'midnight' ? 0.48 : 0.4,
+    metalness: 0,
+  });
   const counter = box(8.2, 1.0, 0.75, counterMat);
   counter.position.set(-0.6, 0.5, -D / 2 + 1.15);
   group.add(counter);
@@ -1080,14 +1116,14 @@ export function buildCafe(theme, models = null) {
       const b2 = new THREE.Box3().setFromObject(o);
       const s2 = b2.getSize(new THREE.Vector3());
       const vol = s2.x * s2.y * s2.z;
-      o.material.metalness = 0.75;
-      o.material.roughness = 0.3;
+      o.material.metalness = 0.88;
+      o.material.roughness = 0.28;
       if (vol > biggestVol) { biggestVol = vol; biggest = o; }
     });
     if (biggest) {
       biggest.material.color.set(0xa33b2e); // the classic café-red body
-      biggest.material.metalness = 0.35;
-      biggest.material.roughness = 0.45;
+      biggest.material.metalness = 0.12;
+      biggest.material.roughness = 0.38;
     }
     const darkM = new THREE.MeshStandardMaterial({ color: 0x24262a, roughness: 0.5 });
     for (const hx of [-0.12, 0.08]) {
@@ -1103,7 +1139,7 @@ export function buildCafe(theme, models = null) {
     }
   } else {
     const m = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb33939, roughness: 0.3, metalness: 0.4 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x9f3430, roughness: 0.28, metalness: 0.12 });
     const body = box(0.85, 0.42, 0.5, bodyMat); body.position.y = 0.29; m.add(body);
     const top = box(0.9, 0.07, 0.55, metalMat); top.position.y = 0.53; m.add(top);
     for (const x of [-0.22, 0.22]) {
@@ -1353,17 +1389,15 @@ export function buildCafe(theme, models = null) {
       group.add(plate);
     }
     if (Math.random() < 0.6) {
-      const vase = cyl(0.03, 0.045, 0.12, new THREE.MeshStandardMaterial({ color: 0x87a06a, roughness: 0.6 }), 10);
+      const vase = cyl(0.03, 0.045, 0.12, glazedCeramicMat, 10);
       vase.position.set(tx - 0.2, topY + 0.09, tz + 0.15);
       group.add(vase);
-      const stem = cyl(0.006, 0.006, 0.16, new THREE.MeshStandardMaterial({ color: 0x4a7040 }), 6);
+      const stem = cyl(0.006, 0.006, 0.16, stemMat, 6);
       stem.position.set(tx - 0.2, topY + 0.22, tz + 0.15);
       stem.rotation.z = 0.15;
       group.add(stem);
-      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6),
-        new THREE.MeshStandardMaterial({ color: 0xd9793e, roughness: 0.7 }));
-      flower.position.set(tx - 0.22, tz ? topY + 0.3 : topY + 0.3, tz + 0.15);
-      flower.position.set(tx - 0.223, topY + 0.3, tz + 0.15);
+      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), flowerMat);
+      flower.position.set(tx - 0.22, topY + 0.3, tz + 0.15);
       group.add(flower);
     }
   }
@@ -1412,7 +1446,7 @@ export function buildCafe(theme, models = null) {
   for (let i = 0; i < Math.min(theme.plants, plantSpots.length); i++) {
     // alternate downloaded plant models with procedural ones for variety
     const fromLib = i % 2 === 0 ? cloneModel(models, 'plant') : null;
-    const p = fromLib ?? makePlant(theme.woodDark);
+    const p = fromLib ?? makePlant(theme.woodDark, { pot: plantPotMat, leaf: foliageMat });
     p.position.set(plantSpots[i][0], 0, plantSpots[i][1]);
     p.scale.setScalar(fromLib ? rand(1.0, 1.5) : rand(1.2, 2.0));
     group.add(p);
@@ -1466,7 +1500,7 @@ export function buildCafe(theme, models = null) {
       napkins.position.set(tt.x + 0.24, topY + 0.035, tt.z - 0.12);
       group.add(napkins);
     }
-    const sugar = cyl(0.03, 0.03, 0.08, new THREE.MeshStandardMaterial({ color: 0xd9d3c4, roughness: 0.4 }), 10);
+    const sugar = cyl(0.03, 0.03, 0.08, ceramicMat, 10);
     sugar.position.set(tt.x + 0.28, topY + 0.04, tt.z + 0.08);
     group.add(sugar);
     const vignette = ti % 4;
@@ -1478,23 +1512,18 @@ export function buildCafe(theme, models = null) {
       }), 18);
       glass.position.set(tt.x - 0.24, topY + 0.045, tt.z + 0.12);
       group.add(glass);
-      const menu = box(0.18, 0.008, 0.11, new THREE.MeshStandardMaterial({ color: 0xd8cbb2, roughness: 0.92 }));
+      const menu = box(0.18, 0.008, 0.11, paperMat);
       menu.position.set(tt.x + 0.05, topY + 0.006, tt.z + 0.2);
       menu.rotation.y = -0.22;
       group.add(menu);
     } else if (vignette === 1) {
       // A tiny ceramic bud vase makes the setting feel intentionally dressed.
       const vase = new THREE.Group();
-      const ceramic = new THREE.MeshPhysicalMaterial({ color: 0xd7c8ac, roughness: 0.38, clearcoat: 0.12 });
-      const body = cyl(0.034, 0.042, 0.11, ceramic, 18); body.position.y = 0.055; vase.add(body);
-      const stemMat = new THREE.MeshStandardMaterial({ color: 0x536341, roughness: 0.9 });
+      const body = cyl(0.034, 0.042, 0.11, glazedCeramicMat, 18); body.position.y = 0.055; vase.add(body);
       for (const a of [-0.12, 0.08]) {
         const stem = cyl(0.004, 0.004, 0.18, stemMat, 6);
         stem.position.set(a * 0.18, 0.18, 0); stem.rotation.z = a; vase.add(stem);
-        const leaf = new THREE.Mesh(
-          new THREE.SphereGeometry(0.018, 12, 8),
-          new THREE.MeshStandardMaterial({ color: 0x78815c, roughness: 0.92 })
-        );
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 8), foliageMat);
         leaf.scale.set(0.65, 0.24, 1.35);
         leaf.rotation.z = a * 3;
         leaf.position.set(-a * 0.14, 0.265, 0); vase.add(leaf);
@@ -1508,7 +1537,7 @@ export function buildCafe(theme, models = null) {
       group.add(linen);
     }
     if (theme.candles) {
-      const candle = cyl(0.022, 0.025, 0.05, new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.8 }), 8);
+      const candle = cyl(0.022, 0.025, 0.05, waxMat, 8);
       candle.position.set(tt.x - 0.05, topY + 0.025, tt.z - 0.22);
       group.add(candle);
       const flame = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -1524,7 +1553,7 @@ export function buildCafe(theme, models = null) {
   // a working wall clock on the right wall
   const clockGroup = new THREE.Group();
   {
-    const face = cyl(0.28, 0.28, 0.04, new THREE.MeshStandardMaterial({ color: 0xefe8da, roughness: 0.5 }), 24);
+    const face = cyl(0.28, 0.28, 0.04, ceramicMat, 24);
     face.rotation.x = Math.PI / 2;
     clockGroup.add(face);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.02, 8, 24), woodDarkMat);
@@ -1638,8 +1667,8 @@ export function buildCafe(theme, models = null) {
 
   // Architectural surface details give each room an identity beyond palette.
   if (theme.id === 'roastery') {
-    const grout = new THREE.MeshStandardMaterial({ color: 0xd7d9d8, roughness: 0.82 });
-    const tile = new THREE.MeshStandardMaterial({ color: 0xf0f1ee, roughness: 0.32, metalness: 0.02 });
+    const grout = new THREE.MeshStandardMaterial({ color: 0xc9ccca, roughness: 0.92, metalness: 0 });
+    const tile = new THREE.MeshStandardMaterial({ color: 0xe9ebe7, roughness: 0.24, metalness: 0 });
     for (let row = 0; row < 6; row++) {
       for (let col = 0; col < 22; col++) {
         const t = box(0.34, 0.16, 0.018, (row + col) % 9 === 0 ? grout : tile);
@@ -1684,8 +1713,8 @@ export function buildCafe(theme, models = null) {
     // A dedicated filter-coffee bar: fitted joinery, a small ceramic library,
     // and one working pour-over setup. It balances the heavy service counter.
     const station = new THREE.Group();
-    const ceramic = new THREE.MeshStandardMaterial({ color: 0xd8c7a6, roughness: 0.5 });
-    const brass = new THREE.MeshStandardMaterial({ color: 0xa77a3c, roughness: 0.32, metalness: 0.55 });
+    const ceramic = new THREE.MeshStandardMaterial({ color: 0xd5c4a4, roughness: 0.34, metalness: 0 });
+    const brass = new THREE.MeshStandardMaterial({ color: 0xa77a3c, roughness: 0.34, metalness: 0.86 });
     const cabinet = box(2.05, 0.76, 0.46, woodMat); cabinet.position.y = 0.38; station.add(cabinet);
     const top = box(2.15, 0.055, 0.54, counterTopMat); top.position.y = 0.79; station.add(top);
     for (const sx of [-0.98, 0.98]) {
@@ -1717,7 +1746,7 @@ export function buildCafe(theme, models = null) {
     // A green-bean sample library explains what this café actually roasts.
     // Opaque jars read more cleanly than costly transmissive glass at this scale.
     const station = new THREE.Group();
-    const steel = new THREE.MeshStandardMaterial({ color: 0x45494e, roughness: 0.38, metalness: 0.6 });
+    const steel = new THREE.MeshStandardMaterial({ color: 0x555a5f, roughness: 0.34, metalness: 0.88 });
     const beanMat = new THREE.MeshStandardMaterial({ color: 0x9a8350, roughness: 0.82 });
     const cabinet = box(2.1, 0.78, 0.48, steel); cabinet.position.y = 0.39; station.add(cabinet);
     const top = box(2.18, 0.045, 0.54, counterTopMat); top.position.y = 0.8; station.add(top);
@@ -1733,7 +1762,7 @@ export function buildCafe(theme, models = null) {
     station.add(jars);
     const bowls = new THREE.InstancedMesh(
       new THREE.CylinderGeometry(0.13, 0.09, 0.07, 14),
-      new THREE.MeshStandardMaterial({ color: 0xe4e5df, roughness: 0.42 }),
+      ceramicMat,
       3
     );
     [-0.42, 0, 0.42].forEach((x, i) => {
@@ -1750,9 +1779,9 @@ export function buildCafe(theme, models = null) {
     // A restrained upright piano beneath the neon makes the jazz identity
     // spatial, not just musical. Keys are instanced into two draw calls.
     const piano = new THREE.Group();
-    const lacquer = new THREE.MeshStandardMaterial({ color: 0x171416, roughness: 0.27, metalness: 0.06 });
-    const ivory = new THREE.MeshStandardMaterial({ color: 0xe6dfcf, roughness: 0.42 });
-    const ebony = new THREE.MeshStandardMaterial({ color: 0x121114, roughness: 0.32 });
+    const lacquer = new THREE.MeshStandardMaterial({ color: 0x171416, roughness: 0.2, metalness: 0 });
+    const ivory = new THREE.MeshStandardMaterial({ color: 0xe3ddcf, roughness: 0.38, metalness: 0 });
+    const ebony = new THREE.MeshStandardMaterial({ color: 0x111014, roughness: 0.3, metalness: 0 });
     const body = box(1.55, 1.18, 0.42, lacquer); body.position.y = 0.83; piano.add(body);
     const keyboardBed = box(1.68, 0.08, 0.46, lacquer); keyboardBed.position.set(0, 0.94, 0.25); piano.add(keyboardBed);
     const whiteKeys = new THREE.InstancedMesh(new THREE.BoxGeometry(0.105, 0.026, 0.32), ivory, 14);
@@ -1782,8 +1811,8 @@ export function buildCafe(theme, models = null) {
   } else if (theme.id === 'terrace') {
     // A working herb bench connects the terrace greenery to the drinks menu.
     const bench = new THREE.Group();
-    const terracotta = new THREE.MeshStandardMaterial({ color: 0xa76543, roughness: 0.92 });
-    const leaf = new THREE.MeshStandardMaterial({ color: 0x4f7549, roughness: 0.96 });
+    const terracotta = new THREE.MeshStandardMaterial({ color: 0x9e6144, roughness: 0.96, metalness: 0 });
+    const leaf = new THREE.MeshStandardMaterial({ color: 0x4f7049, roughness: 0.98, metalness: 0 });
     const top = box(2.25, 0.1, 0.62, woodMat); top.position.y = 0.82; bench.add(top);
     const lower = box(2.05, 0.07, 0.5, woodDarkMat); lower.position.y = 0.28; bench.add(lower);
     for (const x of [-0.91, 0.91]) {
@@ -1827,7 +1856,7 @@ export function buildCafe(theme, models = null) {
 
   // industrial ductwork + steel beams (roastery)
   if (theme.ducts) {
-    const ductMat = new THREE.MeshStandardMaterial({ color: 0x87898d, roughness: 0.4, metalness: 0.6 });
+    const ductMat = new THREE.MeshStandardMaterial({ color: 0x8b8e91, roughness: 0.38, metalness: 0.82 });
     const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, W - 2, 14), ductMat);
     duct.rotation.z = Math.PI / 2;
     duct.position.set(0, H - 0.45, -2.4);
@@ -1836,7 +1865,7 @@ export function buildCafe(theme, models = null) {
     elbow.position.set(-(W - 2) / 2 + 0.14, H - 0.45 - 0.4, -2.4);
     group.add(elbow);
     for (const bz of [1.6, 4.4]) {
-      const steel = box(W, 0.2, 0.14, new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.5, metalness: 0.4 }));
+      const steel = box(W, 0.2, 0.14, new THREE.MeshStandardMaterial({ color: 0x303338, roughness: 0.42, metalness: 0.78 }));
       steel.position.set(0, H - 0.1, bz);
       group.add(steel);
     }
@@ -1845,8 +1874,8 @@ export function buildCafe(theme, models = null) {
   // a big coffee roaster in the corner (roastery)
   if (theme.roaster) {
     const r = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x56595f, roughness: 0.4, metalness: 0.55 });
-    const brass = new THREE.MeshStandardMaterial({ color: 0xa88544, roughness: 0.3, metalness: 0.7 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5f6267, roughness: 0.36, metalness: 0.84 });
+    const brass = new THREE.MeshStandardMaterial({ color: 0xa88544, roughness: 0.32, metalness: 0.88 });
     const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.9, 18), bodyMat);
     drum.rotation.x = Math.PI / 2;
     drum.position.y = 1.0;
@@ -2210,26 +2239,42 @@ export function buildCafe(theme, models = null) {
 
   const sun = new THREE.DirectionalLight(theme.sun.color, theme.sun.intensity);
   sun.position.set(...theme.sun.pos);
+  sun.target.position.set(0, 0.8, -0.5);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
-  sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
-  sun.shadow.bias = -0.0005;
+  // Fit the shadow frustum to the occupied room instead of spending texels on
+  // the distant backdrop. A small normal bias prevents acne without making
+  // chair and table legs appear to float.
+  sun.shadow.camera.left = -10.5; sun.shadow.camera.right = 10.5;
+  sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
+  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 32;
+  sun.shadow.bias = -0.00012;
+  sun.shadow.normalBias = 0.025;
   group.add(sun);
   group.add(sun.target);
 
   // pendant lamps over the tables
-  const lampMats = [];
   const lampLights = [];
+  const shadeIsFabric = theme.pendant === 'drum';
+  const shadeMat = new THREE.MeshStandardMaterial({
+    color: shadeIsFabric ? 0x59483f : 0x302a26,
+    roughness: shadeIsFabric ? 0.92 : 0.4,
+    metalness: shadeIsFabric ? 0 : 0.72,
+    emissive: theme.lampColor,
+    emissiveIntensity: shadeIsFabric ? 0.07 : 0.025,
+    side: THREE.DoubleSide,
+  });
+  const bulbMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(theme.lampColor).lerp(new THREE.Color(0xffffff), 0.28),
+  });
+  const litPendantCount = Math.min(theme.rain ? 8 : theme.openAir ? 4 : 6, theme.tables.length);
+  const litPendantIndices = new Set(Array.from({ length: litPendantCount }, (_, index) => (
+    litPendantCount === 1 ? 0 : Math.round(index * (theme.tables.length - 1) / (litPendantCount - 1))
+  )));
   theme.tables.forEach((t, i) => {
     const cord = cyl(0.008, 0.008, H - theme.lampY, woodDarkMat, 6);
     cord.position.set(t.x, theme.lampY + (H - theme.lampY) / 2, t.z);
     group.add(cord);
-    const shadeMat = new THREE.MeshStandardMaterial({
-      color: 0x282018, roughness: 0.6,
-      emissive: theme.lampColor, emissiveIntensity: theme.pendant === 'drum' ? 0.16 : 0.25,
-    });
-    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
     if (theme.pendant === 'bulb') {
       // industrial: bare Edison bulb under a small metal disc
       const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.04, 14), metalMat);
@@ -2242,7 +2287,6 @@ export function buildCafe(theme, models = null) {
     } else if (theme.pendant === 'drum') {
       // fabric drum shade, glowing softly
       const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.18, 16, 1, true), shadeMat);
-      drum.material.side = THREE.DoubleSide;
       drum.position.set(t.x, theme.lampY, t.z);
       group.add(drum);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
@@ -2256,9 +2300,8 @@ export function buildCafe(theme, models = null) {
       bulb.position.set(t.x, theme.lampY - 0.05, t.z);
       group.add(bulb);
     }
-    lampMats.push(shadeMat, bulbMat);
-    if (i < (theme.rain ? 8 : 6)) { // the night café leans on its lamps
-      const pl = new THREE.PointLight(theme.lampColor, theme.lampIntensity, 6, 2);
+    if (litPendantIndices.has(i)) { // distribute practical pools across the room
+      const pl = new THREE.PointLight(theme.lampColor, theme.lampIntensity, theme.rain ? 5 : 4.6, 2);
       pl.position.set(t.x, theme.lampY - 0.12, t.z);
       group.add(pl);
       lampLights.push(pl);
