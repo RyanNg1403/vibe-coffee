@@ -20,13 +20,6 @@
     "source_url": "https://archive.org/download/Designers-Choice-Collection-Ambiences/AMBIENCES%2FTRAFFIC%2FAMBTraf-Samsung%20Galaxy%20Smartphone%2C%20CU_Traffic%2C%20Cars%2C%20Trucks%2C%20Buses%2C%20Motorcycle%2C%20Passing%2C%20Stop%20and%20Go_Nicholas%20Judy_TDC.mp3",
     "item_url": "https://archive.org/details/Designers-Choice-Collection-Ambiences"
   },
-  "rain_window": {
-    "title": "Troon, Camborne, Cornwall TR14, UK - Rain On The Window From Inside",
-    "creator": "djake@live... (radio aporee field recording)",
-    "license": "CC BY 3.0 (http://creativecommons.org/licenses/by/3.0/)",
-    "source_url": "https://archive.org/download/aporee_30723_35334/RainInsideWindowsillDPA40601050815.mp3",
-    "item_url": "https://archive.org/details/aporee_30723_35334"
-  },
   "traffic_night": {
     "title": "rain gutter, tyr\u0161eva - night rain traffic (radio aporee field recording)",
     "creator": "OR poiesis",
@@ -449,5 +442,29 @@
     "source_url": "https://cdn.freesound.org/previews/630/630648_7228277-hq.mp3",
     "item_url": "https://freesound.org/people/haulaway/sounds/630648/",
     "edits": "mono 32 kHz, 100 Hz high-pass, tail fade; retrieved 2026-07-11"
+  },
+  "rain_light": {
+    "title": "AMB_M_City_Rain_Light (light city rain ambience)",
+    "creator": "conleec",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/171/171980_221578-hq.mp3",
+    "item_url": "https://freesound.org/people/conleec/sounds/171980/",
+    "edits": "36 s slice from 0:25, mono 32 kHz, 55 Hz high-pass, loop click-guards; retrieved 2026-07-11"
+  },
+  "rain_steady": {
+    "title": "Moderate_rain_ext (exterior moderate rain)",
+    "creator": "AMCINGSOUNDS",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/708/708557_15369596-hq.mp3",
+    "item_url": "https://freesound.org/people/AMCINGSOUNDS/sounds/708557/",
+    "edits": "36 s slice from 1:00, mono 32 kHz, 40 Hz high-pass, loop click-guards; retrieved 2026-07-11"
+  },
+  "rain_heavy": {
+    "title": "Ambience, Rain, Heavy, A.wav",
+    "creator": "InspectorJ (www.jshaw.co.uk)",
+    "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+    "source_url": "https://cdn.freesound.org/previews/321/321173_5121236-hq.mp3",
+    "item_url": "https://freesound.org/people/InspectorJ/sounds/321173/",
+    "edits": "36 s slice from 0:30, mono 32 kHz, 40 Hz high-pass, loop click-guards; retrieved 2026-07-11"
   }
 }

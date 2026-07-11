@@ -23,7 +23,7 @@ function analyze(buffer) {
 }
 
 const BED_KEYS = new Set(['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet']);
-const EXTERIOR_KEYS = new Set(['traffic_day', 'traffic_night', 'rain_window']);
+const EXTERIOR_KEYS = new Set(['traffic_day', 'traffic_night', 'rain_light', 'rain_steady', 'rain_heavy']);
 const MACHINE_KEYS = new Set(['espresso', 'steam_milk', 'pour', 'grinder', 'dishes']);
 const HUMAN_BG_KEYS = new Set(['laughter', 'cough']); // sit under the chatter bed
 // Pet voices are short, close-range one-shots; a purr should idle well under
@@ -57,36 +57,47 @@ function dataUriToArrayBuffer(uri) {
   return bytes.buffer;
 }
 
+// One decoder per sample rate, shared across the startup load and later lazy
+// decodes so dozens of assets never allocate dozens of offline contexts.
+const decoderContexts = new Map();
+
+// Fetches, decodes and loudness-normalizes ONE manifest entry. Used by the
+// startup library load and by on-demand (lazy) beds like the rain levels.
+export async function loadSoundAsset(ctx, key, def) {
+  let ab;
+  if (def.url.startsWith('data:')) {
+    ab = dataUriToArrayBuffer(def.url);
+  } else {
+    const res = await fetch(def.url);
+    if (!res.ok) throw new Error(`http ${res.status}`);
+    ab = await res.arrayBuffer();
+  }
+  // AudioContext.decodeAudioData() otherwise resamples every file to the
+  // output device (usually 48 kHz), undoing the RAM benefit of our 24 kHz
+  // ambience masters. Decode through a rate-specific OfflineAudioContext;
+  // AudioBufferSourceNode resamples the compact buffer only while playing.
+  const rate = def.decodeRate ?? decodeRate(key, ctx.sampleRate);
+  let decoder = decoderContexts.get(rate);
+  if (!decoder) {
+    const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    decoder = OfflineContext ? new OfflineContext(1, 1, rate) : ctx;
+    decoderContexts.set(rate, decoder);
+  }
+  const buf = await decoder.decodeAudioData(ab);
+  const { rms, peak } = analyze(buf);
+  let gain = rms > 0.0001 ? targetRms(key, def) / rms : 1;
+  gain = Math.min(gain, 6, peak > 0.0001 ? 0.95 / peak : 6);
+  return { buffer: buf, ...def, gain: gain * (def.trim ?? 1) };
+}
+
 export async function loadSoundLibrary(ctx, manifest, onLoaded) {
   const buffers = new Map();
-  const decoderContexts = new Map();
   await Promise.all(Object.entries(manifest).map(async ([key, def]) => {
+    if (def.lazy) return; // decoded on demand (e.g. the selected rain level)
     try {
-      let ab;
-      if (def.url.startsWith('data:')) {
-        ab = dataUriToArrayBuffer(def.url);
-      } else {
-        const res = await fetch(def.url);
-        if (!res.ok) throw new Error(`http ${res.status}`);
-        ab = await res.arrayBuffer();
-      }
-      // AudioContext.decodeAudioData() otherwise resamples every file to the
-      // output device (usually 48 kHz), undoing the RAM benefit of our 24 kHz
-      // ambience masters. Decode through a rate-specific OfflineAudioContext;
-      // AudioBufferSourceNode resamples the compact buffer only while playing.
-      const rate = def.decodeRate ?? decodeRate(key, ctx.sampleRate);
-      let decoder = decoderContexts.get(rate);
-      if (!decoder) {
-        const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-        decoder = OfflineContext ? new OfflineContext(1, 1, rate) : ctx;
-        decoderContexts.set(rate, decoder);
-      }
-      const buf = await decoder.decodeAudioData(ab);
-      const { rms, peak } = analyze(buf);
-      let gain = rms > 0.0001 ? targetRms(key, def) / rms : 1;
-      gain = Math.min(gain, 6, peak > 0.0001 ? 0.95 / peak : 6);
-      buffers.set(key, { buffer: buf, ...def, gain: gain * (def.trim ?? 1) });
-      onLoaded?.(key, buf);
+      const entry = await loadSoundAsset(ctx, key, def);
+      buffers.set(key, entry);
+      onLoaded?.(key, entry.buffer);
     } catch (e) {
       console.warn(`[sounds] "${key}" unavailable (${e.message}) — synth fallback`);
     }

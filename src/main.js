@@ -799,10 +799,18 @@ const musicVolume = document.getElementById('music-vol');
 const ambienceVolume = document.getElementById('amb-vol');
 const voicesVolume = document.getElementById('voices-vol');
 const petsVolume = document.getElementById('pets-vol');
+const rainSlider = document.getElementById('rain-vol');
+const rainLevelName = document.getElementById('rain-level');
+const RAIN_STOP_NAMES = ['off', 'light', 'steady', 'heavy'];
+function renderRainStop() {
+  if (rainLevelName) rainLevelName.textContent = RAIN_STOP_NAMES[Number(rainSlider.value)] ?? 'steady';
+}
 musicVolume.value = String(preferences.musicVolume);
 ambienceVolume.value = String(preferences.ambienceVolume);
 voicesVolume.value = String(preferences.voicesVolume);
 petsVolume.value = String(preferences.petVolume);
+rainSlider.value = String(preferences.rainIntensity);
+renderRainStop();
 musicToggle.classList.toggle('on', preferences.musicOn);
 musicToggle.textContent = preferences.musicOn ? '♪ music on' : '♪ music off';
 musicToggle.setAttribute('aria-pressed', String(preferences.musicOn));
@@ -811,6 +819,7 @@ audio.setMusicVolume(preferences.musicVolume);
 audio.setAmbienceVolume(preferences.ambienceVolume);
 audio.setVoicesVolume(preferences.voicesVolume);
 audio.setPetVolume(preferences.petVolume);
+audio.setRainIntensity(preferences.rainIntensity);
 
 const fullscreenButton = document.getElementById('fullscreen-btn');
 const fullscreenElement = () => document.fullscreenElement ?? document.webkitFullscreenElement;
@@ -857,6 +866,7 @@ function persistPreferences() {
     ambienceVolume: Number(ambienceVolume.value),
     voicesVolume: Number(voicesVolume.value),
     petVolume: Number(petsVolume.value),
+    rainIntensity: Number(rainSlider.value),
     musicOn: musicToggle.classList.contains('on'),
     cafeIndex: currentThemeIndex,
     envTime,
@@ -951,6 +961,11 @@ petsVolume.addEventListener('input', (e) => {
   audio.setPetVolume(parseFloat(e.target.value));
   persistPreferences();
 });
+rainSlider.addEventListener('input', (e) => {
+  audio.setRainIntensity(Number(e.target.value));
+  renderRainStop();
+  persistPreferences();
+});
 
 // focus timer (adjustable focus interval / five-minute break)
 const timerEl = document.getElementById('timer-display');
@@ -1039,6 +1054,7 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   audio.setAmbienceVolume(Number(ambienceVolume.value));
   audio.setVoicesVolume(Number(voicesVolume.value));
   audio.setPetVolume(Number(petsVolume.value));
+  audio.setRainIntensity(Number(rainSlider.value));
   audio.setMusicOn(musicToggle.classList.contains('on'));
 });
 
