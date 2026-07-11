@@ -7,6 +7,8 @@ trimmed and loudness-normalized for in-app playback. Missing sound assets retain
 procedural WebAudio fallbacks.
 
 - **carpass** — "VEHBy_Car by (single car pass-by, from SSE Library: VEHICLES)" by USC Cinema / Sunset Editorial Collection (SSE Library) — CC0 1.0 (public domain dedication) — https://creativecommons.org/publicdomain/zero/1.0/ — [source](https://archive.org/details/SSE_Library_VEHICLES)
+- **cat_meow** — "cat-meow-01 (kitty trills, meows and chirps)" by templeofhades — CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/) — [source](https://freesound.org/people/templeofhades/sounds/95516/)
+- **cat_purr** — "Cat purr (close Sennheiser MKH 805 recording)" by Trautwein — CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/) — [source](https://freesound.org/people/Trautwein/sounds/260881/)
 - **chair_scrape** — "R21-40a - Bed or Chair Movement (Red Library: Foley Props 2)" by Red Library (foley sound effects collection, archive.org) — CC0 1.0 (public domain) — https://creativecommons.org/publicdomain/zero/1.0/ — [source](https://archive.org/details/Red_Library_Foley_Props_2)
 - **chatter** — "AMBRest_Cafe ambience; good walla (SSE Library: AMBIENCE — Restaurant & Bar)" by USC Cinema / Sunset Editorial Collection (SSE Library) — CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — [source](https://archive.org/details/SSE_Library_AMBIENCE)
 - **chatter2** — "Hiroshima, Japan - Nagataya restaurant ambience (kitchen sound, voices)" by Flavien Gillié (radio aporee) — Public Domain Mark 1.0 (https://creativecommons.org/publicdomain/mark/1.0/) — [source](https://archive.org/details/aporee_71438_83347)
@@ -15,6 +17,9 @@ procedural WebAudio fallbacks.
 - **cough** — "Man coughing" — Public domain — [source](https://commons.wikimedia.org/wiki/File:Man_coughing.ogg)
 - **cup_clinks** — "Szwedzka 6A, 61-285 Poznan, Poland - ringing cups near coffee machine (radio aporee field recording, trimmed 73.8s-78.3s segment with distinct cup clinks)" by maciej janasik — Public Domain Mark 1.0 (https://creativecommons.org/publicdomain/mark/1.0/) — [source](https://archive.org/details/aporee_66247_76596)
 - **dishes** — "Kitchen tidy up" — Public domain — [source](https://commons.wikimedia.org/wiki/File:Kitchen_tidy_up.ogg)
+- **dog_bark** — "single bark - small to medium dog" by haulaway — CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/) — [source](https://freesound.org/people/haulaway/sounds/630648/)
+- **dog_sniff** — "Dog Sniffing" by 21100375 — CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/) — [source](https://freesound.org/people/21100375/sounds/593133/)
+- **dog_whine** — "Whining Dog (soft whimpers)" by Breviceps — CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/) — [source](https://freesound.org/people/Breviceps/sounds/462660/)
 - **door_bell** — "R04-62-Shop Bell (Red Library: Bells, Horns, Whistles)" by USC Cinema / Sunset Editorial Collection (Red Library sound effects, USC Sound Effect Archive) — CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) — [source](https://archive.org/details/Red_Library_Bells_Horns_Whistles)
 - **door_open** — "Closing an old door" by ezwa — Public domain — [source](https://commons.wikimedia.org/wiki/File:Closing_an_old_door.ogg)
 - **espresso** — "Splat! Cakes N Such - Coffee Grinder (10s grinding segment, trimmed from 13.4s of the original 111s field recording)" by edtolb3 (via radio aporee maps) — Public Domain Mark 1.0 (http://creativecommons.org/publicdomain/mark/1.0/) — [source](https://archive.org/details/aporee_47702_54212)

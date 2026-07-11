@@ -338,7 +338,7 @@ async function loadTheme(index) {
   bloomPass.strength = theme.bloom ?? 0.25;
 
   crowd = new CrowdSim(cafe, audio, models);
-  pets = new PetSystem(cafe, models, theme);
+  pets = new PetSystem(cafe, models, theme, audio, interactions);
   applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({ counter: cafe.nav.machineWorld, door: cafe.nav.door });
   audio.setClinkSpots([]);
@@ -798,9 +798,11 @@ const trackStyle = document.getElementById('track-style');
 const musicVolume = document.getElementById('music-vol');
 const ambienceVolume = document.getElementById('amb-vol');
 const voicesVolume = document.getElementById('voices-vol');
+const petsVolume = document.getElementById('pets-vol');
 musicVolume.value = String(preferences.musicVolume);
 ambienceVolume.value = String(preferences.ambienceVolume);
 voicesVolume.value = String(preferences.voicesVolume);
+petsVolume.value = String(preferences.petVolume);
 musicToggle.classList.toggle('on', preferences.musicOn);
 musicToggle.textContent = preferences.musicOn ? '♪ music on' : '♪ music off';
 musicToggle.setAttribute('aria-pressed', String(preferences.musicOn));
@@ -808,6 +810,7 @@ document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
 audio.setMusicVolume(preferences.musicVolume);
 audio.setAmbienceVolume(preferences.ambienceVolume);
 audio.setVoicesVolume(preferences.voicesVolume);
+audio.setPetVolume(preferences.petVolume);
 
 const fullscreenButton = document.getElementById('fullscreen-btn');
 const fullscreenElement = () => document.fullscreenElement ?? document.webkitFullscreenElement;
@@ -853,6 +856,7 @@ function persistPreferences() {
     musicVolume: Number(musicVolume.value),
     ambienceVolume: Number(ambienceVolume.value),
     voicesVolume: Number(voicesVolume.value),
+    petVolume: Number(petsVolume.value),
     musicOn: musicToggle.classList.contains('on'),
     cafeIndex: currentThemeIndex,
     envTime,
@@ -943,6 +947,10 @@ voicesVolume.addEventListener('input', (e) => {
   audio.setVoicesVolume(parseFloat(e.target.value));
   persistPreferences();
 });
+petsVolume.addEventListener('input', (e) => {
+  audio.setPetVolume(parseFloat(e.target.value));
+  persistPreferences();
+});
 
 // focus timer (adjustable focus interval / five-minute break)
 const timerEl = document.getElementById('timer-display');
@@ -1030,6 +1038,7 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   audio.setMusicVolume(Number(musicVolume.value));
   audio.setAmbienceVolume(Number(ambienceVolume.value));
   audio.setVoicesVolume(Number(voicesVolume.value));
+  audio.setPetVolume(Number(petsVolume.value));
   audio.setMusicOn(musicToggle.classList.contains('on'));
 });
 
