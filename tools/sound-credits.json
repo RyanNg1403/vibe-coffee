@@ -466,5 +466,71 @@
     "source_url": "https://cdn.freesound.org/previews/321/321173_5121236-hq.mp3",
     "item_url": "https://freesound.org/people/InspectorJ/sounds/321173/",
     "edits": "36 s slice from 0:30, mono 32 kHz, 40 Hz high-pass, loop click-guards; retrieved 2026-07-11"
+  },
+  "plant_monstera": {
+    "title": "Large Monstera Plant",
+    "creator": "Isa Lousberg",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/kZQ2WmnJFI"
+  },
+  "plant_snake": {
+    "title": "Sansevieria Plant",
+    "creator": "Isa Lousberg",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/pdSNJNVbO9"
+  },
+  "plant_pothos": {
+    "title": "Pothos Plant Large",
+    "creator": "Isa Lousberg",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/i7CfuCzaoo"
+  },
+  "plant_pothos_vine": {
+    "title": "Pothos Vine Large",
+    "creator": "Isa Lousberg",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/HG1d091bLo"
+  },
+  "plant_succulent": {
+    "title": "Succulent Pot",
+    "creator": "Isa Lousberg",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/y3zjCa6BeR"
+  },
+  "plant_cacti": {
+    "title": "Small Cacti Pot",
+    "creator": "Isa Lousberg",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/vCLyYaeXZp"
+  },
+  "plant_fern": {
+    "title": "Fern",
+    "creator": "Danni Bittman",
+    "license": "CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/) - credit Danni Bittman",
+    "item_url": "https://poly.pizza/m/6ttropQuVzQ"
+  },
+  "tree_park_a": {
+    "title": "Tree",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/2paAm1ja4w"
+  },
+  "tree_park_b": {
+    "title": "Tree",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/9nvGuZlbpE"
+  },
+  "pet_cat": {
+    "title": "Cat (rigged; Idle/Walk/Headbutt/Idle_Eating/Death clips)",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/qKICY6xla2"
+  },
+  "pet_dog": {
+    "title": "Shiba Dog (rigged; Idle/Walk/Eating/Death clips)",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/wpkGeoyfIP"
   }
 }

@@ -320,6 +320,12 @@ async function loadTheme(index) {
 
   resetMemoryAuditRandom(index);
   cafe = buildCafe(theme, models);
+  resetMemoryAuditRandom(index + 16); // TEMP for A/B measurement
+
+  // Re-seed between construction and crowd spawn: decor edits change how many
+  // random draws a build consumes, and without this every decor PR would
+  // reshuffle the seeded audit crowd and make renderer counts incomparable.
+  resetMemoryAuditRandom(index + 16);
   // A 1024px soft sun shadow is visually comparable in this compact room and
   // quarters the shadow-map fill/memory cost of the original 2048px map.
   cafe.group.traverse((object) => {
