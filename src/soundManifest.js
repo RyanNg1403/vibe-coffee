@@ -21,7 +21,7 @@ export const SOUND_MANIFEST = {
   laughter: { url: '/sounds/laughter.mp3', loop: false }, // 6.3s
   page_turn: { url: '/sounds/page_turn.mp3', loop: false }, // 1.8s
   pour: { url: '/sounds/pour.mp3', loop: false }, // 5.5s
-  rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 26.1s
+  rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 28.1s
   register: { url: '/sounds/register.mp3', loop: false }, // 2.1s
   steam_milk: { url: '/sounds/steam_milk.mp3', loop: false }, // 4.4s
   thunder: { url: '/sounds/thunder.mp3', loop: false }, // 15.8s

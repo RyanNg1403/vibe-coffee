@@ -43,7 +43,8 @@ function mergeStaticDecor(group, animatedRoots) {
       const attr = geometry.attributes[name];
       if (attr.normalized || !(attr.array instanceof Float32Array)) return;
     }
-    const flags = (geometry.index ? 'i' : 'n') + (o.castShadow ? 'c' : '') + (o.receiveShadow ? 'r' : '');
+    const flags = (geometry.index ? 'i' : 'n') + (o.castShadow ? 'c' : '')
+      + (o.receiveShadow ? 'r' : '') + `l${o.layers.mask}`;
     // Untextured flat-colour standard materials — most of the procedural
     // clutter — merge across material instances: their colour moves into a
     // vertex-colour attribute and near-equal roughness/metalness quantise
@@ -97,6 +98,7 @@ function mergeStaticDecor(group, animatedRoots) {
     const merged = new THREE.Mesh(mergedGeometry, material);
     merged.castShadow = meshes[0].castShadow;
     merged.receiveShadow = meshes[0].receiveShadow;
+    merged.layers.mask = meshes[0].layers.mask;
     group.add(merged);
     for (const o of meshes) o.parent.remove(o);
   }
@@ -104,6 +106,20 @@ function mergeStaticDecor(group, animatedRoots) {
 
 // Room shell is shared across themes; palette, light, view and layout differ.
 export const ROOM = { W: 17, D: 13.5, H: 3.8 };
+
+// The picture surface must sit measurably in front of the solid backing. The
+// old values put both faces at exactly the same x coordinate, so the depth
+// buffer alternated between the print and its dark frame as the camera moved.
+export const WALL_ART_DEPTH_GAP = 0.018;
+export function wallArtDepths(roomWidth = ROOM.W) {
+  const frameCenterX = roomWidth / 2 - 0.07;
+  const frameInteriorFaceX = frameCenterX - 0.02;
+  return {
+    frameCenterX,
+    frameInteriorFaceX,
+    artX: frameInteriorFaceX - WALL_ART_DEPTH_GAP,
+  };
+}
 
 // ---------- environment: time of day × weather ----------
 // Each café keeps its interior palette and layout; these presets only patch
@@ -145,9 +161,13 @@ const TIME_PRESETS = {
 
 // the terrace looks onto a park, not a street — keep its garden panorama
 const GARDEN_OUTSIDE = { morning: 'garden', noon: 'garden', sunset: 'garden_dusk', night: 'garden_night' };
+const AUTHORED_TIME = { goldenhour: 'sunset', roastery: 'noon', midnight: 'night', terrace: 'morning' };
 
 export function resolveEnvironment(theme, time = 'auto', sky = 'auto') {
-  let resolved = theme;
+  let resolved = {
+    ...theme,
+    timeOfDay: time === 'auto' ? (AUTHORED_TIME[theme.id] ?? 'noon') : time,
+  };
   if (time !== 'auto' && TIME_PRESETS[time]) {
     resolved = { ...resolved, ...TIME_PRESETS[time] };
     if (theme.openAir) resolved.outside = GARDEN_OUTSIDE[time];
@@ -168,6 +188,10 @@ export function resolveEnvironment(theme, time = 'auto', sky = 'auto') {
     resolved = { ...resolved, rain: false, bloom: resolved.bloom + 0.12 };
   }
   return resolved;
+}
+
+export function shouldRenderSunShafts(theme) {
+  return !!theme.shafts && theme.timeOfDay !== 'night' && !theme.rain;
 }
 
 export const THEMES = [
@@ -595,6 +619,46 @@ function roundedBox(w, h, d, mat, radius = 0.025, segments = 2) {
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
+
+let _carGeometryKit = null;
+function carGeometryKit() {
+  if (_carGeometryKit) return _carGeometryKit;
+  const shared = (geometry) => {
+    geometry.userData.vibeShared = true;
+    geometry.userData.shared = true;
+    return geometry;
+  };
+  const cabin = shared(new THREE.BufferGeometry());
+  cabin.setAttribute('position', new THREE.Float32BufferAttribute([
+    -1.0, -0.25, -0.68, 0.85, -0.25, -0.68, 0.85, -0.25, 0.68, -1.0, -0.25, 0.68,
+    -0.68, 0.25, -0.60, 0.48, 0.25, -0.60, 0.48, 0.25, 0.60, -0.68, 0.25, 0.60,
+  ], 3));
+  cabin.setIndex([
+    0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2,
+    1, 2, 6, 1, 6, 5, 0, 4, 7, 0, 7, 3,
+    4, 5, 6, 4, 6, 7,
+  ]);
+  cabin.computeVertexNormals();
+  _carGeometryKit = {
+    body: shared(new RoundedBoxGeometry(3.4, 0.44, 1.5, 2, 0.1)),
+    rocker: shared(new RoundedBoxGeometry(3.34, 0.16, 1.44, 2, 0.04)),
+    hood: shared(new RoundedBoxGeometry(0.96, 0.11, 1.42, 2, 0.04)),
+    trunk: shared(new RoundedBoxGeometry(0.64, 0.09, 1.42, 2, 0.035)),
+    cabin,
+    roof: shared(new RoundedBoxGeometry(1.22, 0.07, 1.22, 2, 0.025)),
+    pillar: shared(new THREE.BoxGeometry(0.065, 0.43, 1.36)),
+    bumper: shared(new RoundedBoxGeometry(0.08, 0.14, 1.52, 2, 0.025)),
+    handle: shared(new RoundedBoxGeometry(0.16, 0.025, 0.025, 2, 0.008)),
+    mirror: shared(new RoundedBoxGeometry(0.16, 0.09, 0.13, 2, 0.025)),
+    seam: shared(new THREE.BoxGeometry(0.018, 0.28, 0.012)),
+    wheel: shared(new THREE.CylinderGeometry(0.32, 0.32, 0.2, 16)),
+    hub: shared(new THREE.CylinderGeometry(0.14, 0.14, 0.022, 12)),
+    headlight: shared(new RoundedBoxGeometry(0.035, 0.12, 0.26, 2, 0.012)),
+    taillight: shared(new RoundedBoxGeometry(0.035, 0.1, 0.3, 2, 0.012)),
+    plate: shared(new RoundedBoxGeometry(0.018, 0.11, 0.34, 2, 0.012)),
+  };
+  return _carGeometryKit;
+}
 let _chairBackGeometry = null;
 function drawRoundedRect(path, x, y, width, height, radius, clockwise = false) {
   const x1 = x + width, y1 = y + height;
@@ -967,36 +1031,6 @@ function makeTipJar() {
   return g;
 }
 
-// napkin holder + sugar shaker + tiny menu card: the table clutter that makes
-// a café table read as in-service rather than staged
-function makeTableSet(accent) {
-  const g = new THREE.Group();
-  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcfd4d8, metalness: 0.9, roughness: 0.2 });
-  const holder = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.07, 0.09), chromeMat);
-  holder.position.set(-0.03, 0.035, 0);
-  g.add(holder);
-  const holder2 = holder.clone();
-  holder2.position.x = 0.03;
-  g.add(holder2);
-  const napkins = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.08),
-    new THREE.MeshStandardMaterial({ color: 0xf4efe2, roughness: 0.95 }));
-  napkins.position.y = 0.033;
-  g.add(napkins);
-  const shaker = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.07, 10),
-    new THREE.MeshPhysicalMaterial({ color: 0xf8f8f4, transmission: 0.5, transparent: true, opacity: 0.7, roughness: 0.2 }));
-  shaker.position.set(0.09, 0.035, 0.01);
-  g.add(shaker);
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.019, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), chromeMat);
-  cap.position.set(0.09, 0.07, 0.01);
-  g.add(cap);
-  const menuCard = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.1),
-    new THREE.MeshStandardMaterial({ color: accent ?? 0xc98e4e, roughness: 0.85, side: THREE.DoubleSide }));
-  menuCard.position.set(-0.1, 0.05, -0.02);
-  menuCard.rotation.set(-0.25, 0.5, 0);
-  g.add(menuCard);
-  return g;
-}
-
 function makeWallMirror() {
   const g = new THREE.Group();
   const frameMat = new THREE.MeshStandardMaterial({ color: 0xc9a03a, metalness: 0.75, roughness: 0.3 });
@@ -1083,7 +1117,6 @@ export function buildCafe(theme, models = null) {
   const paperMat = new THREE.MeshStandardMaterial({ color: 0xd3c5aa, roughness: 0.96, metalness: 0 });
   const foliageMat = new THREE.MeshStandardMaterial({ color: 0x4c7147, roughness: 0.96, metalness: 0 });
   const stemMat = new THREE.MeshStandardMaterial({ color: 0x4d6743, roughness: 0.98, metalness: 0 });
-  const flowerMat = new THREE.MeshStandardMaterial({ color: 0xb96342, roughness: 0.9, metalness: 0 });
   const waxMat = new THREE.MeshStandardMaterial({ color: 0xe2d5b9, roughness: 0.84, metalness: 0 });
   const plantPotMat = new THREE.MeshStandardMaterial({
     color: theme.openAir ? 0x9c6748 : new THREE.Color(theme.woodDark).lerp(new THREE.Color(0x8e725c), 0.42),
@@ -1362,8 +1395,18 @@ export function buildCafe(theme, models = null) {
   } else {
     const night = theme.outside === 'rainNight';
     const dusk = theme.outside === 'sunset';
-    const paveMat = new THREE.MeshStandardMaterial({ color: night ? 0x232630 : dusk ? 0x98846f : 0xa2a5a8, roughness: 0.96, metalness: 0 });
-    const roadMat = new THREE.MeshStandardMaterial({ color: night ? 0x131620 : 0x373a3e, roughness: 0.94, metalness: 0 });
+    const paveMat = new THREE.MeshStandardMaterial({
+      color: night ? 0x232630 : dusk ? 0x98846f : 0xa2a5a8,
+      emissive: night ? 0x090c12 : 0x000000,
+      emissiveIntensity: night ? 0.32 : 0,
+      roughness: 0.96, metalness: 0,
+    });
+    const roadMat = new THREE.MeshStandardMaterial({
+      color: night ? 0x131620 : 0x373a3e,
+      emissive: night ? 0x05070b : 0x000000,
+      emissiveIntensity: night ? 0.24 : 0,
+      roughness: 0.94, metalness: 0,
+    });
 
     // near sidewalk (the pedestrians walk here), curb, road, far sidewalk
     const walk1 = new THREE.Mesh(new THREE.BoxGeometry(W + 30, 0.06, 2.9), paveMat);
@@ -1394,173 +1437,297 @@ export function buildCafe(theme, models = null) {
     });
     group.add(dashes);
 
-    // facing building facades with lit windows
+    // Facing buildings use the same cached plaster maps as the interior and a
+    // compact shared material palette. Window panes and sills are accumulated
+    // into two instanced draws for the whole block, leaving room in the budget
+    // for storefront depth, cornices and rooftop silhouettes.
     const faceRow = new THREE.Group();
+    // Reuse the exact interior plaster texture instances (including repeat)
+    // instead of cloning another pair solely for distant facades.
+    const facadeMap = surfTex('wall_plaster.jpg', { srgb: true, rx: 2, ry: 1 });
+    const facadeNormal = surfTex('wall_plaster_n.jpg', { rx: 2, ry: 1 });
+    const facadeColors = night
+      ? [0x343b48, 0x40383a, 0x303d3e]
+      : dusk ? [0xa97860, 0x8e7568, 0x9b846a] : [0xaeb7bd, 0xb8afa5, 0x9eabb1];
+    const facadeMaterials = facadeColors.map((color) => new THREE.MeshStandardMaterial({
+      color, map: facadeMap, normalMap: facadeNormal,
+      emissive: night ? 0x070a10 : 0x000000,
+      emissiveIntensity: night ? 0.26 : 0,
+      normalScale: new THREE.Vector2(0.16, 0.16), roughness: 0.9,
+    }));
+    const facadeTrimMat = new THREE.MeshStandardMaterial({
+      color: night ? 0x262c34 : dusk ? 0x725b4d : 0x737b80,
+      roughness: 0.76,
+    });
+    const storefrontMat = new THREE.MeshStandardMaterial({
+      color: night ? 0x17212a : 0x52636b,
+      emissive: night ? 0x6d4d2b : dusk ? 0x493523 : 0x101418,
+      emissiveIntensity: night ? 0.72 : dusk ? 0.38 : 0.12,
+      roughness: 0.2, metalness: 0.25,
+    });
+    const signMat = new THREE.MeshBasicMaterial({ color: night || dusk ? 0xe6b778 : 0xc5c9c7 });
+    const awningMaterials = [0x8a3b2e, 0x2e5e6e, 0x777a3c].map((color) =>
+      new THREE.MeshStandardMaterial({ color, roughness: 0.9 }));
+    const rodMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.5, metalness: 0.6 });
+    const windowRecords = [];
+    let buildingIndex = 0;
     let fx = -W / 2 - 11;
     while (fx < W / 2 + 11) {
-      const bw = rand(4.5, 7), bh = rand(4.5, 8.5), bd = 2.2;
-      const hue = night ? rand(222, 240) : dusk ? rand(14, 30) : rand(200, 220);
-      const light = night ? rand(9, 14) : dusk ? rand(38, 52) : rand(56, 70);
-      const faceMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${Math.round(hue)}, 18%, ${Math.round(light)}%)`), roughness: 0.9 });
-      const b = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), faceMat);
-      b.position.set(fx + bw / 2, bh / 2, D / 2 + 9.5);
+      const bw = rand(4.5, 7), bh = rand(5.2, 8.5), bd = 2.2;
+      const centerX = fx + bw / 2;
+      const centerZ = D / 2 + 9.5;
+      const frontZ = centerZ - bd / 2;
+      const b = new THREE.Mesh(
+        new THREE.BoxGeometry(bw, bh, bd),
+        facadeMaterials[buildingIndex % facadeMaterials.length],
+      );
+      b.position.set(centerX, bh / 2, centerZ);
+      b.receiveShadow = true;
       faceRow.add(b);
-      // lit window grid on the facade
-      const winMat = new THREE.MeshBasicMaterial({
-        color: night ? 0xffc46a : dusk ? 0xffe1b0 : 0xdfeaf2,
-        transparent: true, opacity: night ? 0.95 : 0.75,
-      });
-      const windows = [];
-      for (let wy = 1.2; wy < bh - 0.8; wy += 1.3) {
-        for (let wx = -bw / 2 + 0.7; wx < bw / 2 - 0.5; wx += 1.1) {
-          if (Math.random() < (night ? 0.55 : 0.8)) {
-            windows.push(new THREE.Vector3(fx + bw / 2 + wx, wy, D / 2 + 9.5 - bd / 2 - 0.01));
-          }
+
+      // Projecting cornices and edge pilasters give each flat box an actual
+      // facade silhouette. Small rooftop services break up the skyline.
+      const cornice = new THREE.Mesh(new THREE.BoxGeometry(bw + 0.18, 0.15, bd + 0.14), facadeTrimMat);
+      cornice.position.set(centerX, bh + 0.025, centerZ);
+      faceRow.add(cornice);
+      for (const side of [-1, 1]) {
+        const pilaster = new THREE.Mesh(new THREE.BoxGeometry(0.13, bh - 0.3, 0.1), facadeTrimMat);
+        pilaster.position.set(centerX + side * (bw / 2 - 0.1), bh / 2, frontZ - 0.055);
+        faceRow.add(pilaster);
+      }
+      const roofUnit = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.34, 0.58), facadeTrimMat);
+      roofUnit.position.set(centerX + bw * 0.18, bh + 0.25, centerZ);
+      faceRow.add(roofUnit);
+
+      // Recessed ground-floor glazing, a separate door and a warm sign make
+      // the opposite block read as occupied shops rather than a window grid.
+      const shop = new THREE.Mesh(new THREE.PlaneGeometry(bw * 0.68, 1.45), storefrontMat);
+      shop.rotation.y = Math.PI;
+      shop.position.set(centerX, 1.02, frontZ - 0.012);
+      faceRow.add(shop);
+      const door = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 1.35), storefrontMat);
+      door.rotation.y = Math.PI;
+      door.position.set(centerX + bw * 0.28, 0.75, frontZ - 0.022);
+      faceRow.add(door);
+      const sign = new THREE.Mesh(new RoundedBoxGeometry(bw * 0.38, 0.18, 0.05, 2, 0.025), signMat);
+      sign.position.set(centerX - bw * 0.12, 1.9, frontZ - 0.06);
+      faceRow.add(sign);
+
+      for (let wy = 2.65; wy < bh - 0.65; wy += 1.25) {
+        for (let wx = -bw / 2 + 0.7; wx < bw / 2 - 0.5; wx += 1.08) {
+          const lit = Math.random() < (night ? 0.58 : 0.88);
+          windowRecords.push({
+            position: new THREE.Vector3(centerX + wx, wy, frontZ - 0.012),
+            color: new THREE.Color(night
+              ? (lit ? pick([0xffc46a, 0xffd99a, 0xd9c28b]) : 0x18222d)
+              : dusk ? (lit ? 0xffe1b0 : 0x53606a) : pick([0xc9dbe5, 0xdfeaf2, 0xb9ceda])),
+          });
         }
       }
-      if (windows.length) {
-        const windowMesh = new THREE.InstancedMesh(
-          new THREE.PlaneGeometry(0.55, 0.75),
-          winMat,
-          windows.length,
-        );
-        const windowMatrix = new THREE.Matrix4();
-        const windowRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
-        windows.forEach((position, index) => {
-          windowMatrix.compose(position, windowRotation, new THREE.Vector3(1, 1, 1));
-          windowMesh.setMatrixAt(index, windowMatrix);
-        });
-        faceRow.add(windowMesh);
-      }
-      // ground-floor awning on some buildings — rear edge buried in the
-      // facade, front edge held by two visible support rods so it reads as
-      // mounted rather than hovering
-      if (Math.random() < 0.5) {
-        const awnMat = new THREE.MeshStandardMaterial({ color: [0x8a3b2e, 0x2e5e6e, 0x777a3c][Math.floor(rand(0, 3))], roughness: 0.9 });
-        const wallZ = D / 2 + 9.5 - bd / 2;
+
+      // Awnings remain intermittent, but share three materials and the same
+      // support treatment instead of allocating a material for every shop.
+      if (buildingIndex % 2 === 0) {
+        const awnMat = awningMaterials[buildingIndex % awningMaterials.length];
         const awn = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.7, 0.05, 0.9), awnMat);
-        awn.position.set(fx + bw / 2, 2.42, wallZ - 0.38);
+        awn.position.set(centerX, 2.35, frontZ - 0.38);
         awn.rotation.x = 0.22;
         faceRow.add(awn);
-        // valance strip on the front edge
         const valance = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.7, 0.14, 0.03), awnMat);
-        valance.position.set(fx + bw / 2, 2.28, wallZ - 0.82);
+        valance.position.set(centerX, 2.21, frontZ - 0.82);
         faceRow.add(valance);
-        const rodMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.5, metalness: 0.6 });
-        for (const s2 of [-1, 1]) {
+        for (const side of [-1, 1]) {
           const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6), rodMat);
-          rod.position.set(fx + bw / 2 + s2 * bw * 0.3, 2.05, wallZ - 0.55);
+          rod.position.set(centerX + side * bw * 0.3, 1.98, frontZ - 0.55);
           rod.rotation.x = 0.75;
           faceRow.add(rod);
         }
       }
-      fx += bw + rand(0.4, 1.4);
+      fx += bw + rand(0.4, 1.1);
+      buildingIndex += 1;
+    }
+
+    if (windowRecords.length) {
+      const windowGeometry = new THREE.PlaneGeometry(0.56, 0.76);
+      const windowMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const windowMesh = new THREE.InstancedMesh(windowGeometry, windowMaterial, windowRecords.length);
+      const sillMesh = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(0.68, 0.055, 0.09), facadeTrimMat, windowRecords.length,
+      );
+      const matrix = new THREE.Matrix4();
+      const paneRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
+      const identityRotation = new THREE.Quaternion();
+      const unitScale = new THREE.Vector3(1, 1, 1);
+      windowRecords.forEach((record, index) => {
+        matrix.compose(record.position, paneRotation, unitScale);
+        windowMesh.setMatrixAt(index, matrix);
+        windowMesh.setColorAt(index, record.color);
+        matrix.compose(
+          new THREE.Vector3(record.position.x, record.position.y - 0.405, record.position.z - 0.018),
+          identityRotation,
+          unitScale,
+        );
+        sillMesh.setMatrixAt(index, matrix);
+      });
+      windowMesh.instanceMatrix.needsUpdate = true;
+      windowMesh.instanceColor.needsUpdate = true;
+      sillMesh.instanceMatrix.needsUpdate = true;
+      faceRow.add(windowMesh, sillMesh);
     }
     group.add(faceRow);
 
-    // street lamps on the near sidewalk
+    // Five visible pavement fixtures are two instanced draws. Warm pool cards
+    // make their spacing legible, while only two actual point lights affect
+    // shading; this is substantially cheaper than one dynamic light per pole.
+    const lampXs = [-W / 2 - 4.5, -W / 2 + 1.6, 0, W / 2 - 1.6, W / 2 + 4.5];
+    const lampZ = D / 2 + 2.55;
     const lampMat2 = new THREE.MeshStandardMaterial({ color: 0x2c2e33, roughness: 0.42, metalness: 0.82 });
-    for (const lx of [-W / 2 - 4, -1.5, W / 2 + 4]) {
-      const pole = cyl(0.05, 0.06, 3.4, lampMat2, 8);
-      pole.position.set(lx, 1.7, D / 2 + 2.55);
-      group.add(pole);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8),
-        new THREE.MeshBasicMaterial({ color: night || dusk ? 0xffd9a0 : 0xcfd4d8 }));
-      head.position.set(lx, 3.45, D / 2 + 2.55);
-      group.add(head);
-      if (night || dusk) {
-        const gl = new THREE.PointLight(0xffc46a, night ? 5 : 2, 7);
-        gl.position.set(lx, 3.3, D / 2 + 2.55);
-        group.add(gl);
+    const glowMat = new THREE.MeshBasicMaterial({ color: night || dusk ? 0xffd9a0 : 0xcfd4d8 });
+    const poleMesh = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.055, 0.065, 3.4, 9), lampMat2, lampXs.length,
+    );
+    const headMesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(0.14, 12, 9), glowMat, lampXs.length,
+    );
+    const lampMatrix = new THREE.Matrix4();
+    const lampRotation = new THREE.Quaternion();
+    const lampScale = new THREE.Vector3(1, 1, 1);
+    lampXs.forEach((lx, index) => {
+      lampMatrix.compose(new THREE.Vector3(lx, 1.7, lampZ), lampRotation, lampScale);
+      poleMesh.setMatrixAt(index, lampMatrix);
+      lampMatrix.compose(new THREE.Vector3(lx, 3.45, lampZ), lampRotation, lampScale);
+      headMesh.setMatrixAt(index, lampMatrix);
+    });
+    poleMesh.instanceMatrix.needsUpdate = true;
+    headMesh.instanceMatrix.needsUpdate = true;
+    group.add(poleMesh, headMesh);
+
+    if (night || dusk) {
+      const poolMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffc978,
+        transparent: true,
+        opacity: night ? 0.16 : 0.08,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const pools = new THREE.InstancedMesh(
+        new THREE.PlaneGeometry(3.4, 1.5), poolMaterial, lampXs.length,
+      );
+      const poolRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+      lampXs.forEach((lx, index) => {
+        lampMatrix.compose(new THREE.Vector3(lx, 0.012, lampZ), poolRotation, lampScale);
+        pools.setMatrixAt(index, lampMatrix);
+      });
+      pools.instanceMatrix.needsUpdate = true;
+      group.add(pools);
+
+      // Two localized lights cover pedestrians, parked cars and the opposite
+      // facade. The low-emissive pavement/facade materials fill the gaps, so
+      // five visible fixtures do not become five costly real-time lights.
+      for (const index of [1, 3]) {
+        const light = new THREE.PointLight(0xffc47a, night ? 13 : 4, 10, 1.7);
+        light.position.set(lampXs[index], 3.25, lampZ);
+        group.add(light);
       }
     }
 
-    // a parked car and one that drives by now and then
-    const mkCar = (color) => {
-      const car = new THREE.Group();
-      // metallic paint over a darker rocker panel, chrome trim, real lights
-      const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.28, metalness: 0.55 });
-      const trimMat2 = new THREE.MeshStandardMaterial({ color: 0x1c1e21, roughness: 0.6 });
-      const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcfd4d8, roughness: 0.15, metalness: 0.95 });
-      const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.42, 1.5), bodyMat2);
-      body.position.y = 0.62;
-      car.add(body);
-      const rocker = new THREE.Mesh(new THREE.BoxGeometry(3.36, 0.16, 1.46), trimMat2);
-      rocker.position.y = 0.36;
-      car.add(rocker);
-      // hood and trunk step down from the cabin line
-      const hood = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 1.44), bodyMat2);
-      hood.position.set(1.25, 0.87, 0);
-      car.add(hood);
-      const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 1.44), bodyMat2);
-      trunk.position.set(-1.38, 0.86, 0);
-      car.add(trunk);
-      const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 1.35), bodyMat2);
-      cab.position.set(-0.2, 1.05, 0);
-      car.add(cab);
-      const glassMat2 = new THREE.MeshStandardMaterial({ color: 0x1b2830, roughness: 0.08, metalness: 0.4 });
-      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.34, 1.37), glassMat2);
-      glass.position.set(-0.2, 1.1, 0);
-      car.add(glass);
-      // window pillars keep the glass from reading as one black band
-      for (const px2 of [-1.05, -0.2, 0.65]) {
-        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.36, 1.38), bodyMat2);
-        pillar.position.set(px2 - 0.2 + 0.2, 1.1, 0);
-        car.add(pillar);
+    // Cars share one cached geometry kit across every café rebuild. A tapered
+    // glass cabin, rounded panels, mirrors and door seams improve the silhouette
+    // while the third visible car adds only a paint material and transforms.
+    const carGeo = carGeometryKit();
+    const trimMat2 = new THREE.MeshStandardMaterial({ color: 0x1c1e21, roughness: 0.68 });
+    const glassMat2 = new THREE.MeshStandardMaterial({ color: 0x17232c, roughness: 0.12, metalness: 0.32 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcfd4d8, roughness: 0.15, metalness: 0.95 });
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.88 });
+    const hubMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.25, metalness: 0.9 });
+    const seamMat = new THREE.MeshStandardMaterial({ color: 0x202326, roughness: 0.7 });
+    const headMat = night
+      ? new THREE.MeshBasicMaterial({ color: 0xfff2c8 })
+      : new THREE.MeshStandardMaterial({ color: 0xe8ecef, roughness: 0.2, metalness: 0.3 });
+    const tailMat = night
+      ? new THREE.MeshBasicMaterial({ color: 0xff5040 })
+      : new THREE.MeshStandardMaterial({ color: 0x8a2018, roughness: 0.3 });
+    const plateMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d4, roughness: 0.5 });
+    const compactCar = (car) => {
+      const buckets = new Map();
+      for (const mesh of [...car.children]) {
+        if (!mesh.isMesh || Array.isArray(mesh.material)) continue;
+        const bucket = buckets.get(mesh.material.uuid) ?? { material: mesh.material, meshes: [] };
+        bucket.meshes.push(mesh);
+        buckets.set(mesh.material.uuid, bucket);
       }
-      // chrome bumpers and door handles
-      for (const bx2 of [1.71, -1.71]) {
-        const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 1.52), chromeMat);
-        bumper.position.set(bx2, 0.46, 0);
-        car.add(bumper);
-      }
-      for (const s2 of [-1, 1]) {
-        for (const hx2 of [0.35, -0.6]) {
-          const dh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.02), chromeMat);
-          dh.position.set(hx2, 0.78, s2 * 0.755);
-          car.add(dh);
-        }
-      }
-      // wheels with tyres + hubcaps
-      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.85 });
-      const hubMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.25, metalness: 0.9 });
-      for (const [wx2, wz2] of [[-1.15, 0.72], [1.15, 0.72], [-1.15, -0.72], [1.15, -0.72]]) {
-        const wh = cyl(0.32, 0.32, 0.2, wheelMat, 14);
-        wh.rotation.x = Math.PI / 2;
-        wh.position.set(wx2, 0.32, wz2);
-        car.add(wh);
-        const hub = cyl(0.14, 0.14, 0.02, hubMat, 10);
-        hub.rotation.x = Math.PI / 2;
-        hub.position.set(wx2, 0.32, wz2 + Math.sign(wz2) * 0.105);
-        car.add(hub);
-      }
-      // lights: lit at night, glass-like by day; red tails both ways
-      const headMat = night
-        ? new THREE.MeshBasicMaterial({ color: 0xfff2c8 })
-        : new THREE.MeshStandardMaterial({ color: 0xe8ecef, roughness: 0.2, metalness: 0.3 });
-      const tailMat = night
-        ? new THREE.MeshBasicMaterial({ color: 0xff5040 })
-        : new THREE.MeshStandardMaterial({ color: 0x8a2018, roughness: 0.3 });
-      for (const s2 of [-1, 1]) {
-        const hl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.26), headMat);
-        hl.position.set(1.72, 0.66, s2 * 0.5);
-        car.add(hl);
-        const tl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.3), tailMat);
-        tl.position.set(-1.72, 0.66, s2 * 0.5);
-        car.add(tl);
-      }
-      // licence plates
-      const plateMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d4, roughness: 0.5 });
-      for (const bx2 of [1.73, -1.73]) {
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.11, 0.34), plateMat);
-        plate.position.set(bx2, 0.5, 0);
-        car.add(plate);
+      for (const { material, meshes } of buckets.values()) {
+        if (meshes.length < 2) continue;
+        const baked = meshes.map((mesh) => {
+          mesh.updateMatrix();
+          let geometry = mesh.geometry.clone();
+          if (geometry.index) {
+            const nonIndexed = geometry.toNonIndexed();
+            geometry.dispose();
+            geometry = nonIndexed;
+          }
+          return geometry.applyMatrix4(mesh.matrix);
+        });
+        const geometry = mergeGeometries(baked, false);
+        baked.forEach((item) => item.dispose());
+        if (!geometry) continue;
+        meshes.forEach((mesh) => car.remove(mesh));
+        const merged = new THREE.Mesh(geometry, material);
+        merged.castShadow = false;
+        merged.receiveShadow = true;
+        car.add(merged);
       }
       return car;
     };
-    const parked = mkCar([0x7a4a3a, 0x39505e, 0x5c5f64][Math.floor(rand(0, 3))]);
+    const mkCar = (color) => {
+      const car = new THREE.Group();
+      const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.28, metalness: 0.55 });
+      const addPart = (geometry, material, x, y, z) => {
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(x, y, z);
+        car.add(mesh);
+        return mesh;
+      };
+      addPart(carGeo.body, bodyMat2, 0, 0.62, 0);
+      addPart(carGeo.rocker, trimMat2, 0, 0.36, 0);
+      addPart(carGeo.hood, bodyMat2, 1.23, 0.87, 0);
+      addPart(carGeo.trunk, bodyMat2, -1.37, 0.86, 0);
+      addPart(carGeo.cabin, glassMat2, -0.12, 1.08, 0);
+      addPart(carGeo.roof, bodyMat2, -0.22, 1.36, 0);
+      for (const px2 of [-0.88, -0.15, 0.56]) addPart(carGeo.pillar, bodyMat2, px2, 1.08, 0);
+      for (const bx2 of [1.71, -1.71]) addPart(carGeo.bumper, chromeMat, bx2, 0.46, 0);
+      for (const side of [-1, 1]) {
+        for (const hx2 of [0.35, -0.6]) addPart(carGeo.handle, chromeMat, hx2, 0.78, side * 0.755);
+        addPart(carGeo.mirror, bodyMat2, 0.58, 1.07, side * 0.78);
+        for (const seamX of [-0.42, 0.48]) addPart(carGeo.seam, seamMat, seamX, 0.67, side * 0.756);
+      }
+      for (const [wx2, wz2] of [[-1.15, 0.72], [1.15, 0.72], [-1.15, -0.72], [1.15, -0.72]]) {
+        const wheel = addPart(carGeo.wheel, wheelMat, wx2, 0.32, wz2);
+        wheel.rotation.x = Math.PI / 2;
+        const hub = addPart(carGeo.hub, hubMat, wx2, 0.32, wz2 + Math.sign(wz2) * 0.11);
+        hub.rotation.x = Math.PI / 2;
+      }
+      for (const side of [-1, 1]) {
+        addPart(carGeo.headlight, headMat, 1.72, 0.66, side * 0.5);
+        addPart(carGeo.taillight, tailMat, -1.72, 0.66, side * 0.5);
+      }
+      for (const bx2 of [1.735, -1.735]) addPart(carGeo.plate, plateMat, bx2, 0.5, 0);
+      car.traverse((object) => {
+        if (!object.isMesh) return;
+        object.castShadow = false;
+        object.receiveShadow = true;
+      });
+      return compactCar(car);
+    };
+    const parkedColors = [0x7a4a3a, 0x39505e, 0x5c5f64];
+    const parked = mkCar(parkedColors[Math.floor(rand(0, parkedColors.length))]);
     parked.position.set(W / 2 - 1, 0, D / 2 + 3.6);
+    parked.rotation.y = -0.035;
     group.add(parked);
+    const parkedSecond = mkCar(parkedColors[(Math.floor(rand(0, parkedColors.length)) + 1) % parkedColors.length]);
+    parkedSecond.position.set(-W / 2 + 2.2, 0, D / 2 + 3.55);
+    parkedSecond.rotation.y = 0.025;
+    group.add(parkedSecond);
     passingCar = mkCar(night ? 0x2a3340 : [0xa04638, 0x3d6070, 0xb8b4a8][Math.floor(rand(0, 3))]);
     passingCar.position.set(-30, 0, D / 2 + 6.2);
     passingCar.rotation.y = Math.PI; // faces -x on the far lane
@@ -1805,14 +1972,29 @@ export function buildCafe(theme, models = null) {
   }
 
   // wall art on right wall
+  const wallArtDepth = wallArtDepths(W);
   for (let i = 0; i < (theme.openAir ? 0 : 4); i++) {
+    const artMap = track(artTexture('#' + theme.accent.toString(16).padStart(6, '0')));
+    artMap.anisotropy = 8;
     const art = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.95),
-      new THREE.MeshStandardMaterial({ map: track(artTexture('#' + theme.accent.toString(16).padStart(6, '0'))), roughness: 0.9 }));
+      new THREE.MeshStandardMaterial({
+        map: artMap,
+        roughness: 0.9,
+        // A small depth bias is a second line of defence if the frame or wall
+        // dimensions are adjusted later. The physical gap does the real work.
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      }));
     art.rotation.y = -Math.PI / 2;
-    art.position.set(W / 2 - 0.09, 1.8, -3.8 + i * 2.3);
+    art.position.set(wallArtDepth.artX, 1.8, -3.8 + i * 2.3);
+    art.castShadow = false;
+    art.receiveShadow = false;
+    art.renderOrder = 1;
+    art.userData.wallArtwork = true;
     group.add(art);
     const frame = box(0.04, 1.05, 0.85, woodDarkMat);
-    frame.position.set(W / 2 - 0.07, 1.8, -3.8 + i * 2.3);
+    frame.position.set(wallArtDepth.frameCenterX, 1.8, -3.8 + i * 2.3);
     group.add(frame);
   }
 
@@ -1899,7 +2081,7 @@ export function buildCafe(theme, models = null) {
     return seat;
   }
 
-  function addTable(tx, tz, type, lounge = false) {
+  function addTable(tx, tz, type, lounge = false, tableIndex = 0) {
     const tGroup = new THREE.Group();
     const center = new THREE.Vector3(tx, 0, tz);
     const surfaceProps = [];
@@ -1919,9 +2101,10 @@ export function buildCafe(theme, models = null) {
         leg.position.set(lx, topY / 2, lz); tGroup.add(leg);
       }
     } else {
-      const top = cyl(0.52, 0.52, 0.05, woodMat, 24); top.position.y = topY; tGroup.add(top);
+      const roundRadius = lounge ? 0.46 : 0.52;
+      const top = cyl(roundRadius, roundRadius, 0.05, woodMat, 24); top.position.y = topY; tGroup.add(top);
       // rounded edge trim on round tables
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.024, 8, 28), woodDarkMat);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(roundRadius, 0.024, 8, 28), woodDarkMat);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = topY;
       tGroup.add(rim);
@@ -1935,7 +2118,10 @@ export function buildCafe(theme, models = null) {
     const chairDefs = type === 'long'
       ? [[-0.95, -0.7], [-0.95, 0.7], [0.95, -0.7], [0.95, 0.7]]
       : lounge
-        ? [[0, -1.05], [0, 1.05], [-1.05, 0]]
+        // A lounge vignette is a pair of armchairs across a low coffee table.
+        // Three large chairs crowded the table and read as a second white
+        // table underneath it when seen from the window-bar viewpoint.
+        ? [[0, -1.22], [0, 1.22]]
         : [[0, -0.85], [0, 0.85], [-0.85, 0], [0.85, 0]].slice(0, type === 'square' ? 4 : 3);
     for (const [cx, cz] of chairDefs) {
       const px = tx + cx, pz = tz + cz;
@@ -1945,6 +2131,7 @@ export function buildCafe(theme, models = null) {
         : addStandardChair(new THREE.Vector3(px, 0, pz), facingYaw);
       if (lounge) {
         chair.position.set(px, 0, pz);
+        chair.scale.multiplyScalar(0.9);
         chair.lookAt(tx, 0, tz);
         group.add(chair);
       }
@@ -1953,58 +2140,26 @@ export function buildCafe(theme, models = null) {
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
         center, topY + 0.03, surfaceProps);
     }
-    // a cup + sometimes a pastry + maybe a little vase on the table
+    // Base place setting. Positions are reserved around the later curated
+    // vignette instead of independently randomized, which previously allowed
+    // cups, flowers, magazines and pastries to spawn inside one another.
+    const vignette = tableIndex % 4;
     const cup = makeDrink(theme.accent, models);
-    cup.position.set(tx + rand(-0.15, 0.15), topY + 0.03, tz + rand(-0.15, 0.15));
+    cup.position.set(tx - (lounge ? 0.18 : 0.24), topY + 0.03, tz - (lounge ? 0.04 : 0.12));
     group.add(cup);
     cups.push(cup);
     registerTableProp(surfaceProps, cup);
-    if (Math.random() < 0.45) {
+    // Only the deliberately sparse fourth vignette gets a pastry plate.
+    if (!lounge && vignette === 3) {
       const plate = makePastryPlate(models);
-      plate.position.set(tx + rand(-0.05, 0.1) - 0.2, topY + 0.028, tz + rand(-0.2, 0.2));
+      plate.position.set(tx + 0.02, topY + 0.028, tz + 0.18);
       plate.rotation.y = rand(0, Math.PI * 2);
       group.add(plate);
       registerTableProp(surfaceProps, plate);
     }
-    // in-service clutter: napkins+sugar on half the tables, a folded paper or
-    // a magazine pile on some of the rest
-    const clutter = Math.random();
-    if (clutter < 0.45) {
-      const set = makeTableSet(theme.accent);
-      set.position.set(tx + rand(-0.08, 0.08), topY + 0.028, tz - rand(0.14, 0.24));
-      set.rotation.y = rand(-0.4, 0.4);
-      group.add(set);
-      registerTableProp(surfaceProps, set);
-    } else if (clutter < 0.62) {
-      const paper = makeNewspaper();
-      paper.position.set(tx + rand(-0.12, 0.12), topY + 0.032, tz + rand(-0.1, 0.1));
-      paper.rotation.y = rand(0, Math.PI * 2);
-      group.add(paper);
-      registerTableProp(surfaceProps, paper);
-    } else if (clutter < 0.74 && lounge) {
-      const mags = makeMagazineStack();
-      mags.position.set(tx + rand(-0.1, 0.1), topY + 0.028, tz + rand(-0.1, 0.1));
-      group.add(mags);
-      registerTableProp(surfaceProps, mags);
-    }
-    if (Math.random() < 0.6) {
-      const vase = cyl(0.03, 0.045, 0.12, glazedCeramicMat, 10);
-      vase.position.set(tx - 0.2, topY + 0.09, tz + 0.15);
-      group.add(vase);
-      registerTableProp(surfaceProps, vase);
-      const stem = cyl(0.006, 0.006, 0.16, stemMat, 6);
-      stem.position.set(tx - 0.2, topY + 0.22, tz + 0.15);
-      stem.rotation.z = 0.15;
-      group.add(stem);
-      registerTableProp(surfaceProps, stem);
-      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), flowerMat);
-      flower.position.set(tx - 0.22, topY + 0.3, tz + 0.15);
-      group.add(flower);
-      registerTableProp(surfaceProps, flower);
-    }
   }
 
-  for (const t of theme.tables) addTable(t.x, t.z, t.type, !!t.lounge);
+  theme.tables.forEach((t, tableIndex) => addTable(t.x, t.z, t.type, !!t.lounge, tableIndex));
   chairBatches.forEach((batch) => {
     batch.instanceMatrix.needsUpdate = true;
     batch.computeBoundingSphere();
@@ -2139,6 +2294,17 @@ export function buildCafe(theme, models = null) {
     // place settings must use that lower surface instead of the standard
     // dining-table height, or they appear to float 25 cm above the top.
     const topY = tt.lounge ? 0.575 : tt.type === 'round' ? 0.805 : 0.81;
+    if (tt.lounge) {
+      // Lounge tables stay intentionally sparse: one drink from addTable and
+      // a slim reading stack opposite it. This keeps the low surface visible.
+      const mags = makeMagazineStack();
+      mags.scale.setScalar(0.72);
+      mags.position.set(tt.x + 0.15, topY + 0.02, tt.z + 0.08);
+      mags.rotation.y = -0.18;
+      group.add(mags);
+      registerTableProp(surfaceProps, mags);
+      return;
+    }
     if (ti % 2 === 0) {
       const napkins = box(0.09, 0.07, 0.05, metalMat);
       napkins.position.set(tt.x + 0.24, topY + 0.035, tt.z - 0.12);
@@ -2187,17 +2353,21 @@ export function buildCafe(theme, models = null) {
       registerTableProp(surfaceProps, linen);
     }
     if (theme.candles) {
+      const candleX = vignette === 1 ? 0.12 : -0.05;
+      const candleSet = new THREE.Group();
       const candle = cyl(0.022, 0.025, 0.05, waxMat, 8);
-      candle.position.set(tt.x - 0.05, topY + 0.025, tt.z - 0.22);
-      group.add(candle);
-      registerTableProp(surfaceProps, candle);
+      candle.position.y = 0.025;
+      candleSet.add(candle);
       const flame = new THREE.Sprite(new THREE.SpriteMaterial({
         map: steamTexture(), color: 0xffa33e, transparent: true, opacity: 0.9, depthWrite: false,
       }));
       flame.scale.setScalar(0.06);
-      flame.position.set(tt.x - 0.05, topY + 0.075, tt.z - 0.22);
-      group.add(flame);
-      registerTableProp(surfaceProps, flame);
+      flame.position.y = 0.075;
+      candleSet.add(flame);
+      candleSet.position.set(tt.x + candleX, topY, tt.z - 0.22);
+      group.add(candleSet);
+      // Candle and flame move as one object when a laptop clears the table.
+      registerTableProp(surfaceProps, candleSet);
       candleFlames.push(flame);
     }
   });
@@ -2261,7 +2431,7 @@ export function buildCafe(theme, models = null) {
   }
 
   // sunbeam shafts through the front windows
-  if (theme.shafts) {
+  if (shouldRenderSunShafts(theme)) {
     const shaftTex = track(canvasTexture(64, 256, (g, w, h) => {
       const grad = g.createLinearGradient(0, 0, 0, h);
       grad.addColorStop(0, 'rgba(255,205,140,0.55)');
@@ -2894,6 +3064,14 @@ export function buildCafe(theme, models = null) {
     if (painting) {
       painting.position.set(-W / 2 + 0.12, 2.1, -3.5);
       painting.rotation.y = Math.PI / 2;
+      // The frame supplies the contact shadow; letting the thin print both
+      // cast and receive a 1024px moving shadow creates a dark crawling edge.
+      painting.traverse((part) => {
+        if (!part.isMesh) return;
+        part.castShadow = false;
+        part.receiveShadow = false;
+        part.userData.wallArtwork = true;
+      });
       group.add(painting);
     }
   }

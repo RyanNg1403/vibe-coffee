@@ -459,22 +459,39 @@ function restoreTableProps(seat) {
 }
 
 function clearTablePropsForLaptop(seat, beside) {
-  const props = seat.surfaceProps ?? [];
+  const props = (seat.surfaceProps ?? []).filter((entry) => entry.object?.parent);
+  const towardFarEdge = new THREE.Vector3()
+    .subVectors(seat.tableCenter, playerLaptop.position)
+    .setY(0)
+    .normalize();
   props.forEach((entry, index) => {
     const object = entry.object;
-    if (!object?.parent) return;
-    object.position.copy(entry.home);
-    const offsetX = entry.home.x - playerLaptop.position.x;
-    const offsetZ = entry.home.z - playerLaptop.position.z;
-    const lateral = offsetX * beside.x + offsetZ * beside.z;
-    // Preserve which side an item already occupies. Items on the centreline
-    // fan out evenly, while already-clear objects still make a subtle 3.5 cm
-    // shift so setting up the workspace reads as one intentional action.
-    const direction = Math.abs(lateral) > 0.04 ? Math.sign(lateral) : (index % 2 ? -1 : 1);
-    const clearance = Math.min(0.34, 0.24 + Math.floor(index / 2) * 0.025);
-    const desired = direction * Math.max(Math.abs(lateral) + 0.035, clearance);
-    const shift = THREE.MathUtils.clamp(desired - lateral, -0.32, 0.32);
-    object.position.addScaledVector(beside, shift);
+    const elevatedBar = seat.pos.y > 0.05;
+    if (elevatedBar) {
+      // The window bar is shallow: distribute along its length, never toward
+      // the glass where an item would overhang the ledge.
+      const spacing = 0.18;
+      const lateral = (index - (props.length - 1) / 2) * spacing;
+      object.position.set(
+        seat.tableCenter.x + beside.x * lateral,
+        entry.home.y,
+        seat.tableCenter.z + beside.z * lateral,
+      );
+      return;
+    }
+    // On normal tables, fan every prop around the far semicircle. Equal angular
+    // spacing keeps the objects clear of both the laptop and one another;
+    // independent lateral nudges used to stack multiple objects in one spot.
+    const spread = Math.min(Math.PI * 0.72, Math.max(0, (props.length - 1) * 0.48));
+    const angle = props.length <= 1 ? 0 : -spread / 2 + (spread * index) / (props.length - 1);
+    const radius = seat.tableTopY < 0.7 ? 0.29 : 0.35;
+    const forwardWeight = Math.cos(angle) * radius;
+    const sideWeight = Math.sin(angle) * radius;
+    object.position.set(
+      seat.tableCenter.x + towardFarEdge.x * forwardWeight + beside.x * sideWeight,
+      entry.home.y,
+      seat.tableCenter.z + towardFarEdge.z * forwardWeight + beside.z * sideWeight,
+    );
   });
   renderer.shadowMap.needsUpdate = true;
 }

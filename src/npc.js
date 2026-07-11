@@ -178,6 +178,7 @@ export function makePerson(tint = 1) {
     shoulder.add(hand);
     g.add(shoulder);
     parts[side === -1 ? 'armL' : 'armR'] = shoulder;
+    parts[side === -1 ? 'handL' : 'handR'] = hand;
   }
 
   // neck connects head to shoulders instead of a floating head
@@ -1912,6 +1913,91 @@ class Barista {
   }
 }
 
+// Shared umbrella resources: every rainy pedestrian reuses one canopy, shaft,
+// handle and rib geometry. Material colour has three restrained variants, so
+// the exterior gains detail without allocating a prop asset per walker.
+let _umbrellaShared = null;
+function umbrellaShared() {
+  if (_umbrellaShared) return _umbrellaShared;
+  const markShared = (resource) => {
+    resource.userData.vibeShared = true;
+    resource.userData.shared = true;
+    return resource;
+  };
+  const canopyGeometry = markShared(new THREE.SphereGeometry(
+    0.52, 16, 6, 0, Math.PI * 2, 0, Math.PI / 2,
+  ));
+  const shaftGeometry = markShared(new THREE.CylinderGeometry(0.009, 0.009, 0.92, 7));
+  const handleGeometry = markShared(new THREE.TorusGeometry(0.045, 0.009, 6, 12, Math.PI * 1.2));
+  const ribPositions = [];
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    ribPositions.push(0, 0.926, 0, Math.cos(a) * 0.515, 0.76, Math.sin(a) * 0.515);
+  }
+  const ribGeometry = markShared(new THREE.BufferGeometry());
+  ribGeometry.setAttribute('position', new THREE.Float32BufferAttribute(ribPositions, 3));
+  const canopyMaterials = [0x303942, 0x60343a, 0x2f4a52].map((color) => markShared(
+    new THREE.MeshStandardMaterial({
+      color, roughness: 0.48, metalness: 0.05, side: THREE.DoubleSide,
+    }),
+  ));
+  const metalMaterial = markShared(new THREE.MeshStandardMaterial({
+    color: 0x25282b, roughness: 0.28, metalness: 0.82,
+  }));
+  const ribMaterial = markShared(new THREE.LineBasicMaterial({ color: 0x44484d }));
+  _umbrellaShared = {
+    canopyGeometry, shaftGeometry, handleGeometry, ribGeometry,
+    canopyMaterials, metalMaterial, ribMaterial,
+  };
+  return _umbrellaShared;
+}
+
+function makeHeldUmbrella(appearanceIndex = 0) {
+  const shared = umbrellaShared();
+  const umbrella = new THREE.Group();
+  const canopy = new THREE.Mesh(
+    shared.canopyGeometry,
+    shared.canopyMaterials[appearanceIndex % shared.canopyMaterials.length],
+  );
+  canopy.position.y = 0.76;
+  canopy.scale.y = 0.32;
+  umbrella.add(canopy);
+  const ribs = new THREE.LineSegments(shared.ribGeometry, shared.ribMaterial);
+  umbrella.add(ribs);
+  const shaft = new THREE.Mesh(shared.shaftGeometry, shared.metalMaterial);
+  shaft.position.y = 0.46;
+  umbrella.add(shaft);
+  const handle = new THREE.Mesh(shared.handleGeometry, shared.metalMaterial);
+  handle.position.set(0.038, -0.035, 0);
+  handle.rotation.z = Math.PI;
+  umbrella.add(handle);
+  umbrella.userData.heldUmbrella = true;
+  return umbrella;
+}
+
+export function attachHeldUmbrella(person, avatar = null, appearanceIndex = 0) {
+  const hand = avatar?.bones.RightHand ?? person?.userData?.parts?.handR;
+  if (!hand) return null;
+  const root = makeHeldUmbrella(appearanceIndex);
+  hand.add(root);
+  return { root, hand };
+}
+
+const umbrellaWorldQuaternion = new THREE.Quaternion();
+const umbrellaWorldScale = new THREE.Vector3();
+function alignHeldUmbrella(held) {
+  if (!held?.hand || !held.root.parent) return;
+  held.hand.updateWorldMatrix(true, false);
+  held.hand.getWorldQuaternion(umbrellaWorldQuaternion);
+  held.root.quaternion.copy(umbrellaWorldQuaternion).invert();
+  held.hand.getWorldScale(umbrellaWorldScale);
+  held.root.scale.set(
+    1 / Math.max(0.0001, Math.abs(umbrellaWorldScale.x)),
+    1 / Math.max(0.0001, Math.abs(umbrellaWorldScale.y)),
+    1 / Math.max(0.0001, Math.abs(umbrellaWorldScale.z)),
+  );
+}
+
 // pedestrians drifting past the windows outside
 class OutsideLife {
   constructor(cafe, models = null, charKeys = []) {
@@ -1926,7 +2012,7 @@ class OutsideLife {
     for (let i = 0; i < n; i++) {
       // downloaded animated characters when available, procedural otherwise
       let person, avatar = null;
-      if (charKeys.length && Math.random() < 0.85) {
+      if (charKeys.length) {
         avatar = new SkinnedAvatar(models, charKeys[i % charKeys.length], {
           castShadow: false,
           receiveShadow: false,
@@ -1938,7 +2024,7 @@ class OutsideLife {
           avatar.root.traverse((o) => {
             if (!o.isMesh) return;
             const materials = Array.isArray(o.material) ? o.material : [o.material];
-            materials.forEach((material) => material?.color?.multiplyScalar(0.4));
+            materials.forEach((material) => material?.color?.multiplyScalar(0.64));
           });
         }
         avatar.setMode('walk', rand(0.9, 1.2));
@@ -1956,22 +2042,11 @@ class OutsideLife {
   _buildWalker(person, night, avatar) {
     const s = rand(0.85, 1.0);
     person.scale.setScalar(s);
+    let heldUmbrella = null;
     if (night && Math.random() < 0.8) {
-      const umbrella = new THREE.Group();
-      const canopy = new THREE.Mesh(
-        new THREE.ConeGeometry(0.5, 0.22, 10),
-        new THREE.MeshStandardMaterial({ color: pick([0x333940, 0x5c2e33, 0x2e4650]), roughness: 0.7 })
-      );
-      canopy.position.y = 1.75;
-      umbrella.add(canopy);
-      const stick = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.012, 0.012, 0.85, 6),
-        new THREE.MeshStandardMaterial({ color: 0x222222 })
-      );
-      stick.position.y = 1.35;
-      umbrella.add(stick);
-      person.add(umbrella);
-      avatar?.ownObject(umbrella);
+      // If a rig has no usable hand, skip the prop rather than pinning it to
+      // the head or torso. Every visible umbrella must actually meet a palm.
+      heldUmbrella = attachHeldUmbrella(person, avatar, this.walkers.length);
     }
     const dir = Math.random() < 0.5 ? 1 : -1;
     const walker = {
@@ -1982,10 +2057,12 @@ class OutsideLife {
       phase: rand(0, 10),
       x: rand(-14, 14),
       z: this.streetZ() + rand(-0.4, 0.8),
+      umbrella: heldUmbrella,
     };
     person.position.set(walker.x, 0, walker.z);
     person.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
     this.group.add(person);
+    alignHeldUmbrella(heldUmbrella);
     this.walkers.push(walker);
   }
 
@@ -2008,6 +2085,7 @@ class OutsideLife {
       if (w.avatar) {
         w.avatar.update(dt, 16, this.qualityLevel);
         w.mesh.position.set(w.x, 0, w.z);
+        alignHeldUmbrella(w.umbrella);
         continue;
       }
       const p = w.mesh.userData.parts;
@@ -2018,10 +2096,19 @@ class OutsideLife {
       p.kneeL.rotation.x = Math.max(0, -s) * 0.72 * stride;
       p.kneeR.rotation.x = Math.max(0, s) * 0.72 * stride;
       p.armL.rotation.x = -s * 0.32 * stride;
-      p.armR.rotation.x = s * 0.32 * stride;
+      if (w.umbrella) {
+        // One clearly bent, steady arm holds the handle while the free arm
+        // retains the walking counter-swing.
+        p.armR.rotation.x = -0.48 + Math.sin(w.phase * 0.5) * 0.025;
+        p.armR.rotation.z = -0.24;
+      } else {
+        p.armR.rotation.x = s * 0.32 * stride;
+        p.armR.rotation.z = 0;
+      }
       p.torso.rotation.z = -s * 0.02;
       const bob = (0.5 - 0.5 * Math.cos(w.phase * 2)) * 0.012;
       w.mesh.position.set(w.x, bob, w.z);
+      alignHeldUmbrella(w.umbrella);
     }
   }
 

@@ -1,5 +1,5 @@
-// Procedural audio v2: positional café soundscape + generative music engine.
-// Everything is synthesized with WebAudio — no audio files anywhere.
+// Hybrid audio engine: positional recorded café ambience with procedural
+// fallbacks and a generative music engine.
 //
 // Realism techniques used here:
 //  - a ConvolverNode with a procedurally generated impulse response puts
@@ -274,7 +274,7 @@ export class CafeAudio {
 
   _buf(key) { return this.buffers.get(key) || null; }
 
-  // play a recorded asset; opts: {out, vol, rate, offset, dur, loop, when}
+  // play a recorded asset; opts: {out, vol, rate, offset, dur, loop, seamless, when}
   _playBuf(key, opts = {}) {
     const entry = this._buf(key);
     if (!entry || !this.ctx) return null;
@@ -283,7 +283,7 @@ export class CafeAudio {
     src.playbackRate.value = opts.rate ?? 1;
     if (opts.loop) {
       src.loop = true;
-      if (entry.buffer.duration > 4) { // skip loop seams at the file edges
+      if (entry.buffer.duration > 4 && !opts.seamless) { // skip raw file edges
         src.loopStart = 0.4;
         src.loopEnd = entry.buffer.duration - 0.4;
       }
@@ -363,14 +363,14 @@ export class CafeAudio {
       this._timer(carPass, 8000);
     }
 
-    // recorded rain joins (and leads) the synth rain layers
+    // The recorded field ambience replaces the short synthetic fallback.
     if (this._buf('rain_window') && this.theme?.rain) this._startRain();
   }
 
   _setTrafficMix() {
     if (!this.trafficDayGain) return;
     const t = this.ctx.currentTime;
-    const night = !!this.theme?.rain;
+    const night = this.theme?.timeOfDay === 'night';
     const scale = this._profile().traffic;
     this.trafficDayGain.gain.setTargetAtTime(night ? 0 : scale, t, 1.5);
     this.trafficNightGain.gain.setTargetAtTime(night ? scale : 0, t, 1.5);
@@ -758,84 +758,92 @@ export class CafeAudio {
     }
   }
 
+  _mountRecordedRain() {
+    const nodes = this.rainNodes;
+    const entry = this._buf('rain_window');
+    if (!nodes || !entry || nodes.recorded) return;
+
+    // Rain heard from indoors loses sub-bass and the brittle top octave. Two
+    // differently offset plays of the same mono buffer create a broad window
+    // image without keeping a second decoded buffer in RAM.
+    const highpass = this.ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 65;
+    highpass.Q.value = 0.55;
+    const throughGlass = this.ctx.createBiquadFilter();
+    throughGlass.type = 'lowpass';
+    throughGlass.frequency.value = 9200;
+    throughGlass.Q.value = 0.35;
+    highpass.connect(throughGlass).connect(nodes.master);
+
+    const layerOut = (panValue) => {
+      if (!this.ctx.createStereoPanner) return highpass;
+      const pan = this.ctx.createStereoPanner();
+      pan.pan.value = panValue;
+      pan.connect(highpass);
+      nodes.panners.push(pan);
+      return pan;
+    };
+    const fadeIn = (node) => {
+      if (!node) return node;
+      const target = node.gain.gain.value;
+      const t = this.ctx.currentTime;
+      node.gain.gain.setValueAtTime(0, t);
+      node.gain.gain.linearRampToValueAtTime(target, t + 2.2);
+      return node;
+    };
+    nodes.recordedSources = [
+      fadeIn(this._playBuf('rain_window', {
+        out: layerOut(-0.34), vol: 0.5, loop: true, seamless: true, offset: 0.05,
+      })),
+      fadeIn(this._playBuf('rain_window', {
+        out: layerOut(0.38), vol: 0.22, loop: true, seamless: true,
+        offset: entry.buffer.duration * 0.43,
+      })),
+    ].filter(Boolean);
+    nodes.highpass = highpass;
+    nodes.throughGlass = throughGlass;
+    nodes.recorded = true;
+    nodes.fallbackGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.8);
+  }
+
   _startRain() {
     if (this.rainNodes) {
-      this.rainNodes.master.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
-      // recorded rain may have arrived after the synth rain was built
-      if (this._buf('rain_window') && !this.rainNodes.recorded) {
-        this.rainNodes.recorded = true;
-        this._playBuf('rain_window', { out: this.rainNodes.master, vol: 0.5, loop: true });
-        this.rainNodes.washG?.gain.setTargetAtTime(0.05, this.ctx.currentTime, 2);
-        this.rainNodes.patG?.gain.setTargetAtTime(0.015, this.ctx.currentTime, 2);
-      }
+      const t = this.ctx.currentTime;
+      this.rainNodes.master.gain.cancelScheduledValues(t);
+      this.rainNodes.master.gain.setTargetAtTime(1, t, 1.5);
+      this._mountRecordedRain();
       return;
     }
     const master = this.ctx.createGain();
     master.gain.value = 0;
     master.connect(this.ambienceBus);
-    this.rainNodes = { master };
+    this.rainNodes = { master, panners: [], recordedSources: [] };
 
-    // wash layer: broadband hiss shaped like distant rain
-    const wash = this._noiseSource(this._noiseBuf);
-    const washBP = this.ctx.createBiquadFilter();
-    washBP.type = 'bandpass'; washBP.frequency.value = 4800; washBP.Q.value = 0.3;
-    const washG = this.ctx.createGain(); washG.gain.value = 0.2;
-    wash.connect(washBP).connect(washG).connect(master);
-    wash.start();
-    this.rainNodes.washG = washG;
-
-    // mid patter: lower band with jittery gain — the "on the awning" texture
-    const patter = this._noiseSource(this._noiseBuf);
-    patter.playbackRate.value = 0.7;
-    const patBP = this.ctx.createBiquadFilter();
-    patBP.type = 'bandpass'; patBP.frequency.value = 1400; patBP.Q.value = 0.8;
-    const patG = this.ctx.createGain(); patG.gain.value = 0.05;
-    patter.connect(patBP).connect(patG).connect(master);
-    patter.start();
-    this.rainNodes.patG = patG;
-    const jitter = () => {
-      if (!this.ctx || !this.rainNodes) return;
-      patG.gain.setTargetAtTime(rand(0.03, 0.09), this.ctx.currentTime, 0.4);
-      this._timer(jitter, rand(600, 2400));
-    };
-    jitter();
-
-    // individual droplets ticking on the window glass
-    const drop = () => {
-      if (!this.ctx || !this.rainNodes || this.rainNodes.master.gain.value < 0.05) {
-        this._timer(drop, 800); return;
-      }
-      const t = this.ctx.currentTime;
-      const o = this.ctx.createOscillator();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(rand(3200, 6800), t);
-      o.frequency.exponentialRampToValueAtTime(rand(1800, 3000), t + 0.02);
-      const g = this.ctx.createGain();
-      g.gain.setValueAtTime(rand(0.004, 0.02), t);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.015, 0.05));
-      const pan = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
-      if (pan) {
-        pan.pan.value = rand(-0.9, 0.9);
-        o.connect(g).connect(pan).connect(master);
-      } else {
-        o.connect(g).connect(master);
-      }
-      o.start(t); o.stop(t + 0.08);
-      this._timer(drop, rand(30, 350));
-    };
-    drop();
+    // This exists only for the brief asset-load window (or an offline asset
+    // failure). Keep it subdued and rain-coloured; white hiss and oscillator
+    // droplets were the main source of the old digital/noise impression.
+    const fallback = this._noiseSource(this._noiseBuf);
+    const fallbackTone = this.ctx.createBiquadFilter();
+    fallbackTone.type = 'bandpass';
+    fallbackTone.frequency.value = 1800;
+    fallbackTone.Q.value = 0.42;
+    const fallbackGain = this.ctx.createGain();
+    fallbackGain.gain.value = 0.028;
+    fallback.connect(fallbackTone).connect(fallbackGain).connect(master);
+    fallback.start();
+    this.rainNodes.fallback = fallback;
+    this.rainNodes.fallbackTone = fallbackTone;
+    this.rainNodes.fallbackGain = fallbackGain;
 
     // far-off thunder, rarely — the rain leans in just before the sky answers
     const thunder = () => {
       if (!this.ctx || !this.rainNodes) return;
       if (this.rainNodes.master.gain.value > 0.05 && Math.random() < 0.5) {
         const t0 = this.ctx.currentTime;
-        master.gain.cancelScheduledValues(t0);
-        master.gain.setTargetAtTime(1.7, t0, 1.7);
-        master.gain.setTargetAtTime(1, t0 + 8, 2.8);
         if (this._buf('thunder')) {
           this._playBuf('thunder', {
-            out: master, vol: rand(0.4, 0.8), rate: rand(0.88, 1.04),
+            out: master, vol: rand(0.32, 0.62), rate: rand(0.88, 1.04),
             when: t0 + rand(3, 4.5),
           });
           this._timer(thunder, rand(35000, 120000));
@@ -861,12 +869,14 @@ export class CafeAudio {
     this._timer(thunder, 20000);
 
     master.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
-    // if the recorded bed is already loaded, mount it right away
-    if (this._buf('rain_window')) this._startRain();
+    this._mountRecordedRain();
   }
 
   _stopRain() {
-    if (this.rainNodes) this.rainNodes.master.gain.setTargetAtTime(0, this.ctx.currentTime, 0.8);
+    if (!this.rainNodes) return;
+    const t = this.ctx.currentTime;
+    this.rainNodes.master.gain.cancelScheduledValues(t);
+    this.rainNodes.master.gain.setTargetAtTime(0, t, 0.8);
   }
 
   // ---------- positional one-shots ----------
