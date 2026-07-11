@@ -13,7 +13,7 @@ import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
 import { loadModelLibrary, cloneModel } from './modelLoader.js';
 import { loadPreferences, savePreferences } from './preferences.js';
-import { laptopCupOffset, laptopPropOffset } from './tableClearance.js';
+import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
 import { WorldInteractions } from './interactions/worldInteractions.js';
 
@@ -495,15 +495,19 @@ function restoreTableProps(seat) {
 }
 
 function clearTablePropsForLaptop(seat, beside) {
-  const props = (seat.surfaceProps ?? []).filter((entry) => entry.object?.parent);
+  // widest settings claim the first slots so a book never overlaps a card
+  const props = (seat.surfaceProps ?? [])
+    .filter((entry) => entry.object?.parent)
+    .sort((a, b) => (b.footprint ?? 0.08) - (a.footprint ?? 0.08));
   const towardFarEdge = new THREE.Vector3()
     .subVectors(seat.tableCenter, playerLaptop.position)
     .setY(0)
     .normalize();
+  const elevatedBar = seat.pos.y > 0.05;
+  const slots = clearanceSlots(props.map((entry) => entry.footprint ?? 0.08), elevatedBar);
   props.forEach((entry, index) => {
     const object = entry.object;
-    const elevatedBar = seat.pos.y > 0.05;
-    const offset = laptopPropOffset(index, elevatedBar);
+    const offset = slots[index];
     object.position.set(
       playerLaptop.position.x + towardFarEdge.x * offset.forward + beside.x * offset.side,
       entry.home.y,

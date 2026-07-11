@@ -9,6 +9,7 @@ import { TEXTURE_MANIFEST } from './textureManifest.js';
 import { clockAngles } from './clock.js';
 import { GREENERY } from './decor/decorManifest.js';
 import { buildServiceUpgrades, menuBoardTexture } from './decor/serviceCounter.js';
+import { buildTableCluster } from './decor/tabletopFactory.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -2089,10 +2090,11 @@ export function buildCafe(theme, models = null) {
   const cups = [];       // for steam
   const tableSurfaceProps = [];
 
-  function registerTableProp(surfaceProps, object) {
+  function registerTableProp(surfaceProps, object, footprint = 0.08) {
     if (!object) return object;
     object.traverse((part) => { part.userData.tableSurfaceProp = true; });
-    surfaceProps.push({ object, home: object.position.clone() });
+    // footprint (a radius in metres) drives the laptop-clearance spacing
+    surfaceProps.push({ object, home: object.position.clone(), footprint });
     return object;
   }
 
@@ -2407,43 +2409,25 @@ export function buildCafe(theme, models = null) {
     sugar.position.set(tt.x + 0.28, topY + 0.04, tt.z + 0.08);
     group.add(sugar);
     registerTableProp(surfaceProps, sugar);
-    const vignette = ti % 4;
-    if (vignette === 0) {
-      // Water tumbler and a folded menu beside a laptop-friendly seat.
-      const glass = cyl(0.032, 0.027, 0.09, new THREE.MeshPhysicalMaterial({
-        color: 0xdcecf0, transmission: 0.7, transparent: true, opacity: 0.48,
-        roughness: 0.08, thickness: 0.01, depthWrite: false,
-      }), 18);
-      glass.position.set(tt.x - 0.24, topY + 0.045, tt.z + 0.12);
-      group.add(glass);
-      registerTableProp(surfaceProps, glass);
-      const menu = box(0.18, 0.008, 0.11, paperMat);
-      menu.position.set(tt.x + 0.05, topY + 0.006, tt.z + 0.2);
-      menu.rotation.y = -0.22;
-      group.add(menu);
-      registerTableProp(surfaceProps, menu);
-    } else if (vignette === 1) {
-      // A tiny ceramic bud vase makes the setting feel intentionally dressed.
-      const vase = new THREE.Group();
-      const body = cyl(0.034, 0.042, 0.11, glazedCeramicMat, 18); body.position.y = 0.055; vase.add(body);
-      for (const a of [-0.12, 0.08]) {
-        const stem = cyl(0.004, 0.004, 0.18, stemMat, 6);
-        stem.position.set(a * 0.18, 0.18, 0); stem.rotation.z = a; vase.add(stem);
-        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 8), foliageMat);
-        leaf.scale.set(0.65, 0.24, 1.35);
-        leaf.rotation.z = a * 3;
-        leaf.position.set(-a * 0.14, 0.265, 0); vase.add(leaf);
-      }
-      vase.position.set(tt.x - 0.08, topY, tt.z - 0.16);
-      group.add(vase);
-      registerTableProp(surfaceProps, vase);
-    } else if (vignette === 2) {
-      const linen = box(0.16, 0.006, 0.12, cushionMat);
-      linen.position.set(tt.x - 0.13, topY + 0.005, tt.z + 0.18);
-      linen.rotation.y = 0.34;
-      group.add(linen);
-      registerTableProp(surfaceProps, linen);
+    // Curated cluster from the tabletop factory: work/flowers/linen/reading/
+    // finished settings rotate per cafe (decor manifest in tabletopFactory).
+    const cluster = buildTableCluster(theme.id, ti, {
+      table: tt,
+      topY,
+      seed: ti,
+      mats: {
+        ceramicMat, paperMat, cushionMat, metalMat, woodDarkMat,
+        glassMat: new THREE.MeshPhysicalMaterial({
+          color: 0xdcecf0, transmission: 0.7, transparent: true, opacity: 0.48,
+          roughness: 0.08, thickness: 0.01, depthWrite: false,
+        }),
+      },
+    });
+    for (const item of cluster.items) {
+      group.add(item.object);
+      registerTableProp(surfaceProps, item.object, item.footprint);
     }
+    const vignette = ti % 4; // still steers the candle offset below
     if (theme.candles) {
       const candleX = vignette === 1 ? 0.12 : -0.05;
       const candleSet = new THREE.Group();
@@ -2459,7 +2443,7 @@ export function buildCafe(theme, models = null) {
       candleSet.position.set(tt.x + candleX, topY, tt.z - 0.22);
       group.add(candleSet);
       // Candle and flame move as one object when a laptop clears the table.
-      registerTableProp(surfaceProps, candleSet);
+      registerTableProp(surfaceProps, candleSet, 0.05);
       candleFlames.push(flame);
     }
   });
@@ -3350,18 +3334,92 @@ export function buildCafe(theme, models = null) {
   });
 
   // ---------- atmosphere particles ----------
+  // Pooled steam: ONE Points draw and one material serve every steaming cup
+  // (the old system allocated three sprites + three materials per cup with no
+  // cap). Emitters reference their cup, so steam follows a cup a laptop
+  // pushes aside and stops when the cup leaves the table or goes cold.
   const steamTex = steamTexture();
-  const steamSprites = [];
+  const STEAM_EMITTER_CAP = 8;
+  const STEAM_WISPS = 3; // particles per emitter
+  const steamEmitters = [];
   for (const cup of cups) {
+    if (steamEmitters.length >= STEAM_EMITTER_CAP) break;
     if (Math.random() < 0.7) continue; // only some cups steam
-    for (let i = 0; i < 3; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: steamTex, transparent: true, opacity: 0, depthWrite: false,
-      }));
-      s.scale.setScalar(0.1);
-      cup.add(s);
-      steamSprites.push({ sprite: s, phase: rand(0, 10), speed: rand(0.5, 0.9) });
-    }
+    steamEmitters.push({
+      cup,
+      phase: rand(0, 10),
+      speed: rand(0.5, 0.9),
+      life: rand(90, 200), // the drink eventually goes cold
+      active: true,
+    });
+  }
+  let steamPoints = null;
+  let steamStride = 1; // Auto halves the update rate via setQuality
+  let steamTick = 0;
+  if (steamEmitters.length) {
+    const count = steamEmitters.length * STEAM_WISPS;
+    const steamGeo = new THREE.BufferGeometry();
+    steamGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+    steamGeo.setAttribute('aScale', new THREE.BufferAttribute(new Float32Array(count), 1));
+    steamGeo.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(count), 1));
+    const steamMat = new THREE.ShaderMaterial({
+      uniforms: { uMap: { value: steamTex } },
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */`
+        attribute float aScale;
+        attribute float aAlpha;
+        varying float vAlpha;
+        void main() {
+          vAlpha = aAlpha;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aScale * 320.0 / max(0.1, -mv.z);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */`
+        uniform sampler2D uMap;
+        varying float vAlpha;
+        void main() {
+          vec4 c = texture2D(uMap, gl_PointCoord);
+          gl_FragColor = vec4(c.rgb, c.a * vAlpha);
+        }`,
+    });
+    steamPoints = new THREE.Points(steamGeo, steamMat);
+    steamPoints.frustumCulled = false;
+    group.add(steamPoints);
+  }
+  function updateSteam(t, dt) {
+    if (!steamPoints) return;
+    steamTick += 1;
+    if (steamTick % steamStride !== 0) return;
+    const positions = steamPoints.geometry.attributes.position;
+    const scales = steamPoints.geometry.attributes.aScale;
+    const alphas = steamPoints.geometry.attributes.aAlpha;
+    steamEmitters.forEach((emitter, index) => {
+      if (emitter.active) {
+        emitter.life -= dt * steamStride;
+        if (emitter.life <= 0 || !emitter.cup.parent) emitter.active = false;
+      }
+      // last 25 seconds: the cup cools and its steam thins out
+      const cool = emitter.active ? Math.min(1, emitter.life / 25) : 0;
+      const base = emitter.cup.position;
+      for (let wisp = 0; wisp < STEAM_WISPS; wisp++) {
+        const i = index * STEAM_WISPS + wisp;
+        const cycle = (t * emitter.speed + emitter.phase + wisp) % 3;
+        const f = cycle / 3;
+        positions.setXYZ(
+          i,
+          base.x + Math.sin((t + emitter.phase + wisp) * 1.7) * 0.03,
+          base.y + 0.1 + f * 0.4,
+          base.z,
+        );
+        scales.setX(i, 0.08 + f * 0.16);
+        alphas.setX(i, (f < 0.15 ? f * 2.3 : 0.35 * (1 - f)) * cool);
+      }
+    });
+    positions.needsUpdate = true;
+    scales.needsUpdate = true;
+    alphas.needsUpdate = true;
   }
 
   // sun dust motes
@@ -3476,14 +3534,7 @@ export function buildCafe(theme, models = null) {
         }
       }
     }
-    for (const s of steamSprites) {
-      const cycle = (t * s.speed + s.phase) % 3;
-      const f = cycle / 3;
-      s.sprite.position.y = 0.1 + f * 0.4;
-      s.sprite.position.x = Math.sin((t + s.phase) * 1.7) * 0.03;
-      s.sprite.material.opacity = f < 0.15 ? f * 2.3 : 0.35 * (1 - f);
-      s.sprite.scale.setScalar(0.08 + f * 0.16);
-    }
+    updateSteam(t, dt);
     if (dust) {
       const p = dust.geometry.attributes.position;
       for (let i = 0; i < p.count; i++) {
@@ -3629,6 +3680,7 @@ export function buildCafe(theme, models = null) {
   pointLights.sort((a, b) => b.importance - a.importance);
 
   function setQuality(level) {
+    steamStride = level === 0 ? 2 : 1;
     const keep = level >= 2
       ? pointLights.length
       : level === 1 ? Math.min(9, pointLights.length) : Math.min(6, pointLights.length);
@@ -3645,6 +3697,6 @@ export function buildCafe(theme, models = null) {
     animate, setQuality, dispose, woodMat, cushionMat,
     // runtime-audit inventory: today every steam wisp is its own sprite; the
     // planned pooled system will report its emitter count through this field
-    steamEmitterCount: steamSprites.length,
+    get steamEmitterCount() { return steamEmitters.filter((e) => e.active).length; },
   };
 }
