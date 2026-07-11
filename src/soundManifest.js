@@ -5,6 +5,8 @@
 
 export const SOUND_MANIFEST = {
   carpass: { url: '/sounds/carpass.mp3', loop: false }, // 14.1s
+  cat_meow: { url: '/sounds/cat_meow.mp3', loop: false }, // 10s
+  cat_purr: { url: '/sounds/cat_purr.mp3', loop: false }, // 9s
   chair_scrape: { url: '/sounds/chair_scrape.mp3', loop: false }, // 2.6s
   chatter: { url: '/sounds/chatter.mp3', loop: true }, // 35s
   chatter2: { url: '/sounds/chatter2.mp3', loop: true }, // 25.1s
@@ -13,6 +15,9 @@ export const SOUND_MANIFEST = {
   cough: { url: '/sounds/cough.mp3', loop: false }, // 4.9s
   cup_clinks: { url: '/sounds/cup_clinks.mp3', loop: false }, // 4.6s
   dishes: { url: '/sounds/dishes.mp3', loop: false }, // 22.1s
+  dog_bark: { url: '/sounds/dog_bark.mp3', loop: false }, // 1.5s
+  dog_sniff: { url: '/sounds/dog_sniff.mp3', loop: false }, // 5.5s
+  dog_whine: { url: '/sounds/dog_whine.mp3', loop: false }, // 5s
   door_bell: { url: '/sounds/door_bell.mp3', loop: false }, // 3.1s
   door_open: { url: '/sounds/door_open.mp3', loop: false }, // 3.6s
   espresso: { url: '/sounds/espresso.mp3', loop: false }, // 10s

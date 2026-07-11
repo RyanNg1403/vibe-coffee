@@ -18,6 +18,7 @@ test('round-trips every preference', () => {
     musicVolume: 0.23,
     ambienceVolume: 0.64,
     voicesVolume: 1.2,
+    petVolume: 0.4,
     musicOn: false,
     cafeIndex: 3,
     envTime: 'night',
@@ -36,6 +37,7 @@ test('sanitizes corrupt and out-of-range values', () => {
       musicVolume: 5,
       ambienceVolume: -2,
       voicesVolume: 'bad',
+      petVolume: 7,
       cafeIndex: 99,
       qualityMode: 'cinematic',
       focusMinutes: 999,
@@ -46,6 +48,7 @@ test('sanitizes corrupt and out-of-range values', () => {
     ...DEFAULT_PREFERENCES,
     musicVolume: 1,
     ambienceVolume: 0,
+    petVolume: 1,
     cafeIndex: 3,
     focusMinutes: 180,
   });

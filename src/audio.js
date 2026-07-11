@@ -24,6 +24,22 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const FOOTSTEP_ONSETS = [0.55, 1.3, 2.1, 2.91, 3.71, 4.57, 5.23, 5.96, 6.69, 7.47, 8.24, 9.04, 9.84, 10.54, 11.32];
 const CLINK_ONSETS = [0.43, 1.6, 2.67, 3.35, 3.7, 3.89, 4.23];
 
+// Pet voice routing: which recording serves each (kind, event), how long a
+// random slice runs, and its pre-normalization volume window. bark has no dur:
+// the whole 1.5 s clip plays.
+const PET_VOICES = {
+  cat: {
+    chirp: { key: 'cat_meow', dur: [0.55, 1.4], vol: [0.5, 0.75] },
+    meow: { key: 'cat_meow', dur: [0.8, 1.9], vol: [0.6, 0.9] },
+    purr: { key: 'cat_purr', dur: [2.6, 4.4], vol: [0.7, 1.0] },
+  },
+  dog: {
+    huff: { key: 'dog_sniff', dur: [0.7, 1.6], vol: [0.5, 0.8] },
+    whine: { key: 'dog_whine', dur: [0.9, 2.0], vol: [0.45, 0.7] },
+    bark: { key: 'dog_bark', dur: null, vol: [0.5, 0.8] },
+  },
+};
+
 // ---------- per-café music styles ----------
 
 // Each café has a pool of styles; every new song draws one, so an afternoon
@@ -181,6 +197,9 @@ export class CafeAudio {
     this.capacity = 1;
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
     this.activeOneShotSources = 0; // live non-looping recorded sources, for runtime audits
+    this.activePetVoices = 0;      // live pet voice sources (spontaneous ones cap at 1)
+    this.petVolume = 0.65;         // user's pets slider, applied to petBus on start
+    this._listenerPos = { x: 0, y: 1.5, z: 0 }; // mirrored for distance gating
     this.voicesLevel = 1;     // user's "people talking" slider, scales the crowd beds
     this.recordedVolume = 0.5;
     this.recordedDuck = 1;
@@ -253,6 +272,16 @@ export class CafeAudio {
     this.voicesBus.gain.value = 0.7;
     this.voicesBus.connect(this.master);
     this.voicesBus.connect(this.ambVerbSend);
+
+    // Pet voices get their own bus and slider. Deliberately NOT under
+    // voicesBus (that slider means crowd speech) nor ambienceBus (muting the
+    // cafe must not silently disable a nonzero pets slider).
+    this.petBus = ctx.createGain();
+    this.petBus.gain.value = this.petVolume;
+    this.petBus.connect(this.master);
+    const petVerbSend = ctx.createGain();
+    petVerbSend.gain.value = 0.12;
+    this.petBus.connect(petVerbSend).connect(this.reverb);
 
     this._noiseBuf = this._makeNoiseBuffer(2);
     this._brownBuf = this._makeBrownBuffer(4);
@@ -427,6 +456,9 @@ export class CafeAudio {
   // called every frame from the render loop with the camera pose
   setListener(pos, fwd) {
     if (!this.ctx) return;
+    this._listenerPos.x = pos.x;
+    this._listenerPos.y = pos.y;
+    this._listenerPos.z = pos.z;
     const l = this.ctx.listener;
     const t = this.ctx.currentTime;
     if (l.positionX) {
@@ -504,6 +536,11 @@ export class CafeAudio {
   setVoicesVolume(v) {
     this.voicesLevel = v;
     this._applyAmbienceProfile();
+  }
+
+  setPetVolume(v) {
+    this.petVolume = v;
+    if (this.petBus) this.petBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
   }
 
   setMusicOn(on) {
@@ -1311,6 +1348,70 @@ export class CafeAudio {
         overtone.start(when); overtone.stop(when + 0.46);
       });
     }
+  }
+
+  // One spatial pet voice. Distance and concurrency are checked BEFORE any
+  // node is allocated. Spontaneous calls (intentional: false) only sound when
+  // the listener is within arm's-length range and nothing else is meowing;
+  // a deliberate click may be heard further away but stays positional.
+  playPetVoice(kind, event, pos, { intentional = false } = {}) {
+    if (!this.ctx || !this.started || !pos) return false;
+    const spec = PET_VOICES[kind]?.[event];
+    if (!spec) return false;
+    const dx = pos.x - this._listenerPos.x;
+    const dz = pos.z - this._listenerPos.z;
+    const dist = Math.hypot(dx, dz);
+    if (!intentional && (dist > 3 || this.activePetVoices > 0)) return false;
+    if (intentional && dist > 9) return false;
+    const out = this._panner(pos.x, pos.y ?? 0.32, pos.z, this.petBus);
+    const dur = spec.dur ? rand(spec.dur[0], spec.dur[1]) : undefined;
+    const node = this._playBuf(spec.key, {
+      out, vol: rand(spec.vol[0], spec.vol[1]), rate: rand(0.96, 1.05),
+      randomSlice: !!dur, dur,
+    });
+    if (node) {
+      this.activePetVoices += 1;
+      node.src.addEventListener('ended', () => { this.activePetVoices -= 1; }, { once: true });
+      return true;
+    }
+    return this._petSynthFallback(kind, event, out);
+  }
+
+  // Very soft synthesized stand-ins while recordings stream in. A purr, whine
+  // or bark has no credible cheap synthesis, so those stay silent (never
+  // noise). The chirp is two quick sine sweeps; the huff is a low breath.
+  _petSynthFallback(kind, event, out) {
+    const t = this.ctx.currentTime;
+    if (kind === 'cat' && (event === 'chirp' || event === 'meow')) {
+      const o = this.ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(620, t);
+      o.frequency.exponentialRampToValueAtTime(940, t + 0.09);
+      o.frequency.exponentialRampToValueAtTime(700, t + 0.2);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.02, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+      o.connect(g).connect(out);
+      o.start(t); o.stop(t + 0.26);
+      return true;
+    }
+    if (kind === 'dog' && event === 'huff') {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._brownBuf;
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 480;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      src.connect(lp).connect(g).connect(out);
+      src.start(t, rand(0, 3), 0.35);
+      return true;
+    }
+    out.disconnect?.();
+    return false;
   }
 
   _typeBurst(pos, volumeScale = 1, trackPlayer = false, opts = {}) {

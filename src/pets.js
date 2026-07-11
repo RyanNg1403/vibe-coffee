@@ -48,7 +48,20 @@ class Pet {
     this._bestDist = Infinity;
     this.owner = null; // dog only
     this.dead = false;
+    this.audio = null;         // CafeAudio, set by PetSystem
+    this.interactions = null;  // world-interaction registry, set by PetSystem
+    this.voiceCooldown = rand(10, 25); // semantic cooldown for spontaneous voices
+    this.forceReactT = 0;      // keeps the click reaction visible from further away
     cafe.group.add(mesh);
+  }
+
+  // A spontaneous voice: proximity, concurrency and the audio-side gates all
+  // apply, plus this pet's own 20-60 s semantic cooldown.
+  _tryVoice(event, fallbackEvent = null) {
+    if (this.voiceCooldown > 0 || !this.audio) return;
+    const played = this.audio.playPetVoice(this.kind, event, this.mesh.position)
+      || (fallbackEvent && this.audio.playPetVoice(this.kind, fallbackEvent, this.mesh.position));
+    if (played) this.voiceCooldown = rand(20, 60);
   }
 
   _setMode(mode, timeScale = 1) {
@@ -132,6 +145,7 @@ class Pet {
 
   dispose() {
     this.dead = true;
+    this.interactions?.unregister(this.mesh);
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.mesh);
     this.mesh.parent?.remove(this.mesh);
@@ -145,12 +159,17 @@ class CatPet extends Pet {
   update(dt, playerPos) {
     this.mixer.update(dt);
     this.stateT += dt;
+    this.voiceCooldown -= dt;
+    this.forceReactT = Math.max(0, this.forceReactT - dt);
     const pos = this.mesh.position;
     const nearPlayer = playerPos
       && Math.hypot(playerPos.x - pos.x, playerPos.z - pos.z) < 1.15
       && playerPos.y < 1.8; // ignore the seated bird's-eye tween
     if (this.state === 'walking') {
-      if (nearPlayer) { this.target = null; this.state = 'watchPlayer'; this.stateT = 0; }
+      if (nearPlayer) {
+        this.target = null; this.state = 'watchPlayer'; this.stateT = 0;
+        this._tryVoice('chirp'); // a person! quiet greeting trill
+      }
       else if (this._step(dt)) {
         this.state = pick(['idle', 'idle', 'nap', 'groom']);
         this.stateT = 0;
@@ -161,7 +180,7 @@ class CatPet extends Pet {
       // a person! stop, face them, affectionate little head-rub, move on
       this._facePoint(playerPos?.x ?? 0, playerPos?.z ?? 0, dt);
       this._setMode('nudge', 0.9);
-      if (this.stateT > 3.2 || !nearPlayer) {
+      if (this.stateT > 3.2 || (!nearPlayer && this.forceReactT <= 0)) {
         this.state = 'idle';
         this.stateT = 0;
       }
@@ -183,11 +202,31 @@ class CatPet extends Pet {
     }
     // idle
     this._setMode('idle', 1);
-    if (nearPlayer && this.stateT > 1) { this.state = 'watchPlayer'; this.stateT = 0; }
+    if (nearPlayer && this.stateT > 1) {
+      this.state = 'watchPlayer'; this.stateT = 0;
+      this._tryVoice('chirp', 'meow');
+    }
     else if (this.stateT > rand(4, 9)) {
       const s = pick(FLOOR_SPOTS);
       this._walkTo(s.x + rand(-0.4, 0.4), s.z + rand(-0.4, 0.4));
     }
+  }
+
+  // A deliberate click is petting: a napping cat purrs and dozes on; an awake
+  // cat turns, gives the little head-rub and answers with a chirp or meow.
+  onPlayerClick() {
+    if (this.dead) return;
+    const pos = this.mesh.position;
+    if (this.state === 'nap') {
+      this.audio?.playPetVoice('cat', 'purr', pos, { intentional: true });
+      this.stateT = Math.min(this.stateT, 6); // content — stays put a while longer
+      return;
+    }
+    this.target = null;
+    this.state = 'watchPlayer';
+    this.stateT = 0;
+    this.forceReactT = 2.2;
+    this.audio?.playPetVoice('cat', Math.random() < 0.5 ? 'chirp' : 'meow', pos, { intentional: true });
   }
 }
 
@@ -207,6 +246,8 @@ class DogPet extends Pet {
   update(dt, playerPos) {
     this.mixer.update(dt);
     this.stateT += dt;
+    this.voiceCooldown -= dt;
+    this.forceReactT = Math.max(0, this.forceReactT - dt);
     const ownerGone = !this.owner || this.owner.state !== 'sitting';
     if (this.state === 'leaving') {
       if (this._step(dt)) this.dead = true; // PetSystem sweeps and disposes
@@ -241,11 +282,15 @@ class DogPet extends Pet {
     if (this.state === 'alert') {
       this._facePoint(playerPos?.x ?? 0, playerPos?.z ?? 0, dt);
       this._setMode('alert', 1);
-      if (this.stateT > 3 || !nearPlayer) { this.state = 'rest'; this.stateT = 0; }
+      if (this.stateT > 3 || (!nearPlayer && this.forceReactT <= 0)) { this.state = 'rest'; this.stateT = 0; }
       return;
     }
     // rest: lying beside the chair, with the odd sniff around
-    if (nearPlayer) { this.state = 'alert'; this.stateT = 0; return; }
+    if (nearPlayer) {
+      this.state = 'alert'; this.stateT = 0;
+      this._tryVoice(Math.random() < 0.6 ? 'huff' : 'whine'); // quiet acknowledgement
+      return;
+    }
     if (this.stateT > rand(18, 34) && this.actions.sniff) {
       this._setMode('sniff', 0.8);
       this.stateT = rand(0, 6);
@@ -255,13 +300,28 @@ class DogPet extends Pet {
       this._setMode('lie', 0.9);
     }
   }
+
+  // A deliberate click is a greeting: the dog perks up toward the player and
+  // answers with one soft bark or an excited breath — never a barking fit.
+  onPlayerClick() {
+    if (this.dead || this.state === 'leaving') return;
+    const pos = this.mesh.position;
+    if (this.state === 'rest' || this.state === 'settle' || this.state === 'alert') {
+      this.state = 'alert';
+      this.stateT = 0;
+      this.forceReactT = 2.2;
+    }
+    this.audio?.playPetVoice('dog', Math.random() < 0.6 ? 'bark' : 'huff', pos, { intentional: true });
+  }
 }
 
 export class PetSystem {
-  constructor(cafe, models, theme) {
+  constructor(cafe, models, theme, audio = null, interactions = null) {
     this.cafe = cafe;
     this.models = models;
     this.theme = theme;
+    this.audio = audio;
+    this.interactions = interactions;
     this.pets = [];
     this.dogTimer = rand(6, 18); // let the room settle before a dog shows up
     if (theme.cat !== undefined) {
@@ -271,9 +331,25 @@ export class PetSystem {
         cat.mesh.position.set(spot.x, 0, spot.z);
         cat.mesh.rotation.y = rand(0, Math.PI * 2);
         cat.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
-        this.pets.push(new CatPet(cafe, 'cat', cat.mesh, cat.animations));
+        this._adopt(new CatPet(cafe, 'cat', cat.mesh, cat.animations));
       }
     }
+  }
+
+  // live pet voice sources, surfaced through __vibe.metrics()
+  get activeVoiceCount() { return this.audio?.activePetVoices ?? 0; }
+
+  _adopt(pet) {
+    pet.audio = this.audio;
+    pet.interactions = this.interactions;
+    // clicking a visible pet is an intentional interaction; 1.5 s cooldown so
+    // rapid clicks can neither stack sources nor restart the animation loop
+    this.interactions?.register(pet.mesh, {
+      cooldownMs: 1500,
+      onClick: () => pet.onPlayerClick(),
+    });
+    this.pets.push(pet);
+    return pet;
   }
 
   _maybeSpawnDog(crowd) {
@@ -289,7 +365,7 @@ export class PetSystem {
     const perp = new THREE.Vector3(away.z, 0, -away.x);
     const rest = seat.pos.clone().addScaledVector(perp, 0.7).addScaledVector(away, 0.15);
     dog.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
-    this.pets.push(new DogPet(this.cafe, 'dog', dog.mesh, dog.animations, owner, rest));
+    this._adopt(new DogPet(this.cafe, 'dog', dog.mesh, dog.animations, owner, rest));
   }
 
   update(dt, crowd, playerPos) {

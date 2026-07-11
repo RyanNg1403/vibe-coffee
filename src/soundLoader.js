@@ -26,10 +26,13 @@ const BED_KEYS = new Set(['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet'
 const EXTERIOR_KEYS = new Set(['traffic_day', 'traffic_night', 'rain_window']);
 const MACHINE_KEYS = new Set(['espresso', 'steam_milk', 'pour', 'grinder', 'dishes']);
 const HUMAN_BG_KEYS = new Set(['laughter', 'cough']); // sit under the chatter bed
+// Pet voices are short, close-range one-shots; a purr should idle well under
+// speech level. All decode at 24 kHz to respect the 3 MB pet PCM budget.
+const PET_KEYS = new Set(['cat_meow', 'cat_purr', 'dog_sniff', 'dog_whine', 'dog_bark']);
 const LONG_ONE_SHOTS = new Set(['carpass', 'espresso', 'footsteps', 'thunder', 'typing', 'macbook_typing', 'grinder', 'dishes']);
 
 function decodeRate(key, contextRate) {
-  if (BED_KEYS.has(key) || EXTERIOR_KEYS.has(key) || LONG_ONE_SHOTS.has(key)) return 24000;
+  if (BED_KEYS.has(key) || EXTERIOR_KEYS.has(key) || LONG_ONE_SHOTS.has(key) || PET_KEYS.has(key)) return 24000;
   return Math.min(32000, contextRate);
 }
 
@@ -39,6 +42,8 @@ function targetRms(key, def) {
   if (EXTERIOR_KEYS.has(key)) return 0.055;
   if (MACHINE_KEYS.has(key)) return 0.1;
   if (HUMAN_BG_KEYS.has(key)) return 0.065;
+  if (key === 'cat_purr') return 0.05;
+  if (PET_KEYS.has(key)) return 0.09;
   return 0.115;
 }
 

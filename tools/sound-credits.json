@@ -409,5 +409,45 @@
     "source_url": "https://cdn.freesound.org/previews/561/561102_12517458-hq.mp3",
     "item_url": "https://freesound.org/people/Sorinious_Genious/sounds/561102/",
     "edits": "trimmed to the dense first 12.4 s, mono, 32 kHz, 70 Hz high-pass, edge fades; retrieved 2026-07-11"
+  },
+  "cat_meow": {
+    "title": "cat-meow-01 (kitty trills, meows and chirps)",
+    "creator": "templeofhades",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/95/95516_1587289-hq.mp3",
+    "item_url": "https://freesound.org/people/templeofhades/sounds/95516/",
+    "edits": "first 10 s, mono 32 kHz, 130 Hz high-pass, denoise, edge fades; retrieved 2026-07-11"
+  },
+  "cat_purr": {
+    "title": "Cat purr (close Sennheiser MKH 805 recording)",
+    "creator": "Trautwein",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/260/260881_525245-hq.mp3",
+    "item_url": "https://freesound.org/people/Trautwein/sounds/260881/",
+    "edits": "9 s slice, mono 32 kHz, 45 Hz high-pass, 6 kHz low-pass, long fades; retrieved 2026-07-11"
+  },
+  "dog_sniff": {
+    "title": "Dog Sniffing",
+    "creator": "21100375",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/593/593133_13371625-hq.mp3",
+    "item_url": "https://freesound.org/people/21100375/sounds/593133/",
+    "edits": "first 5.5 s, mono 32 kHz, 100 Hz high-pass, edge fades; retrieved 2026-07-11"
+  },
+  "dog_whine": {
+    "title": "Whining Dog (soft whimpers)",
+    "creator": "Breviceps",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/462/462660_9159316-hq.mp3",
+    "item_url": "https://freesound.org/people/Breviceps/sounds/462660/",
+    "edits": "first 5 s, mono 32 kHz, 150 Hz high-pass, denoise, edge fades; retrieved 2026-07-11"
+  },
+  "dog_bark": {
+    "title": "single bark - small to medium dog",
+    "creator": "haulaway",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/630/630648_7228277-hq.mp3",
+    "item_url": "https://freesound.org/people/haulaway/sounds/630648/",
+    "edits": "mono 32 kHz, 100 Hz high-pass, tail fade; retrieved 2026-07-11"
   }
 }
