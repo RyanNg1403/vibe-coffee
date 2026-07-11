@@ -1292,10 +1292,16 @@ window.__vibe = {
   get pets() { return pets; },
   metrics() {
     let decodedAudioBytes = 0;
+    let instancedMeshes = 0;
+    let instancedInstances = 0;
     const activeGeometries = new Set();
     const activeTextures = new Set();
     const activeSharedTextures = new Set();
     scene.traverse((object) => {
+      if (object.isInstancedMesh) {
+        instancedMeshes += 1;
+        instancedInstances += object.count;
+      }
       if (object.geometry) activeGeometries.add(object.geometry);
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       for (const material of materials) {
@@ -1339,6 +1345,16 @@ window.__vibe = {
       doorQueue: crowd?.doorFlow?.queueLength ?? 0,
       playerTypingBursts: audio.playerTypingBursts ?? 0,
       playerTypingActive: (audio._playerTypingNodes?.length ?? 0) > 0,
+      // Immersion V2 instrumentation. Systems that do not exist yet report
+      // zero so per-PR audits can watch these budgets from the first commit.
+      activeOneShotSources: audio.activeOneShotSources ?? 0,
+      activePetVoices: pets?.activeVoiceCount ?? 0,
+      plannerEvalsPerSecond: crowd?.planner?.evalsPerSecond ?? 0,
+      serviceTasks: crowd?.service?.taskCount ?? 0,
+      serviceReservations: crowd?.service?.reservationCount ?? 0,
+      steamEmitters: cafe?.steamEmitterCount ?? 0,
+      instancedMeshes,
+      instancedInstances,
       geometries: renderer.info.memory.geometries,
       textures: renderer.info.memory.textures,
       activeGeometries: activeGeometries.size,

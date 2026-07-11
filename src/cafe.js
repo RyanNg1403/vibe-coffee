@@ -3559,5 +3559,8 @@ export function buildCafe(theme, models = null) {
   return {
     group, seats, seatMeshes, nav, colliders, theme, entrance,
     animate, setQuality, dispose, woodMat, cushionMat,
+    // runtime-audit inventory: today every steam wisp is its own sprite; the
+    // planned pooled system will report its emitter count through this field
+    steamEmitterCount: steamSprites.length,
   };
 }
