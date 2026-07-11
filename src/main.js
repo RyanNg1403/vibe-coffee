@@ -13,6 +13,7 @@ import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
 import { loadModelLibrary, cloneModel } from './modelLoader.js';
 import { loadPreferences, savePreferences } from './preferences.js';
+import { laptopCupOffset, laptopPropOffset } from './tableClearance.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -467,30 +468,11 @@ function clearTablePropsForLaptop(seat, beside) {
   props.forEach((entry, index) => {
     const object = entry.object;
     const elevatedBar = seat.pos.y > 0.05;
-    if (elevatedBar) {
-      // The window bar is shallow: distribute along its length, never toward
-      // the glass where an item would overhang the ledge.
-      const spacing = 0.18;
-      const lateral = (index - (props.length - 1) / 2) * spacing;
-      object.position.set(
-        seat.tableCenter.x + beside.x * lateral,
-        entry.home.y,
-        seat.tableCenter.z + beside.z * lateral,
-      );
-      return;
-    }
-    // On normal tables, fan every prop around the far semicircle. Equal angular
-    // spacing keeps the objects clear of both the laptop and one another;
-    // independent lateral nudges used to stack multiple objects in one spot.
-    const spread = Math.min(Math.PI * 0.72, Math.max(0, (props.length - 1) * 0.48));
-    const angle = props.length <= 1 ? 0 : -spread / 2 + (spread * index) / (props.length - 1);
-    const radius = seat.tableTopY < 0.7 ? 0.29 : 0.35;
-    const forwardWeight = Math.cos(angle) * radius;
-    const sideWeight = Math.sin(angle) * radius;
+    const offset = laptopPropOffset(index, elevatedBar);
     object.position.set(
-      seat.tableCenter.x + towardFarEdge.x * forwardWeight + beside.x * sideWeight,
+      playerLaptop.position.x + towardFarEdge.x * offset.forward + beside.x * offset.side,
       entry.home.y,
-      seat.tableCenter.z + towardFarEdge.z * forwardWeight + beside.z * sideWeight,
+      playerLaptop.position.z + towardFarEdge.z * offset.forward + beside.z * offset.side,
     );
   });
   renderer.shadowMap.needsUpdate = true;
@@ -509,10 +491,11 @@ function placePlayerCup() {
     const beside = new THREE.Vector3(-towardTable.z, 0, towardTable.x);
     const towardRoom = new THREE.Vector3(-tc.x, 0, -tc.z);
     if (beside.dot(towardRoom) < 0) beside.negate();
+    const offset = laptopCupOffset(seat.pos.y > 0.05);
     playerCup.position.set(
-      playerLaptop.position.x + beside.x * 0.26,
+      playerLaptop.position.x + beside.x * offset.side + towardTable.x * offset.forward,
       topY,
-      playerLaptop.position.z + beside.z * 0.26
+      playerLaptop.position.z + beside.z * offset.side + towardTable.z * offset.forward
     );
   } else {
     playerCup.position.set(
@@ -1288,11 +1271,15 @@ window.__vibe = {
     }
     return {
       theme: cafe?.theme.id ?? currentTheme.id,
+      rain: !!cafe?.theme.rain,
       qualityMode,
       pixelRatio: renderPixelRatio,
       effects: effectLevel,
       heapBytes: performance.memory?.usedJSHeapSize ?? null,
       decodedAudioBytes,
+      outsidePedestrians: crowd?.outside?.walkers?.length ?? 0,
+      outsideUmbrellas: crowd?.outside?.walkers?.filter((walker) => walker.umbrella).length ?? 0,
+      outsideUmbrellaHands: crowd?.outside?.walkers?.filter((walker) => walker.avatar?.bones?.RightHand).length ?? 0,
       playerTypingBursts: audio.playerTypingBursts ?? 0,
       playerTypingActive: (audio._playerTypingNodes?.length ?? 0) > 0,
       geometries: renderer.info.memory.geometries,

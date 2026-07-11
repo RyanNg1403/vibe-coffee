@@ -588,13 +588,22 @@ class SkinnedAvatar {
       RightUpLeg: ['RightUpLeg', 'UpperLeg.R', 'UpperLegR', 'leg-right', 'Leg.R'],
       LeftLeg: ['LeftLeg', 'LowerLeg.L', 'LowerLegL'],
       RightLeg: ['RightLeg', 'LowerLeg.R', 'LowerLegR'],
+      RightArm: ['RightArm', 'UpperArm.R', 'UpperArmR', 'Arm.R', 'arm-right'],
+      RightForeArm: ['RightForeArm', 'LowerArm.R', 'LowerArmR', 'ForeArm.R', 'forearm-right'],
       LeftHand: ['LeftHand', 'Hand.L', 'HandL', 'Palm.L', 'Wrist.L', 'hand-left', 'arm-left', 'LowerArm.L'],
       RightHand: ['RightHand', 'Hand.R', 'HandR', 'Palm.R', 'Wrist.R', 'hand-right', 'arm-right', 'LowerArm.R'],
     };
     this.bones = {};
+    const normalizedNodes = new Map();
+    const normalizeRigName = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    mesh.traverse((node) => {
+      if (node.name) normalizedNodes.set(normalizeRigName(node.name), node);
+    });
     for (const [key, names] of Object.entries(ALIASES)) {
       for (const n of names) {
-        const found = mesh.getObjectByName(n);
+        // GLTFLoader sanitizes punctuation in node names (`Palm.R` becomes
+        // `PalmR`), so exact lookup alone silently loses otherwise valid rigs.
+        const found = mesh.getObjectByName(n) ?? normalizedNodes.get(normalizeRigName(n));
         if (found) { this.bones[key] = found; break; }
       }
     }
@@ -1925,28 +1934,35 @@ function umbrellaShared() {
     return resource;
   };
   const canopyGeometry = markShared(new THREE.SphereGeometry(
-    0.52, 16, 6, 0, Math.PI * 2, 0, Math.PI / 2,
+    0.58, 18, 7, 0, Math.PI * 2, 0, Math.PI / 2,
   ));
-  const shaftGeometry = markShared(new THREE.CylinderGeometry(0.009, 0.009, 0.92, 7));
+  const shaftGeometry = markShared(new THREE.CylinderGeometry(0.01, 0.01, 1.06, 7));
   const handleGeometry = markShared(new THREE.TorusGeometry(0.045, 0.009, 6, 12, Math.PI * 1.2));
+  const rimGeometry = markShared(new THREE.TorusGeometry(0.575, 0.012, 6, 28));
   const ribPositions = [];
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;
-    ribPositions.push(0, 0.926, 0, Math.cos(a) * 0.515, 0.76, Math.sin(a) * 0.515);
+    ribPositions.push(0, 1.054, 0, Math.cos(a) * 0.575, 0.88, Math.sin(a) * 0.575);
   }
   const ribGeometry = markShared(new THREE.BufferGeometry());
   ribGeometry.setAttribute('position', new THREE.Float32BufferAttribute(ribPositions, 3));
-  const canopyMaterials = [0x303942, 0x60343a, 0x2f4a52].map((color) => markShared(
-    new THREE.MeshStandardMaterial({
-      color, roughness: 0.48, metalness: 0.05, side: THREE.DoubleSide,
-    }),
-  ));
+  const canopyMaterials = [0x52687d, 0x86545f, 0x49737d].map((color) => {
+    const tone = new THREE.Color(color);
+    return markShared(new THREE.MeshStandardMaterial({
+      color: tone,
+      emissive: tone.clone().multiplyScalar(0.2),
+      emissiveIntensity: 0.32,
+      roughness: 0.5,
+      metalness: 0.04,
+      side: THREE.DoubleSide,
+    }));
+  });
   const metalMaterial = markShared(new THREE.MeshStandardMaterial({
-    color: 0x25282b, roughness: 0.28, metalness: 0.82,
+    color: 0x626970, roughness: 0.28, metalness: 0.82,
   }));
-  const ribMaterial = markShared(new THREE.LineBasicMaterial({ color: 0x44484d }));
+  const ribMaterial = markShared(new THREE.LineBasicMaterial({ color: 0x788087 }));
   _umbrellaShared = {
-    canopyGeometry, shaftGeometry, handleGeometry, ribGeometry,
+    canopyGeometry, shaftGeometry, handleGeometry, rimGeometry, ribGeometry,
     canopyMaterials, metalMaterial, ribMaterial,
   };
   return _umbrellaShared;
@@ -1959,13 +1975,17 @@ function makeHeldUmbrella(appearanceIndex = 0) {
     shared.canopyGeometry,
     shared.canopyMaterials[appearanceIndex % shared.canopyMaterials.length],
   );
-  canopy.position.y = 0.76;
-  canopy.scale.y = 0.32;
+  canopy.position.y = 0.88;
+  canopy.scale.y = 0.3;
   umbrella.add(canopy);
+  const rim = new THREE.Mesh(shared.rimGeometry, shared.metalMaterial);
+  rim.position.y = 0.88;
+  rim.rotation.x = Math.PI / 2;
+  umbrella.add(rim);
   const ribs = new THREE.LineSegments(shared.ribGeometry, shared.ribMaterial);
   umbrella.add(ribs);
   const shaft = new THREE.Mesh(shared.shaftGeometry, shared.metalMaterial);
-  shaft.position.y = 0.46;
+  shaft.position.y = 0.53;
   umbrella.add(shaft);
   const handle = new THREE.Mesh(shared.handleGeometry, shared.metalMaterial);
   handle.position.set(0.038, -0.035, 0);
@@ -1981,6 +2001,33 @@ export function attachHeldUmbrella(person, avatar = null, appearanceIndex = 0) {
   const root = makeHeldUmbrella(appearanceIndex);
   hand.add(root);
   return { root, hand };
+}
+
+export function pedestrianUsesUmbrella(index) {
+  // A deterministic 3:1 mix guarantees umbrellas are visible in every rainy
+  // crowd while retaining a couple of pedestrians who choose to get wet.
+  return index % 4 !== 3;
+}
+
+export function stabilizeUmbrellaArm(held, avatar) {
+  if (!held || !avatar?.bones) return;
+  if (!held.armBones) {
+    held.armBones = [];
+    held.armPose = [];
+    for (const name of ['RightArm', 'RightForeArm', 'RightHand']) {
+      const bone = avatar.bones[name];
+      if (!bone) continue;
+      held.armBones.push(bone);
+      held.armPose.push(bone.quaternion.clone());
+    }
+    return;
+  }
+  // Reuse the captured bones/quaternions. This runs after the walk mixer, so
+  // the free arm keeps swinging while the hand on the handle remains steady,
+  // without allocating arrays or Maps in the render loop.
+  for (let index = 0; index < held.armBones.length; index += 1) {
+    held.armBones[index].quaternion.copy(held.armPose[index]);
+  }
 }
 
 const umbrellaWorldQuaternion = new THREE.Quaternion();
@@ -2007,7 +2054,7 @@ class OutsideLife {
     this.walkers = [];
     this.qualityLevel = 2;
     this.updateDebt = 0;
-    const night = !!cafe.theme.rain;
+    const rainy = !!cafe.theme.rain;
     const n = 8;
     for (let i = 0; i < n; i++) {
       // downloaded animated characters when available, procedural otherwise
@@ -2020,7 +2067,7 @@ class OutsideLife {
           frustumCulling: true,
         });
         avatar.blob.visible = false;
-        if (night) {
+        if (rainy) {
           avatar.root.traverse((o) => {
             if (!o.isMesh) return;
             const materials = Array.isArray(o.material) ? o.material : [o.material];
@@ -2030,20 +2077,20 @@ class OutsideLife {
         avatar.setMode('walk', rand(0.9, 1.2));
         person = avatar.root;
         person.userData.avatar = avatar;
-        this._buildWalker(person, night, avatar);
+        this._buildWalker(person, rainy, avatar);
         continue;
       }
-      person = makePerson(night ? 0.35 : 0.75);
+      person = makePerson(rainy ? 0.35 : 0.75);
       person.userData.parts.blob.visible = false;
-      this._buildWalker(person, night, null);
+      this._buildWalker(person, rainy, null);
     }
   }
 
-  _buildWalker(person, night, avatar) {
+  _buildWalker(person, rainy, avatar) {
     const s = rand(0.85, 1.0);
     person.scale.setScalar(s);
     let heldUmbrella = null;
-    if (night && Math.random() < 0.8) {
+    if (rainy && pedestrianUsesUmbrella(this.walkers.length)) {
       // If a rig has no usable hand, skip the prop rather than pinning it to
       // the head or torso. Every visible umbrella must actually meet a palm.
       heldUmbrella = attachHeldUmbrella(person, avatar, this.walkers.length);
@@ -2084,6 +2131,7 @@ class OutsideLife {
       w.phase += dt * 7 * w.speed;
       if (w.avatar) {
         w.avatar.update(dt, 16, this.qualityLevel);
+        stabilizeUmbrellaArm(w.umbrella, w.avatar);
         w.mesh.position.set(w.x, 0, w.z);
         alignHeldUmbrella(w.umbrella);
         continue;

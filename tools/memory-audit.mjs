@@ -102,6 +102,9 @@ function summarize(metrics) {
     textures: metrics.textures,
     activeGeometries: metrics.activeGeometries,
     activeTextures: metrics.activeTextures,
+    rain: metrics.rain,
+    umbrellas: `${metrics.outsideUmbrellas}/${metrics.outsidePedestrians}`,
+    umbrellaHands: metrics.outsideUmbrellaHands,
     calls: metrics.calls,
   };
 }
@@ -193,12 +196,25 @@ try {
     geometries: end.geometries - start.geometries,
     textures: end.textures - start.textures,
   };
-  const passed = Math.abs(delta.geometries) <= 5
-    && Math.abs(delta.textures) <= 5
-    && delta.heapMB < 10;
+  const rainySamples = samples.filter((sample) => sample.rain);
+  const clearSamples = samples.filter((sample) => !sample.rain);
+  const checks = {
+    stableResources: Math.abs(delta.geometries) <= 5 && Math.abs(delta.textures) <= 5,
+    stableHeap: delta.heapMB < 10,
+    rainyUmbrellaMix: rainySamples.length > 0 && rainySamples.every((sample) => (
+      sample.outsideUmbrellas > 0
+      && sample.outsideUmbrellas < sample.outsidePedestrians
+      && sample.outsideUmbrellaHands === sample.outsidePedestrians
+    )),
+    clearScenesHaveNoUmbrellas: clearSamples.every((sample) => sample.outsideUmbrellas === 0),
+  };
+  const passed = checks.stableResources
+    && checks.stableHeap
+    && checks.rainyUmbrellaMix
+    && checks.clearScenesHaveNoUmbrellas;
 
   console.table(samples.map(summarize));
-  console.log(JSON.stringify({ start: summarize(start), end: summarize(end), delta, passed }, null, 2));
+  console.log(JSON.stringify({ start: summarize(start), end: summarize(end), delta, checks, passed }, null, 2));
   if (!passed) process.exitCode = 1;
 } finally {
   client?.close();
