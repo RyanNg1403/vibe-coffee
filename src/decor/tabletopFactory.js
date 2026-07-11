@@ -121,7 +121,7 @@ function readingSetting({ table, topY, mats, seed }) {
   const pages = mesh(new THREE.BoxGeometry(0.13, 0.018, 0.19), mats.paperMat);
   pages.position.y = 0.004;
   book.add(pages);
-  book.position.set(table.x - 0.16, topY + 0.013, table.z - 0.05);
+  book.position.set(table.x - 0.02, topY + 0.013, table.z - 0.2);
   book.rotation.y = -0.3;
   // wire reading glasses folded on the cover
   const glasses = new THREE.Group();
@@ -162,7 +162,7 @@ function finishedSetting({ table, topY, mats }) {
   napkin.position.set(-0.09, 0.007, 0.05);
   napkin.rotation.y = 0.9;
   setting.add(napkin);
-  setting.position.set(table.x + 0.18, topY, table.z - 0.14);
+  setting.position.set(table.x + 0.02, topY, table.z - 0.26);
   return [{ object: setting, footprint: 0.12 }];
 }
 

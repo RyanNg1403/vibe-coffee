@@ -2147,7 +2147,7 @@ export function buildCafe(theme, models = null) {
     return { isInstancedSeat: true, batch: chairSeatBatch, instanceId: index, visible: true };
   }
 
-  function addSeat(chair, seatPos, lookAt, tableCenter, tableTopY = 0.81, surfaceProps = []) {
+  function addSeat(chair, seatPos, lookAt, tableCenter, tableTopY = 0.81, surfaceProps = [], tableRadius = null) {
     if (chair.isInstancedSeat) {
       chair.batch.userData.seatIndices[chair.instanceId] = seats.length;
       if (!seatMeshes.includes(chair.batch)) seatMeshes.push(chair.batch);
@@ -2163,6 +2163,8 @@ export function buildCafe(theme, models = null) {
     const facingYaw = Math.atan2(tableCenter.x - seatPos.x, tableCenter.z - seatPos.z);
     const seat = {
       pos: seatPos, look: lookAt, tableCenter, chair, tableTopY, approach, facingYaw, surfaceProps,
+      // usable tabletop radius (null for the window bar: a long strip, not a disc)
+      tableRadius,
     };
     seats.push(seat);
     return seat;
@@ -2222,10 +2224,13 @@ export function buildCafe(theme, models = null) {
         chair.lookAt(tx, 0, tz);
         group.add(chair);
       }
+      const tableRadius = type === 'long' ? 0.55
+        : type === 'square' ? 0.475
+        : lounge ? 0.46 : 0.52;
       addSeat(chair,
         new THREE.Vector3(px, 0, pz),
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
-        center, topY + 0.03, surfaceProps);
+        center, topY + 0.03, surfaceProps, tableRadius);
     }
     // Base place setting. Positions are reserved around the later curated
     // vignette instead of independently randomized, which previously allowed

@@ -513,8 +513,68 @@ function clearTablePropsForLaptop(seat, beside) {
       entry.home.y,
       playerLaptop.position.z + towardFarEdge.z * offset.forward + beside.z * offset.side,
     );
+    clampToTable(object.position, seat, entry.footprint ?? 0.08);
   });
+  relaxClearedProps(props, seat);
   renderer.shadowMap.needsUpdate = true;
+}
+
+// Clamping can bunch several cleared props onto the same stretch of table
+// rim. A few separation passes push overlapping pairs apart along the rim
+// while keeping everything on the table and off the laptop.
+function relaxClearedProps(props, seat) {
+  for (let pass = 0; pass < 6; pass++) {
+    let moved = false;
+    for (let a = 0; a < props.length; a++) {
+      for (let b = a + 1; b < props.length; b++) {
+        const pa = props[a].object.position;
+        const pb = props[b].object.position;
+        const fa = props[a].footprint ?? 0.08;
+        const fb = props[b].footprint ?? 0.08;
+        const minGap = (fa + fb) * 0.72;
+        let dx = pb.x - pa.x;
+        let dz = pb.z - pa.z;
+        let d = Math.hypot(dx, dz);
+        if (d >= minGap) continue;
+        if (d < 0.001) { dx = 1; dz = 0; d = 1; }
+        const push = (minGap - d) / 2 + 0.005;
+        pa.x -= (dx / d) * push; pa.z -= (dz / d) * push;
+        pb.x += (dx / d) * push; pb.z += (dz / d) * push;
+        keepOffLaptop(pa, fa);
+        keepOffLaptop(pb, fb);
+        clampToTable(pa, seat, fa);
+        clampToTable(pb, seat, fb);
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+}
+
+function keepOffLaptop(position, footprint) {
+  if (!playerLaptop) return;
+  const minD = 0.24 + footprint;
+  const dx = position.x - playerLaptop.position.x;
+  const dz = position.z - playerLaptop.position.z;
+  const d = Math.hypot(dx, dz);
+  if (d < minD && d > 0.001) {
+    position.x = playerLaptop.position.x + (dx / d) * minD;
+    position.z = playerLaptop.position.z + (dz / d) * minD;
+  }
+}
+
+// A cleared prop must stay ON its table: pull anything the slot grid pushed
+// past the top's edge back inside, keeping its height.
+function clampToTable(position, seat, footprint) {
+  if (!seat?.tableRadius) return; // window-bar strip: the grid stays shallow there
+  const maxR = Math.max(0.05, seat.tableRadius - footprint - 0.01);
+  const dx = position.x - seat.tableCenter.x;
+  const dz = position.z - seat.tableCenter.z;
+  const d = Math.hypot(dx, dz);
+  if (d > maxR) {
+    position.x = seat.tableCenter.x + (dx / d) * maxR;
+    position.z = seat.tableCenter.z + (dz / d) * maxR;
+  }
 }
 
 function placePlayerCup() {
@@ -536,6 +596,7 @@ function placePlayerCup() {
       topY,
       playerLaptop.position.z + beside.z * offset.side + towardTable.z * offset.forward
     );
+    clampToTable(playerCup.position, seat, 0.06);
   } else {
     playerCup.position.set(
       tc.x + (seat.pos.x - tc.x) * 0.45,
@@ -1473,5 +1534,66 @@ window.__vibe = {
     if (!cafe?.seats[index]) return false;
     sitAt(index, true);
     return true;
+  },
+  // Physical-sanity sweep for tabletop decor: no floating, no sinking, no
+  // pairwise overlap, no table-edge overhang. Pure measurement (no rendering
+  // needed), so audits can sweep every seat and laptop state quickly.
+  decorAudit() {
+    if (!cafe) return { violations: [{ kind: 'no-cafe' }] };
+    const violations = [];
+    const box = new THREE.Box3();
+    const seenTables = new Set();
+    cafe.seats.forEach((seat, seatIdx) => {
+      const key = `${seat.tableCenter.x.toFixed(2)},${seat.tableCenter.z.toFixed(2)}`;
+      if (seenTables.has(key)) return;
+      seenTables.add(key);
+      const entries = (seat.surfaceProps ?? []).filter((entry) => entry.object?.parent);
+      entries.forEach((entry, i) => {
+        entry.object.updateWorldMatrix(true, true);
+        box.setFromObject(entry.object);
+        if (box.isEmpty()) return;
+        const bottom = box.min.y;
+        const name = `${cafe.theme.id} table@${key} prop#${i}`;
+        if (bottom > seat.tableTopY + 0.06) {
+          violations.push({ kind: 'floating', name, bottom: +bottom.toFixed(3), surface: seat.tableTopY });
+        }
+        if (bottom < seat.tableTopY - 0.08) {
+          violations.push({ kind: 'sunken', name, bottom: +bottom.toFixed(3), surface: seat.tableTopY });
+        }
+        if (seat.tableRadius) {
+          const dx = entry.object.position.x - seat.tableCenter.x;
+          const dz = entry.object.position.z - seat.tableCenter.z;
+          const reach = Math.hypot(dx, dz) + (entry.footprint ?? 0.08) * 0.5;
+          if (reach > seat.tableRadius + 0.03) {
+            violations.push({ kind: 'overhang', name, reach: +reach.toFixed(3), radius: seat.tableRadius });
+          }
+        }
+        for (let j = i + 1; j < entries.length; j++) {
+          const other = entries[j];
+          const d = Math.hypot(
+            entry.object.position.x - other.object.position.x,
+            entry.object.position.z - other.object.position.z,
+          );
+          const minGap = ((entry.footprint ?? 0.08) + (other.footprint ?? 0.08)) * 0.6;
+          if (d < minGap) {
+            violations.push({ kind: 'overlap', name: `${name} vs prop#${j}`, distance: +d.toFixed(3), minGap: +minGap.toFixed(3) });
+          }
+        }
+      });
+    });
+    // objects that declare their support surface (service-counter dressing)
+    cafe.group.traverse((object) => {
+      if (object.userData.surfaceY === undefined) return;
+      object.updateWorldMatrix(true, true);
+      box.setFromObject(object);
+      if (box.isEmpty()) return;
+      if (box.min.y > object.userData.surfaceY + 0.05 || box.min.y < object.userData.surfaceY - 0.05) {
+        violations.push({
+          kind: 'off-surface', name: `${cafe.theme.id} ${object.userData.surfaceName ?? 'counter prop'}`,
+          bottom: +box.min.y.toFixed(3), surface: object.userData.surfaceY,
+        });
+      }
+    });
+    return { tables: seenTables.size, violations };
   },
 };

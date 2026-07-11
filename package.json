@@ -1,7 +1,7 @@
 {
   "name": "vibe-coffee",
   "version": "1.0.0",
-  "description": "A 3D coffee shop vibe simulator — study and work with virtual café ambience",
+  "description": "A 3D coffee shop vibe simulator \u2014 study and work with virtual caf\u00e9 ambience",
   "type": "module",
   "scripts": {
     "start": "vite",
@@ -12,7 +12,8 @@
     "audit:visual": "node tools/visual-audit.mjs",
     "perf:baseline": "node tools/perf-baseline.mjs",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "audit:decor": "node tools/decor-audit.mjs"
   },
   "dependencies": {
     "three": "^0.166.1"

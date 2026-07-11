@@ -115,6 +115,13 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
   const { woodDarkMat, metalMat } = mats;
   const counterZ = -D / 2 + 1.15;
   const topY = 1.06;
+  // every prop declares the surface it rests on, so the decor audit can
+  // measure floating/sunken placement instead of eyeballing screenshots
+  const onSurface = (object, surfaceY, surfaceName) => {
+    object.userData.surfaceY = surfaceY;
+    object.userData.surfaceName = surfaceName;
+    return object;
+  };
 
   const cream = new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.6 });
   const kraft = new THREE.MeshStandardMaterial({ color: 0xb98d5f, roughness: 0.9 });
@@ -126,7 +133,7 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
   const reader = box(0.11, 0.05, 0.14, darkPlastic);
   reader.position.set(2.62, topY + 0.025, counterZ + 0.22);
   reader.rotation.y = -0.35;
-  group.add(reader);
+  group.add(onSurface(reader, topY, 'card reader'));
   const readerScreen = box(0.08, 0.012, 0.09, new THREE.MeshStandardMaterial({
     color: 0x1c2b33, emissive: 0x2c6f7a, emissiveIntensity: 0.55, roughness: 0.4,
   }));
@@ -135,7 +142,7 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
   group.add(readerScreen);
   const receiptSlot = box(0.16, 0.02, 0.05, darkPlastic);
   receiptSlot.position.set(2.2, 1.375, counterZ + 0.06);
-  group.add(receiptSlot);
+  group.add(onSurface(receiptSlot, 1.36, 'receipt slot'));
   // small customer-facing total display on the register back
   const customerDisplay = box(0.2, 0.12, 0.015, darkPlastic);
   customerDisplay.position.set(2.2, 1.3, counterZ + 0.19);
@@ -149,10 +156,10 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
   // --- pickup zone: serving tray, brass counter bell, small sign ---
   const tray = roundedBox(0.52, 0.025, 0.36, woodDarkMat, 0.01);
   tray.position.set(-0.7, topY + 0.012, counterZ + 0.12);
-  group.add(tray);
+  group.add(onSurface(tray, topY, 'pickup tray'));
   const bellBase = cyl(0.05, 0.055, 0.025, brass, 12);
   bellBase.position.set(-0.28, topY + 0.012, counterZ + 0.2);
-  group.add(bellBase);
+  group.add(onSurface(bellBase, topY, 'counter bell'));
   const bellDome = new THREE.Mesh(new THREE.SphereGeometry(0.042, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), brass);
   bellDome.position.set(-0.28, topY + 0.025, counterZ + 0.2);
   group.add(bellDome);
@@ -176,48 +183,49 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
   // --- espresso work zone: knock box, tamp mat, milk pitcher ---
   const knockBox = box(0.16, 0.12, 0.16, darkPlastic);
   knockBox.position.set(-2.85, topY + 0.06, counterZ - 0.05);
-  group.add(knockBox);
+  group.add(onSurface(knockBox, topY, 'knock box'));
   const knockBar = cyl(0.014, 0.014, 0.17, steel, 8);
   knockBar.rotation.z = Math.PI / 2;
   knockBar.position.set(-2.85, topY + 0.125, counterZ - 0.05);
   group.add(knockBar);
   const tampMat = box(0.28, 0.01, 0.2, new THREE.MeshStandardMaterial({ color: 0x2e2620, roughness: 0.95 }));
   tampMat.position.set(-1.72, topY + 0.005, counterZ - 0.02);
-  group.add(tampMat);
+  group.add(onSurface(tampMat, topY, 'tamp mat'));
   const pitcher = cyl(0.05, 0.038, 0.11, steel, 10);
   pitcher.position.set(-1.62, topY + 0.055, counterZ - 0.22);
-  group.add(pitcher);
+  group.add(onSurface(pitcher, topY, 'milk pitcher'));
   const pitcherHandle = box(0.012, 0.07, 0.03, steel);
   pitcherHandle.position.set(-1.56, topY + 0.06, counterZ - 0.22);
   group.add(pitcherHandle);
 
-  // --- cup station beside the cup stack: lids, sleeves, napkins, stirrers ---
-  const backZ = -D / 2 + 0.35;
+  // --- cup station on the countertop between the kettle and register:
+  // lids, sleeves, napkins, stirrers ---
+  const stationZ = counterZ - 0.08;
   const lidStack = cyl(0.052, 0.052, 0.07, darkPlastic, 12);
-  lidStack.position.set(0.86, topY + 0.085, backZ + 0.05);
-  group.add(lidStack);
+  lidStack.position.set(1.48, topY + 0.035, stationZ);
+  group.add(onSurface(lidStack, topY, 'lid stack'));
   const sleeves = box(0.13, 0.09, 0.13, kraft);
-  sleeves.position.set(1.06, topY + 0.095, backZ + 0.02);
-  group.add(sleeves);
+  sleeves.position.set(1.66, topY + 0.045, stationZ + 0.08);
+  group.add(onSurface(sleeves, topY, 'sleeve box'));
   const napkinHolder = box(0.17, 0.02, 0.07, metalMat);
-  napkinHolder.position.set(0.66, topY + 0.06, backZ + 0.18);
-  group.add(napkinHolder);
+  napkinHolder.position.set(1.85, topY + 0.01, stationZ - 0.06);
+  group.add(onSurface(napkinHolder, topY, 'napkin holder'));
   const napkins = box(0.15, 0.07, 0.055, cream);
-  napkins.position.set(0.66, topY + 0.095, backZ + 0.18);
-  group.add(napkins);
+  napkins.position.set(1.85, topY + 0.045, stationZ - 0.06);
+  group.add(onSurface(napkins, topY, 'napkins'));
   const stirrers = cyl(0.03, 0.026, 0.09, cream, 10);
-  stirrers.position.set(0.52, topY + 0.095, backZ + 0.05);
-  group.add(stirrers);
+  stirrers.position.set(1.36, topY + 0.045, stationZ + 0.12);
+  group.add(onSurface(stirrers, topY, 'stirrer cup'));
 
   // --- dirty-dish return: open tub on a low stand by the bin, off the aisle ---
   const standX = 4.0;
   const standZ = -D / 2 + 1.9;
   const stand = box(0.55, 0.72, 0.42, woodDarkMat);
   stand.position.set(standX, 0.36, standZ);
-  group.add(stand);
+  group.add(onSurface(stand, 0, 'dish stand'));
   const tub = box(0.48, 0.16, 0.36, new THREE.MeshStandardMaterial({ color: 0x8f9499, roughness: 0.8 }));
   tub.position.set(standX, 0.8, standZ);
-  group.add(tub);
+  group.add(onSurface(tub, 0.72, 'dish tub'));
   const tubInner = box(0.42, 0.14, 0.3, new THREE.MeshStandardMaterial({ color: 0x6f757b, roughness: 0.9 }));
   tubInner.position.set(standX, 0.82, standZ);
   group.add(tubInner);
