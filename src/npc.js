@@ -1625,7 +1625,9 @@ class NPC {
         const arrivalScale = finalSegment
           ? Math.max(0.16, THREE.MathUtils.smoothstep(dist, 0.04, 0.68))
           : 1;
-        const desiredSpeed = this.speed * arrivalScale * (this.yieldT > 0 ? 0.42 : 1);
+        const desiredSpeed = this.speed * arrivalScale
+          * (this.yieldT > 0 ? 0.42 : 1)
+          * (this.hasCup ? 0.86 : 1); // a full cup is carried, not marched
         const response = desiredSpeed > this.currentSpeed ? 3.4 : 6.2;
         this.currentSpeed += (desiredSpeed - this.currentSpeed) * (1 - Math.exp(-response * dt));
 
@@ -1652,6 +1654,13 @@ class NPC {
           const step = dy * (1 - Math.exp(-turn * dt));
           const maxStep = 4.2 * dt;
           this.mesh.rotation.y += THREE.MathUtils.clamp(step, -maxStep, maxStep);
+          // anticipate: the head looks into the turn before the body arrives
+          // (a planner gaze, when active, still owns the head)
+          if (this.avatar && this.gazeT <= 0) {
+            this.avatar.headYawTarget = Math.abs(dy) > 0.35
+              ? THREE.MathUtils.clamp(dy * 0.55, -0.9, 0.9)
+              : this.headTarget;
+          }
         }
       }
       const speedRatio = THREE.MathUtils.clamp(this.currentSpeed / Math.max(0.01, this.speed), 0, 1);
