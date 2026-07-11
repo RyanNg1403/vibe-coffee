@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { ROOM } from './cafe.js';
 import { DoorCoordinator } from './doorFlow.js';
 import { ServiceCoordinator } from './npc/serviceCoordinator.js';
+import { BehaviorPlanner, seedTraits } from './npc/behaviorPlanner.js';
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -613,6 +614,7 @@ class SkinnedAvatar {
     }
     this.sitting = false;
     this.headYawTarget = 0;
+    this.gazeOverride = null; // planner intent: wins over ambient head sway
     this.headPitch = 0;
     this._headYaw = 0;
 
@@ -710,7 +712,8 @@ class SkinnedAvatar {
       if (RightLeg) RightLeg.rotation.x = 1.35;
     }
     // head look, applied post-mixer so it composes with the idle sway
-    this._headYaw += (this.headYawTarget - this._headYaw) * Math.min(1, animationDt * 3);
+    const lookTarget = this.gazeOverride ?? this.headYawTarget;
+    this._headYaw += (lookTarget - this._headYaw) * Math.min(1, animationDt * 3);
     const head = this.bones.Head ?? this.bones.Neck;
     if (head) {
       // keep the look natural even if a state feeds a runaway target
@@ -995,6 +998,13 @@ class NPC {
     this.props = [];
     this.headTarget = 0;            // desired head yaw offset
     this.glanceT = rand(2, 8);
+    // context-planner state: seeded personality, current gaze intent, and
+    // per-intent cooldowns so reactions never machine-gun
+    this.traits = seedTraits();
+    this.gazeT = 0;
+    this.gazeWorld = null;
+    this.yieldT = 0;
+    this.intentCooldowns = {};
     this.greetT = rand(4, 12);      // cooldown before this NPC greets again
     this.greeting = 0;              // remaining greeting time
     this.cheers = 0;                // remaining "cheers" toast time
@@ -1506,6 +1516,28 @@ class NPC {
     const seat = this.seatIndex >= 0 ? this.sim.cafe.seats[this.seatIndex] : null;
     animateMicroMotion(p, t, this.walkPhase);
 
+    // planner intents: cooldowns tick down; an active gaze aims the head at
+    // its world point (composes with whatever the state machine is doing)
+    for (const key in this.intentCooldowns) {
+      if (this.intentCooldowns[key] > 0) this.intentCooldowns[key] -= dt;
+    }
+    if (this.yieldT > 0) this.yieldT -= dt;
+    if (this.gazeT > 0 && this.gazeWorld) {
+      this.gazeT -= dt;
+      if (this.avatar) {
+        let offset = Math.atan2(
+          this.gazeWorld.x - this.mesh.position.x,
+          this.gazeWorld.z - this.mesh.position.z,
+        ) - this.mesh.rotation.y;
+        while (offset > Math.PI) offset -= Math.PI * 2;
+        while (offset < -Math.PI) offset += Math.PI * 2;
+        this.avatar.gazeOverride = THREE.MathUtils.clamp(offset, -1.05, 1.05);
+      }
+      if (this.gazeT <= 0 && this.avatar) this.avatar.gazeOverride = null;
+    } else if (this.avatar && this.avatar.gazeOverride !== null) {
+      this.avatar.gazeOverride = null;
+    }
+
     // A released doorway reservation can advance while this actor is still
     // walking toward an older holding mark. Redirect immediately instead of
     // making the new active patron finish an obsolete queue movement first.
@@ -1593,7 +1625,7 @@ class NPC {
         const arrivalScale = finalSegment
           ? Math.max(0.16, THREE.MathUtils.smoothstep(dist, 0.04, 0.68))
           : 1;
-        const desiredSpeed = this.speed * arrivalScale;
+        const desiredSpeed = this.speed * arrivalScale * (this.yieldT > 0 ? 0.42 : 1);
         const response = desiredSpeed > this.currentSpeed ? 3.4 : 6.2;
         this.currentSpeed += (desiredSpeed - this.currentSpeed) * (1 - Math.exp(-response * dt));
 
@@ -2106,6 +2138,7 @@ class Barista {
         this.avatar.setMode('work');
         if (!this.espressoPlayed) {
           this.espressoPlayed = true;
+          this.sim.grinderUntil = t + 16; // patrons may glance over while it runs
           if (this.sim.audio?.started) {
             const a = this.sim.audio;
             a.playGrinder(this.sim.cafe.nav.machineWorld);
@@ -2135,6 +2168,7 @@ class Barista {
         p.armR.rotation.x = -0.7 + Math.cos(t * 2.7) * 0.25;
         if (!this.espressoPlayed) {
           this.espressoPlayed = true;
+          this.sim.grinderUntil = t + 16; // patrons may glance over while it runs
           if (this.sim.audio?.started) {
             const a = this.sim.audio;
             a.playGrinder(this.sim.cafe.nav.machineWorld);
@@ -2855,6 +2889,11 @@ export class CrowdSim {
     this.barista = new Barista(this);
     // task queue + station reservations; a floor waiter joins busier rooms
     this.service = new ServiceCoordinator(0);
+    // low-frequency context planner: fixed evaluations per tick, so planning
+    // cost never scales with render FPS or crowd size
+    this.planner = new BehaviorPlanner({ hz: 1.5, batch: 4 });
+    this.petSources = []; // live pets array, assigned by main.js
+    this.grinderUntil = -Infinity;
     this.waiter = this.cafe.serviceAnchors && this.maxCrowd >= 9 ? new Waiter(this) : null;
     // Exterior walkers are a real actor pool: arrivals are claimed from it and
     // departing indoor patrons are returned to it, so identity continues
@@ -3047,6 +3086,64 @@ export class CrowdSim {
   }
 
   // position of slot i in the order queue (a line from the register toward the door)
+  // ---------- context planner ----------
+
+  _plannerContext(npc, t) {
+    const state = npc.state;
+    const seated = state === 'sitting';
+    const walking = !!npc.path && (state === 'entering' || state === 'toSeat' || state === 'queueing');
+    if (!seated && state !== 'queueing' && !walking) return null;
+    let petDistance = null;
+    for (const pet of this.petSources) {
+      const d = Math.hypot(pet.mesh.position.x - npc.mesh.position.x, pet.mesh.position.z - npc.mesh.position.z);
+      if (petDistance === null || d < petDistance) petDistance = d;
+    }
+    const machine = this.cafe.nav.machineWorld;
+    const waiter = this.waiter;
+    return {
+      state,
+      seated,
+      walking,
+      activity: npc.activity ?? 'none',
+      queueLength: this.queue.length,
+      occupancy: this.npcs.length / Math.max(1, this.maxCrowd),
+      petDistance,
+      counterDistance: Math.hypot(machine.x - npc.mesh.position.x, machine.z - npc.mesh.position.z),
+      grinderActive: t < this.grinderUntil,
+      waiterCarryingNearby: !!(waiter && waiter.phase === 'toTable' && waiter.task?.kind === 'deliver'
+        && Math.hypot(waiter.mesh.position.x - npc.mesh.position.x, waiter.mesh.position.z - npc.mesh.position.z) < 1.7),
+      traits: npc.traits,
+      cooldowns: npc.intentCooldowns,
+    };
+  }
+
+  _applyIntent(npc, decision) {
+    npc.intentCooldowns[decision.intent] = decision.cooldown;
+    if (decision.execute === 'yield') {
+      npc.yieldT = decision.duration;
+      return;
+    }
+    npc.gazeT = decision.duration;
+    if (decision.intent === 'glanceMenu') {
+      npc.gazeWorld = { x: this.cafe.nav.baristaRegister.x, z: this.cafe.nav.baristaRegister.z };
+    } else if (decision.intent === 'watchPet') {
+      let nearest = null;
+      let best = Infinity;
+      for (const pet of this.petSources) {
+        const d = Math.hypot(pet.mesh.position.x - npc.mesh.position.x, pet.mesh.position.z - npc.mesh.position.z);
+        if (d < best) { best = d; nearest = pet; }
+      }
+      npc.gazeWorld = nearest ? nearest.mesh.position : null;
+    } else if (decision.intent === 'reactGrinder') {
+      npc.gazeWorld = this.cafe.nav.machineWorld;
+    } else {
+      // peopleWatch: glance at another seated patron
+      const others = this.npcs.filter((other) => other !== npc && other.state === 'sitting');
+      npc.gazeWorld = others.length ? pick(others).mesh.position : null;
+    }
+    if (!npc.gazeWorld) npc.gazeT = 0;
+  }
+
   // ---------- waiter table service ----------
 
   // The brewed drink becomes a deliver task; if no waiter frees up in time
@@ -3164,6 +3261,7 @@ export class CrowdSim {
     this.barista.update(dt, t);
     this.service?.update(t);
     this.waiter?.update(dt, t);
+    this.planner?.update(dt, this.npcs, (npc) => this._plannerContext(npc, t), (npc, decision) => this._applyIntent(npc, decision), t);
     this.outside.update(dt);
 
     // let the soundscape breathe with the actual room population

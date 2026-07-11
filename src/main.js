@@ -345,6 +345,7 @@ async function loadTheme(index) {
 
   crowd = new CrowdSim(cafe, audio, models);
   pets = new PetSystem(cafe, models, theme, audio, interactions);
+  crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
   applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
