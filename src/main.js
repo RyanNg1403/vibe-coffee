@@ -346,7 +346,14 @@ async function loadTheme(index) {
   crowd = new CrowdSim(cafe, audio, models);
   pets = new PetSystem(cafe, models, theme, audio, interactions);
   applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
-  audio.setAnchors({ counter: cafe.nav.machineWorld, door: cafe.nav.door });
+  audio.setAnchors({
+    counter: cafe.nav.machineWorld,
+    door: cafe.nav.door,
+    // service-derived emitters: sound and visible work zones share one source
+    register: cafe.serviceAnchors?.audio.register,
+    pickup: cafe.serviceAnchors?.audio.pickup,
+    dishes: cafe.serviceAnchors?.audio.dishes,
+  });
   audio.setClinkSpots([]);
   audio.setTypingSpots([]);
   audio.setTheme(theme);
