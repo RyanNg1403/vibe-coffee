@@ -51,7 +51,7 @@ const artifactSoundManifest = `export const SOUND_MANIFEST = {
   door_bell: { url: '/sounds/door_bell.mp3', loop: false },
   espresso: { url: '/sounds/espresso.mp3', loop: false },
   footsteps: { url: '/sounds/footsteps.mp3', loop: false },
-  rain_window: { url: '/sounds/rain_window.mp3', loop: true },
+  rain_steady: { url: '/sounds/rain_steady.mp3', loop: true, lazy: true },
   traffic_day: { url: '/sounds/traffic_day.mp3', loop: true },
   traffic_night: { url: '/sounds/traffic_night.mp3', loop: true },
   typing: { url: '/sounds/typing.mp3', loop: false },

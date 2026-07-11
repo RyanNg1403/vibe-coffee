@@ -68,6 +68,8 @@
     #mixer-pop[hidden] { display: none; }
     #mixer-pop .ctl label { width: 42px; text-align: right; }
     #mixer-pop input[type='range'] { width: 128px; }
+    #mixer-pop #rain-vol { width: 86px; }
+    #mixer-pop #rain-level { width: 42px; font-size: 11px; opacity: 0.75; }
     #mixer-btn.open { background: rgba(240, 230, 212, 0.18); }
     #sky { position: relative; display: flex; }
     #sky-pop {
@@ -272,6 +274,12 @@
         <div class="ctl">
           <label for="pets-vol">pets</label>
           <input id="pets-vol" aria-label="Pet voices volume" type="range" min="0" max="1" step="0.01" value="0.65" />
+        </div>
+        <div class="ctl">
+          <label for="rain-vol">rain</label>
+          <input id="rain-vol" aria-label="Rain intensity (off, light, steady, heavy)" type="range" min="0" max="3" step="1" value="2" list="rain-stops" />
+          <datalist id="rain-stops"><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option></datalist>
+          <span id="rain-level" aria-hidden="true">steady</span>
         </div>
       </div>
     </div>

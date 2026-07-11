@@ -10,7 +10,7 @@
 //  - events are multi-stage (knock -> grind -> pump -> steam) instead of
 //    single noise bursts
 
-import { loadSoundLibrary } from './soundLoader.js';
+import { loadSoundLibrary, loadSoundAsset } from './soundLoader.js';
 import { SOUND_MANIFEST } from './soundManifest.js';
 import { MUSIC_MANIFEST } from './musicManifest.js';
 
@@ -23,6 +23,17 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // avoids the conspicuous mid-sound slices produced by arbitrary offsets.
 const FOOTSTEP_ONSETS = [0.55, 1.3, 2.1, 2.91, 3.71, 4.57, 5.23, 5.96, 6.69, 7.47, 8.24, 9.04, 9.84, 10.54, 11.32];
 const CLINK_ONSETS = [0.43, 1.6, 2.67, 3.35, 3.7, 3.89, 4.23];
+
+// Discrete rain-intensity stops for the sound menu. Each stop is a different
+// recording (a heavier storm, not merely a louder one); only the selected
+// level is ever decoded (manifest entries are lazy). Layer volumes feed the
+// two offset window plays; the synth gain covers the brief load window.
+const RAIN_LEVELS = [
+  { name: 'off', key: null, layers: [0, 0], synth: 0 },
+  { name: 'light', key: 'rain_light', layers: [0.4, 0.18], synth: 0.014 },
+  { name: 'steady', key: 'rain_steady', layers: [0.52, 0.24], synth: 0.028 },
+  { name: 'heavy', key: 'rain_heavy', layers: [0.66, 0.32], synth: 0.046 },
+];
 
 // Pet voice routing: which recording serves each (kind, event), how long a
 // random slice runs, and its pre-normalization volume window. bark has no dur:
@@ -198,6 +209,8 @@ export class CafeAudio {
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
     this.activeOneShotSources = 0; // live non-looping recorded sources, for runtime audits
     this.activePetVoices = 0;      // live pet voice sources (spontaneous ones cap at 1)
+    this.rainIntensity = 2;        // sound-menu rain stop: 0 off .. 3 heavy
+    this._lazyLoads = new Map();   // in-flight lazy buffer decodes by key
     this.petVolume = 0.65;         // user's pets slider, applied to petBus on start
     this._listenerPos = { x: 0, y: 1.5, z: 0 }; // mirrored for distance gating
     this.voicesLevel = 1;     // user's "people talking" slider, scales the crowd beds
@@ -295,6 +308,10 @@ export class CafeAudio {
 
     // recorded assets stream in behind the synth and take over the beds
     loadSoundLibrary(ctx, SOUND_MANIFEST).then((buffers) => {
+      // lazily decoded entries (the active rain level) survive the swap
+      for (const [key, entry] of this.buffers) {
+        if (!buffers.has(key)) buffers.set(key, entry);
+      }
       this.buffers = buffers;
       this._applyRecordedBeds();
     });
@@ -399,7 +416,8 @@ export class CafeAudio {
     }
 
     // The recorded field ambience replaces the short synthetic fallback.
-    if (this._buf('rain_window') && this.theme?.rain) this._startRain();
+    // (Rain levels are lazy: _startRain triggers the on-demand decode.)
+    if (this.theme?.rain) this._startRain();
   }
 
   _setTrafficMix() {
@@ -536,6 +554,19 @@ export class CafeAudio {
   setVoicesVolume(v) {
     this.voicesLevel = v;
     this._applyAmbienceProfile();
+  }
+
+  // Sound-menu rain stop (0 off, 1 light, 2 steady, 3 heavy). Selecting a
+  // stop swaps the recording; it does not merely change gain. Takes effect
+  // whenever rainy weather is active (the sky menu owns whether it rains).
+  setRainIntensity(level) {
+    this.rainIntensity = Math.round(clamp(Number(level) || 0, 0, RAIN_LEVELS.length - 1));
+    if (!this.ctx || !this.rainNodes) return;
+    const t = this.ctx.currentTime;
+    const audible = this.theme?.rain && this.rainIntensity > 0;
+    this.rainNodes.master.gain.cancelScheduledValues(t);
+    this.rainNodes.master.gain.setTargetAtTime(audible ? 1 : 0, t, 1.2);
+    if (audible) this._mountRecordedRain();
   }
 
   setPetVolume(v) {
@@ -801,60 +832,110 @@ export class CafeAudio {
     }
   }
 
-  _mountRecordedRain() {
+  // Decode a lazy manifest entry on demand (rain levels). Concurrent calls
+  // share one in-flight promise; failures resolve null and the caller falls
+  // back to another level or the synth bed.
+  _ensureLazyBuffer(key) {
+    if (this.buffers.has(key)) return Promise.resolve(this.buffers.get(key));
+    if (this._lazyLoads.has(key)) return this._lazyLoads.get(key);
+    const def = SOUND_MANIFEST[key];
+    if (!def || !this.ctx) return Promise.resolve(null);
+    const load = loadSoundAsset(this.ctx, key, def)
+      .then((entry) => {
+        this.buffers.set(key, entry);
+        this._lazyLoads.delete(key);
+        return entry;
+      })
+      .catch((e) => {
+        console.warn(`[sounds] "${key}" unavailable (${e.message}) — synth fallback`);
+        this._lazyLoads.delete(key);
+        return null;
+      });
+    this._lazyLoads.set(key, load);
+    return load;
+  }
+
+  async _mountRecordedRain() {
     const nodes = this.rainNodes;
-    const entry = this._buf('rain_window');
-    if (!nodes || !entry || nodes.recorded) return;
+    if (!nodes) return;
+    const level = RAIN_LEVELS[this.rainIntensity];
+    if (!level.key || nodes.mountedKey === level.key) return;
+    // A newer mount request supersedes this one while its buffer decodes.
+    const token = (nodes.mountToken = (nodes.mountToken ?? 0) + 1);
+    let key = level.key;
+    let entry = await this._ensureLazyBuffer(key);
+    if (!entry && key !== 'rain_steady') {
+      key = 'rain_steady'; // e.g. the single-file artifact carries only steady
+      entry = await this._ensureLazyBuffer(key);
+    }
+    if (!entry || !this.rainNodes || nodes.mountToken !== token || nodes.mountedKey === key) return;
 
     // Rain heard from indoors loses sub-bass and the brittle top octave. Two
     // differently offset plays of the same mono buffer create a broad window
     // image without keeping a second decoded buffer in RAM.
-    const highpass = this.ctx.createBiquadFilter();
-    highpass.type = 'highpass';
-    highpass.frequency.value = 65;
-    highpass.Q.value = 0.55;
-    const throughGlass = this.ctx.createBiquadFilter();
-    throughGlass.type = 'lowpass';
-    throughGlass.frequency.value = 9200;
-    throughGlass.Q.value = 0.35;
-    highpass.connect(throughGlass).connect(nodes.master);
+    if (!nodes.highpass) {
+      const highpass = this.ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 65;
+      highpass.Q.value = 0.55;
+      const throughGlass = this.ctx.createBiquadFilter();
+      throughGlass.type = 'lowpass';
+      throughGlass.frequency.value = 9200;
+      throughGlass.Q.value = 0.35;
+      highpass.connect(throughGlass).connect(nodes.master);
+      nodes.highpass = highpass;
+      nodes.throughGlass = throughGlass;
+    }
+
+    const t = this.ctx.currentTime;
+    // previous intensity fades under the incoming one, then stops entirely
+    for (const source of nodes.recordedSources) {
+      source.gain.gain.cancelScheduledValues(t);
+      source.gain.gain.setTargetAtTime(0, t, 0.9);
+      try { source.src.stop(t + 3.2); } catch { /* already stopped */ }
+    }
 
     const layerOut = (panValue) => {
-      if (!this.ctx.createStereoPanner) return highpass;
+      if (!this.ctx.createStereoPanner) return nodes.highpass;
       const pan = this.ctx.createStereoPanner();
       pan.pan.value = panValue;
-      pan.connect(highpass);
+      pan.connect(nodes.highpass);
       nodes.panners.push(pan);
       return pan;
     };
     const fadeIn = (node) => {
       if (!node) return node;
       const target = node.gain.gain.value;
-      const t = this.ctx.currentTime;
       node.gain.gain.setValueAtTime(0, t);
       node.gain.gain.linearRampToValueAtTime(target, t + 2.2);
       return node;
     };
     nodes.recordedSources = [
-      fadeIn(this._playBuf('rain_window', {
-        out: layerOut(-0.34), vol: 0.5, loop: true, seamless: true, offset: 0.05,
+      fadeIn(this._playBuf(key, {
+        out: layerOut(-0.34), vol: level.layers[0], loop: true, seamless: true, offset: 0.05,
       })),
-      fadeIn(this._playBuf('rain_window', {
-        out: layerOut(0.38), vol: 0.22, loop: true, seamless: true,
+      fadeIn(this._playBuf(key, {
+        out: layerOut(0.38), vol: level.layers[1], loop: true, seamless: true,
         offset: entry.buffer.duration * 0.43,
       })),
     ].filter(Boolean);
-    nodes.highpass = highpass;
-    nodes.throughGlass = throughGlass;
-    nodes.recorded = true;
-    nodes.fallbackGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.8);
+    nodes.mountedKey = key;
+    nodes.fallbackGain.gain.setTargetAtTime(0, t, 0.8);
+    // Only the active level stays resident. Fading-out sources keep their
+    // AudioBuffer alive until they stop; dropping the map entry lets the
+    // garbage collector reclaim the PCM right after.
+    for (const level of RAIN_LEVELS) {
+      if (level.key && level.key !== key) this.buffers.delete(level.key);
+    }
   }
 
   _startRain() {
+    const level = RAIN_LEVELS[this.rainIntensity];
     if (this.rainNodes) {
       const t = this.ctx.currentTime;
       this.rainNodes.master.gain.cancelScheduledValues(t);
-      this.rainNodes.master.gain.setTargetAtTime(1, t, 1.5);
+      this.rainNodes.master.gain.setTargetAtTime(this.rainIntensity > 0 ? 1 : 0, t, 1.5);
+      this.rainNodes.fallbackGain.gain.setTargetAtTime(this.rainNodes.mountedKey ? 0 : level.synth, t, 0.8);
       this._mountRecordedRain();
       return;
     }
@@ -872,7 +953,7 @@ export class CafeAudio {
     fallbackTone.frequency.value = 1800;
     fallbackTone.Q.value = 0.42;
     const fallbackGain = this.ctx.createGain();
-    fallbackGain.gain.value = 0.028;
+    fallbackGain.gain.value = level.synth;
     fallback.connect(fallbackTone).connect(fallbackGain).connect(master);
     fallback.start();
     this.rainNodes.fallback = fallback;
@@ -882,11 +963,14 @@ export class CafeAudio {
     // far-off thunder, rarely — the rain leans in just before the sky answers
     const thunder = () => {
       if (!this.ctx || !this.rainNodes) return;
-      if (this.rainNodes.master.gain.value > 0.05 && Math.random() < 0.5) {
+      // heavier stops thunder more often and louder; light drizzle barely
+      const thunderChance = [0, 0.22, 0.5, 0.68][this.rainIntensity] ?? 0.5;
+      const thunderVol = [0, 0.7, 1, 1.25][this.rainIntensity] ?? 1;
+      if (this.rainNodes.master.gain.value > 0.05 && Math.random() < thunderChance) {
         const t0 = this.ctx.currentTime;
         if (this._buf('thunder')) {
           this._playBuf('thunder', {
-            out: master, vol: rand(0.32, 0.62), rate: rand(0.88, 1.04),
+            out: master, vol: rand(0.32, 0.62) * thunderVol, rate: rand(0.88, 1.04),
             when: t0 + rand(3, 4.5),
           });
           this._timer(thunder, rand(35000, 120000));
@@ -911,7 +995,7 @@ export class CafeAudio {
     };
     this._timer(thunder, 20000);
 
-    master.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
+    master.gain.setTargetAtTime(this.rainIntensity > 0 ? 1 : 0, this.ctx.currentTime, 1.5);
     this._mountRecordedRain();
   }
 

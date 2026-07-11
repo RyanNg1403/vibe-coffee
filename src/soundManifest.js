@@ -27,7 +27,9 @@ export const SOUND_MANIFEST = {
   macbook_typing: { url: '/sounds/macbook_typing.mp3', loop: false }, // 12.5s
   page_turn: { url: '/sounds/page_turn.mp3', loop: false }, // 1.8s
   pour: { url: '/sounds/pour.mp3', loop: false }, // 5.5s
-  rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 28.1s
+  rain_heavy: { url: '/sounds/rain_heavy.mp3', loop: true, lazy: true }, // 36s
+  rain_light: { url: '/sounds/rain_light.mp3', loop: true, lazy: true }, // 36s
+  rain_steady: { url: '/sounds/rain_steady.mp3', loop: true, lazy: true }, // 36s
   register: { url: '/sounds/register.mp3', loop: false }, // 2.1s
   steam_milk: { url: '/sounds/steam_milk.mp3', loop: false }, // 4.4s
   thunder: { url: '/sounds/thunder.mp3', loop: false }, // 15.8s
