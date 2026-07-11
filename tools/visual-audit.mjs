@@ -256,6 +256,61 @@ try {
   const goldenActorCountStable = await client.evaluate(`window.__vibe.crowd.npcs.length
     + window.__vibe.crowd.outside.walkers.length === ${goldenActorCount}`);
 
+  // Stress the physical doorway with three simultaneous departures. Only the
+  // reservation holder may approach; the other two must remain in distinct
+  // indoor holding positions until the preceding actor clears the threshold.
+  await client.evaluate('window.__vibe.crowd.spawnCooldown = 9999');
+  await retry(async () => {
+    const idle = await client.evaluate(`window.__vibe.crowd.doorFlow.totalWaiting === 0
+      && window.__vibe.cafe.entrance.openness < 0.06`);
+    if (!idle) throw new Error('doorway has not cleared before congestion test');
+    return true;
+  }, 'idle doorway before congestion', 300);
+  const congestedIds = await client.evaluate(`(() => {
+    const crowd = window.__vibe.crowd;
+    const actors = crowd.npcs.slice(0, 3);
+    actors.forEach((npc, index) => {
+      crowd.dequeue(npc);
+      if (crowd.ordering === npc) crowd.ordering = null;
+      if (crowd.brewFor === npc) crowd.brewFor = null;
+      if (npc.seatIndex >= 0) crowd.releaseSeat(npc.seatIndex);
+      npc.seatIndex = -1;
+      npc._clearProps();
+      npc.setCup(false);
+      npc.mesh.position.set(-1.2, 0, crowd.cafe.nav.doorInside.z - 0.9 - index * 0.8);
+      npc.speed = 0.7;
+      npc._beginExit();
+    });
+    crowd.doorFlow.active.speed = 0.25;
+    crowd.doorFlow.queue.forEach((entry) => { entry.actor.speed = 1.8; });
+    return actors.map((npc) => npc.mesh.uuid);
+  })()`);
+  const doorCongestionSerialized = await retry(async () => {
+    const result = await client.evaluate(`(() => {
+      const flow = window.__vibe.crowd.doorFlow;
+      const queued = flow.queue.map((entry) => entry.actor);
+      const distinct = new Set(queued.map((npc) => npc.doorSlot)).size === queued.length;
+      const heldBack = queued.every((npc) => npc.state === 'holdingDoorOut');
+      const settled = queued.every((npc) => !npc.path);
+      return { active: !!flow.active, queued: queued.length, distinct, heldBack, settled };
+    })()`);
+    if (!result.active || result.queued < 2 || !result.distinct || !result.heldBack || !result.settled) {
+      throw new Error('doorway queue is not holding actors clear of the active reservation');
+    }
+    return true;
+  }, 'serialized doorway congestion', 200);
+  await client.evaluate('window.__vibe.place(-4, 2.5, -2.2, 0.06)');
+  await capture('goldenhour-door-queue', 120);
+  await client.evaluate(`window.__vibe.crowd.npcs
+    .filter((npc) => ${JSON.stringify(congestedIds)}.includes(npc.mesh.uuid))
+    .forEach((npc) => { npc.speed = 3; });`);
+  const doorCongestionCleared = await retry(async () => {
+    const cleared = await client.evaluate(`${JSON.stringify(congestedIds)}.every((uuid) =>
+      window.__vibe.crowd.outside.walkers.some((walker) => walker.mesh.uuid === uuid))`);
+    if (!cleared) throw new Error('congested actors have not cleared the doorway');
+    return true;
+  }, 'congested doorway clearance', 400);
+
   // In rain, an arriving umbrella user closes outside, crosses with the
   // canopy folded, then reopens it only after leaving the door again.
   await switchTo(2);
@@ -276,7 +331,8 @@ try {
       npc.speed = 2.2;
       return { uuid: npc.mesh.uuid, state: npc.state, open: npc.umbrella?.openAmount ?? 0 };
     })()`);
-    if (!result || result.state !== 'waitingDoorIn' || result.open < 0.15 || result.open > 0.8) {
+    const closingOutside = result && ['holdingDoorIn', 'approachingDoorIn', 'waitingDoorIn'].includes(result.state);
+    if (!closingOutside || result.open < 0.15 || result.open > 0.8) {
       throw new Error('umbrella is not in its closing transition');
     }
     return result.uuid;
@@ -337,6 +393,8 @@ try {
   const continuityChecks = {
     goldenIdentityContinuous,
     goldenActorCountStable,
+    doorCongestionSerialized,
+    doorCongestionCleared,
     rainyIdentityContinuous,
     rainyActorCountStable,
   };

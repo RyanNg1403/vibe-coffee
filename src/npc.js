@@ -974,7 +974,7 @@ class NPC {
     this.seatIndex = opts.seatIndex ?? -1;
     this.partner = null;            // set for pairs
     this.activity = opts.activity ?? pick(ACTIVITIES);
-    this.state = sourceWalker ? 'approachingDoorIn' : 'entering';
+    this.state = sourceWalker ? 'holdingDoorIn' : 'entering';
     this.stateT = 0;
     this.path = null;
     this.pathI = 0;
@@ -1002,6 +1002,8 @@ class NPC {
     this.streetDirection = 1;
     this.exitUsesUmbrella = false;
     this.umbrellaTarget = this.umbrella?.root.visible === false ? 0 : 1;
+    this.doorDirection = null;
+    this.doorSlot = -2;
 
     const { nav } = sim.cafe;
     sim.cafe.group.add(this.mesh);
@@ -1011,7 +1013,8 @@ class NPC {
         this.umbrella.root.visible = !!sourceWalker.umbrella;
         setHeldUmbrellaOpen(this.umbrella, sourceWalker.umbrella ? 1 : 0);
       }
-      this._walkTo(nav.doorOutside);
+      this.umbrellaTarget = 0;
+      this._joinDoorLine('in');
     } else {
       this.mesh.position.copy(nav.door);
       this.mesh.position.x += rand(-0.15, 0.15);
@@ -1045,13 +1048,48 @@ class NPC {
     this.stateT = 0;
   }
 
-  _beginExit() {
-    this.state = 'leaving';
+  _doorHoldingPoint(direction, index) {
+    const { nav } = this.sim.cafe;
+    const base = direction === 'in' ? nav.doorHoldOutside : nav.doorHoldInside;
+    const depthSign = direction === 'in' ? 1 : -1;
+    return new THREE.Vector3(
+      base.x,
+      0,
+      base.z + depthSign * nav.doorQueueSpacing * Math.max(0, index),
+    );
+  }
+
+  _joinDoorLine(direction) {
+    this.doorDirection = direction;
+    this.state = direction === 'in' ? 'holdingDoorIn' : 'holdingDoorOut';
     this.stateT = 0;
+    this.sim.doorFlow.join(this, direction);
+    this._syncDoorLine();
+  }
+
+  _syncDoorLine() {
+    const direction = this.doorDirection;
+    if (!direction) return;
+    if (this.sim.doorFlow.isActive(this)) {
+      this.doorSlot = -1;
+      this.state = direction === 'in' ? 'approachingDoorIn' : 'approachingDoorOut';
+      const target = direction === 'in'
+        ? this.sim.cafe.nav.doorOutside
+        : this.sim.cafe.nav.doorInside;
+      this._walkTo(target);
+      return;
+    }
+    const index = this.sim.doorFlow.queueIndex(this);
+    if (index < 0 || index === this.doorSlot) return;
+    this.doorSlot = index;
+    this._walkTo(this._doorHoldingPoint(direction, index));
+  }
+
+  _beginExit() {
     this.streetDirection = Math.random() < 0.5 ? -1 : 1;
     this.exitUsesUmbrella = !!this.sim.cafe.theme.rain
       && pedestrianUsesUmbrella(this.sim.umbrellaSerial++);
-    this._walkTo(this.sim.cafe.nav.doorInside);
+    this._joinDoorLine('out');
   }
 
   _updateTravelUmbrella(dt) {
@@ -1121,6 +1159,10 @@ class NPC {
       }
     }
     const umbrellaAmount = this._updateTravelUmbrella(dt);
+    if (this.state === 'holdingDoorIn' || this.state === 'holdingDoorOut') {
+      this._syncDoorLine();
+      return;
+    }
     if (this.state === 'waitingDoorIn') {
       if (this.umbrella?.root.visible && umbrellaAmount > 0.04) return;
       if (this.sim.doorFlow.request(this, 'in')) this._walkThroughDoor('in');
@@ -1449,6 +1491,13 @@ class NPC {
     const seat = this.seatIndex >= 0 ? this.sim.cafe.seats[this.seatIndex] : null;
     animateMicroMotion(p, t, this.walkPhase);
 
+    // A released doorway reservation can advance while this actor is still
+    // walking toward an older holding mark. Redirect immediately instead of
+    // making the new active patron finish an obsolete queue movement first.
+    if (this.state === 'holdingDoorIn' || this.state === 'holdingDoorOut') {
+      this._syncDoorLine();
+    }
+
     const walking = !!this.path;
     if (walking) {
       const target = this.path[this.pathI];
@@ -1513,8 +1562,14 @@ class NPC {
           }
         }
 
-        this._separation(dir);
-        this._avoidFurniture(dir);
+        const ownsDoorway = this.state === 'approachingDoorIn'
+          || this.state === 'approachingDoorOut'
+          || this.state === 'crossingDoorIn'
+          || this.state === 'crossingDoorOut';
+        if (!ownsDoorway) {
+          this._separation(dir);
+          this._avoidFurniture(dir);
+        }
         const steerLength = Math.hypot(dir.x, dir.z) || 1;
         dir.x /= steerLength;
         dir.z /= steerLength;
@@ -1615,7 +1670,9 @@ class NPC {
       return;
     }
 
-    if (this.state === 'waitingDoorIn'
+    if (this.state === 'holdingDoorIn'
+      || this.state === 'holdingDoorOut'
+      || this.state === 'waitingDoorIn'
       || this.state === 'waitingDoorOut'
       || this.state === 'openingUmbrella') {
       this._updateDoorPause(dt);
@@ -1896,6 +1953,9 @@ class NPC {
       this.state = 'waitingDoorIn';
       this.stateT = 0;
       this.umbrellaTarget = 0;
+    } else if (this.state === 'approachingDoorOut') {
+      this.state = 'waitingDoorOut';
+      this.stateT = 0;
     } else if (this.state === 'crossingDoorIn') {
       this.sim.doorFlow.release(this);
       if (this.umbrella) {
@@ -1914,9 +1974,6 @@ class NPC {
       const seat = this.sim.cafe.seats[this.seatIndex];
       this.sitY = sitYFor(this, seat);
       this.transitionFrom = this.mesh.position.clone();
-    } else if (this.state === 'leaving') {
-      this.state = 'waitingDoorOut';
-      this.stateT = 0;
     } else if (this.state === 'crossingDoorOut') {
       this.sim.doorFlow.release(this);
       if (this._prepareExitUmbrella()) {

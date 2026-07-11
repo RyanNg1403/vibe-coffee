@@ -3343,6 +3343,9 @@ export function buildCafe(theme, models = null) {
     doorInside: new THREE.Vector3(0, 0, D / 2 - 0.48),
     doorThreshold: new THREE.Vector3(0, 0, D / 2 + 0.05),
     doorOutside: new THREE.Vector3(0, 0, D / 2 + 0.48),
+    doorHoldInside: new THREE.Vector3(-0.36, 0, D / 2 - 1.22),
+    doorHoldOutside: new THREE.Vector3(0.36, 0, D / 2 + 1.22),
+    doorQueueSpacing: 0.78,
     doorHandle: new THREE.Vector3(doorWidth / 2 - 0.16, 1.1, D / 2 + 0.02),
     counter: new THREE.Vector3(2.2, 0, -D / 2 + 2.2),   // register spot (queue forms here)
     pickup: new THREE.Vector3(-0.7, 0, -D / 2 + 2.2),   // wait for your drink

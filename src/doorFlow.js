@@ -7,17 +7,36 @@ export class DoorCoordinator {
     this.onOpen = onOpen;
     this.active = null;
     this.activeDirection = null;
+    this.opening = false;
     this.queue = [];
+  }
+
+  join(actor, direction) {
+    if (!this.entrance) return true;
+    if (this.active === actor || this.queue.some((entry) => entry.actor === actor)) return true;
+    this.queue.push({ actor, direction });
+    this._activateNext();
+    return true;
+  }
+
+  isActive(actor) {
+    return !this.entrance || this.active === actor;
+  }
+
+  queueIndex(actor) {
+    return this.queue.findIndex((entry) => entry.actor === actor);
   }
 
   request(actor, direction) {
     if (!this.entrance) return true;
-    if (this.active === actor) return this.entrance.openness >= 0.82;
-    if (!this.queue.some((entry) => entry.actor === actor)) {
-      this.queue.push({ actor, direction });
+    this.join(actor, direction);
+    if (this.active !== actor) return false;
+    if (!this.opening) {
+      this.opening = true;
+      this.onOpen?.(actor, this.activeDirection);
     }
-    this._activateNext();
-    return this.active === actor && this.entrance.openness >= 0.82;
+    this.entrance.setDirection(this.activeDirection);
+    return this.entrance.openness >= 0.82;
   }
 
   release(actor) {
@@ -25,6 +44,7 @@ export class DoorCoordinator {
     if (this.active === actor) {
       this.active = null;
       this.activeDirection = null;
+      this.opening = false;
       this.entrance.setDirection(null);
       return;
     }
@@ -40,7 +60,7 @@ export class DoorCoordinator {
   update() {
     if (!this.entrance) return;
     if (this.active) {
-      this.entrance.setDirection(this.activeDirection);
+      this.entrance.setDirection(this.opening ? this.activeDirection : null);
       return;
     }
     this.entrance.setDirection(null);
@@ -52,9 +72,9 @@ export class DoorCoordinator {
     const next = this.queue.shift();
     this.active = next.actor;
     this.activeDirection = next.direction;
-    this.entrance.setDirection(next.direction);
-    this.onOpen?.(next.actor, next.direction);
+    this.opening = false;
   }
 
   get queueLength() { return this.queue.length; }
+  get totalWaiting() { return this.queue.length + (this.active ? 1 : 0); }
 }
