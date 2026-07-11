@@ -532,5 +532,23 @@
     "creator": "Quaternius",
     "license": "CC0 1.0 (Public Domain)",
     "item_url": "https://poly.pizza/m/wpkGeoyfIP"
+  },
+  "char_wcasual": {
+    "title": "Woman Casual (rigged; Idle/Walk/Run/Sitting/Clapping clips)",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/jpKRgGDxhk"
+  },
+  "char_wdress": {
+    "title": "Woman in Dress (rigged; Idle/Walk/Run/Sitting/Clapping clips)",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/zMyPlQXBzq"
+  },
+  "char_matt": {
+    "title": "Characters Matt (rigged; Idle/Walk/Run/Wave clips - standing cast only)",
+    "creator": "Quaternius",
+    "license": "CC0 1.0 (Public Domain)",
+    "item_url": "https://poly.pizza/m/66kQ4dBBC7"
   }
 }
