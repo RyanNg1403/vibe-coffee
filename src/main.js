@@ -15,6 +15,7 @@ import { loadModelLibrary, cloneModel } from './modelLoader.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 import { laptopCupOffset, laptopPropOffset } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
+import { WorldInteractions } from './interactions/worldInteractions.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -197,7 +198,11 @@ const listenerForward = new THREE.Vector3();
 const viewEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let pointerDirty = true;
 let hoveredSeat = -1;
+let hoveredWorld = null;
 let canvasCursor = '';
+// clickable world objects (player laptop, pets, ...) — empty by default, so
+// seat picking behaves exactly as before until something registers
+const interactions = new WorldInteractions();
 
 // highlight ring shown over the hovered chair
 const ring = new THREE.Mesh(
@@ -302,6 +307,8 @@ async function loadTheme(index) {
   playerLaptop = null;
   playerLaptopSeatIndex = -1;
 
+  interactions.clear(); // world click targets belong to the departing room
+  hoveredWorld = null;
   if (pets) { pets.dispose(); pets = null; }
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -679,7 +686,14 @@ canvas.addEventListener('pointerup', (e) => {
   // treat as a click: try to pick a seat
   pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  const hit = pickSeat();
+  const seatHit = pickSeat(); // also points the raycaster at the pointer
+  // a registered world object (laptop, pet) owns the click only when it is
+  // the nearer target; otherwise chairs keep their existing behaviour
+  const worldHit = interactions.pick(raycaster);
+  if (worldHit && (seatHit.index < 0 || worldHit.distance <= seatHit.distance)) {
+    if (interactions.click(worldHit)) return;
+  }
+  const hit = seatHit.index;
   if (hit >= 0) {
     if (crowd.isSeatTaken(hit)) {
       toast('Someone’s sitting there — pick another spot ☕');
@@ -690,8 +704,13 @@ canvas.addEventListener('pointerup', (e) => {
   }
 });
 
+// Reused result record: pickSeat runs on every pointer move, so it must not
+// allocate. distance lets world interactions arbitrate against the seat hit.
+const seatPick = { index: -1, distance: Infinity };
 function pickSeat() {
-  if (!cafe) return -1;
+  seatPick.index = -1;
+  seatPick.distance = Infinity;
+  if (!cafe) return seatPick;
   raycaster.setFromCamera(pointer, camera);
   seatHits.length = 0;
   raycaster.intersectObjects(cafe.seatMeshes, true, seatHits);
@@ -699,20 +718,21 @@ function pickSeat() {
     if (h.object.isInstancedMesh && h.instanceId !== undefined) {
       const index = h.object.userData.seatIndices?.[h.instanceId];
       if (index !== undefined) {
-        seatHits.length = 0;
-        return index;
+        seatPick.index = index;
+        seatPick.distance = h.distance;
+        break;
       }
     }
     let o = h.object;
     while (o && o.userData.seatIndex === undefined) o = o.parent;
     if (o) {
-      const index = o.userData.seatIndex;
-      seatHits.length = 0;
-      return index;
+      seatPick.index = o.userData.seatIndex;
+      seatPick.distance = h.distance;
+      break;
     }
   }
   seatHits.length = 0;
-  return -1;
+  return seatPick;
 }
 
 // ---------- UI ----------
@@ -1194,10 +1214,22 @@ function frame(now = performance.now()) {
   // hover highlight
   if (cafe && !tween.active && !dragging) {
     if (pointerDirty || cameraMoved) {
-      hoveredSeat = pickSeat();
+      const seatHit = pickSeat();
+      hoveredSeat = seatHit.index;
+      hoveredWorld = interactions.size ? interactions.pick(raycaster) : null;
+      if (hoveredWorld && hoveredSeat >= 0 && hoveredWorld.distance > seatHit.distance) {
+        hoveredWorld = null; // the chair is in front — it owns the pointer
+      }
+      interactions.hover(hoveredWorld);
       pointerDirty = false;
     }
-    if (hoveredSeat >= 0 && hoveredSeat !== seatIndex) {
+    if (hoveredWorld) {
+      ring.visible = false;
+      if (canvasCursor !== 'pointer') {
+        canvas.style.cursor = 'pointer';
+        canvasCursor = 'pointer';
+      }
+    } else if (hoveredSeat >= 0 && hoveredSeat !== seatIndex) {
       const seat = cafe.seats[hoveredSeat];
       ring.position.set(seat.pos.x, seat.pos.y + 0.72, seat.pos.z);
       ring.visible = true;
@@ -1216,6 +1248,10 @@ function frame(now = performance.now()) {
     }
   } else {
     ring.visible = false;
+    if (hoveredWorld) {
+      hoveredWorld = null;
+      interactions.hover(null);
+    }
   }
 
   // focus mode gently dims the room; break/idle brings the light back
@@ -1290,6 +1326,7 @@ window.__vibe = {
   get cafe() { return cafe; },
   get crowd() { return crowd; },
   get pets() { return pets; },
+  get interactions() { return interactions; },
   metrics() {
     let decodedAudioBytes = 0;
     let instancedMeshes = 0;
@@ -1353,6 +1390,7 @@ window.__vibe = {
       serviceTasks: crowd?.service?.taskCount ?? 0,
       serviceReservations: crowd?.service?.reservationCount ?? 0,
       steamEmitters: cafe?.steamEmitterCount ?? 0,
+      interactionTargets: interactions.size,
       instancedMeshes,
       instancedInstances,
       geometries: renderer.info.memory.geometries,
