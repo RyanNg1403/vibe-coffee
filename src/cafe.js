@@ -8,6 +8,7 @@ import { cloneModel } from './modelLoader.js';
 import { TEXTURE_MANIFEST } from './textureManifest.js';
 import { clockAngles } from './clock.js';
 import { GREENERY } from './decor/decorManifest.js';
+import { buildServiceUpgrades, menuBoardTexture } from './decor/serviceCounter.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -1803,6 +1804,7 @@ export function buildCafe(theme, models = null) {
   }
 
   // ---------- counter along back wall ----------
+  let serviceAnchors = null;
   const counterIsWood = theme.id !== 'roastery';
   const counterMat = new THREE.MeshStandardMaterial({
     color: counterIsWood
@@ -1923,20 +1925,26 @@ export function buildCafe(theme, models = null) {
     const caseBase = box(1.55, 0.5, 0.65, counterMat);
     caseBase.position.set(-3.9, 0.81, -D / 2 + 1.15);
     group.add(caseBase);
-    const caseGoods = ['croissant', 'donut', 'muffin', 'cupcake', 'cookie', 'cakeSlice']
+    const caseGoods = ['croissant', 'donut', 'muffin', 'cupcake', 'cookie', 'cakeSlice', 'sandwich', 'pancakes']
       .map((k) => (models?.get?.(k) ? k : 'croissant'));
     const pastryMat = new THREE.MeshStandardMaterial({ color: 0xc98e4e, roughness: 0.8 });
-    for (let i = 0; i < 6; i++) {
+    // thin serving trays under each shelf row so goods sit on something real
+    for (let row = 0; row < 2; row++) {
+      const caseTray = box(1.42, 0.015, 0.28, metalMat);
+      caseTray.position.set(-3.9, 1.065 + row * 0.2, -D / 2 + 1.1);
+      group.add(caseTray);
+    }
+    for (let i = 0; i < 8; i++) {
       const good = cloneModel(models, caseGoods[i]);
       if (good) {
-        good.position.set(-4.35 + (i % 3) * 0.4, 1.07 + Math.floor(i / 3) * 0.2, -D / 2 + 1.1);
+        good.position.set(-4.42 + (i % 4) * 0.34, 1.08 + Math.floor(i / 4) * 0.2, -D / 2 + 1.1);
         good.rotation.y = rand(0, Math.PI * 2);
-        good.scale.setScalar(caseGoods[i] === 'cake' ? 0.8 : 1);
+        good.scale.setScalar(caseGoods[i] === 'sandwich' || caseGoods[i] === 'pancakes' ? 0.85 : 1);
         group.add(good);
       } else {
         const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), pastryMat);
         p.scale.set(1.4, 0.7, 1);
-        p.position.set(-4.35 + (i % 3) * 0.35, 1.12 + Math.floor(i / 3) * 0.16, -D / 2 + 1.1);
+        p.position.set(-4.42 + (i % 4) * 0.34, 1.12 + Math.floor(i / 4) * 0.16, -D / 2 + 1.1);
         group.add(p);
       }
     }
@@ -2021,9 +2029,19 @@ export function buildCafe(theme, models = null) {
       group.add(bag);
     }
     const menu = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 1.4),
-      new THREE.MeshBasicMaterial({ map: track(menuTexture()) }));
+      new THREE.MeshBasicMaterial({ map: track(menuBoardTexture(theme.id)) }));
     menu.position.set(2.2, 2.45, -D / 2 + 0.09);
     group.add(menu);
+
+    // POS details, pickup tray + bell, espresso tools, cup station, and the
+    // dirty-dish return, plus the semantic service anchors (see the module)
+    const service = buildServiceUpgrades({
+      group, theme, D,
+      helpers: { box, cyl, roundedBox, track },
+      mats: { woodDarkMat, metalMat },
+    });
+    serviceAnchors = service.anchors;
+    extraColliders.push(service.dishReturnCollider);
   }
 
   // neon sign (night café)
@@ -3403,6 +3421,7 @@ export function buildCafe(theme, models = null) {
   }
 
   // ---------- NPC navigation info ----------
+  // (serviceAnchors is assigned in the counter block above)
   const nav = {
     door: new THREE.Vector3(0, 0, D / 2 - 0.4),
     doorInside: new THREE.Vector3(0, 0, D / 2 - 0.48),
@@ -3622,7 +3641,7 @@ export function buildCafe(theme, models = null) {
   mergeStaticDecor(group, [passingCar, cat, clockGroup, fan, vinylDisc, neonMesh, entrance?.root]);
 
   return {
-    group, seats, seatMeshes, nav, colliders, theme, entrance,
+    group, seats, seatMeshes, nav, colliders, theme, entrance, serviceAnchors,
     animate, setQuality, dispose, woodMat, cushionMat,
     // runtime-audit inventory: today every steam wisp is its own sprite; the
     // planned pooled system will report its emitter count through this field

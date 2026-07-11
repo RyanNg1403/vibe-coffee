@@ -509,8 +509,8 @@ export class CafeAudio {
   }
 
   // world anchor points, provided by the scene when a café loads
-  setAnchors({ counter, door }) {
-    this.anchors = { counter, door };
+  setAnchors({ counter, door, register = null, pickup = null, dishes = null }) {
+    this.anchors = { counter, door, register, pickup, dishes };
   }
 
   setClinkSpots(spots) { this.clinkSpots = spots; }
@@ -1286,8 +1286,12 @@ export class CafeAudio {
 
   playRegister() {
     if (!this.ctx) return;
+    // the register emitter comes from the service anchors when available;
+    // the old fallback offsets from the espresso machine toward the till
+    const r = this.anchors?.register;
     const a = this.anchors?.counter;
-    const out = a ? this._panner(a.x + 3.6, 1.1, a.z, this.machineryBus) : this.machineryBus;
+    const out = r ? this._panner(r.x, r.y, r.z, this.machineryBus)
+      : a ? this._panner(a.x + 3.6, 1.1, a.z, this.machineryBus) : this.machineryBus;
     if (this._buf('register')) {
       this._playBuf('register', { out, vol: 0.4, rate: rand(0.97, 1.03) });
       return;
@@ -1559,8 +1563,9 @@ export class CafeAudio {
     // somebody's always washing up behind the counter
     const dishes = () => {
       if (Math.random() < 0.7) {
-        const c = this.anchors?.counter;
-        this.playDishes(c ? { x: c.x + rand(-1.5, 1.5), z: c.z } : null);
+        // washing-up happens at the dish return when the cafe declares one
+        const d = this.anchors?.dishes ?? this.anchors?.counter;
+        this.playDishes(d ? { x: d.x + rand(-0.4, 0.4), z: d.z } : null);
       }
       this._timer(dishes, rand(24000, 70000));
     };
