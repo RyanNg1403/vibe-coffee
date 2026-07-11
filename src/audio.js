@@ -208,6 +208,7 @@ export class CafeAudio {
     this.capacity = 1;
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
     this.activeOneShotSources = 0; // live non-looping recorded sources, for runtime audits
+    this._oneShotGroups = new Map(); // bounded high-frequency effects, e.g. crowd footsteps
     this.activePetVoices = 0;      // live pet voice sources (spontaneous ones cap at 1)
     this.rainIntensity = 2;        // sound-menu rain stop: 0 off .. 3 heavy
     this._lazyLoads = new Map();   // in-flight lazy buffer decodes by key
@@ -325,14 +326,17 @@ export class CafeAudio {
   _playBuf(key, opts = {}) {
     const entry = this._buf(key);
     if (!entry || !this.ctx) return null;
+    const isOneShot = !opts.loop;
+    const groupName = opts.group ?? null;
+    const groupCount = groupName ? (this._oneShotGroups.get(groupName) ?? 0) : 0;
+    // A busy accelerated audit used to accumulate hundreds of spatial source
+    // nodes. Bound the graph before allocating; important ambience beds loop
+    // outside this budget and deliberate sounds still have ample headroom.
+    if (isOneShot && this.activeOneShotSources >= (opts.maxTotal ?? 48)) return null;
+    if (isOneShot && groupName && groupCount >= (opts.maxConcurrent ?? Infinity)) return null;
     const src = this.ctx.createBufferSource();
     src.buffer = entry.buffer;
     src.playbackRate.value = opts.rate ?? 1;
-    if (!opts.loop) {
-      // 'ended' listeners survive callers that assign src.onended directly
-      this.activeOneShotSources += 1;
-      src.addEventListener('ended', () => { this.activeOneShotSources -= 1; }, { once: true });
-    }
     if (opts.loop) {
       src.loop = true;
       if (entry.buffer.duration > 4 && !opts.seamless) { // skip raw file edges
@@ -343,6 +347,23 @@ export class CafeAudio {
     const g = this.ctx.createGain();
     g.gain.value = (opts.vol ?? 1) * (entry.gain ?? 1);
     src.connect(g).connect(opts.out ?? this.ambienceBus);
+    if (isOneShot) {
+      // 'ended' listeners survive callers that assign src.onended directly.
+      // Disconnect completed nodes as well as dropping the counters so Web
+      // Audio can reclaim them promptly during long ambient sessions.
+      this.activeOneShotSources += 1;
+      if (groupName) this._oneShotGroups.set(groupName, groupCount + 1);
+      src.addEventListener('ended', () => {
+        this.activeOneShotSources = Math.max(0, this.activeOneShotSources - 1);
+        if (groupName) {
+          const remaining = Math.max(0, (this._oneShotGroups.get(groupName) ?? 1) - 1);
+          if (remaining) this._oneShotGroups.set(groupName, remaining);
+          else this._oneShotGroups.delete(groupName);
+        }
+        src.disconnect?.();
+        g.disconnect?.();
+      }, { once: true });
+    }
     const when = opts.when ?? this.ctx.currentTime;
     let offset = opts.offset ?? 0;
     if (opts.randomSlice) {
@@ -1019,6 +1040,7 @@ export class CafeAudio {
         out, vol: rand(0.35, 0.7), rate: rand(0.92, 1.1),
         offset: Math.max(0, offset - 0.025),
         dur: Math.min(rand(0.38, 0.7), entry.buffer.duration - offset - 0.02),
+        group: 'clinks', maxConcurrent: 6,
       });
       return;
     }
@@ -1247,6 +1269,7 @@ export class CafeAudio {
       this._playBuf('footsteps', {
         out, vol: vol * rand(0.7, 1.1), rate: p.stepRate * rand(0.94, 1.08),
         offset: Math.max(0, offset - 0.025), dur: 0.34,
+        group: 'footsteps', maxConcurrent: 18,
       });
       return;
     }
@@ -1361,6 +1384,7 @@ export class CafeAudio {
       this._playBuf('dishes', {
         out, vol: rand(0.28, 0.42), rate: rand(0.92, 1.04),
         randomSlice: true, dur: rand(1.6, 3.2),
+        group: 'dishes', maxConcurrent: 2,
       });
       return;
     }
@@ -1512,6 +1536,7 @@ export class CafeAudio {
       const node = this._playBuf(key, {
         out, vol: rand(0.2, 0.4) * volumeScale, rate: rand(0.96, 1.04),
         randomSlice: true, dur: opts.dur ?? rand(1.2, 3),
+        group: 'typing', maxConcurrent: trackPlayer ? 7 : 6,
       });
       if (trackPlayer && node) this._playerTypingNodes = [node.src];
       return;

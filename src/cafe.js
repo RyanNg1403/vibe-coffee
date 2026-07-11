@@ -127,6 +127,12 @@ export function wallArtDepths(roomWidth = ROOM.W) {
 
 export const WALL_CLOCK_RADIUS = 0.3;
 export const WALL_MIRROR_RADIUS = 0.345;
+export const COUNTER_SURFACE_Y = 1.06;
+export const PASTRY_TRAY_THICKNESS = 0.015;
+export const PASTRY_TRAY_CLEARANCE = 0.008;
+export function pastryTrayY(row, surfaceY = COUNTER_SURFACE_Y) {
+  return surfaceY + PASTRY_TRAY_CLEARANCE + PASTRY_TRAY_THICKNESS / 2 + row * 0.2;
+}
 export function rightWallDecorLayout() {
   return {
     clock: { y: 2.55, z: 2.2, radius: WALL_CLOCK_RADIUS },
@@ -940,13 +946,30 @@ function makePlant(potColor, shared = {}) {
 function makeBooks(n) {
   const g = new THREE.Group();
   const cols = [0x8a3b2e, 0x2e5e6e, 0x777a3c, 0xa08040, 0x5d3f6e];
+  const covers = cols.map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.82 }));
+  const pages = new THREE.MeshStandardMaterial({ color: 0xd8cfb8, roughness: 0.96 });
+  const band = new THREE.MeshStandardMaterial({ color: 0xb89955, roughness: 0.68, metalness: 0.08 });
   let x = 0;
   for (let i = 0; i < n; i++) {
     const w = rand(0.035, 0.06), h = rand(0.18, 0.26);
-    const b = box(w, h, 0.15, new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.85 }));
-    b.position.set(x + w / 2, h / 2, 0);
-    b.rotation.z = Math.random() < 0.15 ? -0.25 : 0;
-    g.add(b);
+    const book = new THREE.Group();
+    const cover = box(w, h, 0.15, covers[i % covers.length]);
+    cover.position.y = h / 2;
+    book.add(cover);
+    // An inset page block and occasional brass spine band keep close shelves
+    // readable without unique textures or materials per book.
+    const pageBlock = box(Math.max(0.018, w - 0.014), h - 0.025, 0.008, pages);
+    pageBlock.position.set(0, h / 2, 0.079);
+    book.add(pageBlock);
+    if (i % 3 === 1) {
+      const spineBand = box(Math.min(0.009, w * 0.22), h - 0.018, 0.01, band);
+      spineBand.position.set(-w / 2 + 0.006, h / 2, 0.085);
+      book.add(spineBand);
+    }
+    const lean = i > 0 && i % 7 === 5 ? -0.12 : 0;
+    book.position.set(x + w / 2, Math.abs(Math.sin(lean)) * w / 2 + 0.002, 0);
+    book.rotation.z = lean;
+    g.add(book);
     x += w + 0.008;
   }
   return g;
@@ -1931,21 +1954,31 @@ export function buildCafe(theme, models = null) {
     const pastryMat = new THREE.MeshStandardMaterial({ color: 0xc98e4e, roughness: 0.8 });
     // thin serving trays under each shelf row so goods sit on something real
     for (let row = 0; row < 2; row++) {
-      const caseTray = box(1.42, 0.015, 0.28, metalMat);
-      caseTray.position.set(-3.9, 1.065 + row * 0.2, -D / 2 + 1.1);
+      const caseTray = box(1.42, PASTRY_TRAY_THICKNESS, 0.28, metalMat);
+      caseTray.position.set(-3.9, pastryTrayY(row), -D / 2 + 1.1);
       group.add(caseTray);
     }
     for (let i = 0; i < 8; i++) {
       const good = cloneModel(models, caseGoods[i]);
       if (good) {
-        good.position.set(-4.42 + (i % 4) * 0.34, 1.08 + Math.floor(i / 4) * 0.2, -D / 2 + 1.1);
+        const row = Math.floor(i / 4);
+        good.position.set(
+          -4.42 + (i % 4) * 0.34,
+          pastryTrayY(row) + PASTRY_TRAY_THICKNESS / 2 + 0.003,
+          -D / 2 + 1.1,
+        );
         good.rotation.y = rand(0, Math.PI * 2);
         good.scale.setScalar(caseGoods[i] === 'sandwich' || caseGoods[i] === 'pancakes' ? 0.85 : 1);
         group.add(good);
       } else {
         const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), pastryMat);
         p.scale.set(1.4, 0.7, 1);
-        p.position.set(-4.42 + (i % 4) * 0.34, 1.12 + Math.floor(i / 4) * 0.16, -D / 2 + 1.1);
+        const row = Math.floor(i / 4);
+        p.position.set(
+          -4.42 + (i % 4) * 0.34,
+          pastryTrayY(row) + PASTRY_TRAY_THICKNESS / 2 + 0.05,
+          -D / 2 + 1.1,
+        );
         group.add(p);
       }
     }
@@ -3082,14 +3115,14 @@ export function buildCafe(theme, models = null) {
         contactShadow(W / 2 - 0.5, -0.35, 1.4);
         extraColliders.push({ x: W / 2 - 0.5, z: -0.35, r: 0.8 });
         // dress the shelves — an empty bookcase reads unfinished
-        for (const [sy, kind] of [[0.52, 'books'], [0.97, 'books'], [1.42, 'plant']]) {
+        for (const [sy, kind] of [[0.35, 'books'], [0.8, 'books'], [1.25, 'plant']]) {
           if (kind === 'books') {
             const row = makeBooks(6);
             row.rotation.y = Math.PI / 2;
             row.position.set(W / 2 - 0.35, sy, -0.35 + 0.22);
             group.add(row);
           } else {
-            const pot = cloneModel(models, 'plant_small');
+            const pot = cloneModel(models, 'plant_succulent');
             if (pot) { pot.position.set(W / 2 - 0.35, sy, -0.5); group.add(pot); }
             const mug2 = cloneModel(models, 'mug');
             if (mug2) { mug2.position.set(W / 2 - 0.35, sy, -0.1); group.add(mug2); }
@@ -3114,10 +3147,10 @@ export function buildCafe(theme, models = null) {
     // little potted succulents scattered on the counter and window sills
     const sillY = 0.9 + 1.9; // window head
     const sillKinds = (GREENERY[theme.id] ?? GREENERY.goldenhour).sill
-      ?? ['cactus_pot', 'plant_small'];
+      ?? ['plant_succulent', 'plant_cacti'];
     for (const [sx, sy, sz] of [[-3.3, 1.06, -D / 2 + 1.15], [3.0, 1.06, -D / 2 + 1.15], [-W / 2 + 0.15, sillY - 1.0, -2.5], [-W / 2 + 0.15, sillY - 1.0, 2.5]]) {
       const sm = cloneModel(models, pick(sillKinds))
-        ?? cloneModel(models, 'plant_small') ?? cloneModel(models, 'cactus_pot');
+        ?? cloneModel(models, 'plant_succulent') ?? cloneModel(models, 'plant_cacti');
       if (sm) { sm.position.set(sx, sy, sz); sm.rotation.y = rand(0, Math.PI * 2); group.add(sm); }
     }
     // a round brass mirror above the art row

@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ROOM,
+  COUNTER_SURFACE_Y,
+  PASTRY_TRAY_CLEARANCE,
+  PASTRY_TRAY_THICKNESS,
   WALL_ART_DEPTH_GAP,
+  pastryTrayY,
   rightWallDecorLayout,
   wallArtDepths,
 } from '../src/cafe.js';
@@ -14,6 +18,16 @@ test('wall artwork sits in front of its frame instead of sharing a depth plane',
   assert.equal(
     Number((depth.frameInteriorFaceX - depth.artX).toFixed(3)),
     Number(WALL_ART_DEPTH_GAP.toFixed(3)),
+  );
+});
+
+test('pastry trays clear the counter instead of sharing its depth plane', () => {
+  const lowerTrayBottom = pastryTrayY(0) - PASTRY_TRAY_THICKNESS / 2;
+  assert.ok(PASTRY_TRAY_CLEARANCE >= 0.006, 'clearance must survive depth precision jitter');
+  assert.ok(lowerTrayBottom > COUNTER_SURFACE_Y);
+  assert.equal(
+    Number((lowerTrayBottom - COUNTER_SURFACE_Y).toFixed(3)),
+    Number(PASTRY_TRAY_CLEARANCE.toFixed(3)),
   );
 });
 

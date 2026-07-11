@@ -69,3 +69,19 @@ test('looping beds are not counted as one-shot sources', () => {
   assert.equal(audio.activeOneShotSources, 0);
   assert.equal(audio.ctx.listeners.length, 0);
 });
+
+test('high-frequency recorded effects are rejected before exceeding their group cap', () => {
+  const audio = new CafeAudio();
+  audio.ctx = fakeAudioContext();
+  audio.ambienceBus = { connect() {} };
+  audio.buffers.set('step', { buffer: { duration: 2 }, gain: 1 });
+
+  assert.ok(audio._playBuf('step', { group: 'footsteps', maxConcurrent: 2 }));
+  assert.ok(audio._playBuf('step', { group: 'footsteps', maxConcurrent: 2 }));
+  assert.equal(audio._playBuf('step', { group: 'footsteps', maxConcurrent: 2 }), null);
+  assert.equal(audio.activeOneShotSources, 2);
+
+  audio.ctx.listeners[0].handler();
+  assert.ok(audio._playBuf('step', { group: 'footsteps', maxConcurrent: 2 }));
+  assert.equal(audio.activeOneShotSources, 2);
+});
