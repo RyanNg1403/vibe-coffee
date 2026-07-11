@@ -390,6 +390,41 @@ try {
   await delay(1800);
   await capture('midnight-rainy-street');
   const rainyMetrics = await client.evaluate('window.__vibe.metrics()');
+
+  // The default Auto profile intentionally favors thermals: direct PBR render,
+  // 24 Hz ambient cadence, and no compositor. Keep a visual artifact and a
+  // machine-readable contract so later polish cannot silently restore the
+  // high-heat 60 Hz multi-pass path.
+  await client.evaluate(`(() => {
+    const key = 'vibe-coffee.preferences.v1';
+    const preferences = JSON.parse(localStorage.getItem(key));
+    preferences.qualityMode = 'auto';
+    preferences.cafeIndex = 0;
+    localStorage.setItem(key, JSON.stringify(preferences));
+    location.reload();
+  })()`);
+  await retry(async () => {
+    const ready = await client.evaluate(`document.readyState === 'complete'
+      && Boolean(window.__vibe?.cafe)
+      && window.__vibe.metrics().qualityMode === 'auto'`);
+    if (!ready) throw new Error('Auto efficiency profile is not ready');
+    return true;
+  }, 'Auto efficiency profile', 300);
+  await client.evaluate(`document.querySelector('#enter-btn').click();
+    ['#hud-top', '#hud-bottom', '#hint', '#toast'].forEach((selector) => {
+      const element = document.querySelector(selector);
+      if (element) element.style.display = 'none';
+    });
+    window.__vibe.place(0, 4.8, 0, 0.04);`);
+  await delay(3200);
+  await capture('auto-efficiency-overview', 500);
+  const autoMetrics = await retry(async () => {
+    const metrics = await client.evaluate('window.__vibe.metrics()');
+    if (metrics.observedFps < 22 || metrics.observedFps > 26) {
+      throw new Error('Auto cadence has not settled');
+    }
+    return metrics;
+  }, 'steady Auto cadence', 100);
   const continuityChecks = {
     goldenIdentityContinuous,
     goldenActorCountStable,
@@ -401,8 +436,13 @@ try {
   const passed = rainyMetrics.outsideUmbrellas > 0
     && rainyMetrics.outsideUmbrellas < rainyMetrics.outsidePedestrians
     && rainyMetrics.outsideUmbrellaGripError < 0.02
+    && autoMetrics.qualityMode === 'auto'
+    && autoMetrics.effects === 0
+    && autoMetrics.targetFps === 24
+    && autoMetrics.observedFps >= 22
+    && autoMetrics.observedFps <= 26
     && Object.values(continuityChecks).every(Boolean);
-  const manifest = { url: APP_URL, files, rainyMetrics, continuityChecks, passed };
+  const manifest = { url: APP_URL, files, rainyMetrics, autoMetrics, continuityChecks, passed };
   await writeFile(join(OUTPUT_DIR, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(JSON.stringify(manifest, null, 2));
   if (!passed) process.exitCode = 1;

@@ -14,6 +14,7 @@ import { CafeAudio } from './audio.js';
 import { loadModelLibrary, cloneModel } from './modelLoader.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 import { laptopCupOffset, laptopPropOffset } from './tableClearance.js';
+import { AdaptiveFrameScheduler } from './frameScheduler.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -43,7 +44,7 @@ const canvas = document.getElementById('scene');
 // The scene is rendered through a multisampled composer target, so enabling
 // antialiasing on the (fullscreen-quad-only) default framebuffer duplicates
 // work without improving geometry edges.
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
 // Auto stays at CSS-native resolution. On Retina screens, 1.5x creates 2.25x
 // as many half-float pixels across every composer target for little visible
@@ -103,22 +104,28 @@ gtaoPass.updateGtaoMaterial({
   distanceExponent: 1.4,
   thickness: 0.6,
   scale: 1.0,
-  samples: 8,
+  samples: 6,
   distanceFallOff: 1.0,
   screenSpaceRadius: false,
 });
 gtaoPass.blendIntensity = 0.5;
-// Contact AO remains soft and convincing at 60% resolution, while avoiding
+// Contact AO remains soft and convincing at half resolution, while avoiding
 // four full-resolution depth/normal/AO buffers on high-DPI displays.
 const setGtaoSize = gtaoPass.setSize.bind(gtaoPass);
 gtaoPass.setSize = (width, height) => {
-  setGtaoSize(Math.max(1, Math.ceil(width * 0.6)), Math.max(1, Math.ceil(height * 0.6)));
+  setGtaoSize(Math.max(1, Math.ceil(width * 0.5)), Math.max(1, Math.ceil(height * 0.5)));
 };
 composer.addPass(gtaoPass);
 
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(W0, H0), 0.25, 0.5, 0.85
 );
+// Bloom is a deliberately blurred signal. Half-resolution buffers preserve
+// the perceived glow while cutting their pixel work and memory by about 75%.
+const setBloomSize = bloomPass.setSize.bind(bloomPass);
+bloomPass.setSize = (width, height) => {
+  setBloomSize(Math.max(1, Math.ceil(width * 0.5)), Math.max(1, Math.ceil(height * 0.5)));
+};
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
@@ -168,6 +175,11 @@ const walkPos = new THREE.Vector3();
 let walkBob = 0;
 let lastPlayerStep = 0;
 const keys = new Set();
+const frameScheduler = new AdaptiveFrameScheduler();
+const markInteraction = () => frameScheduler.markInteraction(performance.now());
+window.addEventListener('pointerdown', markInteraction, { passive: true });
+window.addEventListener('keydown', markInteraction, { passive: true });
+window.addEventListener('wheel', markInteraction, { passive: true });
 
 const EYE_HEIGHT = 1.16;
 const STAND_EYE = 1.55;
@@ -836,9 +848,10 @@ musicToggle.addEventListener('click', () => {
 const qualityToggle = document.getElementById('quality-toggle');
 const QUALITY_MODES = ['auto', 'detail', 'smooth'];
 let qualityMode = preferences.qualityMode;
-let autoEffectLevel = 1;
-let effectLevel = 1;
-let shadowInterval = 1 / 20;
+let autoEffectLevel = 0;
+let effectLevel = 0;
+let shadowInterval = 1 / 8;
+const AUTO_MAX_EFFECT_LEVEL = 0;
 
 // Resolution is only one part of the GPU budget. GTAO, bloom and animated
 // shadow maps each render the scene (or a full-screen buffer) again, so the
@@ -848,7 +861,7 @@ function applyEffectLevel(nextLevel) {
   effectLevel = THREE.MathUtils.clamp(Math.round(nextLevel), 0, 2);
   gtaoPass.enabled = effectLevel >= 1;
   bloomPass.enabled = effectLevel >= 2;
-  shadowInterval = effectLevel === 2 ? 1 / 30 : effectLevel === 1 ? 1 / 20 : 1 / 12;
+  shadowInterval = effectLevel === 2 ? 1 / 20 : effectLevel === 1 ? 1 / 12 : 1 / 8;
   cafe?.setQuality?.(effectLevel);
   crowd?.setQuality?.(effectLevel);
   renderer.shadowMap.needsUpdate = true;
@@ -1015,20 +1028,24 @@ let simAcc = 0;
 let shadowAcc = 1 / 30;
 let perfSampleTime = 0;
 let perfSampleFrames = 0;
+let perfTargetFps = 0;
 let qualityCooldown = 0;
 let nextPlayerTypingAt = 0;
 let playerTypingActive = false;
 let metricsSyncAt = 0;
+let observedRenderFps = 0;
+let fpsWindowStartedAt = performance.now();
+let fpsWindowFrames = 0;
+let lastRenderMs = 0;
 const playerLaptopWorld = new THREE.Vector3();
 const lastRenderStats = { calls: 0, triangles: 0, points: 0, lines: 0 };
 const SIM_STEP = 1 / 30;
-// Catch-up budget after a slow frame or a throttled tab. Crowd updates are
-// renderer-free math (~20 NPCs), so even the full 3 s budget costs only a few
-// milliseconds — while a small cap makes café time crawl on slow machines,
-// which reads as "everyone is stuck".
-const MAX_SIM_STEPS = 90;
+// Never replay more than 0.2 seconds of crowd history after a throttled or
+// backgrounded tab. Catching up several seconds creates a visible CPU spike
+// exactly when the user returns to the café.
+const MAX_SIM_STEPS = 6;
 
-function updateAdaptiveQuality(frameDt) {
+function updateAdaptiveQuality(frameDt, targetFps) {
   if (qualityMode !== 'auto') return;
   // The intro is intentionally cheap and mostly opaque. Measuring it would
   // over-promote quality before the real café and crowd are visible.
@@ -1044,13 +1061,19 @@ function updateAdaptiveQuality(frameDt) {
     perfSampleFrames = 0;
     return;
   }
+  if (perfTargetFps !== targetFps) {
+    perfTargetFps = targetFps;
+    perfSampleTime = 0;
+    perfSampleFrames = 0;
+  }
   qualityCooldown = Math.max(0, qualityCooldown - frameDt);
   perfSampleTime += frameDt;
   perfSampleFrames += 1;
   if (perfSampleTime < 2.5) return;
 
   const averageFrameMs = (perfSampleTime / perfSampleFrames) * 1000;
-  if (averageFrameMs > 19.5) {
+  const targetFrameMs = 1000 / targetFps;
+  if (averageFrameMs > targetFrameMs * 1.18) {
     if (renderPixelRatio > 1.001) {
       applyRenderPixelRatio(renderPixelRatio - 0.15);
     } else if (autoEffectLevel > 0) {
@@ -1060,10 +1083,10 @@ function updateAdaptiveQuality(frameDt) {
       applyRenderPixelRatio(renderPixelRatio - 0.1);
     }
     qualityCooldown = 5;
-  } else if (averageFrameMs < 16.9 && qualityCooldown <= 0) {
+  } else if (averageFrameMs < targetFrameMs * 1.05 && qualityCooldown <= 0) {
     // Restore scene depth before supersampling: a low-resolution image with
     // contact light and bloom generally reads better than a sharper flat one.
-    if (autoEffectLevel < 2) {
+    if (autoEffectLevel < AUTO_MAX_EFFECT_LEVEL) {
       autoEffectLevel += 1;
       applyEffectLevel(autoEffectLevel);
     } else if (renderPixelRatio < AUTO_MAX_PIXEL_RATIO) {
@@ -1080,12 +1103,17 @@ function updateAdaptiveQuality(frameDt) {
 
 function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 
-function frame() {
+function frame(now = performance.now()) {
   requestAnimationFrame(frame);
+  const activelyMoving = tween.active || dragging || keys.size > 0;
+  if (!frameScheduler.shouldRender(now, {
+    moving: activelyMoving,
+    visible: !document.hidden,
+  })) return;
   const rawDt = Math.min(clock.getDelta(), 3.0); // real time, survives slow frames
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
-  updateAdaptiveQuality(rawDt);
+  updateAdaptiveQuality(rawDt, frameScheduler.targetFps);
 
   // Run room life in stable 30 Hz steps, but cap catch-up work after a paused
   // or throttled tab so returning to the café cannot trigger a long CPU spike.
@@ -1231,11 +1259,21 @@ function frame() {
   }
 
   renderer.info.reset();
-  composer.render(dt);
+  const renderStartedAt = performance.now();
+  if (effectLevel === 0) renderer.render(scene, camera);
+  else composer.render(dt);
+  lastRenderMs = performance.now() - renderStartedAt;
   lastRenderStats.calls = renderer.info.render.calls;
   lastRenderStats.triangles = renderer.info.render.triangles;
   lastRenderStats.points = renderer.info.render.points;
   lastRenderStats.lines = renderer.info.render.lines;
+  fpsWindowFrames += 1;
+  const fpsWindowMs = now - fpsWindowStartedAt;
+  if (fpsWindowMs >= 1000) {
+    observedRenderFps = fpsWindowFrames * 1000 / fpsWindowMs;
+    fpsWindowFrames = 0;
+    fpsWindowStartedAt = now;
+  }
 
   if (elapsed >= metricsSyncAt && window.__vibe) {
     metricsSyncAt = elapsed + 0.5;
@@ -1278,6 +1316,14 @@ window.__vibe = {
       qualityMode,
       pixelRatio: renderPixelRatio,
       effects: effectLevel,
+      targetFps: frameScheduler.targetFps,
+      observedFps: Number(observedRenderFps.toFixed(1)),
+      renderedFrames: frameScheduler.renderedFrames,
+      skippedFrames: frameScheduler.skippedFrames,
+      lastRenderMs: Number(lastRenderMs.toFixed(2)),
+      shadowFps: Math.round(1 / shadowInterval),
+      gtaoScale: 0.5,
+      bloomScale: 0.5,
       heapBytes: performance.memory?.usedJSHeapSize ?? null,
       decodedAudioBytes,
       outsidePedestrians: crowd?.outside?.walkers?.length ?? 0,
