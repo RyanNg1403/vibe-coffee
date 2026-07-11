@@ -180,6 +180,7 @@ export class CafeAudio {
     this.occupancy = 0;
     this.capacity = 1;
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
+    this.activeOneShotSources = 0; // live non-looping recorded sources, for runtime audits
     this.voicesLevel = 1;     // user's "people talking" slider, scales the crowd beds
     this.recordedVolume = 0.5;
     this.recordedDuck = 1;
@@ -281,6 +282,11 @@ export class CafeAudio {
     const src = this.ctx.createBufferSource();
     src.buffer = entry.buffer;
     src.playbackRate.value = opts.rate ?? 1;
+    if (!opts.loop) {
+      // 'ended' listeners survive callers that assign src.onended directly
+      this.activeOneShotSources += 1;
+      src.addEventListener('ended', () => { this.activeOneShotSources -= 1; }, { once: true });
+    }
     if (opts.loop) {
       src.loop = true;
       if (entry.buffer.duration > 4 && !opts.seamless) { // skip raw file edges

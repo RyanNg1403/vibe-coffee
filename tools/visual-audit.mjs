@@ -29,8 +29,14 @@ async function freePort() {
   return port;
 }
 
+// On software-GL machines the renderer runs far below real time and the sim's
+// capped catch-up slows crowd choreography with it. VIBE_RETRY_SCALE stretches
+// every wait uniformly (successful steps still return immediately).
+const RETRY_SCALE = Math.max(1, Number(process.env.VIBE_RETRY_SCALE ?? 1) || 1);
+
 async function retry(task, label, attempts = 160) {
   let error;
+  attempts = Math.round(attempts * RETRY_SCALE);
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       return await task();
@@ -180,6 +186,14 @@ try {
       if (!ready) throw new Error('scene is still loading');
       return ready;
     }, THEMES[index], 300);
+    // `calls` can still be the previous scene's final frame on slow machines.
+    // Screenshots must capture the new scene, so wait for fresh frames too.
+    const settledFrames = await client.evaluate('window.__vibe.metrics().renderedFrames');
+    await retry(async () => {
+      const frames = await client.evaluate('window.__vibe.metrics().renderedFrames');
+      if (frames < settledFrames + 2) throw new Error('new scene has not rendered yet');
+      return frames;
+    }, `${THEMES[index]} fresh frames`, 300);
     await delay(1100);
   }
 

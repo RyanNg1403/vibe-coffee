@@ -33,8 +33,13 @@ async function freePort() {
   return port;
 }
 
+// See tools/visual-audit.mjs: stretches every wait on slow software-GL
+// machines without loosening timeouts where rendering runs at full speed.
+const RETRY_SCALE = Math.max(1, Number(process.env.VIBE_RETRY_SCALE ?? 1) || 1);
+
 async function retry(task, label, attempts = 100) {
   let error;
+  attempts = Math.round(attempts * RETRY_SCALE);
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       return await task();
@@ -177,6 +182,15 @@ try {
       if (metrics.theme !== expected || metrics.calls === 0) throw new Error('scene is still loading');
       return metrics;
     }, LOCATION_NAMES[index], 300);
+    // `calls` above can still describe the previous scene's final frame. Wait
+    // for two frames rendered after the switch so renderer.info counts the new
+    // scene's uploaded resources, even on slow software-GL machines.
+    const settledFrames = await client.evaluate('window.__vibe.metrics().renderedFrames');
+    await retry(async () => {
+      const frames = await client.evaluate('window.__vibe.metrics().renderedFrames');
+      if (frames < settledFrames + 2) throw new Error('new scene has not rendered yet');
+      return frames;
+    }, `${LOCATION_NAMES[index]} fresh frames`, 300);
     await delay(1250);
     await client.send('HeapProfiler.collectGarbage');
     await delay(250);

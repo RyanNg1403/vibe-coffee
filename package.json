@@ -10,6 +10,7 @@
     "artifact": "node tools/make-artifact.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
+    "perf:baseline": "node tools/perf-baseline.mjs",
     "preview": "vite preview",
     "test": "node --test"
   },
