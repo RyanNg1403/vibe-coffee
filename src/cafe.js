@@ -1230,7 +1230,8 @@ export function buildCafe(theme, models = null) {
   }
 
   // front wall: door in the middle, windows either side
-  const doorW = 1.1, doorH = 2.3;
+  const doorW = 1.1, doorH = 2.3, doorWidth = doorW - 0.1;
+  let entrance = null;
   if (!theme.openAir) {
     const half = (W - doorW) / 2;
     for (const s of [-1, 1]) {
@@ -1241,19 +1242,58 @@ export function buildCafe(theme, models = null) {
     const header = box(doorW, H - doorH, 0.15, wallMat);
     header.position.set(0, doorH + (H - doorH) / 2, D / 2);
     group.add(header);
-    // door frame + glass door
+    // door frame + a real hinged glass door. NPC traffic drives the target
+    // direction through the small entrance controller returned by buildCafe.
     const frame = box(doorW + 0.12, 0.08, 0.2, woodDarkMat);
     frame.position.set(0, doorH, D / 2);
     group.add(frame);
+    for (const side of [-1, 1]) {
+      const jamb = box(0.07, doorH, 0.18, woodDarkMat);
+      jamb.position.set(side * doorW / 2, doorH / 2, D / 2);
+      group.add(jamb);
+    }
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(-doorWidth / 2, 0, D / 2 + 0.02);
     const door = new THREE.Mesh(
-      new THREE.PlaneGeometry(doorW - 0.1, doorH - 0.1),
+      new THREE.PlaneGeometry(doorWidth, doorH - 0.1),
       new THREE.MeshPhysicalMaterial({ color: 0xe2edf0, transmission: 0.9, transparent: true, opacity: 0.28, roughness: 0.12, ior: 1.5, thickness: 0.015, side: THREE.DoubleSide, depthWrite: false })
     );
-    door.position.set(0, doorH / 2, D / 2 + 0.02);
-    group.add(door);
-    const handle = box(0.03, 0.5, 0.03, metalMat);
-    handle.position.set(-0.35, 1.1, D / 2 - 0.06);
-    group.add(handle);
+    door.position.set(doorWidth / 2, doorH / 2, 0);
+    doorPivot.add(door);
+    for (const x of [0.025, doorWidth - 0.025]) {
+      const stile = box(0.05, doorH - 0.06, 0.045, woodDarkMat);
+      stile.position.set(x, doorH / 2, 0);
+      doorPivot.add(stile);
+    }
+    for (const y of [0.035, doorH - 0.075]) {
+      const rail = box(doorWidth, 0.07, 0.045, woodDarkMat);
+      rail.position.set(doorWidth / 2, y, 0);
+      doorPivot.add(rail);
+    }
+    for (const z of [-0.045, 0.045]) {
+      const handle = box(0.03, 0.5, 0.03, metalMat);
+      handle.position.set(doorWidth - 0.16, 1.1, z);
+      doorPivot.add(handle);
+    }
+    group.add(doorPivot);
+    const OPEN_ANGLE = 1.24;
+    entrance = {
+      root: doorPivot,
+      direction: null,
+      angle: 0,
+      targetAngle: 0,
+      openness: 0,
+      setDirection(direction) {
+        this.direction = direction;
+        this.targetAngle = direction === 'in' ? OPEN_ANGLE : direction === 'out' ? -OPEN_ANGLE : 0;
+      },
+      update(dt) {
+        this.angle += (this.targetAngle - this.angle) * (1 - Math.exp(-6.2 * dt));
+        if (Math.abs(this.targetAngle - this.angle) < 0.001) this.angle = this.targetAngle;
+        this.root.rotation.y = this.angle;
+        this.openness = Math.min(1, Math.abs(this.angle) / OPEN_ANGLE);
+      },
+    };
 
     // left wall with windows
     const lw = windowedWall(D);
@@ -3300,7 +3340,10 @@ export function buildCafe(theme, models = null) {
   // ---------- NPC navigation info ----------
   const nav = {
     door: new THREE.Vector3(0, 0, D / 2 - 0.4),
-    doorInside: new THREE.Vector3(0, 0, D / 2 - 1.4),
+    doorInside: new THREE.Vector3(0, 0, D / 2 - 0.48),
+    doorThreshold: new THREE.Vector3(0, 0, D / 2 + 0.05),
+    doorOutside: new THREE.Vector3(0, 0, D / 2 + 0.48),
+    doorHandle: new THREE.Vector3(doorWidth / 2 - 0.16, 1.1, D / 2 + 0.02),
     counter: new THREE.Vector3(2.2, 0, -D / 2 + 2.2),   // register spot (queue forms here)
     pickup: new THREE.Vector3(-0.7, 0, -D / 2 + 2.2),   // wait for your drink
     baristaHome: new THREE.Vector3(-1.0, 0, -D / 2 + 0.6),
@@ -3325,6 +3368,7 @@ export function buildCafe(theme, models = null) {
   let t = 0;
   function animate(dt) {
     t += dt;
+    entrance?.update(dt);
     // a car drives past every so often
     if (passingCar) {
       const u = passingCar.userData;
@@ -3507,7 +3551,10 @@ export function buildCafe(theme, models = null) {
 
   // Everything is placed — fold the static decor into per-material meshes.
   // The animate() loop only ever touches the roots excluded here.
-  mergeStaticDecor(group, [passingCar, cat, clockGroup, fan, vinylDisc, neonMesh]);
+  mergeStaticDecor(group, [passingCar, cat, clockGroup, fan, vinylDisc, neonMesh, entrance?.root]);
 
-  return { group, seats, seatMeshes, nav, colliders, theme, animate, setQuality, dispose, woodMat, cushionMat };
+  return {
+    group, seats, seatMeshes, nav, colliders, theme, entrance,
+    animate, setQuality, dispose, woodMat, cushionMat,
+  };
 }

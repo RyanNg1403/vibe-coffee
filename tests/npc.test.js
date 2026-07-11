@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
   attachHeldUmbrella,
+  animateHeldUmbrella,
   pedestrianUsesUmbrella,
   poseUmbrellaArm,
   UMBRELLA_GRIP_TARGET,
@@ -26,6 +27,25 @@ test('rain umbrellas attach to a real hand and reuse shared geometry', () => {
   assert.equal(first.root.userData.heldUmbrella, true);
   assert.equal(first.root.children[0].geometry, second.root.children[0].geometry);
   assert.equal(attachHeldUmbrella(new THREE.Group()), null);
+});
+
+test('umbrella canopy folds into a narrow bundle without replacing shared parts', () => {
+  const hand = new THREE.Group();
+  const person = new THREE.Group();
+  person.userData.parts = { handR: hand };
+  person.add(hand);
+  const held = attachHeldUmbrella(person, null, 0);
+  const { canopy } = held.root.userData.openParts;
+  const geometry = canopy.geometry;
+
+  animateHeldUmbrella(held, 0, 10);
+  assert.equal(held.openAmount, 0);
+  assert.ok(canopy.scale.x <= 0.12);
+  assert.ok(canopy.scale.y >= 0.7);
+  assert.equal(canopy.geometry, geometry);
+  animateHeldUmbrella(held, 1, 10);
+  assert.equal(held.openAmount, 1);
+  assert.equal(canopy.geometry, geometry);
 });
 
 test('rainy crowds always include umbrella users and non-users', () => {

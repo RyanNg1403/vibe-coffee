@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { ROOM } from './cafe.js';
+import { DoorCoordinator } from './doorFlow.js';
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -588,6 +589,8 @@ class SkinnedAvatar {
       RightUpLeg: ['RightUpLeg', 'UpperLeg.R', 'UpperLegR', 'leg-right', 'Leg.R'],
       LeftLeg: ['LeftLeg', 'LowerLeg.L', 'LowerLegL'],
       RightLeg: ['RightLeg', 'LowerLeg.R', 'LowerLegR'],
+      LeftArm: ['LeftArm', 'UpperArm.L', 'UpperArmL', 'Arm.L', 'arm-left'],
+      LeftForeArm: ['LeftForeArm', 'LowerArm.L', 'LowerArmL', 'ForeArm.L', 'forearm-left'],
       RightArm: ['RightArm', 'UpperArm.R', 'UpperArmR', 'Arm.R', 'arm-right'],
       RightForeArm: ['RightForeArm', 'LowerArm.R', 'LowerArmR', 'ForeArm.R', 'forearm-right'],
       LeftHand: ['LeftHand', 'Hand.L', 'HandL', 'Palm.L', 'Wrist.L', 'hand-left', 'arm-left', 'LowerArm.L'],
@@ -940,35 +943,43 @@ function applySitOffset(npc, seat) {
 class NPC {
   constructor(sim, opts = {}) {
     this.sim = sim;
+    const sourceWalker = opts.sourceWalker ?? null;
     const willSit = (opts.seatIndex ?? -1) >= 0;
     // Imported, skinned people are the default. The procedural actor remains a
     // true resilience fallback for failed/missing assets; seated models use an
     // authored clip when present and the compatible leg-bone pose otherwise.
-    const charKey = sim.pickCharacter(willSit);
-    if (charKey) {
-      this.avatar = new SkinnedAvatar(sim.models, charKey, {
-        appearanceIndex: sim.nextAppearanceIndex(),
-      });
-      this.mesh = this.avatar.root;
+    if (sourceWalker) {
+      this.avatar = sourceWalker.avatar;
+      this.mesh = sourceWalker.mesh;
+      this.umbrella = sourceWalker.umbrella ?? sourceWalker.stowedUmbrella ?? null;
+      this.sourceWalker = sourceWalker;
     } else {
-      this.mesh = makePerson();
-    }
-    if (this.avatar) {
-      // 1.60–1.82 m with independent shoulder/depth variation.  The modest
-      // range retains believable anatomy while breaking repeated silhouettes.
-      this.mesh.scale.set(rand(0.93, 1.07), rand(0.94, 1.07), rand(0.94, 1.05));
-    } else {
-      this.mesh.scale.setScalar(rand(1.1, 1.23));
+      const charKey = sim.pickCharacter(willSit);
+      if (charKey) {
+        this.avatar = new SkinnedAvatar(sim.models, charKey, {
+          appearanceIndex: sim.nextAppearanceIndex(),
+        });
+        this.mesh = this.avatar.root;
+      } else {
+        this.mesh = makePerson();
+      }
+      if (this.avatar) {
+        // 1.60–1.82 m with independent shoulder/depth variation. The modest
+        // range retains believable anatomy while breaking repeated silhouettes.
+        this.mesh.scale.set(rand(0.93, 1.07), rand(0.94, 1.07), rand(0.94, 1.05));
+      } else {
+        this.mesh.scale.setScalar(rand(1.1, 1.23));
+      }
     }
     this.seatIndex = opts.seatIndex ?? -1;
     this.partner = null;            // set for pairs
     this.activity = opts.activity ?? pick(ACTIVITIES);
-    this.state = 'entering';
+    this.state = sourceWalker ? 'approachingDoorIn' : 'entering';
     this.stateT = 0;
     this.path = null;
     this.pathI = 0;
     this.walkPhase = rand(0, 10);
-    this.speed = rand(0.72, 1.05);
+    this.speed = sourceWalker?.speed ?? rand(0.72, 1.05);
     this.currentSpeed = 0;
     this.velocity = new THREE.Vector3();
     this.walkDir = new THREE.Vector3(0, 0, 1);
@@ -987,18 +998,33 @@ class NPC {
     this.greeting = 0;              // remaining greeting time
     this.cheers = 0;                // remaining "cheers" toast time
     this.cheersT = rand(12, 30);    // cooldown between toasts
+    this.queueIndex = -1;
+    this.streetDirection = 1;
+    this.exitUsesUmbrella = false;
+    this.umbrellaTarget = this.umbrella?.root.visible === false ? 0 : 1;
 
     const { nav } = sim.cafe;
-    this.mesh.position.copy(nav.door);
-    this.mesh.position.x += rand(-0.15, 0.15);
     sim.cafe.group.add(this.mesh);
-    if (!opts.silent && sim.audio?.started) sim.audio.playChime();
+    this.setCup(false);
+    if (sourceWalker) {
+      if (this.umbrella) {
+        this.umbrella.root.visible = !!sourceWalker.umbrella;
+        setHeldUmbrellaOpen(this.umbrella, sourceWalker.umbrella ? 1 : 0);
+      }
+      this._walkTo(nav.doorOutside);
+    } else {
+      this.mesh.position.copy(nav.door);
+      this.mesh.position.x += rand(-0.15, 0.15);
+      this._joinQueue();
+    }
+  }
 
-    // head straight to the back of the queue
-    this.queueIndex = sim.queue.length;
-    sim.queue.push(this);
+  _joinQueue() {
+    this.queueIndex = this.sim.queue.length;
+    this.sim.queue.push(this);
     this.state = 'queueing';
-    this._walkTo(sim.queueSlot(this.queueIndex));
+    this.stateT = 0;
+    this._walkTo(this.sim.queueSlot(this.queueIndex));
   }
 
   _walkTo(target) {
@@ -1006,6 +1032,107 @@ class NPC {
     this.pathI = 1;
     this._bestDist = Infinity;
     this._stallT = 0;
+  }
+
+  _walkThroughDoor(direction) {
+    const { nav } = this.sim.cafe;
+    const destination = direction === 'in' ? nav.doorInside : nav.doorOutside;
+    this.path = [this.mesh.position.clone(), nav.doorThreshold.clone(), destination.clone()];
+    this.pathI = 1;
+    this._bestDist = Infinity;
+    this._stallT = 0;
+    this.state = direction === 'in' ? 'crossingDoorIn' : 'crossingDoorOut';
+    this.stateT = 0;
+  }
+
+  _beginExit() {
+    this.state = 'leaving';
+    this.stateT = 0;
+    this.streetDirection = Math.random() < 0.5 ? -1 : 1;
+    this.exitUsesUmbrella = !!this.sim.cafe.theme.rain
+      && pedestrianUsesUmbrella(this.sim.umbrellaSerial++);
+    this._walkTo(this.sim.cafe.nav.doorInside);
+  }
+
+  _updateTravelUmbrella(dt) {
+    if (!this.umbrella?.root.visible) return this.umbrella?.openAmount ?? 0;
+    const amount = animateHeldUmbrella(this.umbrella, this.umbrellaTarget, dt);
+    if (this.avatar) {
+      poseUmbrellaArm(this.umbrella, this.avatar, this.mesh);
+    } else {
+      const parts = this.mesh.userData.parts;
+      if (parts) {
+        parts.armR.rotation.x = -1.25;
+        parts.armR.rotation.z = -0.18;
+      }
+    }
+    alignHeldUmbrella(this.umbrella);
+    return amount;
+  }
+
+  _prepareExitUmbrella() {
+    if (!this.exitUsesUmbrella) return false;
+    if (!this.umbrella) {
+      this.umbrella = attachHeldUmbrella(
+        this.mesh,
+        this.avatar,
+        this.sim.umbrellaSerial,
+      );
+    }
+    if (!this.umbrella) return false;
+    this.setCup(false);
+    this.umbrella.root.visible = true;
+    this.umbrellaTarget = 1;
+    setHeldUmbrellaOpen(this.umbrella, 0);
+    return true;
+  }
+
+  _transferToStreet() {
+    this.sim.outside.acceptDeparture(
+      this,
+      this.streetDirection,
+      this.exitUsesUmbrella,
+      this.sim.umbrellaSerial++,
+    );
+    this.state = 'transferred';
+    this.path = null;
+  }
+
+  _joinSidewalk() {
+    this.state = 'joiningSidewalk';
+    this.stateT = 0;
+    this._walkTo(new THREE.Vector3(0, 0, this.sim.outside.streetZ()));
+  }
+
+  _updateDoorPause(dt) {
+    const reachingForHandle = this.state === 'waitingDoorIn' || this.state === 'waitingDoorOut';
+    if (this.avatar) {
+      this.avatar.setMode('idle', 0.8);
+      this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
+      if (reachingForHandle) {
+        poseDoorReach(this.avatar, this.mesh, this.sim.cafe.nav.doorHandle);
+      }
+    } else {
+      this._setPose(false);
+      if (reachingForHandle) {
+        const parts = this.mesh.userData.parts;
+        parts.armL.rotation.x = -1.25;
+        parts.armL.rotation.z = 0.12;
+      }
+    }
+    const umbrellaAmount = this._updateTravelUmbrella(dt);
+    if (this.state === 'waitingDoorIn') {
+      if (this.umbrella?.root.visible && umbrellaAmount > 0.04) return;
+      if (this.sim.doorFlow.request(this, 'in')) this._walkThroughDoor('in');
+      return;
+    }
+    if (this.state === 'waitingDoorOut') {
+      if (this.sim.doorFlow.request(this, 'out')) this._walkThroughDoor('out');
+      return;
+    }
+    if (this.state === 'openingUmbrella' && (umbrellaAmount >= 0.94 || this.stateT > 1.2)) {
+      this._joinSidewalk();
+    }
   }
 
   _setRootY(y) {
@@ -1092,12 +1219,10 @@ class NPC {
       this._setPose(true);
       this._addProps();
     } else {
-      this.state = 'leaving';
-      this.stateT = 0;
       this._setPose(false);
       this.sim.releaseSeat(this.seatIndex);
       this.seatIndex = -1;
-      this._walkTo(this.sim.cafe.nav.door);
+      this._beginExit();
     }
     this.transitionFrom = null;
   }
@@ -1486,6 +1611,14 @@ class NPC {
         this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
       }
       else p.head.rotation.y += (this.headTarget - p.head.rotation.y) * dt * 3;
+      this._updateTravelUmbrella(dt);
+      return;
+    }
+
+    if (this.state === 'waitingDoorIn'
+      || this.state === 'waitingDoorOut'
+      || this.state === 'openingUmbrella') {
+      this._updateDoorPause(dt);
       return;
     }
 
@@ -1557,8 +1690,7 @@ class NPC {
           const seatTarget = this.sim.cafe.seats[this.seatIndex];
           this._walkTo(seatTarget.approach ?? seatTarget.pos);
         } else {
-          this.state = 'leaving';
-          this._walkTo(this.sim.cafe.nav.door);
+          this._beginExit();
         }
       }
     } else if (this.state === 'sitting') {
@@ -1722,8 +1854,7 @@ class NPC {
           const seatTarget = this.sim.cafe.seats[this.seatIndex];
           this._walkTo(seatTarget.approach ?? seatTarget.pos);
         } else {
-          this.state = 'leaving';
-          this._walkTo(this.sim.cafe.nav.door);
+          this._beginExit();
         }
       }
     } else if (this.state === 'sitting') {
@@ -1761,7 +1892,21 @@ class NPC {
   }
 
   _arrived() {
-    if (this.state === 'queueing') {
+    if (this.state === 'approachingDoorIn') {
+      this.state = 'waitingDoorIn';
+      this.stateT = 0;
+      this.umbrellaTarget = 0;
+    } else if (this.state === 'crossingDoorIn') {
+      this.sim.doorFlow.release(this);
+      if (this.umbrella) {
+        setHeldUmbrellaOpen(this.umbrella, 0);
+        this.umbrella.root.visible = false;
+      }
+      if (this.avatar) this.avatar.blob.visible = true;
+      else if (this.mesh.userData.parts?.blob) this.mesh.userData.parts.blob.visible = true;
+      if (this.avatar) setRainExteriorTint(this.mesh, false);
+      this._joinQueue();
+    } else if (this.state === 'queueing') {
       // settled into the current queue slot; update() takes it from here
     } else if (this.state === 'toSeat') {
       this.state = 'aligningSeat';
@@ -1770,12 +1915,23 @@ class NPC {
       this.sitY = sitYFor(this, seat);
       this.transitionFrom = this.mesh.position.clone();
     } else if (this.state === 'leaving') {
-      this.state = 'gone';
-      if (this.sim.audio?.started && Math.random() < 0.5) this.sim.audio.playChime();
+      this.state = 'waitingDoorOut';
+      this.stateT = 0;
+    } else if (this.state === 'crossingDoorOut') {
+      this.sim.doorFlow.release(this);
+      if (this._prepareExitUmbrella()) {
+        this.state = 'openingUmbrella';
+        this.stateT = 0;
+      } else {
+        this._joinSidewalk();
+      }
+    } else if (this.state === 'joiningSidewalk') {
+      this._transferToStreet();
     }
   }
 
   dispose() {
+    this.sim.doorFlow?.cancel(this);
     this._clearProps();
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
@@ -1992,6 +2148,7 @@ function makeHeldUmbrella(appearanceIndex = 0) {
   handle.rotation.z = Math.PI;
   umbrella.add(handle);
   umbrella.userData.heldUmbrella = true;
+  umbrella.userData.openParts = { canopy, rim, ribs };
   return umbrella;
 }
 
@@ -2000,7 +2157,34 @@ export function attachHeldUmbrella(person, avatar = null, appearanceIndex = 0) {
   if (!hand) return null;
   const root = makeHeldUmbrella(appearanceIndex);
   hand.add(root);
-  return { root, hand };
+  const held = { root, hand, openAmount: 1 };
+  setHeldUmbrellaOpen(held, 1);
+  return held;
+}
+
+export function setHeldUmbrellaOpen(held, amount) {
+  if (!held?.root) return 0;
+  const open = THREE.MathUtils.clamp(amount, 0, 1);
+  const parts = held.root.userData.openParts;
+  if (parts) {
+    const radial = THREE.MathUtils.lerp(0.12, 1, open);
+    parts.canopy.position.y = THREE.MathUtils.lerp(0.57, 0.88, open);
+    parts.canopy.scale.set(radial, THREE.MathUtils.lerp(0.72, 0.3, open), radial);
+    parts.rim.position.y = parts.canopy.position.y;
+    parts.rim.scale.set(radial, radial, 1);
+    parts.ribs.scale.set(radial, 1, radial);
+    parts.rim.visible = open > 0.04;
+    parts.ribs.visible = open > 0.04;
+  }
+  held.openAmount = open;
+  return open;
+}
+
+export function animateHeldUmbrella(held, target, dt) {
+  if (!held) return target;
+  const current = held.openAmount ?? 1;
+  const next = current + (target - current) * (1 - Math.exp(-7.5 * dt));
+  return setHeldUmbrellaOpen(held, Math.abs(next - target) < 0.005 ? target : next);
 }
 
 export function pedestrianUsesUmbrella(index) {
@@ -2050,6 +2234,39 @@ function aimBoneChildAt(bone, child, target) {
   bone.updateWorldMatrix(false, true);
 }
 
+function solveTwoBoneArm(upper, forearm, hand, target, pole) {
+  if (!upper || !forearm || !hand) return false;
+  upper.getWorldPosition(umbrellaShoulderWorld);
+  forearm.getWorldPosition(umbrellaElbowWorld);
+  hand.getWorldPosition(umbrellaHandWorld);
+  const upperLength = umbrellaShoulderWorld.distanceTo(umbrellaElbowWorld);
+  const lowerLength = umbrellaElbowWorld.distanceTo(umbrellaHandWorld);
+  if (upperLength < 1e-4 || lowerLength < 1e-4) return false;
+
+  umbrellaTargetDirection.subVectors(target, umbrellaShoulderWorld);
+  const targetDistance = THREE.MathUtils.clamp(
+    umbrellaTargetDirection.length(),
+    Math.abs(upperLength - lowerLength) + 1e-4,
+    upperLength + lowerLength - 1e-4,
+  );
+  umbrellaTargetDirection.normalize();
+  const along = (
+    upperLength * upperLength - lowerLength * lowerLength + targetDistance * targetDistance
+  ) / (2 * targetDistance);
+  const outward = Math.sqrt(Math.max(0, upperLength * upperLength - along * along));
+  umbrellaPoleDirection.subVectors(pole, umbrellaShoulderWorld)
+    .addScaledVector(umbrellaTargetDirection, -umbrellaPoleDirection.dot(umbrellaTargetDirection));
+  if (umbrellaPoleDirection.lengthSq() < 1e-8) umbrellaPoleDirection.set(-1, 0, 0);
+  umbrellaPoleDirection.normalize();
+  umbrellaDesiredElbow.copy(umbrellaShoulderWorld)
+    .addScaledVector(umbrellaTargetDirection, along)
+    .addScaledVector(umbrellaPoleDirection, outward);
+  umbrellaGripWorld.copy(umbrellaShoulderWorld).addScaledVector(umbrellaTargetDirection, targetDistance);
+  aimBoneChildAt(upper, forearm, umbrellaDesiredElbow);
+  aimBoneChildAt(forearm, hand, umbrellaGripWorld);
+  return true;
+}
+
 export function poseUmbrellaArm(held, avatar, person) {
   if (!held || !avatar?.bones || !person) return false;
   const upper = avatar.bones.RightArm;
@@ -2058,48 +2275,28 @@ export function poseUmbrellaArm(held, avatar, person) {
   if (!upper || !forearm || !hand) return false;
 
   person.updateWorldMatrix(true, true);
-  upper.getWorldPosition(umbrellaShoulderWorld);
-  forearm.getWorldPosition(umbrellaElbowWorld);
-  hand.getWorldPosition(umbrellaHandWorld);
-  const upperLength = umbrellaShoulderWorld.distanceTo(umbrellaElbowWorld);
-  const lowerLength = umbrellaElbowWorld.distanceTo(umbrellaHandWorld);
-  if (upperLength < 1e-4 || lowerLength < 1e-4) return false;
-
   umbrellaGripWorld.set(UMBRELLA_GRIP_TARGET.x, UMBRELLA_GRIP_TARGET.y, UMBRELLA_GRIP_TARGET.z);
   person.localToWorld(umbrellaGripWorld);
   umbrellaPoleWorld.set(UMBRELLA_ELBOW_POLE.x, UMBRELLA_ELBOW_POLE.y, UMBRELLA_ELBOW_POLE.z);
   person.localToWorld(umbrellaPoleWorld);
-
-  umbrellaTargetDirection.subVectors(umbrellaGripWorld, umbrellaShoulderWorld);
-  const targetDistance = THREE.MathUtils.clamp(
-    umbrellaTargetDirection.length(),
-    Math.abs(upperLength - lowerLength) + 1e-4,
-    upperLength + lowerLength - 1e-4,
-  );
-  umbrellaTargetDirection.normalize();
-  // Analytic two-bone elbow location. The outward pole keeps the elbow beside
-  // the ribcage while the palm comes forward to a chest-height umbrella grip.
-  const along = (
-    upperLength * upperLength - lowerLength * lowerLength + targetDistance * targetDistance
-  ) / (2 * targetDistance);
-  const outward = Math.sqrt(Math.max(0, upperLength * upperLength - along * along));
-  umbrellaPoleDirection.subVectors(umbrellaPoleWorld, umbrellaShoulderWorld)
-    .addScaledVector(umbrellaTargetDirection, -umbrellaPoleDirection.dot(umbrellaTargetDirection));
-  if (umbrellaPoleDirection.lengthSq() < 1e-8) umbrellaPoleDirection.set(-1, 0, 0);
-  umbrellaPoleDirection.normalize();
-  umbrellaDesiredElbow.copy(umbrellaShoulderWorld)
-    .addScaledVector(umbrellaTargetDirection, along)
-    .addScaledVector(umbrellaPoleDirection, outward);
-  umbrellaGripWorld.copy(umbrellaShoulderWorld).addScaledVector(umbrellaTargetDirection, targetDistance);
-
   if (!held.handPose) held.handPose = hand.quaternion.clone();
-  aimBoneChildAt(upper, forearm, umbrellaDesiredElbow);
-  aimBoneChildAt(forearm, hand, umbrellaGripWorld);
+  if (!solveTwoBoneArm(upper, forearm, hand, umbrellaGripWorld, umbrellaPoleWorld)) return false;
   hand.quaternion.copy(held.handPose);
   hand.updateWorldMatrix(false, true);
   hand.getWorldPosition(umbrellaHandWorld);
   held.gripError = umbrellaHandWorld.distanceTo(umbrellaGripWorld);
   return true;
+}
+
+function poseDoorReach(avatar, person, handleWorld) {
+  if (!avatar?.bones || !person || !handleWorld) return false;
+  const { LeftArm, LeftForeArm, LeftHand } = avatar.bones;
+  if (!LeftArm || !LeftForeArm || !LeftHand) return false;
+  person.updateWorldMatrix(true, true);
+  umbrellaGripWorld.copy(handleWorld);
+  umbrellaPoleWorld.set(0.52, 1.02, 0.02);
+  person.localToWorld(umbrellaPoleWorld);
+  return solveTwoBoneArm(LeftArm, LeftForeArm, LeftHand, umbrellaGripWorld, umbrellaPoleWorld);
 }
 
 const umbrellaWorldQuaternion = new THREE.Quaternion();
@@ -2118,6 +2315,25 @@ function alignHeldUmbrella(held) {
 }
 
 // pedestrians drifting past the windows outside
+function setRainExteriorTint(root, dimmed) {
+  if (!root || root.userData.rainExteriorTint === dimmed) return;
+  const seen = new Set();
+  root.traverse((object) => {
+    if (!object.isMesh) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (!material?.color || seen.has(material)) continue;
+      seen.add(material);
+      if (material.userData.vibeIndoorColor === undefined) {
+        material.userData.vibeIndoorColor = material.color.getHex();
+      }
+      material.color.setHex(material.userData.vibeIndoorColor);
+      if (dimmed) material.color.multiplyScalar(0.64);
+    }
+  });
+  root.userData.rainExteriorTint = dimmed;
+}
+
 class OutsideLife {
   constructor(cafe, models = null, charKeys = []) {
     this.cafe = cafe;
@@ -2139,13 +2355,7 @@ class OutsideLife {
           frustumCulling: true,
         });
         avatar.blob.visible = false;
-        if (rainy) {
-          avatar.root.traverse((o) => {
-            if (!o.isMesh) return;
-            const materials = Array.isArray(o.material) ? o.material : [o.material];
-            materials.forEach((material) => material?.color?.multiplyScalar(0.64));
-          });
-        }
+        if (rainy) setRainExteriorTint(avatar.root, true);
         avatar.setMode('walk', rand(0.9, 1.2));
         person = avatar.root;
         person.userData.avatar = avatar;
@@ -2183,6 +2393,7 @@ class OutsideLife {
     this.group.add(person);
     alignHeldUmbrella(heldUmbrella);
     this.walkers.push(walker);
+    return walker;
   }
 
   streetZ() {
@@ -2190,6 +2401,65 @@ class OutsideLife {
   }
 
   setQuality(level) { this.qualityLevel = level; }
+
+  get availableArrivals() {
+    // Preserve at least three figures in the street view even during a busy
+    // arrival wave. Departing patrons replenish this same pool.
+    return Math.max(0, this.walkers.length - 3);
+  }
+
+  claimArrival() {
+    if (this.availableArrivals <= 0) return null;
+    let bestIndex = 0;
+    let bestDistance = Infinity;
+    for (let index = 0; index < this.walkers.length; index += 1) {
+      const distance = Math.abs(this.walkers[index].x);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    }
+    const [walker] = this.walkers.splice(bestIndex, 1);
+    this.group.remove(walker.mesh);
+    return walker;
+  }
+
+  acceptDeparture(npc, direction, useUmbrella, appearanceIndex) {
+    let umbrella = npc.umbrella ?? null;
+    if (useUmbrella && !umbrella) {
+      umbrella = attachHeldUmbrella(npc.mesh, npc.avatar, appearanceIndex);
+    }
+    if (umbrella) {
+      umbrella.root.visible = useUmbrella;
+      setHeldUmbrellaOpen(umbrella, useUmbrella ? 1 : 0);
+    }
+    if (useUmbrella) npc.setCup(false);
+    if (npc.avatar) setRainExteriorTint(npc.mesh, !!this.cafe.theme.rain);
+    if (npc.avatar) {
+      npc.avatar.blob.visible = false;
+      npc.avatar.setMode('walk', rand(0.9, 1.2));
+    } else if (npc.mesh.userData.parts?.blob) {
+      npc.mesh.userData.parts.blob.visible = false;
+    }
+    const walker = {
+      mesh: npc.mesh,
+      avatar: npc.avatar,
+      dir: direction,
+      speed: rand(0.7, 1.4),
+      phase: npc.walkPhase,
+      x: npc.mesh.position.x,
+      z: npc.mesh.position.z,
+      umbrella: useUmbrella ? umbrella : null,
+      stowedUmbrella: useUmbrella ? null : umbrella,
+    };
+    walker.mesh.position.set(walker.x, 0, walker.z);
+    walker.mesh.rotation.y = direction > 0 ? Math.PI / 2 : -Math.PI / 2;
+    this.group.add(walker.mesh);
+    alignHeldUmbrella(walker.umbrella);
+    this.walkers.push(walker);
+    npc.umbrella = null;
+    return walker;
+  }
 
   update(dt) {
     this.updateDebt += dt;
@@ -2280,9 +2550,14 @@ export class CrowdSim {
     this.playerSeat = -1;
     this.maxCrowd = cafe.theme.crowd ?? 9;
     this.qualityLevel = 2;
+    this.umbrellaSerial = 8;
+    this.doorFlow = new DoorCoordinator(cafe.entrance, () => {
+      if (this.audio?.started) this.audio.playChime();
+    });
     this.barista = new Barista(this);
-    // Detailed hero patrons stay indoors, where their face and clothing can be
-    // read. Exterior walkers use the lighter cast and never duplicate heroes.
+    // Exterior walkers are a real actor pool: arrivals are claimed from it and
+    // departing indoor patrons are returned to it, so identity continues
+    // through the doorway without creating and destroying character clones.
     this.outside = new OutsideLife(cafe, models, this.standardCharKeys);
     this.staticPatrons = [];
     this._placeStaticPatron();
@@ -2544,6 +2819,7 @@ export class CrowdSim {
 
   update(dt, t, listenerPos = null) {
     this.listenerPos = listenerPos;
+    this.doorFlow.update();
     this.barista.update(dt, t);
     this.outside.update(dt);
 
@@ -2580,39 +2856,45 @@ export class CrowdSim {
       // fill faster while the room is empty, trickle when it's lively
       const fill = this.npcs.length / this.maxCrowd;
       this.spawnCooldown = rand(4, 10) + fill * rand(6, 14);
-      const asPair = Math.random() < 0.3 && this.npcs.length < this.maxCrowd - 1;
+      let spawned = false;
+      const asPair = this.outside.availableArrivals >= 2
+        && Math.random() < 0.3
+        && this.npcs.length < this.maxCrowd - 1;
       if (asPair) {
         const pair = this._freePairSeats();
         if (pair) {
+          const sourceA = this.outside.claimArrival();
+          const sourceB = this.outside.claimArrival();
           this.takenSeats.add(pair[0]);
           this.takenSeats.add(pair[1]);
-          const a = new NPC(this, { seatIndex: pair[0], activity: 'chat' });
-          const b = new NPC(this, { seatIndex: pair[1], activity: 'chat', silent: true });
+          const a = new NPC(this, { seatIndex: pair[0], activity: 'chat', sourceWalker: sourceA });
+          const b = new NPC(this, { seatIndex: pair[1], activity: 'chat', sourceWalker: sourceB });
           a.partner = b; b.partner = a;
           a.pairLead = true;
           b.sitDuration = a.sitDuration = rand(60, 160);
           this.npcs.push(a, b);
+          spawned = true;
         }
-      } else {
-        const seat = this._freeSeat();
-        // lead the session with the hero patrons — they only walk through
-        // (order + pick up at the counter), so give them the early arrivals
-        // instead of leaving their appearance to a rare to-go roll
-        const heroWaiting = this.heroKeys.length > this._usedHeroKeys.size;
-        const toGo = heroWaiting || Math.random() < 0.3 || seat < 0;
-        if (!toGo) this.takenSeats.add(seat);
-        this.npcs.push(new NPC(this, { seatIndex: toGo ? -1 : seat }));
       }
+      if (!spawned && this.outside.availableArrivals > 0) {
+        const sourceWalker = this.outside.claimArrival();
+        const seat = this._freeSeat();
+        const toGo = Math.random() < 0.3 || seat < 0;
+        if (!toGo) this.takenSeats.add(seat);
+        this.npcs.push(new NPC(this, { seatIndex: toGo ? -1 : seat, sourceWalker }));
+        spawned = true;
+      }
+      if (!spawned) this.spawnCooldown = Math.min(this.spawnCooldown, 4);
     }
 
     for (let i = this.npcs.length - 1; i >= 0; i--) {
       const npc = this.npcs[i];
       npc.update(dt, t);
-      if (npc.state === 'gone') {
+      if (npc.state === 'gone' || npc.state === 'transferred') {
         this.dequeue(npc);
         if (this.ordering === npc) this.ordering = null;
         if (this.brewFor === npc) this.brewFor = null;
-        npc.dispose();
+        if (npc.state === 'gone') npc.dispose();
         this.npcs.splice(i, 1);
       }
     }

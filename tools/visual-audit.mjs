@@ -157,8 +157,8 @@ try {
     });`);
 
   const files = [];
-  async function capture(name) {
-    await delay(700);
+  async function capture(name, settleMilliseconds = 700) {
+    await delay(settleMilliseconds);
     const { data } = await client.send('Page.captureScreenshot', {
       format: 'png',
       captureBeyondViewport: false,
@@ -202,6 +202,126 @@ try {
     }
   }
 
+  // Follow one real street actor through the hinged door and back out. The
+  // mesh UUID must remain identical across both ownership handoffs.
+  await switchTo(0);
+  const goldenActorCount = await client.evaluate(`window.__vibe.crowd.npcs.length
+    + window.__vibe.crowd.outside.walkers.length`);
+  await client.evaluate(`window.__vibe.place(-1.4, 5.15, -2.48, 0.02);
+    window.__vibe.crowd.npcs.forEach((npc) => { npc.sitDuration = 9999; });
+    window.__vibe.crowd.outside.walkers.forEach((walker, index) => {
+      walker.x = index === 0 ? 0 : 8 + index;
+      walker.mesh.position.x = walker.x;
+    });
+    window.__vibe.crowd.spawnCooldown = 0;`);
+  const arrivalIdentity = await retry(async () => {
+    const result = await client.evaluate(`(() => {
+      const npc = window.__vibe.crowd.npcs.find((candidate) => candidate.sourceWalker);
+      if (!npc) return null;
+      npc.speed = 2.2;
+      return { uuid: npc.mesh.uuid, state: npc.state };
+    })()`);
+    if (!result || result.state !== 'crossingDoorIn') throw new Error('arrival has not reached the open door');
+    return result.uuid;
+  }, 'visible café arrival', 400);
+  await capture('goldenhour-door-arrival', 80);
+  await retry(async () => {
+    const ready = await client.evaluate(`(() => {
+      const npc = window.__vibe.crowd.npcs.find((candidate) => candidate.mesh.uuid === '${arrivalIdentity}');
+      if (!npc || (npc.state !== 'queueing' && npc.state !== 'ordering')) return false;
+      const crowd = window.__vibe.crowd;
+      if (crowd.ordering === npc) crowd.ordering = null;
+      crowd.dequeue(npc);
+      if (npc.seatIndex >= 0) crowd.releaseSeat(npc.seatIndex);
+      npc.seatIndex = -1;
+      npc.speed = 2.2;
+      npc._beginExit();
+      return true;
+    })()`);
+    if (!ready) throw new Error('arrival has not entered the café');
+  }, 'arrival inside café', 400);
+  await retry(async () => {
+    const state = await client.evaluate(`window.__vibe.crowd.npcs
+      .find((npc) => npc.mesh.uuid === '${arrivalIdentity}')?.state`);
+    if (state !== 'crossingDoorOut') throw new Error('departure has not reached the open door');
+    return state;
+  }, 'visible café departure', 400);
+  await capture('goldenhour-door-departure', 80);
+  const goldenIdentityContinuous = await retry(async () => {
+    const found = await client.evaluate(`window.__vibe.crowd.outside.walkers
+      .some((walker) => walker.mesh.uuid === '${arrivalIdentity}')`);
+    if (!found) throw new Error('departing actor has not joined the pavement');
+    return found;
+  }, 'pavement handoff', 400);
+  const goldenActorCountStable = await client.evaluate(`window.__vibe.crowd.npcs.length
+    + window.__vibe.crowd.outside.walkers.length === ${goldenActorCount}`);
+
+  // In rain, an arriving umbrella user closes outside, crosses with the
+  // canopy folded, then reopens it only after leaving the door again.
+  await switchTo(2);
+  const rainyActorCount = await client.evaluate(`window.__vibe.crowd.npcs.length
+    + window.__vibe.crowd.outside.walkers.length`);
+  await client.evaluate(`window.__vibe.place(-1.4, 5.15, -2.48, 0.02);
+    window.__vibe.crowd.npcs.forEach((npc) => { npc.sitDuration = 9999; });
+    const holder = window.__vibe.crowd.outside.walkers.find((walker) => walker.umbrella);
+    window.__vibe.crowd.outside.walkers.forEach((walker, index) => {
+      walker.x = walker === holder ? 0 : 8 + index;
+      walker.mesh.position.x = walker.x;
+    });
+    window.__vibe.crowd.spawnCooldown = 0;`);
+  const rainyIdentity = await retry(async () => {
+    const result = await client.evaluate(`(() => {
+      const npc = window.__vibe.crowd.npcs.find((candidate) => candidate.sourceWalker?.umbrella);
+      if (!npc) return null;
+      npc.speed = 2.2;
+      return { uuid: npc.mesh.uuid, state: npc.state, open: npc.umbrella?.openAmount ?? 0 };
+    })()`);
+    if (!result || result.state !== 'waitingDoorIn' || result.open < 0.15 || result.open > 0.8) {
+      throw new Error('umbrella is not in its closing transition');
+    }
+    return result.uuid;
+  }, 'umbrella closing before entry', 400);
+  await capture('midnight-umbrella-closing', 80);
+  await retry(async () => {
+    const ready = await client.evaluate(`(() => {
+      const npc = window.__vibe.crowd.npcs.find((candidate) => candidate.mesh.uuid === '${rainyIdentity}');
+      if (!npc || (npc.state !== 'queueing' && npc.state !== 'ordering')) return false;
+      const crowd = window.__vibe.crowd;
+      if (crowd.ordering === npc) crowd.ordering = null;
+      crowd.dequeue(npc);
+      if (npc.seatIndex >= 0) crowd.releaseSeat(npc.seatIndex);
+      npc.seatIndex = -1;
+      npc.speed = 2.2;
+      npc._beginExit();
+      npc.exitUsesUmbrella = true;
+      return true;
+    })()`);
+    if (!ready) throw new Error('rainy arrival has not entered the café');
+  }, 'rainy arrival inside café', 400);
+  await retry(async () => {
+    const result = await client.evaluate(`(() => {
+      const npc = window.__vibe.crowd.npcs.find((candidate) => candidate.mesh.uuid === '${rainyIdentity}');
+      return npc ? { state: npc.state, open: npc.umbrella?.openAmount ?? 0 } : null;
+    })()`);
+    if (!result || result.state !== 'openingUmbrella' || result.open < 0.15 || result.open > 0.85) {
+      throw new Error('umbrella is not in its opening transition');
+    }
+    return result;
+  }, 'umbrella opening after exit', 400);
+  await capture('midnight-umbrella-opening', 80);
+  const rainyIdentityContinuous = await retry(async () => {
+    const result = await client.evaluate(`(() => {
+      const walker = window.__vibe.crowd.outside.walkers
+        .find((candidate) => candidate.mesh.uuid === '${rainyIdentity}');
+      return walker ? { found: true, open: walker.umbrella?.openAmount ?? 0 } : null;
+    })()`);
+    if (!result?.found || result.open < 0.94) throw new Error('rainy actor has not rejoined with an open umbrella');
+    return true;
+  }, 'rainy pavement handoff', 400);
+  const rainyActorCountStable = await client.evaluate(`window.__vibe.crowd.npcs.length
+    + window.__vibe.crowd.outside.walkers.length === ${rainyActorCount}`);
+
+  await switchTo(0);
   await switchTo(2);
   await client.evaluate(`window.__vibe.crowd.npcs.forEach((npc) => { npc.mesh.visible = false; });
   window.__vibe.crowd.staticPatrons.forEach((patron) => { patron.model.visible = false; });
@@ -214,10 +334,17 @@ try {
   await delay(1800);
   await capture('midnight-rainy-street');
   const rainyMetrics = await client.evaluate('window.__vibe.metrics()');
+  const continuityChecks = {
+    goldenIdentityContinuous,
+    goldenActorCountStable,
+    rainyIdentityContinuous,
+    rainyActorCountStable,
+  };
   const passed = rainyMetrics.outsideUmbrellas > 0
     && rainyMetrics.outsideUmbrellas < rainyMetrics.outsidePedestrians
-    && rainyMetrics.outsideUmbrellaGripError < 0.02;
-  const manifest = { url: APP_URL, files, rainyMetrics, passed };
+    && rainyMetrics.outsideUmbrellaGripError < 0.02
+    && Object.values(continuityChecks).every(Boolean);
+  const manifest = { url: APP_URL, files, rainyMetrics, continuityChecks, passed };
   await writeFile(join(OUTPUT_DIR, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(JSON.stringify(manifest, null, 2));
   if (!passed) process.exitCode = 1;
