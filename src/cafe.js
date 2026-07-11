@@ -6,6 +6,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { cloneModel } from './modelLoader.js';
 import { TEXTURE_MANIFEST } from './textureManifest.js';
+import { clockAngles } from './clock.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -2442,6 +2443,36 @@ export function buildCafe(theme, models = null) {
     };
     clockGroup.userData.hourHand = mkHand(0.14, 0.02);
     clockGroup.userData.minHand = mkHand(0.2, 0.014);
+    // slim second hand with a short counterweight tail, in a warm accent so it
+    // reads at seat distance without stealing attention
+    const secondHand = new THREE.Mesh(
+      new THREE.BoxGeometry(0.006, 0.27, 0.005),
+      new THREE.MeshStandardMaterial({ color: 0xa14034, roughness: 0.55 })
+    );
+    secondHand.geometry.translate(0, 0.27 / 2 - 0.055, 0);
+    secondHand.position.z = 0.034;
+    clockGroup.add(secondHand);
+    clockGroup.userData.secondHand = secondHand;
+    // twelve dial marks (cardinal ones heavier) and a centre pin, merged into
+    // a single mesh so the readable dial costs one draw call
+    {
+      const parts = [];
+      for (let i = 0; i < 12; i += 1) {
+        const cardinal = i % 3 === 0;
+        const mark = new THREE.BoxGeometry(cardinal ? 0.016 : 0.008, cardinal ? 0.05 : 0.028, 0.012);
+        const angle = (i / 12) * Math.PI * 2;
+        mark.rotateZ(-angle);
+        mark.translate(Math.sin(angle) * 0.232, Math.cos(angle) * 0.232, 0.022);
+        parts.push(mark);
+      }
+      const pin = new THREE.CylinderGeometry(0.013, 0.013, 0.012, 10);
+      pin.rotateX(Math.PI / 2);
+      pin.translate(0, 0, 0.039);
+      parts.push(pin);
+      const dial = new THREE.Mesh(mergeGeometries(parts, false), woodDarkMat);
+      clockGroup.add(dial);
+      parts.forEach((part) => part.dispose());
+    }
     if (theme.openAir) {
       // hangs on the kiosk face instead — there is no right wall out here
       clockGroup.position.set(-4.9, 2.75, -D / 2 + 0.22);
@@ -3430,12 +3461,12 @@ export function buildCafe(theme, models = null) {
     lampLights.forEach((pl) => {
       pl.intensity = theme.lampIntensity;
     });
-    // the clock keeps real time
-    const now = new Date();
-    const mins = now.getMinutes() + now.getSeconds() / 60;
-    const hrs = (now.getHours() % 12) + mins / 60;
-    clockGroup.userData.minHand.rotation.z = -(mins / 60) * Math.PI * 2;
-    clockGroup.userData.hourHand.rotation.z = -(hrs / 12) * Math.PI * 2;
+    // The clock keeps real local time: always wall-clock `Date`, never
+    // accumulated dt, so a throttled or backgrounded tab cannot drift it.
+    const angles = clockAngles(new Date());
+    clockGroup.userData.minHand.rotation.z = -angles.minute;
+    clockGroup.userData.hourHand.rotation.z = -angles.hour;
+    clockGroup.userData.secondHand.rotation.z = -angles.second;
     if (fan) fan.rotation.y += dt * 2.4;
     candleFlames.forEach((f, i) => {
       // A low-amplitude, continuous flame motion preserves candle ambience
