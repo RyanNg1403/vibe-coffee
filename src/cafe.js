@@ -7,6 +7,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { cloneModel } from './modelLoader.js';
 import { TEXTURE_MANIFEST } from './textureManifest.js';
 import { clockAngles } from './clock.js';
+import { GREENERY } from './decor/decorManifest.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -1416,10 +1417,23 @@ export function buildCafe(theme, models = null) {
       tr.position.set(tx, 0, tz);
       group.add(tr);
     };
-    for (const [tx, tz, s] of [[-12, 4, 1.3], [-11, -4, 1.0], [12, 2, 1.2], [11.5, -5, 0.9],
-      [-6, 11.5, 1.1], [5, 12.5, 1.4], [12, 10, 1.0], [-12.5, 10.5, 1.2], [-4, -11, 1.1], [6, -11.5, 1.3]]) {
-      mkTree(tx, tz, s);
-    }
+    [[-12, 4, 1.3], [-11, -4, 1.0], [12, 2, 1.2], [11.5, -5, 0.9],
+      [-6, 11.5, 1.1], [5, 12.5, 1.4], [12, 10, 1.0], [-12.5, 10.5, 1.2], [-4, -11, 1.1], [6, -11.5, 1.3]]
+      .forEach(([tx, tz, s], treeIndex) => {
+        // authored silhouettes carry the near ring; cheap blob trees keep the
+        // far depth so the park stays inside the terrace triangle budget
+        const model = treeIndex % 2 === 0
+          ? cloneModel(models, treeIndex % 4 === 0 ? 'tree_park_a' : 'tree_park_b')
+          : null;
+        if (model) {
+          model.position.set(tx, 0, tz);
+          model.rotation.y = rand(0, Math.PI * 2);
+          model.scale.setScalar(s * rand(0.92, 1.15));
+          group.add(model);
+        } else {
+          mkTree(tx, tz, s);
+        }
+      });
     for (let i = 0; i < 14; i++) {
       const bush = new THREE.Mesh(new THREE.SphereGeometry(rand(0.3, 0.6), 7, 6), pick(leafMats));
       const ang = rand(0, Math.PI * 2), rr = rand(10, 16);
@@ -2288,13 +2302,20 @@ export function buildCafe(theme, models = null) {
     [-W / 2 + 0.6, 3.6], [-W / 2 + 0.6, -2.0], [W / 2 - 0.6, 0.4],
     [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
   ];
-  for (let i = 0; i < Math.min(theme.plants, plantSpots.length); i++) {
-    // alternate downloaded plant models with procedural ones for variety
-    const fromLib = i % 2 === 0 ? cloneModel(models, 'plant') : null;
+  // Authored species palette per café (decor/decorManifest.js): recognizable
+  // monstera/sansevieria/pothos/fern silhouettes instead of generic cones.
+  const greenery = GREENERY[theme.id] ?? GREENERY.goldenhour;
+  for (const spec of greenery.floor.slice(0, Math.min(theme.plants, plantSpots.length))) {
+    const [px, pz] = plantSpots[spec.spot];
+    const fromLib = cloneModel(models, spec.kind);
     const p = fromLib ?? makePlant(theme.woodDark, { pot: plantPotMat, leaf: foliageMat });
-    p.position.set(plantSpots[i][0], 0, plantSpots[i][1]);
-    p.scale.setScalar(fromLib ? rand(1.0, 1.5) : rand(1.2, 2.0));
+    p.position.set(px, 0, pz);
+    p.rotation.y = rand(0, Math.PI * 2); // no two plants share a facing
+    const scale = spec.scale ? rand(spec.scale[0], spec.scale[1]) : rand(1.0, 1.4);
+    p.scale.setScalar(fromLib ? scale : scale * 1.5);
     group.add(p);
+    // only the large statement pots block walking; leaves never do
+    if (spec.collider && fromLib) extraColliders.push({ x: px, z: pz, r: spec.collider });
   }
 
   // rugs under the seating clusters
@@ -2935,14 +2956,24 @@ export function buildCafe(theme, models = null) {
       const cord = cyl(0.006, 0.006, 0.8, woodDarkMat, 6);
       cord.position.y = 0.4;
       hp.add(cord);
-      const pot = cyl(0.13, 0.09, 0.16, new THREE.MeshStandardMaterial({ color: 0xc9b394, roughness: 0.9 }));
-      pot.position.y = -0.05;
-      hp.add(pot);
-      for (let i = 0; i < 6; i++) {
-        const vine = cyl(0.015, 0.008, rand(0.3, 0.6), leafMat, 5);
-        vine.position.set(rand(-0.1, 0.1), -0.25 - vine.geometry.parameters.height / 4, rand(-0.1, 0.1));
-        vine.rotation.set(rand(-0.4, 0.4), 0, rand(-0.4, 0.4));
-        hp.add(vine);
+      const vineModel = cloneModel(models, greenery.hangingKind ?? 'plant_pothos_vine');
+      if (vineModel) {
+        // the model brings its own hanging pot; its top hangs from the cord
+        // and the vine trails below it
+        vineModel.position.y = -0.58;
+        vineModel.rotation.y = rand(0, Math.PI * 2);
+        vineModel.scale.setScalar(rand(0.95, 1.15));
+        hp.add(vineModel);
+      } else {
+        const pot = cyl(0.13, 0.09, 0.16, new THREE.MeshStandardMaterial({ color: 0xc9b394, roughness: 0.9 }));
+        pot.position.y = -0.05;
+        hp.add(pot);
+        for (let i = 0; i < 6; i++) {
+          const vine = cyl(0.015, 0.008, rand(0.3, 0.6), leafMat, 5);
+          vine.position.set(rand(-0.1, 0.1), -0.25 - vine.geometry.parameters.height / 4, rand(-0.1, 0.1));
+          vine.rotation.set(rand(-0.4, 0.4), 0, rand(-0.4, 0.4));
+          hp.add(vine);
+        }
       }
       hp.position.set(hx, H - 1.0, D / 2 - 0.75);
       group.add(hp);
@@ -3075,8 +3106,11 @@ export function buildCafe(theme, models = null) {
     }
     // little potted succulents scattered on the counter and window sills
     const sillY = 0.9 + 1.9; // window head
+    const sillKinds = (GREENERY[theme.id] ?? GREENERY.goldenhour).sill
+      ?? ['cactus_pot', 'plant_small'];
     for (const [sx, sy, sz] of [[-3.3, 1.06, -D / 2 + 1.15], [3.0, 1.06, -D / 2 + 1.15], [-W / 2 + 0.15, sillY - 1.0, -2.5], [-W / 2 + 0.15, sillY - 1.0, 2.5]]) {
-      const sm = Math.random() < 0.5 ? cloneModel(models, 'cactus_pot') : cloneModel(models, 'plant_small');
+      const sm = cloneModel(models, pick(sillKinds))
+        ?? cloneModel(models, 'plant_small') ?? cloneModel(models, 'cactus_pot');
       if (sm) { sm.position.set(sx, sy, sz); sm.rotation.y = rand(0, Math.PI * 2); group.add(sm); }
     }
     // a round brass mirror above the art row

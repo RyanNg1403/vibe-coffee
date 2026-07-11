@@ -433,18 +433,24 @@ try {
   await delay(3200);
   await capture('auto-efficiency-overview', 500);
   // The thermal contract is "ambient Auto never runs hotter than ~24 FPS".
-  // Running slower is only a failure when the renderer has headroom: on
-  // software-GL machines a single render already costs more than the 24 FPS
-  // budget, so the observed rate can never reach the target window.
-  const cadenceSettled = (metrics) => metrics.observedFps <= 26
-    && (metrics.observedFps >= 22 || metrics.lastRenderMs > 34);
+  // Running slower is only a failure when the browser actually delivers
+  // animation frames at the target rate (a scheduler bug); when the machine
+  // itself starves rAF below the target (software-GL renderers defer the real
+  // rasterization cost past renderer.render(), so render timings look cheap
+  // while frames arrive seconds apart), cadence physically cannot settle and
+  // the CPU-per-frame gate in tools/perf-baseline.mjs guards cost instead.
+  let cadenceState = null;
   const autoMetrics = await retry(async () => {
+    const before = await client.evaluate('window.__vibe.metrics()');
+    await delay(4000);
     const metrics = await client.evaluate('window.__vibe.metrics()');
-    if (!cadenceSettled(metrics)) {
-      throw new Error('Auto cadence has not settled');
-    }
+    const rafRate = ((metrics.renderedFrames + metrics.skippedFrames)
+      - (before.renderedFrames + before.skippedFrames)) / 4;
+    cadenceState = { rafRate: Number(rafRate.toFixed(1)), observedFps: metrics.observedFps };
+    if (metrics.observedFps > 26) throw new Error('Auto cadence runs hotter than the contract');
+    if (metrics.observedFps < 22 && rafRate >= 22) throw new Error('Auto cadence has not settled');
     return metrics;
-  }, 'steady Auto cadence', 100);
+  }, 'steady Auto cadence', 25);
   const continuityChecks = {
     goldenIdentityContinuous,
     goldenActorCountStable,
@@ -459,9 +465,8 @@ try {
     && autoMetrics.qualityMode === 'auto'
     && autoMetrics.effects === 0
     && autoMetrics.targetFps === 24
-    && cadenceSettled(autoMetrics)
     && Object.values(continuityChecks).every(Boolean);
-  const manifest = { url: APP_URL, files, rainyMetrics, autoMetrics, continuityChecks, passed };
+  const manifest = { url: APP_URL, files, rainyMetrics, autoMetrics, cadenceState, continuityChecks, passed };
   await writeFile(join(OUTPUT_DIR, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(JSON.stringify(manifest, null, 2));
   if (!passed) process.exitCode = 1;

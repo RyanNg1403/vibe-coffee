@@ -54,6 +54,16 @@ const NORMALIZE = {
   pet_dog: { height: 0.55, pet: true },
   // decor expansion
   cactus_pot: { height: 0.34 },
+  // greenery fidelity kit (Immersion V2): heights are real-world plant sizes
+  plant_monstera: { height: 1.15 },
+  plant_snake: { height: 0.72 },
+  plant_pothos: { height: 0.6 },
+  plant_pothos_vine: { height: 0.55 }, // trailing: hung so its top meets the pot rim
+  plant_fern: { height: 0.5 },
+  plant_succulent: { height: 0.3 },
+  plant_cacti: { height: 0.26 },
+  tree_park_a: { height: 3.4 },
+  tree_park_b: { height: 2.9 },
   crate: { height: 0.42 },
   table_lamp: { height: 0.48 },
   typewriter: { height: 0.16 },
