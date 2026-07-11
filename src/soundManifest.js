@@ -19,6 +19,7 @@ export const SOUND_MANIFEST = {
   footsteps: { url: '/sounds/footsteps.mp3', loop: false }, // 12s
   grinder: { url: '/sounds/grinder.mp3', loop: false }, // 14s
   laughter: { url: '/sounds/laughter.mp3', loop: false }, // 6.3s
+  macbook_typing: { url: '/sounds/macbook_typing.mp3', loop: false }, // 12.5s
   page_turn: { url: '/sounds/page_turn.mp3', loop: false }, // 1.8s
   pour: { url: '/sounds/pour.mp3', loop: false }, // 5.5s
   rain_window: { url: '/sounds/rain_window.mp3', loop: true }, // 28.1s

@@ -1313,13 +1313,16 @@ export class CafeAudio {
     }
   }
 
-  _typeBurst(pos, volumeScale = 1, trackPlayer = false) {
+  _typeBurst(pos, volumeScale = 1, trackPlayer = false, opts = {}) {
     if (!this.ctx) return;
     const out = pos ? this._panner(pos.x, 0.9, pos.z, this.foleyBus) : this.foleyBus;
-    if (this._buf('typing')) {
-      const node = this._playBuf('typing', {
-        out, vol: rand(0.2, 0.4) * volumeScale, rate: rand(0.95, 1.05),
-        randomSlice: true, dur: rand(1.2, 3),
+    // preferred recording first (the player's MacBook), then the generic
+    // laptop take that NPC laptops keep using, then the synth fallback
+    const key = opts.key && this._buf(opts.key) ? opts.key : this._buf('typing') ? 'typing' : null;
+    if (key) {
+      const node = this._playBuf(key, {
+        out, vol: rand(0.2, 0.4) * volumeScale, rate: rand(0.96, 1.04),
+        randomSlice: true, dur: opts.dur ?? rand(1.2, 3),
       });
       if (trackPlayer && node) this._playerTypingNodes = [node.src];
       return;
@@ -1342,11 +1345,16 @@ export class CafeAudio {
     if (trackPlayer) this._playerTypingNodes = nodes;
   }
 
-  playPlayerTyping(pos) {
+  // The player's own keyboard. `intentional` marks a direct click on the
+  // laptop: an immediate, slightly closer-present burst. Scheduled focus-mode
+  // bursts stay tucked under the room bed. Both replace the previous source,
+  // so rapid clicks or a click over a scheduled burst can never stack.
+  playPlayerTyping(pos, { intentional = false } = {}) {
     this.stopPlayerTyping();
-    // Same spatial and recorded/synth pipeline as NPC laptops, but tucked well
-    // underneath the room bed so it reads as the player's nearby keyboard.
-    this._typeBurst(pos, 0.34, true);
+    this._typeBurst(pos, intentional ? 0.52 : 0.3, true, {
+      key: 'macbook_typing',
+      dur: intentional ? rand(1.2, 2.5) : rand(1.4, 3),
+    });
     this.playerTypingBursts = (this.playerTypingBursts ?? 0) + 1;
   }
 
