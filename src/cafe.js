@@ -121,6 +121,18 @@ export function wallArtDepths(roomWidth = ROOM.W) {
   };
 }
 
+export const WALL_CLOCK_RADIUS = 0.3;
+export const WALL_MIRROR_RADIUS = 0.345;
+export function rightWallDecorLayout() {
+  return {
+    clock: { y: 2.55, z: 2.2, radius: WALL_CLOCK_RADIUS },
+    // The indoor cafés share this mirror. It sits above the central artwork;
+    // the old z=1.95 placement was only 25 cm from the clock centre and made
+    // the two circles look like one broken object from across the room.
+    mirror: { y: 2.72, z: 0.8, radius: WALL_MIRROR_RADIUS },
+  };
+}
+
 // ---------- environment: time of day × weather ----------
 // Each café keeps its interior palette and layout; these presets only patch
 // the sky-driven fields (sun, ambient light, fog, exposure, street look).
@@ -2373,6 +2385,7 @@ export function buildCafe(theme, models = null) {
   });
 
   // a working wall clock on the right wall
+  const rightWallDecor = rightWallDecorLayout();
   const clockGroup = new THREE.Group();
   {
     const face = cyl(0.28, 0.28, 0.04, ceramicMat, 24);
@@ -2393,7 +2406,11 @@ export function buildCafe(theme, models = null) {
       // hangs on the kiosk face instead — there is no right wall out here
       clockGroup.position.set(-4.9, 2.75, -D / 2 + 0.22);
     } else {
-      clockGroup.position.set(W / 2 - 0.12, 2.55, 2.2);
+      clockGroup.position.set(
+        W / 2 - 0.12,
+        rightWallDecor.clock.y,
+        rightWallDecor.clock.z,
+      );
       clockGroup.rotation.y = -Math.PI / 2;
     }
     group.add(clockGroup);
@@ -2993,7 +3010,11 @@ export function buildCafe(theme, models = null) {
     }
     // a round brass mirror above the art row
     const mirror = makeWallMirror();
-    mirror.position.set(W / 2 - 0.1, 2.72, 1.95);
+    mirror.position.set(
+      W / 2 - 0.1,
+      rightWallDecor.mirror.y,
+      rightWallDecor.mirror.z,
+    );
     mirror.rotation.y = -Math.PI / 2;
     group.add(mirror);
     // a lantern on a lounge side table if we have one

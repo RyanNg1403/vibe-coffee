@@ -9,6 +9,7 @@
     "build": "vite build",
     "artifact": "node tools/make-artifact.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
+    "audit:visual": "node tools/visual-audit.mjs",
     "preview": "vite preview",
     "test": "node --test"
   },

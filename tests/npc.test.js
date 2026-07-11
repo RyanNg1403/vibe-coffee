@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import {
   attachHeldUmbrella,
   pedestrianUsesUmbrella,
-  stabilizeUmbrellaArm,
+  poseUmbrellaArm,
+  UMBRELLA_GRIP_TARGET,
 } from '../src/npc.js';
 
 test('rain umbrellas attach to a real hand and reuse shared geometry', () => {
@@ -33,26 +34,27 @@ test('rainy crowds always include umbrella users and non-users', () => {
   assert.equal(choices.filter((choice) => !choice).length, 2);
 });
 
-test('an imported umbrella holder keeps the holding arm pose fixed', () => {
+test('an imported umbrella holder bends its arm to a chest-height grip', () => {
   const person = new THREE.Group();
   const upper = new THREE.Bone();
   const forearm = new THREE.Bone();
   const hand = new THREE.Bone();
+  upper.position.set(-0.2, 1.35, 0);
+  forearm.position.set(0, -0.3, 0);
+  hand.position.set(0, -0.3, 0);
   upper.add(forearm); forearm.add(hand); person.add(upper);
   const avatar = { bones: { RightArm: upper, RightForeArm: forearm, RightHand: hand } };
   const held = attachHeldUmbrella(person, avatar, 0);
 
-  upper.rotation.set(0.2, -0.1, 0.3);
-  forearm.rotation.set(-0.4, 0.2, 0.1);
-  hand.rotation.set(0.1, 0.1, -0.2);
-  stabilizeUmbrellaArm(held, avatar);
-  const captured = [upper, forearm, hand].map((bone) => bone.quaternion.clone());
-
-  upper.rotation.set(1, 1, 1);
-  forearm.rotation.set(1, 1, 1);
-  hand.rotation.set(1, 1, 1);
-  stabilizeUmbrellaArm(held, avatar);
-  [upper, forearm, hand].forEach((bone, index) => {
-    assert.ok(bone.quaternion.angleTo(captured[index]) < 1e-6);
-  });
+  assert.equal(poseUmbrellaArm(held, avatar, person), true);
+  const actual = hand.getWorldPosition(new THREE.Vector3());
+  const target = new THREE.Vector3(
+    UMBRELLA_GRIP_TARGET.x,
+    UMBRELLA_GRIP_TARGET.y,
+    UMBRELLA_GRIP_TARGET.z,
+  );
+  assert.ok(actual.distanceTo(target) < 1e-5);
+  assert.ok(actual.y > 1);
+  assert.ok(actual.z > 0.2);
+  assert.ok(held.gripError < 1e-5);
 });

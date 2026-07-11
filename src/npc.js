@@ -2009,25 +2009,97 @@ export function pedestrianUsesUmbrella(index) {
   return index % 4 !== 3;
 }
 
-export function stabilizeUmbrellaArm(held, avatar) {
-  if (!held || !avatar?.bones) return;
-  if (!held.armBones) {
-    held.armBones = [];
-    held.armPose = [];
-    for (const name of ['RightArm', 'RightForeArm', 'RightHand']) {
-      const bone = avatar.bones[name];
-      if (!bone) continue;
-      held.armBones.push(bone);
-      held.armPose.push(bone.quaternion.clone());
-    }
-    return;
+export const UMBRELLA_GRIP_TARGET = Object.freeze({ x: -0.11, y: 1.08, z: 0.24 });
+const UMBRELLA_ELBOW_POLE = Object.freeze({ x: -0.52, y: 1.04, z: 0.03 });
+
+// Reused two-bone IK scratch state. Six rainy walkers share these objects and
+// run sequentially, avoiding vectors/quaternions in the animation hot path.
+const umbrellaShoulderWorld = new THREE.Vector3();
+const umbrellaElbowWorld = new THREE.Vector3();
+const umbrellaHandWorld = new THREE.Vector3();
+const umbrellaGripWorld = new THREE.Vector3();
+const umbrellaPoleWorld = new THREE.Vector3();
+const umbrellaTargetDirection = new THREE.Vector3();
+const umbrellaPoleDirection = new THREE.Vector3();
+const umbrellaDesiredElbow = new THREE.Vector3();
+const umbrellaBoneOrigin = new THREE.Vector3();
+const umbrellaChildPosition = new THREE.Vector3();
+const umbrellaCurrentDirection = new THREE.Vector3();
+const umbrellaDesiredDirection = new THREE.Vector3();
+const umbrellaDeltaQuaternion = new THREE.Quaternion();
+const umbrellaBoneWorldQuaternion = new THREE.Quaternion();
+const umbrellaParentWorldQuaternion = new THREE.Quaternion();
+
+function aimBoneChildAt(bone, child, target) {
+  bone.getWorldPosition(umbrellaBoneOrigin);
+  child.getWorldPosition(umbrellaChildPosition);
+  umbrellaCurrentDirection.subVectors(umbrellaChildPosition, umbrellaBoneOrigin);
+  umbrellaDesiredDirection.subVectors(target, umbrellaBoneOrigin);
+  if (umbrellaCurrentDirection.lengthSq() < 1e-8 || umbrellaDesiredDirection.lengthSq() < 1e-8) return;
+  umbrellaCurrentDirection.normalize();
+  umbrellaDesiredDirection.normalize();
+  umbrellaDeltaQuaternion.setFromUnitVectors(umbrellaCurrentDirection, umbrellaDesiredDirection);
+  bone.getWorldQuaternion(umbrellaBoneWorldQuaternion);
+  umbrellaBoneWorldQuaternion.premultiply(umbrellaDeltaQuaternion);
+  if (bone.parent) {
+    bone.parent.getWorldQuaternion(umbrellaParentWorldQuaternion).invert();
+    bone.quaternion.copy(umbrellaParentWorldQuaternion.multiply(umbrellaBoneWorldQuaternion));
+  } else {
+    bone.quaternion.copy(umbrellaBoneWorldQuaternion);
   }
-  // Reuse the captured bones/quaternions. This runs after the walk mixer, so
-  // the free arm keeps swinging while the hand on the handle remains steady,
-  // without allocating arrays or Maps in the render loop.
-  for (let index = 0; index < held.armBones.length; index += 1) {
-    held.armBones[index].quaternion.copy(held.armPose[index]);
-  }
+  bone.updateWorldMatrix(false, true);
+}
+
+export function poseUmbrellaArm(held, avatar, person) {
+  if (!held || !avatar?.bones || !person) return false;
+  const upper = avatar.bones.RightArm;
+  const forearm = avatar.bones.RightForeArm;
+  const hand = avatar.bones.RightHand;
+  if (!upper || !forearm || !hand) return false;
+
+  person.updateWorldMatrix(true, true);
+  upper.getWorldPosition(umbrellaShoulderWorld);
+  forearm.getWorldPosition(umbrellaElbowWorld);
+  hand.getWorldPosition(umbrellaHandWorld);
+  const upperLength = umbrellaShoulderWorld.distanceTo(umbrellaElbowWorld);
+  const lowerLength = umbrellaElbowWorld.distanceTo(umbrellaHandWorld);
+  if (upperLength < 1e-4 || lowerLength < 1e-4) return false;
+
+  umbrellaGripWorld.set(UMBRELLA_GRIP_TARGET.x, UMBRELLA_GRIP_TARGET.y, UMBRELLA_GRIP_TARGET.z);
+  person.localToWorld(umbrellaGripWorld);
+  umbrellaPoleWorld.set(UMBRELLA_ELBOW_POLE.x, UMBRELLA_ELBOW_POLE.y, UMBRELLA_ELBOW_POLE.z);
+  person.localToWorld(umbrellaPoleWorld);
+
+  umbrellaTargetDirection.subVectors(umbrellaGripWorld, umbrellaShoulderWorld);
+  const targetDistance = THREE.MathUtils.clamp(
+    umbrellaTargetDirection.length(),
+    Math.abs(upperLength - lowerLength) + 1e-4,
+    upperLength + lowerLength - 1e-4,
+  );
+  umbrellaTargetDirection.normalize();
+  // Analytic two-bone elbow location. The outward pole keeps the elbow beside
+  // the ribcage while the palm comes forward to a chest-height umbrella grip.
+  const along = (
+    upperLength * upperLength - lowerLength * lowerLength + targetDistance * targetDistance
+  ) / (2 * targetDistance);
+  const outward = Math.sqrt(Math.max(0, upperLength * upperLength - along * along));
+  umbrellaPoleDirection.subVectors(umbrellaPoleWorld, umbrellaShoulderWorld)
+    .addScaledVector(umbrellaTargetDirection, -umbrellaPoleDirection.dot(umbrellaTargetDirection));
+  if (umbrellaPoleDirection.lengthSq() < 1e-8) umbrellaPoleDirection.set(-1, 0, 0);
+  umbrellaPoleDirection.normalize();
+  umbrellaDesiredElbow.copy(umbrellaShoulderWorld)
+    .addScaledVector(umbrellaTargetDirection, along)
+    .addScaledVector(umbrellaPoleDirection, outward);
+  umbrellaGripWorld.copy(umbrellaShoulderWorld).addScaledVector(umbrellaTargetDirection, targetDistance);
+
+  if (!held.handPose) held.handPose = hand.quaternion.clone();
+  aimBoneChildAt(upper, forearm, umbrellaDesiredElbow);
+  aimBoneChildAt(forearm, hand, umbrellaGripWorld);
+  hand.quaternion.copy(held.handPose);
+  hand.updateWorldMatrix(false, true);
+  hand.getWorldPosition(umbrellaHandWorld);
+  held.gripError = umbrellaHandWorld.distanceTo(umbrellaGripWorld);
+  return true;
 }
 
 const umbrellaWorldQuaternion = new THREE.Quaternion();
@@ -2130,9 +2202,9 @@ class OutsideLife {
       if (w.x < -15) { w.x = 15; this.reroll(w); }
       w.phase += dt * 7 * w.speed;
       if (w.avatar) {
-        w.avatar.update(dt, 16, this.qualityLevel);
-        stabilizeUmbrellaArm(w.umbrella, w.avatar);
         w.mesh.position.set(w.x, 0, w.z);
+        w.avatar.update(dt, 16, this.qualityLevel);
+        poseUmbrellaArm(w.umbrella, w.avatar, w.mesh);
         alignHeldUmbrella(w.umbrella);
         continue;
       }
@@ -2145,10 +2217,11 @@ class OutsideLife {
       p.kneeR.rotation.x = Math.max(0, s) * 0.72 * stride;
       p.armL.rotation.x = -s * 0.32 * stride;
       if (w.umbrella) {
-        // One clearly bent, steady arm holds the handle while the free arm
-        // retains the walking counter-swing.
-        p.armR.rotation.x = -0.48 + Math.sin(w.phase * 0.5) * 0.025;
-        p.armR.rotation.z = -0.24;
+        // The procedural fallback has no elbow joint, so lift its whole arm
+        // forward to put the palm at chest height instead of dangling the
+        // umbrella shaft beside the thigh.
+        p.armR.rotation.x = -1.25 + Math.sin(w.phase * 0.5) * 0.015;
+        p.armR.rotation.z = -0.18;
       } else {
         p.armR.rotation.x = s * 0.32 * stride;
         p.armR.rotation.z = 0;

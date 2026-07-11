@@ -19,9 +19,11 @@ const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
 // freezes autonomous crowd churn so renderer counts compare equivalent scenes
 // instead of different random patron populations. Normal visits are unchanged.
-const MEMORY_AUDIT_MODE = new URLSearchParams(window.location.search).has('memory-audit');
+const auditParams = new URLSearchParams(window.location.search);
+const MEMORY_AUDIT_MODE = auditParams.has('memory-audit');
+const SEEDED_AUDIT_MODE = MEMORY_AUDIT_MODE || auditParams.has('visual-audit');
 function resetMemoryAuditRandom(themeIndex) {
-  if (!MEMORY_AUDIT_MODE) return;
+  if (!SEEDED_AUDIT_MODE) return;
   // Make every rebuild of a location contain the same patrons and procedural
   // props. This keeps the renderer lifecycle benchmark comparable without
   // changing the normal experience's variety.
@@ -1247,6 +1249,7 @@ frame();
 // tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
   audio,
+  get cafe() { return cafe; },
   get crowd() { return crowd; },
   get pets() { return pets; },
   metrics() {
@@ -1280,6 +1283,10 @@ window.__vibe = {
       outsidePedestrians: crowd?.outside?.walkers?.length ?? 0,
       outsideUmbrellas: crowd?.outside?.walkers?.filter((walker) => walker.umbrella).length ?? 0,
       outsideUmbrellaHands: crowd?.outside?.walkers?.filter((walker) => walker.avatar?.bones?.RightHand).length ?? 0,
+      outsideUmbrellaGripError: Math.max(
+        0,
+        ...(crowd?.outside?.walkers ?? []).map((walker) => walker.umbrella?.gripError ?? 0),
+      ),
       playerTypingBursts: audio.playerTypingBursts ?? 0,
       playerTypingActive: (audio._playerTypingNodes?.length ?? 0) > 0,
       geometries: renderer.info.memory.geometries,
@@ -1296,7 +1303,14 @@ window.__vibe = {
   place(x, z, yaw, pitch = 0) {
     standUp();
     walkPos.set(x, 0, z);
+    resolveCollisions(walkPos);
+    crowd?.resolvePlayerCollision?.(walkPos);
     view.yaw = yaw; view.pitch = pitch;
     applyView();
+  },
+  sit(index) {
+    if (!cafe?.seats[index]) return false;
+    sitAt(index, true);
+    return true;
   },
 };
