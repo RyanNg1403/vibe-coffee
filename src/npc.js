@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { ROOM } from './cafe.js';
 import { DoorCoordinator } from './doorFlow.js';
+import { ServiceCoordinator } from './npc/serviceCoordinator.js';
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -1262,6 +1263,20 @@ class NPC {
       this._addProps();
     } else {
       this._setPose(false);
+      // A delivered drink stays behind as a dirty cup; exactly one clear task
+      // sends the waiter to bus it. Without a service crew it leaves with us.
+      if (this.deliveredCup) {
+        const cup = this.deliveredCup;
+        this.deliveredCup = null;
+        const added = this.sim.service && this.sim.waiter
+          ? this.sim.service.addTask('clear', {
+            dedupeKey: `table-${this.seatIndex}`,
+            target: seat.approach,
+            data: { cup },
+          })
+          : null;
+        if (!added) cup.parent?.remove(cup);
+      }
       this.sim.releaseSeat(this.seatIndex);
       this.seatIndex = -1;
       this._beginExit();
@@ -1730,9 +1745,17 @@ class NPC {
         this.sim.brewFor = this;
         this.sim.brewT = 0;
         this.sim.brewDuration = rand(14.8, 16.2);
-        this.state = 'waitingPickup';
-        this.stateT = 0;
-        this._walkTo(this.sim.pickupSlot(this));
+        if (this.sim.waiter && this.seatIndex >= 0 && Math.random() < 0.7) {
+          // table service: head straight to the seat, the waiter brings it over
+          this.awaitingDelivery = true;
+          this.state = 'toSeat';
+          this.stateT = 0;
+          this._walkTo(this.sim.cafe.seats[this.seatIndex].approach);
+        } else {
+          this.state = 'waitingPickup';
+          this.stateT = 0;
+          this._walkTo(this.sim.pickupSlot(this));
+        }
       }
     } else if (this.state === 'waitingPickup') {
       this._faceCounter(dt);
@@ -1895,9 +1918,17 @@ class NPC {
         this.sim.brewFor = this;
         this.sim.brewT = 0;
         this.sim.brewDuration = rand(14.8, 16.2);
-        this.state = 'waitingPickup';
-        this.stateT = 0;
-        this._walkTo(this.sim.pickupSlot(this));
+        if (this.sim.waiter && this.seatIndex >= 0 && Math.random() < 0.7) {
+          // table service: head straight to the seat, the waiter brings it over
+          this.awaitingDelivery = true;
+          this.state = 'toSeat';
+          this.stateT = 0;
+          this._walkTo(this.sim.cafe.seats[this.seatIndex].approach);
+        } else {
+          this.state = 'waitingPickup';
+          this.stateT = 0;
+          this._walkTo(this.sim.pickupSlot(this));
+        }
       }
     } else if (this.state === 'waitingPickup') {
       if (!enRoute) av.setMode('idle');
@@ -2129,6 +2160,216 @@ class Barista {
   }
 
   dispose() {
+    if (this.avatar) { this.avatar.dispose(); return; }
+    this.mesh.parent?.remove(this.mesh);
+    disposeOwnedObject(this.mesh);
+  }
+}
+
+// A second staff member for busier rooms: pulls deliver/clear tasks from the
+// ServiceCoordinator, carries drinks from the pickup shelf to seated patrons,
+// and buses abandoned cups to the dish return. Unlike the register-bound
+// barista it walks the floor, so it uses real waypoint paths with furniture
+// avoidance. Carrying a tray slows it down and restricts its turn rate.
+class Waiter {
+  constructor(sim) {
+    this.sim = sim;
+    this.id = 'waiter';
+    if (sim.charKeys?.length) {
+      this.avatar = new SkinnedAvatar(sim.models, sim.pickStandardCharacter(), {
+        appearanceIndex: sim.nextAppearanceIndex(),
+      });
+      this.mesh = this.avatar.root;
+    } else {
+      this.mesh = makePerson();
+    }
+    this.anchors = sim.cafe.serviceAnchors;
+    this.standby = this.anchors.waiterStandby.clone();
+    this.mesh.position.copy(this.standby);
+    this.mesh.rotation.y = Math.PI / 2;
+    this.task = null;
+    this.phase = 'standby'; // standby | toPickup | toTable | wiping | toDishes
+    this.phaseT = 0;
+    this.path = null;
+    this.pathI = 1;
+    this.walkSpeed = 0.72;
+    this.carrySpeed = 0.52; // tray in hand: slower, wider turns
+    this.microPhase = rand(0, 10);
+    sim.cafe.group.add(this.mesh);
+  }
+
+  _walkTo(target) {
+    this.path = routeBetween(this.mesh.position, target, this.sim.cafe.nav.corridorX);
+    this.pathI = 1;
+    this._stallT = 0;
+    this._bestDist = Infinity;
+  }
+
+  // waypoint follower with furniture avoidance; returns true on arrival
+  _follow(dt, speed, turnCap) {
+    if (!this.path) return true;
+    const pos = this.mesh.position;
+    const wp = this.path[this.pathI];
+    if (!wp) { this.path = null; return true; }
+    const dx = wp.x - pos.x;
+    const dz = wp.z - pos.z;
+    const d = Math.hypot(dx, dz);
+    // stall rescue: a wedged waiter accepts the waypoint rather than blocking
+    // the service lane forever (mirrors the patrons' rescue policy)
+    if (d < this._bestDist - 0.01) { this._bestDist = d; this._stallT = 0; }
+    else this._stallT += dt;
+    if (d < 0.1 || (this._stallT > 3.5 && d < 1.2)) {
+      this.pathI += 1;
+      this._stallT = 0;
+      this._bestDist = Infinity;
+      if (this.pathI >= this.path.length) { this.path = null; return true; }
+      return false;
+    }
+    if (this._stallT > 5) {
+      // hard stall: replan from wherever we are toward the final target
+      const goal = this.path[this.path.length - 1];
+      this._walkTo(goal);
+      return false;
+    }
+    let dirX = dx / d;
+    let dirZ = dz / d;
+    const aheadX = pos.x + dirX * 0.45;
+    const aheadZ = pos.z + dirZ * 0.45;
+    for (const c of this.sim.cafe.colliders) {
+      if (!c.r) continue;
+      const r = c.r + 0.2;
+      const ox = aheadX - c.x;
+      const oz = aheadZ - c.z;
+      const cd = Math.hypot(ox, oz);
+      if (cd < r && cd > 0.001) {
+        const k = (1 - cd / r) * 1.8;
+        dirX += (ox / cd) * k;
+        dirZ += (oz / cd) * k;
+      }
+    }
+    const l = Math.hypot(dirX, dirZ) || 1;
+    pos.x += (dirX / l) * speed * dt;
+    pos.z += (dirZ / l) * speed * dt;
+    const targetYaw = Math.atan2(dirX, dirZ);
+    let dy = targetYaw - this.mesh.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    this.mesh.rotation.y += THREE.MathUtils.clamp(dy * Math.min(1, dt * 5.5), -turnCap * dt, turnCap * dt);
+    this.avatar?.setMode('walk', Math.max(0.45, speed * 1.15));
+    this.microPhase += dt * 5.5 * speed;
+    if (!this.avatar) {
+      const parts = this.mesh.userData.parts;
+      const sSin = Math.sin(this.microPhase);
+      parts.legL.rotation.x = sSin * 0.4;
+      parts.legR.rotation.x = -sSin * 0.4;
+      setGroundedY(this.mesh, (0.5 - 0.5 * Math.cos(this.microPhase * 2)) * 0.012, parts.blob);
+    }
+    return false;
+  }
+
+  _dropTask() {
+    if (this.task) this.sim.service.release(this.task);
+    this.task = null;
+    this.sim.service.releaseAllFor(this.id);
+    this.avatar?.setCup(false);
+    this._carriedCup?.parent?.remove(this._carriedCup);
+    this._carriedCup = null;
+    this.phase = 'standby';
+    this.phaseT = 0;
+    this._walkTo(this.standby);
+  }
+
+  update(dt, t) {
+    const service = this.sim.service;
+    this.phaseT += dt;
+    if (this.phase === 'standby') {
+      const arrived = this._follow(dt, this.walkSpeed, 4.0);
+      if (arrived) {
+        this.avatar?.setMode('idle');
+        this.avatar && (this.avatar.headYawTarget = Math.sin(t * 0.35 + this.microPhase) * 0.4);
+        const task = service.claim(this.id, ['deliver', 'clear']);
+        if (task) {
+          this.task = task;
+          if (task.kind === 'deliver') {
+            this.phase = 'toPickup';
+            service.reserve('pickup', this.id);
+            this._walkTo(this.anchors.pickup);
+          } else {
+            this.phase = 'toTable';
+            this._walkTo(task.target ?? this.standby);
+          }
+          this.phaseT = 0;
+        }
+      }
+      if (this.avatar) this.avatar.update(dt, 0, this.sim.qualityLevel);
+      return;
+    }
+    if (this.phase === 'toPickup') {
+      if (this._follow(dt, this.walkSpeed, 4.0)) {
+        const patron = this.task.data?.patron;
+        if (!patron || patron.seatIndex < 0 || !['toSeat', 'aligningSeat', 'sitting'].includes(patron.state)) {
+          service.complete(this.task); // patron left: nothing to deliver
+          this.task = null;
+          this._dropTask();
+        } else {
+          this.avatar?.setCup(true); // the drink leaves the pickup shelf with us
+          service.releaseStation('pickup', this.id);
+          const seat = this.sim.cafe.seats[patron.seatIndex];
+          this.phase = 'toTable';
+          this.phaseT = 0;
+          this._walkTo(seat.approach);
+        }
+      }
+    } else if (this.phase === 'toTable') {
+      const speed = this.task?.kind === 'deliver' ? this.carrySpeed : this.walkSpeed;
+      if (this._follow(dt, speed, this.task?.kind === 'deliver' ? 2.6 : 4.0)) {
+        if (this.task?.kind === 'deliver') {
+          const patron = this.task.data?.patron;
+          this.avatar?.setCup(false);
+          if (patron && patron.seatIndex >= 0) {
+            this.sim._placeDrinkFor(patron); // the carried drink lands on the table
+          }
+          service.complete(this.task);
+          this.task = null;
+          this.phase = 'wiping'; // brief pause reads as setting the drink down
+          this.phaseT = 0;
+        } else if (this.task?.kind === 'clear') {
+          const cup = this.task.data?.cup;
+          if (cup?.parent) {
+            cup.parent.remove(cup); // the dirty cup leaves the table exactly once
+            this.avatar?.setCup(true);
+          }
+          this.phase = 'wiping'; // wipe the table before walking the cup back
+          this.phaseT = 0;
+        }
+      }
+    } else if (this.phase === 'wiping') {
+      this.avatar?.setMode('work', 0.8);
+      if (this.phaseT > 1.6) {
+        if (this.task?.kind === 'clear') {
+          this.phase = 'toDishes';
+          this.phaseT = 0;
+          service.reserve('dirtyDish', this.id);
+          this._walkTo(this.anchors.dirtyDish);
+        } else {
+          this._dropTask();
+        }
+      }
+    } else if (this.phase === 'toDishes') {
+      if (this._follow(dt, this.carrySpeed, 2.6)) {
+        this.avatar?.setCup(false);
+        service.releaseStation('dirtyDish', this.id);
+        service.complete(this.task);
+        this.task = null;
+        this._dropTask();
+      }
+    }
+    if (this.avatar) this.avatar.update(dt, 0, this.sim.qualityLevel);
+    else animateMicroMotion(this.mesh.userData.parts, t, this.microPhase);
+  }
+
+  dispose() {
+    this._carriedCup?.parent?.remove(this._carriedCup);
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
     disposeOwnedObject(this.mesh);
@@ -2612,6 +2853,9 @@ export class CrowdSim {
       if (this.audio?.started) this.audio.playChime();
     });
     this.barista = new Barista(this);
+    // task queue + station reservations; a floor waiter joins busier rooms
+    this.service = new ServiceCoordinator(0);
+    this.waiter = this.cafe.serviceAnchors && this.maxCrowd >= 9 ? new Waiter(this) : null;
     // Exterior walkers are a real actor pool: arrivals are claimed from it and
     // departing indoor patrons are returned to it, so identity continues
     // through the doorway without creating and destroying character clones.
@@ -2803,6 +3047,46 @@ export class CrowdSim {
   }
 
   // position of slot i in the order queue (a line from the register toward the door)
+  // ---------- waiter table service ----------
+
+  // The brewed drink becomes a deliver task; if no waiter frees up in time
+  // the fallback places it directly so an order can never deadlock.
+  _queueDelivery(patron) {
+    patron.awaitingDelivery = false;
+    if (!this.service || !this.waiter) {
+      this._placeDrinkFor(patron);
+      return;
+    }
+    const task = this.service.addTask('deliver', {
+      dedupeKey: patron.mesh.uuid,
+      patronId: patron.mesh.uuid,
+      data: { patron },
+      ttl: 30,
+      onExpire: () => this._placeDrinkFor(patron),
+    });
+    if (!task) this._placeDrinkFor(patron);
+  }
+
+  // One real drink object lands on the patron's table (used by the waiter on
+  // arrival and by the no-waiter fallback). The same object later becomes the
+  // dirty cup the clear task collects: one drink, one transfer, one removal.
+  _placeDrinkFor(patron) {
+    if (!patron || patron.seatIndex < 0 || patron.deliveredCup) return null;
+    if (!['toSeat', 'aligningSeat', 'sitting'].includes(patron.state)) return null;
+    const seat = this.cafe.seats[patron.seatIndex];
+    const cup = cloneModel(this.models, Math.random() < 0.5 ? 'latte' : 'mug');
+    if (!cup) { patron.setCup(true); return null; } // model-less fallback
+    const tc = seat.tableCenter;
+    cup.position.set(
+      tc.x + (seat.pos.x - tc.x) * 0.45,
+      seat.tableTopY ?? 0.81,
+      tc.z + (seat.pos.z - tc.z) * 0.45,
+    );
+    this.cafe.group.add(cup);
+    patron.deliveredCup = cup;
+    return cup;
+  }
+
   queueSlot(i) {
     const c = this.cafe.nav.counter;
     return new THREE.Vector3(c.x, 0, c.z + 0.75 * i);
@@ -2878,6 +3162,8 @@ export class CrowdSim {
     this.listenerPos = listenerPos;
     this.doorFlow.update();
     this.barista.update(dt, t);
+    this.service?.update(t);
+    this.waiter?.update(dt, t);
     this.outside.update(dt);
 
     // let the soundscape breathe with the actual room population
@@ -2893,7 +3179,9 @@ export class CrowdSim {
       this.brewT += dt;
       if (this.brewT > this.brewDuration) {
         const wasPlayer = this.brewFor === 'player';
+        const patron = wasPlayer ? null : this.brewFor;
         this.brewFor = null;
+        if (patron?.awaitingDelivery) this._queueDelivery(patron);
         // the drink gets its final pour and an "order up" ding as it's handed over
         if (this.audio?.started) {
           this.audio.playPour(this.cafe.nav.machineWorld);
@@ -2973,6 +3261,8 @@ export class CrowdSim {
 
   dispose() {
     this.npcs.forEach((n) => n.dispose());
+    this.service?.cancelAll();
+    this.waiter?.dispose();
     this.barista.dispose();
     this.outside.dispose();
     this.staticPatrons.forEach(({ model }) => model.parent?.remove(model));
