@@ -401,5 +401,13 @@
     "title": "Kitchen tidy up",
     "license": "Public domain",
     "item_url": "https://commons.wikimedia.org/wiki/File:Kitchen_tidy_up.ogg"
+  },
+  "macbook_typing": {
+    "title": "typing on laptop keyboard 1 (MacBook laptop keyboard, close/dry)",
+    "creator": "Sorinious_Genious",
+    "license": "CC0 1.0 Public Domain Dedication (http://creativecommons.org/publicdomain/zero/1.0/)",
+    "source_url": "https://cdn.freesound.org/previews/561/561102_12517458-hq.mp3",
+    "item_url": "https://freesound.org/people/Sorinious_Genious/sounds/561102/",
+    "edits": "trimmed to the dense first 12.4 s, mono, 32 kHz, 70 Hz high-pass, edge fades; retrieved 2026-07-11"
   }
 }

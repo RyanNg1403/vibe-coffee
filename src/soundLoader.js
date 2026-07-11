@@ -26,7 +26,7 @@ const BED_KEYS = new Set(['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet'
 const EXTERIOR_KEYS = new Set(['traffic_day', 'traffic_night', 'rain_window']);
 const MACHINE_KEYS = new Set(['espresso', 'steam_milk', 'pour', 'grinder', 'dishes']);
 const HUMAN_BG_KEYS = new Set(['laughter', 'cough']); // sit under the chatter bed
-const LONG_ONE_SHOTS = new Set(['carpass', 'espresso', 'footsteps', 'thunder', 'typing', 'grinder', 'dishes']);
+const LONG_ONE_SHOTS = new Set(['carpass', 'espresso', 'footsteps', 'thunder', 'typing', 'macbook_typing', 'grinder', 'dishes']);
 
 function decodeRate(key, contextRate) {
   if (BED_KEYS.has(key) || EXTERIOR_KEYS.has(key) || LONG_ONE_SHOTS.has(key)) return 24000;

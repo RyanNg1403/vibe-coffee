@@ -309,6 +309,7 @@ async function loadTheme(index) {
 
   interactions.clear(); // world click targets belong to the departing room
   hoveredWorld = null;
+  audio.stopPlayerTyping(); // no burst may outlive the room it was typed in
   if (pets) { pets.dispose(); pets = null; }
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -530,7 +531,12 @@ function placePlayerLaptop() {
   const previousSeat = cafe?.seats[playerLaptopSeatIndex];
   restoreTableProps(previousSeat);
   playerLaptopSeatIndex = -1;
-  if (playerLaptop) { playerLaptop.parent?.remove(playerLaptop); playerLaptop = null; }
+  audio.stopPlayerTyping(); // a moved or packed laptop takes its sound with it
+  if (playerLaptop) {
+    interactions.unregister(playerLaptop);
+    playerLaptop.parent?.remove(playerLaptop);
+    playerLaptop = null;
+  }
   if (!laptopOn || seatIndex < 0 || !cafe) {
     placePlayerCup();
     return;
@@ -552,6 +558,15 @@ function placePlayerLaptop() {
   // open side faces you
   playerLaptop.rotation.y = Math.atan2(toTable.x, toTable.z) + Math.PI;
   cafe.group.add(playerLaptop);
+  // clicking your MacBook types on it, right where it sits
+  interactions.register(playerLaptop, {
+    cooldownMs: 350, // debounce: repeated clicks restart the burst, never stack it
+    onClick: () => {
+      if (!audio.started || !playerLaptop) return;
+      playerLaptop.getWorldPosition(playerLaptopWorld);
+      audio.playPlayerTyping(playerLaptopWorld, { intentional: true });
+    },
+  });
   const beside = new THREE.Vector3(-(toTable.z / d), 0, toTable.x / d);
   const towardRoom = new THREE.Vector3(-seat.tableCenter.x, 0, -seat.tableCenter.z);
   if (beside.dot(towardRoom) < 0) beside.negate();
