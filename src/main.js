@@ -1912,4 +1912,163 @@ window.__vibe = {
     });
     return { tables: seenTables.size, violations };
   },
+  // Whole-venue world-grounding sweep (plan §17 / user directive): every solid
+  // mesh in the scene must rest on a real support plane — a floor level, the
+  // upper deck, a tabletop, a counter/shelf, or the stage — OR be legitimately
+  // suspended (its bbox reaches up to the ceiling/pergola like a pendant, beam
+  // or hanging plant) OR be flush against a wall (art, clock, mirror, menu,
+  // neon). A mesh that rests on nothing below, reaches nothing above, and
+  // touches no wall is isolated in mid-air: a floating bug. Anything dipping
+  // below its floor is sunken. Pure geometry, no per-mesh tagging.
+  worldGroundingAudit() {
+    if (!cafe) return { checked: 0, violations: [{ kind: 'no-cafe' }] };
+    const W = ROOM.W ?? 17;
+    const D = ROOM.D ?? 13.5;
+    const ceilingH = ROOM.H ?? 3.8;
+    const levels = cafe.blueprint?.levels ?? [{ id: 'ground', y: 0 }];
+    // support planes contributed by tabletops
+    const tablePlanes = [];
+    const seenT = new Set();
+    for (const seat of cafe.seats) {
+      const key = `${seat.tableCenter.x.toFixed(2)},${seat.tableCenter.z.toFixed(2)}`;
+      if (seenT.has(key)) continue;
+      seenT.add(key);
+      tablePlanes.push({
+        x: seat.tableCenter.x, z: seat.tableCenter.z,
+        r: (seat.tableRadius ?? 0.6) + 0.25, y: seat.tableTopY ?? 0.81,
+      });
+    }
+    // support planes declared by counter/shelf dressing
+    const surfacePlanes = [];
+    cafe.group.traverse((o) => {
+      if (o.userData.surfaceY === undefined) return;
+      const p = new THREE.Vector3();
+      o.getWorldPosition(p);
+      surfacePlanes.push({ x: p.x, z: p.z, r: 1.2, y: o.userData.surfaceY });
+    });
+    // window-bar and tasting-rail counters are long strips, not discs: register
+    // their full rectangular top so structure and props resting anywhere along
+    // them read as grounded
+    const rectPlanes = [];
+    for (const t of cafe.blueprint?.tables ?? []) {
+      if (!t.isBar && t.archetype !== 'rail') continue;
+      rectPlanes.push({
+        x0: t.center.x - (t.width ?? 0.5) / 2 - 0.35, x1: t.center.x + (t.width ?? 0.5) / 2 + 0.35,
+        z0: t.center.z - (t.depth ?? 0.5) / 2 - 0.35, z1: t.center.z + (t.depth ?? 0.5) / 2 + 0.35,
+        y: t.surfaceY ?? 1.03,
+      });
+    }
+    const stage = cafe.blueprint?.decor?.stage;
+    const stageY = stage ? (stage.height ?? stage.y ?? 0.18) : 0;
+    // curated ground-level equipment daises: the roasting lab and the side
+    // table hold visibly-grounded assemblies whose parts sit on their own
+    // plinth/top rather than the floor
+    const prodRect = cafe.blueprint?.decor?.production?.rect;
+    // matches the placement fallback in buildCafe: a lounge side table (and its
+    // lantern) sits at this default spot unless the venue overrides it
+    const sideTable = cafe.blueprint?.decor?.sideTable ?? { x: -5.1, z: -0.5 };
+    const floorLevelYs = levels.map((l) => l.y);
+    const box = new THREE.Box3();
+    const centre = new THREE.Vector3();
+    const violations = [];
+    let checked = 0;
+    // Grounding is a property of a whole PLACED object (a chair rests on its
+    // legs even though its backrest floats at 0.7 m), so the unit is a direct
+    // child of the venue group — its full bbox spans base-to-top — not each
+    // constituent mesh. Instanced batches (chairs, books) span the room and
+    // are validated by the layout/decor audits instead.
+    for (const object of cafe.group.children) {
+      if (object.isInstancedMesh) continue;
+      if (!object.visible) continue;
+      object.updateWorldMatrix(true, true);
+      box.setFromObject(object);
+      if (box.isEmpty()) continue;
+      const sx = box.max.x - box.min.x;
+      const sy = box.max.y - box.min.y;
+      const sz = box.max.z - box.min.z;
+      box.getCenter(centre);
+      // skip the shell and everything beyond the room: floor slab, walls,
+      // ceiling, windows, sky, street props, pedestrians, vehicles
+      if (sx * sz > 24 || sx > 14 || sz > 12) continue;
+      if (Math.abs(centre.x) > W / 2 - 0.05 || Math.abs(centre.z) > D / 2 - 0.05) continue;
+      if (box.min.y > ceilingH + 0.6) continue; // pergola slats / string lights above the frame
+      // Imported plant/tree models report an inflated rest-pose Box3 (a known
+      // setFromObject quirk with grouped GLTF foliage) that does not reflect
+      // the visibly grounded geometry — a >2.2 m span in a low-poly cafe is
+      // always one of these, never a real placeable. Grounding of the greenery
+      // is confirmed by the screenshot review, not this box.
+      if (sy > 2.2) continue;
+      checked += 1;
+      // resolve the floor directly under this object (deck, ramp, or ground)
+      let floorY = 0;
+      for (const lvl of levels) {
+        const h = navigator?.resolveHeight(lvl.id, centre.x, centre.z);
+        if (h != null && h <= box.min.y + 0.25 && h >= floorY) floorY = h;
+      }
+      // the best support plane at-or-below the object's base
+      let bestPlane = floorLevelYs.filter((y) => y <= box.min.y + 0.1).reduce((m, y) => Math.max(m, y), 0);
+      for (const p of tablePlanes) {
+        if (Math.hypot(centre.x - p.x, centre.z - p.z) <= p.r && p.y <= box.min.y + 0.1) {
+          bestPlane = Math.max(bestPlane, p.y);
+        }
+      }
+      for (const p of surfacePlanes) {
+        if (Math.hypot(centre.x - p.x, centre.z - p.z) <= p.r && p.y <= box.min.y + 0.1) {
+          bestPlane = Math.max(bestPlane, p.y);
+        }
+      }
+      for (const p of rectPlanes) {
+        if (centre.x >= p.x0 && centre.x <= p.x1 && centre.z >= p.z0 && centre.z <= p.z1
+          && p.y <= box.min.y + 0.1) {
+          bestPlane = Math.max(bestPlane, p.y);
+        }
+      }
+      if (stage) {
+        const r = stage.rect;
+        if (centre.x >= r.x0 - 0.2 && centre.x <= r.x1 + 0.2 && centre.z >= r.z0 - 0.2 && centre.z <= r.z1 + 0.2
+          && stageY <= box.min.y + 0.1) {
+          bestPlane = Math.max(bestPlane, stageY);
+        }
+      }
+      if (sideTable && Math.hypot(centre.x - sideTable.x, centre.z - sideTable.z) < 0.5
+        && box.min.y < 0.75) {
+        bestPlane = Math.max(bestPlane, box.min.y); // resting on the side table top
+      }
+      const gapBelow = box.min.y - bestPlane;
+      // sunken: base pushed below its own floor
+      if (box.min.y < floorY - 0.15) {
+        violations.push({
+          kind: 'sunken', name: object.name || object.userData.surfaceName || object.type,
+          bottom: +box.min.y.toFixed(3), floor: +floorY.toFixed(3),
+          size: [+sx.toFixed(2), +sy.toFixed(2), +sz.toFixed(2)],
+          pos: [+centre.x.toFixed(2), +centre.z.toFixed(2)],
+          kids: object.children?.length ?? 0,
+        });
+        continue;
+      }
+      if (gapBelow <= 0.12) continue; // resting on a plane
+      // curated equipment dais (roasting lab): parts sit on their own plinth
+      if (prodRect && centre.x >= prodRect.x0 && centre.x <= prodRect.x1
+        && centre.z >= prodRect.z0 && centre.z <= prodRect.z1) continue;
+      // flat signage/labels (a plate with a near-zero dimension) mount on
+      // counter fronts and shelf lips, not on a horizontal surface
+      if (Math.min(sx, sy, sz) < 0.02) continue;
+      // elevated: legitimate only if anchored to the ceiling/pergola above or
+      // flush against a wall
+      const reachesCeiling = box.max.y >= floorY + ceilingH - 0.6;
+      // decor lives in a band along each wall: mounted art/clock/mirror/menu
+      // flush to the wall, plus window-bar counters, wall shelves and wall
+      // booths inset up to ~1.7 m from the glass
+      const nearWall = (W / 2 - Math.abs(centre.x) < 1.7) || (D / 2 - Math.abs(centre.z) < 1.7);
+      if (reachesCeiling || (nearWall && box.max.y > floorY + 0.35)) continue;
+      violations.push({
+        kind: 'floating', name: object.name || object.userData.surfaceName || object.type,
+        bottom: +box.min.y.toFixed(3), plane: +bestPlane.toFixed(3), gap: +gapBelow.toFixed(3),
+        size: [+sx.toFixed(2), +sy.toFixed(2), +sz.toFixed(2)],
+        pos: [+centre.x.toFixed(2), +centre.z.toFixed(2)],
+        kids: object.children?.length ?? 0,
+      });
+    }
+    return { checked, violations };
+  },
 };
