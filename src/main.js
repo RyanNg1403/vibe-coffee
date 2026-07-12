@@ -8,6 +8,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { THEMES, ROOM, buildCafe, resolveEnvironment } from './cafe.js';
+import { createNavigator, pointInPolygon, surfaceHeightAt } from './cafe/levelNavigation.js';
 import { CrowdSim } from './npc.js';
 import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
@@ -173,6 +174,11 @@ let currentThemeIndex = preferences.cafeIndex;
 let seatIndex = -1;
 let mode = 'seated'; // 'seated' | 'walking'
 const walkPos = new THREE.Vector3();
+// §8 traversal contract: the active floor is persistent state, never
+// inferred from height; it changes only through authored stair portals.
+let walkLevelId = 'ground';
+let walkY = 0;
+let navigator = null;
 let walkBob = 0;
 let lastPlayerStep = 0;
 const keys = new Set();
@@ -324,6 +330,9 @@ async function loadTheme(index) {
 
   resetMemoryAuditRandom(index);
   cafe = buildCafe(theme, models);
+  navigator = createNavigator(cafe.blueprint);
+  walkLevelId = 'ground';
+  walkY = 0;
   resetMemoryAuditRandom(index + 16); // TEMP for A/B measurement
 
   // Re-seed between construction and crowd spawn: decor edits change how many
@@ -536,7 +545,7 @@ function clearTablePropsForLaptop(seat, beside) {
     .subVectors(seat.tableCenter, playerLaptop.position)
     .setY(0)
     .normalize();
-  const elevatedBar = seat.pos.y > 0.05;
+  const elevatedBar = !!seat.isBar;
   const slots = clearanceSlots(props.map((entry) => entry.footprint ?? 0.08), elevatedBar);
   props.forEach((entry, index) => {
     const object = entry.object;
@@ -614,7 +623,7 @@ function placePlayerCup() {
   if (!playerCup || seatIndex < 0 || !cafe) return;
   const seat = cafe.seats[seatIndex];
   const tc = seat.tableCenter;
-  const topY = seat.pos.y > 0.05 ? 1.03 : (seat.tableTopY ?? 0.81);
+  const topY = seat.isBar ? (seat.tableTopY ?? 1.035) - 0.005 : (seat.tableTopY ?? 0.81);
   if (playerLaptop) {
     // A drink belongs beside a laptop, never on its keyboard. Offset along the
     // table edge and prefer the side facing the room centre so end seats at the
@@ -623,7 +632,7 @@ function placePlayerCup() {
     const beside = new THREE.Vector3(-towardTable.z, 0, towardTable.x);
     const towardRoom = new THREE.Vector3(-tc.x, 0, -tc.z);
     if (beside.dot(towardRoom) < 0) beside.negate();
-    const offset = laptopCupOffset(seat.pos.y > 0.05);
+    const offset = laptopCupOffset(!!seat.isBar);
     playerCup.position.set(
       playerLaptop.position.x + beside.x * offset.side + towardTable.x * offset.forward,
       topY,
@@ -664,14 +673,14 @@ function placePlayerLaptop() {
   // top with a 0.01 margin.
   const clampR = seat.tableRadius ?? 0.52;
   const cornerSafe = Math.sqrt(Math.max(0, (clampR - 0.01) ** 2 - 0.16 ** 2)) - 0.11;
-  const distanceFromCenter = seat.pos.y > 0.05
+  const distanceFromCenter = seat.isBar
     ? 0.075
     : Math.min(0.34, Math.max(0.05, cornerSafe));
   const edge = Math.max(0, d - distanceFromCenter);
   playerLaptop = makeMacBook();
   playerLaptop.position.set(
     seat.pos.x + (toTable.x / d) * edge,
-    seat.pos.y > 0.05 ? 1.035 : (seat.tableTopY ?? 0.81),
+    seat.tableTopY ?? (seat.isBar ? 1.035 : 0.81),
     seat.pos.z + (toTable.z / d) * edge
   );
   // open side faces you
@@ -732,12 +741,17 @@ document.getElementById('order-btn')?.addEventListener('click', () => {
 
 function standUp() {
   if (mode === 'walking' || tween.active || !cafe) return;
+  const seat = seatIndex >= 0 ? cafe.seats[seatIndex] : null;
   mode = 'walking';
   seatIndex = -1;
   if (crowd) crowd.setPlayerSeat(-1);
   placePlayerLaptop(); // packs it into your bag while you wander
+  // standing up from an upper seat stays on the upper floor (§8)
+  walkLevelId = seat?.levelId ?? walkLevelId ?? 'ground';
   walkPos.set(camera.position.x, 0, camera.position.z);
   resolveCollisions(walkPos);
+  walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
+    ?? (seat ? seat.pos.y - (seat.isBar ? 0.15 : 0) : walkY);
   updateWalkBtn();
 }
 
@@ -746,11 +760,68 @@ function updateWalkBtn() {
   if (b) b.textContent = mode === 'walking' ? 'click a chair to sit' : 'stand up & walk';
 }
 
+const walkProposed = new THREE.Vector3();
+
+// Commit a proposed walking position: authored portal transitions first, then
+// the current floor's surface height; off-surface candidates slide along one
+// axis or stay put. This is the only place walkLevelId ever changes on foot.
+function commitWalkMove(p) {
+  if (!navigator) {
+    walkPos.x = p.x;
+    walkPos.z = p.z;
+    walkY = 0;
+    return;
+  }
+  const portal = navigator.portalAt(walkLevelId, walkPos.x, walkPos.z)
+    ?? navigator.portalAt(walkLevelId, p.x, p.z);
+  if (portal && portal.toLevelId !== walkLevelId) {
+    // directional: only cross when actually moving toward the destination
+    // portal, otherwise a climber inside the seam zone would flip back to a
+    // level whose surface also happens to contain the proposed point
+    const toPortal = portal.to.portal;
+    const dNow = Math.hypot(walkPos.x - toPortal.x, walkPos.z - toPortal.z);
+    const dNext = Math.hypot(p.x - toPortal.x, p.z - toPortal.z);
+    const linked = dNext < dNow - 1e-4 ? navigator.surfaces.get(portal.to.surfaceId) : null;
+    if (linked && pointInPolygon(linked.polygon, p.x, p.z)) {
+      const linkedY = surfaceHeightAt(linked, p.x, p.z);
+      // a portal crossing is a single step, never a hop or a cliff
+      if (Math.abs(linkedY - walkY) < 0.3) {
+        walkLevelId = linked.levelId;
+        walkPos.x = p.x;
+        walkPos.z = p.z;
+        walkY = linkedY;
+        return;
+      }
+    }
+  }
+  const h = navigator.resolveHeight(walkLevelId, p.x, p.z);
+  if (h != null) {
+    walkPos.x = p.x;
+    walkPos.z = p.z;
+    walkY = h;
+    return;
+  }
+  const hx = navigator.resolveHeight(walkLevelId, p.x, walkPos.z);
+  if (hx != null) {
+    walkPos.x = p.x;
+    walkY = hx;
+    return;
+  }
+  const hz = navigator.resolveHeight(walkLevelId, walkPos.x, p.z);
+  if (hz != null) {
+    walkPos.z = p.z;
+    walkY = hz;
+  }
+  // fully blocked: keep the last valid position — never fall through
+}
+
 function resolveCollisions(p) {
   p.x = THREE.MathUtils.clamp(p.x, -ROOM.W / 2 + 0.45, ROOM.W / 2 - 0.45);
   p.z = THREE.MathUtils.clamp(p.z, -ROOM.D / 2 + 0.5, ROOM.D / 2 - 0.5);
   if (!cafe) return;
   for (const c of cafe.colliders) {
+    // only the colliders of the walker's floor apply (guards carry levelId)
+    if ((c.levelId ?? 'ground') !== walkLevelId) continue;
     if (c.rect) {
       const r = c.rect, m = 0.3;
       if (p.x > r.x0 - m && p.x < r.x1 + m && p.z > r.z0 - m && p.z < r.z1 + m) {
@@ -1359,12 +1430,16 @@ function frame(now = performance.now()) {
     if (moving) {
       cameraMoved = true;
       walkMove.normalize();
-      walkPos.addScaledVector(walkMove, dt * 2.0);
-      resolveCollisions(walkPos);
-      crowd?.resolvePlayerCollision?.(walkPos);
+      walkProposed.copy(walkPos).addScaledVector(walkMove, dt * 2.0);
+      resolveCollisions(walkProposed);
+      crowd?.resolvePlayerCollision?.(walkProposed);
       // A person can push the player toward a table edge; resolve the room once
       // more so the two collision systems cannot squeeze the camera into props.
-      resolveCollisions(walkPos);
+      resolveCollisions(walkProposed);
+      // §8: collision and walk-surface height resolve atomically — a candidate
+      // off every surface of the current floor is rejected (or slid along an
+      // axis), never dropped to another floor's height.
+      commitWalkMove(walkProposed);
       walkBob += dt * 8;
       // your own footsteps
       const stepNow = Math.floor(walkBob / Math.PI);
@@ -1375,7 +1450,7 @@ function frame(now = performance.now()) {
     }
     camera.position.set(
       walkPos.x,
-      STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : 0),
+      walkY + STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : 0),
       walkPos.z
     );
   } else if (seatIndex >= 0 && cafe) {
@@ -1585,11 +1660,21 @@ window.__vibe = {
       lines: lastRenderStats.lines,
     };
   },
-  place(x, z, yaw, pitch = 0) {
+  place(x, z, yaw, pitch = 0, levelId = null) {
     standUp();
+    if (levelId) walkLevelId = levelId;
     walkPos.set(x, 0, z);
     resolveCollisions(walkPos);
     crowd?.resolvePlayerCollision?.(walkPos);
+    walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
+      ?? navigator?.resolveHeight('ground', walkPos.x, walkPos.z) ?? 0;
+    view.yaw = yaw; view.pitch = pitch;
+    applyView();
+  },
+  player() {
+    return { x: walkPos.x, y: walkY, z: walkPos.z, levelId: walkLevelId, mode, seatIndex };
+  },
+  face(yaw, pitch = 0) {
     view.yaw = yaw; view.pitch = pitch;
     applyView();
   },

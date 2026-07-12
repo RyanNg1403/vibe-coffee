@@ -238,6 +238,50 @@ test('Midnight stage contract violations are caught by the validator', () => {
   assert.ok(errorsOf(onStage).some((e) => e.includes('on the stage platform')));
 });
 
+// ---------------------------------------------------------------------------
+// Garden Terrace two-level contract (plan §8, Phase 4).
+
+test('Terrace has two usable floors with a contractual switchback stair', () => {
+  const blueprint = getBlueprint('terrace');
+  assert.equal(blueprint.levels.length, 3); // ground, stairs, upper
+  const stair = blueprint.decor.deck.stair;
+  assert.ok(Math.abs((stair.envelope.x1 - stair.envelope.x0) - 2.25) < 0.01);
+  assert.ok(Math.abs((stair.envelope.z1 - stair.envelope.z0) - 4.0) < 0.01);
+  assert.ok(stair.riserHeight >= 0.155 && stair.riserHeight <= 0.17);
+  assert.equal(stair.risers, 20);
+  assert.ok(stair.landing.z1 - stair.landing.z0 >= 1.1);
+  // upper program is a real destination: seats + rail + study desk
+  const upperSeats = blueprint.seats.filter((s) => s.levelId === 'upper');
+  assert.ok(upperSeats.length >= 8, `upper seats ${upperSeats.length}`);
+  assert.ok(blueprint.tables.some((t) => t.levelId === 'upper' && t.archetype === 'rail'));
+  assert.ok(blueprint.tables.some((t) => t.levelId === 'upper' && t.archetype === 'writing'));
+  assert.deepEqual(errorsOf(mutable('terrace')), []);
+});
+
+test('Terrace guards carry level + vertical range and seal the deck edge', () => {
+  const blueprint = getBlueprint('terrace');
+  const guards = blueprint.colliders.filter((c) => c.guard && c.levelId === 'upper');
+  assert.ok(guards.length >= 5);
+  for (const guard of guards) {
+    assert.equal(typeof guard.minY, 'number');
+    assert.equal(typeof guard.maxY, 'number');
+    assert.ok(guard.maxY > guard.minY);
+  }
+  // removing a guard segment must fail the deck-edge contract
+  const unguarded = mutable('terrace');
+  unguarded.colliders = unguarded.colliders.filter((c) => c.id !== 'te-guard-east-n');
+  assert.ok(errorsOf(unguarded).some((e) => e.includes('unguarded')));
+  // an unreachable deck must fail
+  const cut = mutable('terrace');
+  cut.verticalLinks = cut.verticalLinks.filter((l) => l.id !== 'te-stair-top');
+  assert.ok(errorsOf(cut).some((e) => e.includes('unreachable')));
+  // too few upper seats must fail
+  const empty = mutable('terrace');
+  empty.tables = empty.tables.filter((t) => t.levelId !== 'upper');
+  empty.seats = empty.seats.filter((s) => s.levelId !== 'upper');
+  assert.ok(errorsOf(empty).some((e) => e.includes('upper seats')));
+});
+
 test('Golden Hour browse destination exists and is reachable', () => {
   const blueprint = getBlueprint('goldenhour');
   const browse = blueprint.npcDestinations.find((d) => d.purpose === 'browse');

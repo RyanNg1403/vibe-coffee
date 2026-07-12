@@ -923,7 +923,7 @@ function makeDog() {
 // vertical mesh offset while seated: bar stools (elevated seat.pos) need the
 // hips carried up to the stool top; regular chairs sink slightly instead
 function sitYFor(npc, seat) {
-  const elevated = seat.pos.y > 0.05;
+  const elevated = !!seat.isBar;
   if (!npc.avatar) return elevated ? 0.17 : -0.10;
   // measured: authored sit poses put the hip bone ~0.10 below these offsets
   // plus the cushion top, which reads as sinking through the chair
@@ -3197,7 +3197,7 @@ export class CrowdSim {
     // Her authored asset includes a matching pedestal chair, so reserve and
     // replace one window-bar stool. Garden Terrace has no window bar and simply
     // skips this guest rather than forcing a tall stool against a low table.
-    const seatIndex = this.cafe.seats.findIndex((seat) => seat.pos.y > 0.05);
+    const seatIndex = this.cafe.seats.findIndex((seat) => seat.isBar && seat.levelId !== 'upper');
     if (seatIndex < 0) return;
     const seat = this.cafe.seats[seatIndex];
     this.takenSeats.add(seatIndex);
@@ -3458,6 +3458,9 @@ export class CrowdSim {
     const playerTable = this._playerTable();
     for (let i = 0; i < this.cafe.seats.length; i++) {
       if (i === this.playerSeat || this.takenSeats.has(i)) continue;
+      // upper-floor seats become NPC destinations with the level-aware
+      // circulation phase (stair reservations); until then patrons stay down
+      if (this.cafe.seats[i].levelId === 'upper') continue;
       if (playerTable && this.cafe.seats[i].tableCenter.distanceTo(playerTable) < 0.01) continue;
       free.push(i);
     }
@@ -3480,6 +3483,7 @@ export class CrowdSim {
     for (let i = 0; i < this.cafe.seats.length; i++) {
       if (i === this.playerSeat || this.takenSeats.has(i)) continue;
       const s = this.cafe.seats[i];
+      if (s.levelId === 'upper') continue; // ground-only until Phase 5
       if (playerTable && s.tableCenter.distanceTo(playerTable) < 0.01) continue;
       const key = `${s.tableCenter.x.toFixed(1)},${s.tableCenter.z.toFixed(1)}`;
       if (!byTable.has(key)) byTable.set(key, []);

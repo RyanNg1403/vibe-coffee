@@ -29,7 +29,7 @@ const args = new Map(process.argv.slice(2)
 const VENUE = args.get('venue') ?? 'goldenhour';
 const VIEWS_ONLY = !!args.get('views-only');
 const OUT_DIR = args.get('out') ?? `.venue-shots/${VENUE}`;
-const EYE_Y = 1.6;
+const DEFAULT_EYE_Y = 1.6;
 
 const blueprint = getBlueprint(VENUE);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -85,8 +85,11 @@ class Cdp {
 }
 
 function lookAngles(pos, lookAt) {
+  // authored views carry the eye height in pos[1] (upper-deck views sit at
+  // deck + eye); fall back to standing height for legacy 2-value views
+  const eyeY = pos[1] ?? DEFAULT_EYE_Y;
   const dx = lookAt[0] - pos[0];
-  const dy = lookAt[1] - EYE_Y;
+  const dy = lookAt[1] - eyeY;
   const dz = lookAt[2] - pos[2];
   const len = Math.hypot(dx, dz) || 1;
   return { yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(dy, len) };
@@ -159,7 +162,8 @@ try {
 
   for (const view of blueprint.auditViews) {
     const { yaw, pitch } = lookAngles(view.pos, view.lookAt);
-    await client.evaluate(`window.__vibe.place(${view.pos[0]}, ${view.pos[2]}, ${yaw}, ${pitch})`);
+    const level = view.level ? `'${view.level}'` : 'null';
+    await client.evaluate(`window.__vibe.place(${view.pos[0]}, ${view.pos[2]}, ${yaw}, ${pitch}, ${level})`);
     await capture(view.id);
   }
 
