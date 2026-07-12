@@ -1215,14 +1215,27 @@ export function buildCafe(theme, models = null) {
       post.position.set(px, pergY / 2, pz);
       group.add(post);
     }
-    // main beams along x, slats along z
+    // main beams along x, slats along z — both yield the stair envelope so
+    // nobody climbs through timber near the top of the flight
+    const stairEnv = blueprint.decor.deck?.stair?.envelope ?? null;
     const beamW = W / 2 - pergX0;
     for (const bz of [-D / 2 + 0.3, -D / 4, 0, D / 4, D / 2 - 0.3]) {
-      const beam = box(beamW, 0.14, 0.1, woodDarkMat);
-      beam.position.set(pergX0 + beamW / 2, pergY + 0.07, bz);
+      const crossesStair = stairEnv && bz > stairEnv.z0 - 0.2 && bz < stairEnv.z1 + 0.2;
+      const bx0 = crossesStair ? stairEnv.x1 + 0.2 : pergX0;
+      const beam = box(W / 2 - bx0, 0.14, 0.1, woodDarkMat);
+      beam.position.set(bx0 + (W / 2 - bx0) / 2, pergY + 0.07, bz);
       group.add(beam);
     }
     for (let sx = pergX0 + 0.35; sx < W / 2; sx += 0.85) {
+      const overStair = stairEnv && sx > stairEnv.x0 - 0.15 && sx < stairEnv.x1 + 0.15;
+      if (overStair) {
+        for (const [z0, z1] of [[-D / 2, stairEnv.z0 - 0.3], [stairEnv.z1 + 0.3, D / 2]]) {
+          const piece = box(0.07, 0.05, z1 - z0, woodMat);
+          piece.position.set(sx, pergY + 0.19, (z0 + z1) / 2);
+          group.add(piece);
+        }
+        continue;
+      }
       const slat = box(0.07, 0.05, D, woodMat);
       slat.position.set(sx, pergY + 0.19, 0);
       group.add(slat);
@@ -3812,6 +3825,9 @@ export function buildCafe(theme, models = null) {
     litPendantCount === 1 ? 0 : Math.round(index * (legacyTables.length - 1) / (litPendantCount - 1))
   )));
   legacyTables.forEach((t, i) => {
+    // upper-deck tables sit above the pendant plane; their light comes from
+    // the canopy, rail LEDs and planter pools instead of a cord through the slab
+    if (t.baseY > 0) return;
     const cord = cyl(0.008, 0.008, H - theme.lampY, woodDarkMat, 6);
     cord.position.set(t.x, theme.lampY + (H - theme.lampY) / 2, t.z);
     group.add(cord);
