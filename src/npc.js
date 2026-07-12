@@ -1332,14 +1332,16 @@ class NPC {
     if (this.activity === 'laptop') {
       const laptop = makeLaptop();
       const d = toTable.length();
-      // stay far enough inside the tabletop that the whole base is supported
-      // (half depth ~0.11 plus margin), even on small salon tables; the
-      // shallow window-bar strip (tableRadius null) centres it like the
-      // player's MacBook so it never floats past the counter's front edge
-      const inset = seat.tableRadius == null
+      // stay far enough inside the tabletop that every base corner is
+      // supported (half base ~0.16 x 0.11), even on small salon/cabaret
+      // tables; the shallow window-bar strip (tableRadius null) centres it
+      // like the player's MacBook so it never floats past the counter edge
+      const clampR = seat.tableRadius;
+      const inset = clampR == null
         ? 0.075
-        : Math.min(0.42, seat.tableRadius - 0.13);
-      const edge = Math.max(seat.tableRadius == null ? 0 : 0.25, d - inset);
+        : Math.min(0.42, Math.max(0.05,
+          Math.sqrt(Math.max(0, (clampR - 0.01) ** 2 - 0.16 ** 2)) - 0.11));
+      const edge = Math.max(clampR == null ? 0 : 0.25, d - inset);
       const surfaceY = seat.tableTopY ?? 0.815;
       laptop.position.set(
         seat.pos.x + (toTable.x / d) * edge,
@@ -2294,6 +2296,140 @@ class Barista {
   }
 }
 
+// Dedicated stage performer (plan §7): a named role with a stage anchor, an
+// entrance/exit route over the platform edge, instrument-aware placement at
+// the vocal mic, and rest behavior between sets. Never an idle patron: the
+// stage zone forbids those. States are all bounded: perform (50-80 s) ->
+// walk to the rest spot beside the stage -> rest (18-30 s) -> walk back.
+class Performer {
+  constructor(sim) {
+    this.sim = sim;
+    const stage = sim.cafe.blueprint.decor.stage;
+    this.stage = stage;
+    if (sim.charKeys?.length) {
+      this.avatar = new SkinnedAvatar(sim.models, sim.pickStandardCharacter(), {
+        appearanceIndex: sim.nextAppearanceIndex(),
+      });
+      this.mesh = this.avatar.root;
+    } else {
+      this.mesh = makePerson();
+    }
+    const mic = stage.anchors.mic;
+    // stand just behind the microphone, facing the audience across the room
+    this.micPos = new THREE.Vector3(mic.x - 0.14, stage.height, mic.z - 0.14);
+    this.faceYaw = Math.atan2(-mic.x, 2.2 - mic.z);
+    this.restPos = new THREE.Vector3(stage.restSpot.x, 0, stage.restSpot.z);
+    // exit route: mic -> platform front corner -> floor beside the platform
+    this.exitPath = [
+      this.micPos.clone(),
+      new THREE.Vector3(stage.rect.x0 + 0.5, stage.height, stage.rect.z1 - 0.35),
+      new THREE.Vector3(stage.rect.x0 + 0.35, 0, stage.rect.z1 + 0.55),
+      this.restPos.clone(),
+    ];
+    this.mesh.position.copy(this.micPos);
+    this.mesh.rotation.y = this.faceYaw;
+    this.state = 'performing';
+    this.stateT = 0;
+    this.setLength = rand(50, 80);
+    this.breakLength = rand(18, 30);
+    this.phase = rand(0, Math.PI * 2);
+    this.path = null;
+    this.pathI = 0;
+    sim.cafe.group.add(this.mesh);
+  }
+
+  _walkPath(dt) {
+    const target = this.path[this.pathI];
+    const dx = target.x - this.mesh.position.x;
+    const dz = target.z - this.mesh.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.08) {
+      this.mesh.position.x = target.x;
+      this.mesh.position.z = target.z;
+      this.mesh.position.y = target.y;
+      this.pathI += 1;
+      return this.pathI >= this.path.length;
+    }
+    const speed = 0.75;
+    const step = Math.min(dist, speed * dt);
+    this.mesh.position.x += (dx / dist) * step;
+    this.mesh.position.z += (dz / dist) * step;
+    // platform height blends over the step down/up, never a vertical snap
+    const yGap = target.y - this.mesh.position.y;
+    this.mesh.position.y += yGap * Math.min(1, (step / Math.max(dist, 0.001)) * 2);
+    const desired = Math.atan2(dx, dz);
+    let dy = desired - this.mesh.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    this.mesh.rotation.y += dy * Math.min(1, dt * 6);
+    this.avatar?.setMode('walk', Math.max(0.5, speed * 1.2));
+    return false;
+  }
+
+  update(dt, t) {
+    this.stateT += dt;
+    if (this.state === 'performing') {
+      // instrument-aware pose at the stand mic: gentle sway, eyes over the
+      // audience, never a frozen mannequin
+      this.mesh.rotation.y = this.faceYaw + Math.sin(t * 0.55 + this.phase) * 0.07;
+      if (this.avatar) {
+        this.avatar.setMode('idle', 0.9);
+        this.avatar.headYawTarget = Math.sin(t * 0.33 + this.phase) * 0.35;
+        this.avatar.headPitch = -0.04 + Math.sin(t * 0.21) * 0.05;
+      } else {
+        const p = this.mesh.userData.parts;
+        p.head.rotation.y = Math.sin(t * 0.33 + this.phase) * 0.35;
+        p.torso.rotation.z = Math.sin(t * 0.5 + this.phase) * 0.03;
+        p.armR.rotation.x = -0.5 + Math.sin(t * 0.4) * 0.08; // hand near the mic
+      }
+      if (this.stateT > this.setLength) {
+        this.state = 'toRest';
+        this.stateT = 0;
+        this.path = this.exitPath.map((p2) => p2.clone());
+        this.pathI = 1;
+      }
+    } else if (this.state === 'toRest') {
+      if (this._walkPath(dt)) {
+        this.state = 'resting';
+        this.stateT = 0;
+        this.breakLength = rand(18, 30);
+        this.mesh.rotation.y = Math.atan2(-this.restPos.x, -this.restPos.z);
+      }
+    } else if (this.state === 'resting') {
+      if (this.avatar) {
+        this.avatar.setMode('idle', 0.6);
+        this.avatar.headYawTarget = Math.sin(t * 0.25 + this.phase) * 0.4;
+        this.avatar.headPitch = 0;
+      } else {
+        const p = this.mesh.userData.parts;
+        p.head.rotation.y = Math.sin(t * 0.25 + this.phase) * 0.4;
+        p.armR.rotation.x = 0;
+      }
+      if (this.stateT > this.breakLength) {
+        this.state = 'toStage';
+        this.stateT = 0;
+        this.path = [...this.exitPath].reverse().map((p2) => p2.clone());
+        this.pathI = 1;
+      }
+    } else if (this.state === 'toStage') {
+      if (this._walkPath(dt)) {
+        this.state = 'performing';
+        this.stateT = 0;
+        this.setLength = rand(50, 80);
+        this.mesh.position.copy(this.micPos);
+        this.mesh.rotation.y = this.faceYaw;
+      }
+    }
+    if (this.avatar) this.avatar.update(dt, 0, this.sim.qualityLevel);
+  }
+
+  dispose() {
+    if (this.avatar) { this.avatar.dispose(); return; }
+    this.mesh.parent?.remove(this.mesh);
+    disposeOwnedObject(this.mesh);
+  }
+}
+
 // A second staff member for busier rooms: pulls deliver/clear tasks from the
 // ServiceCoordinator, carries drinks from the pickup shelf to seated patrons,
 // and buses abandoned cups to the dish return. Unlike the register-bound
@@ -2993,6 +3129,8 @@ export class CrowdSim {
       ?.find((destination) => destination.purpose === 'browse') ?? null;
     this.browsingNpc = null;
     this.waiter = this.cafe.serviceAnchors && this.maxCrowd >= 9 ? new Waiter(this) : null;
+    // dedicated stage performer wherever the blueprint authors a stage
+    this.performer = cafe.blueprint?.decor?.stage ? new Performer(this) : null;
     // Exterior walkers are a real actor pool: arrivals are claimed from it and
     // departing indoor patrons are returned to it, so identity continues
     // through the doorway without creating and destroying character clones.
@@ -3359,6 +3497,7 @@ export class CrowdSim {
     this.barista.update(dt, t);
     this.service?.update(t);
     this.waiter?.update(dt, t);
+    this.performer?.update(dt, t);
     this.planner?.update(dt, this.npcs, (npc) => this._plannerContext(npc, t), (npc, decision) => this._applyIntent(npc, decision), t);
     this.outside.update(dt);
 
@@ -3489,6 +3628,7 @@ export class CrowdSim {
     this.npcs.forEach((n) => n.dispose());
     this.service?.cancelAll();
     this.waiter?.dispose();
+    this.performer?.dispose();
     this.barista.dispose();
     this.outside.dispose();
     this.staticPatrons.forEach(({ model }) => model.parent?.remove(model));

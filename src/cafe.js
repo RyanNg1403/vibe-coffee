@@ -12,6 +12,7 @@ import { buildServiceUpgrades, menuBoardTexture } from './decor/serviceCounter.j
 import { buildTableCluster } from './decor/tabletopFactory.js';
 import { buildFittedLibrary } from './decor/library.js';
 import { buildRoasteryProduction } from './decor/roasteryProduction.js';
+import { buildJazzStage } from './decor/jazzStage.js';
 import { ROOM_SHELL } from './cafe/interiorLayouts.js';
 import { architectureFor } from './cafe/interiorArchitecture.js';
 
@@ -302,13 +303,7 @@ export const THEMES = [
     lampColor: 0xffa05c, lampIntensity: 6.2, lampY: 2.25,
     outside: 'rainNight',
     dust: false, neon: { text: 'open late', color: '#ff5d8f' },
-    tables: [
-      { x: -5.0, z: 2.4, type: 'round', lounge: true }, { x: -5.2, z: -0.7, type: 'round' },
-      { x: -4.8, z: -3.5, type: 'round' }, { x: -2.4, z: 0.9, type: 'round' },
-      { x: -2.6, z: -2.2, type: 'square' }, { x: -2.0, z: 4.2, type: 'round' },
-      { x: 2.2, z: 2.5, type: 'round' }, { x: 2.0, z: -0.5, type: 'round' },
-      { x: 2.4, z: -3.3, type: 'square' }, { x: 5.0, z: 1.5, type: 'round' },
-    ],
+    // furniture placement lives in the venue blueprint (src/cafe/interiorLayouts.js)
     windowBar: true, plants: 6, crowd: 13, candles: true,
     pendant: 'drum', bookshelf: true, vinyl: true, cat: 0x9a6a38,
     varName: 'rainy',
@@ -2109,11 +2104,18 @@ export function buildCafe(theme, models = null) {
     neonMesh = new THREE.Mesh(new THREE.PlaneGeometry(midnightWall.neonWidth, 0.65),
       new THREE.MeshBasicMaterial({ map: track(neonTexture(theme.neon.text, theme.neon.color)), transparent: true }));
     // The sign occupies the clear bay between the right acoustic panel and
-    // wall art; its text must never sit behind the velvet treatment.
-    neonMesh.position.set(midnightWall.neonCenter, 2.5, -D / 2 + 0.09);
+    // wall art; its text must never sit behind the velvet treatment. On a
+    // venue with a stage curtain below, the sign rises above the curtain rod
+    // and crowns the stage instead of hiding behind the folds.
+    const neonY = blueprint.decor.stage
+      && midnightWall.neonCenter > blueprint.decor.stage.curtain.x0 - 0.5
+      && midnightWall.neonCenter < blueprint.decor.stage.curtain.x1 + 0.5
+      ? blueprint.decor.stage.curtain.y1 + 0.42
+      : 2.5;
+    neonMesh.position.set(midnightWall.neonCenter, neonY, -D / 2 + 0.09);
     group.add(neonMesh);
     const neonLight = new THREE.PointLight(theme.neon.color, 6, 6);
-    neonLight.position.set(midnightWall.neonCenter, 2.5, -D / 2 + 0.6);
+    neonLight.position.set(midnightWall.neonCenter, neonY, -D / 2 + 0.6);
     group.add(neonLight);
   }
 
@@ -2248,6 +2250,7 @@ export function buildCafe(theme, models = null) {
     tableSurfaceProps.push(surfaceProps);
     let topY = 0.78;
     if (lounge) topY = 0.55; // lounge tables sit lower, armchair height
+    if (type === 'cabaret') topY = 0.76; // cabaret two-tops sit slightly low
     if (type === 'long') {
       const top = roundedBox(1.1, 0.06, 2.6, woodMat, 0.028); top.position.y = topY; tGroup.add(top);
       for (const [lx, lz] of [[-0.45, -1.15], [0.45, -1.15], [-0.45, 1.15], [0.45, 1.15]]) {
@@ -2260,6 +2263,23 @@ export function buildCafe(theme, models = null) {
         const leg = box(0.06, topY, 0.06, woodDarkMat);
         leg.position.set(lx, topY / 2, lz); tGroup.add(leg);
       }
+    } else if (type === 'cabaret') {
+      // intimate two-top: small round top on a weighted pedestal
+      const r = blueprintTable.radius;
+      const top = cyl(r, r, 0.045, woodMat, 20); top.position.y = topY; tGroup.add(top);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.02, 8, 24), woodDarkMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = topY;
+      tGroup.add(rim);
+      const pole = cyl(0.04, 0.04, topY, metalMat); pole.position.y = topY / 2; tGroup.add(pole);
+      const base = cyl(0.22, 0.26, 0.035, metalMat, 16); base.position.y = 0.018; tGroup.add(base);
+    } else if (type === 'booth') {
+      // wall booth table: square top on a single pedestal
+      const w = blueprintTable.width;
+      const top = roundedBox(w, 0.055, blueprintTable.depth, woodMat, 0.024);
+      top.position.y = topY; tGroup.add(top);
+      const pole = cyl(0.05, 0.05, topY, woodDarkMat); pole.position.y = topY / 2; tGroup.add(pole);
+      const base = cyl(0.24, 0.28, 0.04, woodDarkMat, 16); base.position.y = 0.02; tGroup.add(base);
     } else if (type === 'communal') {
       // roastery worktable: one substantial slab on steel trestles
       const w = blueprintTable.width, d = blueprintTable.depth;
@@ -2327,9 +2347,22 @@ export function buildCafe(theme, models = null) {
     blueprintTable.seats.forEach((blueprintSeat, chairIndex) => {
       const px = blueprintSeat.pos.x, pz = blueprintSeat.pos.z;
       const facingYaw = Math.atan2(tx - px, tz - pz);
-      const chair = lounge
-        ? makeArmchair(cushionMat, woodDarkMat, models)
-        : addStandardChair(new THREE.Vector3(px, 0, pz), facingYaw);
+      const benchSeat = type === 'booth' && chairIndex === 0;
+      let chair;
+      if (benchSeat) {
+        // banquette cushion on the wall side; the shared bench base is built
+        // from blueprint.decor.boothRun below
+        chair = new THREE.Group();
+        const cushion = roundedBox(0.34, 0.1, 0.6, cushionMat, 0.03);
+        cushion.position.y = 0.46;
+        chair.add(cushion);
+        chair.position.set(px, 0, pz);
+        group.add(chair);
+      } else if (lounge) {
+        chair = makeArmchair(cushionMat, woodDarkMat, models);
+      } else {
+        chair = addStandardChair(new THREE.Vector3(px, 0, pz), facingYaw);
+      }
       if (lounge) {
         chair.position.set(px, 0, pz);
         chair.scale.multiplyScalar(0.9);
@@ -2618,7 +2651,30 @@ export function buildCafe(theme, models = null) {
     // Lounge tables are intentionally coffee-table height. Their curated
     // place settings must use that lower surface instead of the standard
     // dining-table height, or they appear to float 25 cm above the top.
-    const topY = tt.lounge ? 0.575 : (tt.type === 'round' || tt.type === 'oval') ? 0.805 : 0.81;
+    const topY = tt.lounge ? 0.575
+      : tt.type === 'cabaret' ? 0.785
+      : (tt.type === 'round' || tt.type === 'oval') ? 0.805 : 0.81;
+    if (tt.type === 'cabaret') {
+      // cabaret two-tops keep only their drink and candle: the small top must
+      // stay clear for the candle-lit stage view and laptop clearance
+      if (theme.candles) {
+        const candleSet = new THREE.Group();
+        const candle = cyl(0.022, 0.025, 0.05, waxMat, 8);
+        candle.position.y = 0.025;
+        candleSet.add(candle);
+        const flame = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: steamTexture(), color: 0xffa33e, transparent: true, opacity: 0.9, depthWrite: false,
+        }));
+        flame.scale.setScalar(0.055);
+        flame.position.y = 0.075;
+        candleSet.add(flame);
+        candleFlames.push(flame);
+        candleSet.position.set(tt.x + 0.2, topY, tt.z + 0.14);
+        group.add(candleSet);
+        registerTableProp(surfaceProps, candleSet);
+      }
+      return;
+    }
     if (tt.lounge) {
       // Lounge tables stay intentionally sparse: one drink from addTable and
       // a slim reading stack opposite it. This keeps the low surface visible.
@@ -2996,10 +3052,18 @@ export function buildCafe(theme, models = null) {
     for (const x of [-0.27, 0.27]) {
       const leg = box(0.065, 0.46, 0.065, lacquer); leg.position.set(x, 0.23, 0.98); piano.add(leg);
     }
-    piano.position.set(5.4, 0, signatureZ);
+    // On a venue with an authored stage the piano is a performance anchor on
+    // the platform; otherwise it keeps its old back-wall spot.
+    const pianoAnchor = blueprint.decor.stage?.anchors?.piano;
+    if (pianoAnchor) {
+      piano.position.set(pianoAnchor.x, blueprint.decor.stage.height, pianoAnchor.z);
+      piano.rotation.y = pianoAnchor.rot ?? 0;
+    } else {
+      piano.position.set(5.4, 0, signatureZ);
+      contactShadow(5.4, signatureZ + 0.25, 2.5);
+      extraColliders.push({ x: 5.4, z: signatureZ + 0.22, r: 1.1 });
+    }
     group.add(piano);
-    contactShadow(5.4, signatureZ + 0.25, 2.5);
-    extraColliders.push({ x: 5.4, z: signatureZ + 0.22, r: 1.1 });
   } else if (theme.id === 'terrace') {
     // A working herb bench connects the terrace greenery to the drinks menu.
     const bench = new THREE.Group();
@@ -3341,32 +3405,71 @@ export function buildCafe(theme, models = null) {
     for (const c of productionBuilt.contactShadows) contactShadow(c.x, c.z, c.size);
   }
 
+  // Corner stage (Midnight): platform, performance anchors, speakers,
+  // wedges, cables, curtain and stage wash, all authored in the blueprint.
+  if (blueprint.decor.stage) {
+    const stageBuilt = buildJazzStage({
+      group,
+      spec: blueprint.decor.stage,
+      helpers: { box, roundedBox, cyl },
+      mats: { woodDarkMat, metalMat, cushionMat, clothTex },
+      rand,
+    });
+    for (const c of stageBuilt.contactShadows) contactShadow(c.x, c.z, c.size);
+  }
+
+  // Booth banquette run along the right wall (Midnight): shared bench base
+  // and backrest; the per-booth cushions come from the booth tables.
+  if (blueprint.decor.boothRun) {
+    const run = blueprint.decor.boothRun;
+    const runLength = run.z1 - run.z0;
+    const benchBase = box(0.52, 0.42, runLength, woodDarkMat);
+    benchBase.position.set(run.x, 0.21, (run.z0 + run.z1) / 2);
+    group.add(benchBase);
+    const backrest = roundedBox(0.14, 0.72, runLength, cushionMat, 0.04);
+    backrest.position.set(run.x + 0.24, 0.78, (run.z0 + run.z1) / 2);
+    group.add(backrest);
+    for (const ez of [run.z0, run.z1]) {
+      const cap = box(0.55, 0.5, 0.06, woodDarkMat);
+      cap.position.set(run.x, 0.25, ez);
+      group.add(cap);
+    }
+    contactShadow(run.x, (run.z0 + run.z1) / 2 - runLength / 4, 2.2);
+    contactShadow(run.x, (run.z0 + run.z1) / 2 + runLength / 4, 2.2);
+  }
+
   // a reading nook against the right wall: sofa, floor lamp, side table
   // (indoor cafés only — the terrace keeps its perimeter green)
   if (!theme.openAir) {
-    const sofa = cloneModel(models, 'sofa');
-    if (sofa) {
-      sofa.traverse((o) => {
-        if (!o.isMesh) return;
-        o.material = o.material.clone();
-        o.material.color.lerp(cushionMat.color, 0.88);
-        o.material.roughness = 0.92;
-        if (!o.material.map) { o.material.map = clothTex; o.material.bumpMap = clothTex; o.material.bumpScale = 0.006; }
-      });
-      sofa.position.set(W / 2 - 0.85, 0, -4.9);
-      sofa.rotation.y = -Math.PI / 2;
-      group.add(sofa);
-      contactShadow(W / 2 - 0.85, -4.9, 2.2);
-      extraColliders.push({ x: W / 2 - 0.85, z: -4.9, r: 1.0 });
+    // the back-right corner belongs to the stage on venues that author one;
+    // the sofa nook and its floor lamp only build where that corner is free
+    if (!blueprint.decor.stage) {
+      const sofa = cloneModel(models, 'sofa');
+      if (sofa) {
+        sofa.traverse((o) => {
+          if (!o.isMesh) return;
+          o.material = o.material.clone();
+          o.material.color.lerp(cushionMat.color, 0.88);
+          o.material.roughness = 0.92;
+          if (!o.material.map) { o.material.map = clothTex; o.material.bumpMap = clothTex; o.material.bumpScale = 0.006; }
+        });
+        sofa.position.set(W / 2 - 0.85, 0, -4.9);
+        sofa.rotation.y = -Math.PI / 2;
+        group.add(sofa);
+        contactShadow(W / 2 - 0.85, -4.9, 2.2);
+        extraColliders.push({ x: W / 2 - 0.85, z: -4.9, r: 1.0 });
+      }
+      const lamp = cloneModel(models, 'floor_lamp');
+      if (lamp) {
+        lamp.position.set(W / 2 - 0.6, 0, -3.6);
+        group.add(lamp);
+        const glow = new THREE.PointLight(theme.lampColor, 4, 4);
+        glow.position.set(W / 2 - 0.6, 1.35, -3.6);
+        group.add(glow);
+      }
     }
-    const lamp = cloneModel(models, 'floor_lamp');
-    if (lamp) {
-      lamp.position.set(W / 2 - 0.6, 0, -3.6);
-      group.add(lamp);
-      const glow = new THREE.PointLight(theme.lampColor, 4, 4);
-      glow.position.set(W / 2 - 0.6, 1.35, -3.6);
-      group.add(glow);
-      const lamp2 = cloneModel(models, 'floor_lamp');
+    const lamp2 = cloneModel(models, 'floor_lamp');
+    if (lamp2) {
       lamp2.position.set(-W / 2 + 0.6, 0, 1.2);
       group.add(lamp2);
     }
@@ -3519,27 +3622,30 @@ export function buildCafe(theme, models = null) {
       group.add(sideT);
       contactShadow(sideSpot.x, sideSpot.z, 0.8);
       extraColliders.push({ x: sideSpot.x, z: sideSpot.z, r: 0.35 });
-      // second one beside the sofa with a forgotten latte on it
-      const sideT2 = cloneModel(models, 'side_table');
-      sideT2.position.set(W / 2 - 0.7, 0, -6.1);
-      group.add(sideT2);
-      const lamp2m = cloneModel(models, 'table_lamp');
-      if (lamp2m) {
-        lamp2m.position.set(W / 2 - 0.7, 0.5, -6.1);
-        group.add(lamp2m);
-        const lg2 = new THREE.PointLight(theme.lampColor, 2.2, 3.5);
-        lg2.position.set(W / 2 - 0.7, 0.95, -6.1);
-        group.add(lg2);
-      } else {
-        const latte = cloneModel(models, 'latte') ?? cloneModel(models, 'mug');
-        if (latte) {
-          latte.position.set(W / 2 - 0.7, 0.5, -6.1);
-          group.add(latte);
+      // second one beside the sofa with a forgotten latte on it — skipped on
+      // venues whose stage owns that corner
+      if (!blueprint.decor.stage) {
+        const sideT2 = cloneModel(models, 'side_table');
+        sideT2.position.set(W / 2 - 0.7, 0, -6.1);
+        group.add(sideT2);
+        const lamp2m = cloneModel(models, 'table_lamp');
+        if (lamp2m) {
+          lamp2m.position.set(W / 2 - 0.7, 0.5, -6.1);
+          group.add(lamp2m);
+          const lg2 = new THREE.PointLight(theme.lampColor, 2.2, 3.5);
+          lg2.position.set(W / 2 - 0.7, 0.95, -6.1);
+          group.add(lg2);
+        } else {
+          const latte = cloneModel(models, 'latte') ?? cloneModel(models, 'mug');
+          if (latte) {
+            latte.position.set(W / 2 - 0.7, 0.5, -6.1);
+            group.add(latte);
+          }
         }
+        const mags2 = makeMagazineStack();
+        mags2.position.set(W / 2 - 0.95, 0, -5.7);
+        group.add(mags2);
       }
-      const mags2 = makeMagazineStack();
-      mags2.position.set(W / 2 - 0.95, 0, -5.7);
-      group.add(mags2);
     }
     const lantern = cloneModel(models, 'lantern');
     if (lantern) {

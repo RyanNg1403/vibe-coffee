@@ -658,12 +658,15 @@ function placePlayerLaptop() {
   const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0);
   const d = toTable.length() || 1;
   // Keep the whole 22 cm-deep base supported by the tabletop. Regular tables
-  // leave the laptop near the player's edge; the shallower window bar needs it
-  // almost centred, and small tables (the salon writing desk) pull it inward
-  // so the base corners stay on the top: half depth 0.11 plus a 0.02 margin.
+  // leave the laptop near the player's edge; the shallower window bar needs
+  // it almost centred, and small tables (writing desk, cabaret two-top) pull
+  // it inward until every base corner (half base 0.16 x 0.11) stays on the
+  // top with a 0.01 margin.
+  const clampR = seat.tableRadius ?? 0.52;
+  const cornerSafe = Math.sqrt(Math.max(0, (clampR - 0.01) ** 2 - 0.16 ** 2)) - 0.11;
   const distanceFromCenter = seat.pos.y > 0.05
     ? 0.075
-    : Math.min(0.34, (seat.tableRadius ?? 0.52) - 0.13);
+    : Math.min(0.34, Math.max(0.05, cornerSafe));
   const edge = Math.max(0, d - distanceFromCenter);
   playerLaptop = makeMacBook();
   playerLaptop.position.set(
