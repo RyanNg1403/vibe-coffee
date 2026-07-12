@@ -143,9 +143,14 @@ try {
     const summary = await client.evaluate(`(() => {
       const vibe = window.__vibe;
       const violations = [];
+      const groundingViolations = [];
       const seatCount = vibe.cafe.seats.length;
       // resting state first
       violations.push(...vibe.decorAudit().violations.map((v) => ({ ...v, phase: 'rest' })));
+      // whole-venue world-grounding sweep at rest: no mesh floats or sinks
+      const ground0 = vibe.worldGroundingAudit();
+      groundingViolations.push(...ground0.violations.map((v) => ({ ...v, phase: 'rest' })));
+      const groundingChecked = ground0.checked;
       // then every seat with the laptop out: clearance must keep everything
       // grounded, separated, and on the table
       const laptopBtn = document.getElementById('laptop-btn');
@@ -162,11 +167,16 @@ try {
       }
       if (laptopBtn.classList.contains('on')) laptopBtn.click();
       violations.push(...vibe.decorAudit().violations.map((v) => ({ ...v, phase: 'restored' })));
-      return { seatCount, skipped, violations };
+      // grounding sweep again with a laptop deployed (props relocated)
+      if (seatCount) { vibe.sit(0); if (!laptopBtn.classList.contains('on')) laptopBtn.click(); }
+      const ground1 = vibe.worldGroundingAudit();
+      groundingViolations.push(...ground1.violations.map((v) => ({ ...v, phase: 'laptop@seat0' })));
+      if (laptopBtn.classList.contains('on')) laptopBtn.click();
+      return { seatCount, skipped, groundingChecked, violations, groundingViolations };
     })()`);
     report[THEMES[index]] = summary;
-    total += summary.violations.length;
-    console.error(`${THEMES[index]}: ${summary.seatCount} seats, ${summary.violations.length} violations`);
+    total += summary.violations.length + summary.groundingViolations.length;
+    console.error(`${THEMES[index]}: ${summary.seatCount} seats, ${summary.violations.length} decor + ${summary.groundingViolations.length} grounding violations (${summary.groundingChecked} meshes swept)`);
   }
   console.log(JSON.stringify({ report, total, passed: total === 0 }, null, 2));
   if (total > 0) process.exitCode = 1;
