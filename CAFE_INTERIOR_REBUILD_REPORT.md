@@ -17,7 +17,7 @@ reliable stair; and a whole‑venue world‑grounding audit confirms nothing flo
 | 4 | Garden Terrace two‑level architecture + switchback stair + guards | `feat/terrace-two-level` | #17 |
 | 5 | Terrace level‑aware NPC circulation (NPCs climb/descend the stair) | `feat/terrace-npc-circulation` | #18 |
 | 6 | Exact tabletop support for laptops + visible NPC‑prop coexistence | `feat/tabletop-obb` | #19 |
-| 7 | World‑grounding audit + integrated verification + this report | `feat/phase7-polish` | (this PR) |
+| 7 | World‑grounding audit + plant‑fidelity fix + integrated verification + this report | `feat/phase7-polish` | (this PR) |
 
 Key merge commits: `e8f7cc3` (P0), `5ba6433` (P1), `257af0c` (P2), `ea15b6d`
 merge (P3), `21a24f2`/`4388688` (P4), `1ab9e2d` (P5), `9719f06` (P6).
@@ -58,6 +58,10 @@ merge (P3), `21a24f2`/`4388688` (P4), `1ab9e2d` (P5), `9719f06` (P6).
   the ground floor. ✅
 - **No floating / sunken / overlapping / unsupported objects** — confirmed by the
   world‑grounding audit and a full‑size screenshot review of every venue. ✅
+- **Plant fidelity.** The Garden Terrace deck planters previously rendered
+  greenery as fans of cones; they now hold real potted plant models
+  (monstera/pothos/succulent) and leaf‑blade clumps, and the pergola drapes use
+  the trailing pothos‑vine model instead of bare cylinders. ✅
 
 ## Verification
 
