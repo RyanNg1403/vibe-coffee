@@ -2339,6 +2339,10 @@ export function buildCafe(theme, models = null) {
       seat.levelId = blueprintSeat.levelId;
       seat.isBar = false;
     });
+    // The writing desk's vignette is its typewriter; the generic place
+    // setting and curated cluster would overflow the small top the moment a
+    // laptop needs clearance space.
+    if (blueprintTable.archetype === 'writing') return;
     // Base place setting. Positions are reserved around the later curated
     // vignette instead of independently randomized, which previously allowed
     // cups, flowers, magazines and pastries to spawn inside one another.
@@ -2526,6 +2530,7 @@ export function buildCafe(theme, models = null) {
   // reads as hospitality styling; independent random props read as clutter.
   const candleFlames = [];
   legacyTables.forEach((tt, ti) => {
+    if (tt.type === 'writing') return; // the typewriter is the whole vignette
     const surfaceProps = tableSurfaceProps[ti];
     // Lounge tables are intentionally coffee-table height. Their curated
     // place settings must use that lower surface instead of the standard
