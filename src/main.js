@@ -1432,7 +1432,7 @@ function frame(now = performance.now()) {
       walkMove.normalize();
       walkProposed.copy(walkPos).addScaledVector(walkMove, dt * 2.0);
       resolveCollisions(walkProposed);
-      crowd?.resolvePlayerCollision?.(walkProposed);
+      crowd?.resolvePlayerCollision?.(walkProposed, 0.3, walkY);
       // A person can push the player toward a table edge; resolve the room once
       // more so the two collision systems cannot squeeze the camera into props.
       resolveCollisions(walkProposed);

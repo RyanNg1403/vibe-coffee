@@ -4136,6 +4136,7 @@ export function buildCafe(theme, models = null) {
           const aheadX = cat.position.x + sx * 0.5;
           const aheadZ = cat.position.z + sz * 0.5;
           for (const col of colliders) {
+            if ((col.levelId ?? 'ground') !== 'ground') continue; // the cat stays downstairs
             if (col.rect) {
               // walls and partitions: steer straight back out of the slab
               const r2 = col.rect, m = 0.2;

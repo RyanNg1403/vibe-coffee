@@ -97,6 +97,7 @@ class Pet {
     const aheadX = pos.x + dirX * 0.4;
     const aheadZ = pos.z + dirZ * 0.4;
     for (const c of this.cafe.colliders) {
+      if ((c.levelId ?? 'ground') !== 'ground') continue; // pets stay on the courtyard
       if (c.r) {
         const r = c.r + 0.18;
         const ox = aheadX - c.x, oz = aheadZ - c.z;
