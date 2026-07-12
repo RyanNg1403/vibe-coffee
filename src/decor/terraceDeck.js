@@ -144,64 +144,112 @@ export function buildTerraceDeck({ group, spec, helpers, mats, models, rand }) {
   }
 
   // -- the switchback stair -----------------------------------------------------
+  // Each flight is drawn straight from its blueprint endpoints (z0,y0)->(z1,y1)
+  // — the SAME numbers the navigation ramp uses — so the visible treads always
+  // slope exactly the way you actually walk. flightA (east lane) rises north
+  // 0 -> 1.625; flightB (west lane) rises south 1.625 -> 3.25 (its spec reads
+  // z0=-2 at y3.25 down to z1=0.85 at y1.625). No y-swap, no direction flag.
   const treadMat = teak;
-  const buildFlight = (flight, ascendingNorth) => {
+  const buildFlight = (flight) => {
     const width = flight.x1 - flight.x0;
     const cx = (flight.x0 + flight.x1) / 2;
-    const run = flight.z1 - flight.z0;
+    const run = flight.z1 - flight.z0;          // signed span along z
+    const rise = flight.y1 - flight.y0;         // signed rise
     const steps = 10;
+    const stepRun = run / steps;
+    const stepRise = rise / steps;
+    const slope = Math.atan2(rise, run);
+    const midZ = (flight.z0 + flight.z1) / 2;
+    const midY = (flight.y0 + flight.y1) / 2;
     for (let i = 0; i < steps; i += 1) {
-      const t = (i + 0.5) / steps;
-      const z = flight.z0 + run * t;
-      const yTop = ascendingNorth
-        ? flight.y0 + (flight.y1 - flight.y0) * ((i + 1) / steps)
-        : flight.y1 + (flight.y0 - flight.y1) * ((steps - i) / steps);
-      const tread = roundedBox(width - 0.06, 0.055, run / steps - 0.015, treadMat, 0.015);
-      tread.position.set(cx, yTop - 0.0275, z);
+      const zFront = flight.z0 + stepRun * (i + 1); // higher (downhill-facing) edge
+      const yTop = flight.y0 + stepRise * (i + 1);
+      const zc = zFront - stepRun / 2;
+      const tread = roundedBox(width - 0.06, 0.06, Math.abs(stepRun) - 0.008, treadMat, 0.016);
+      tread.position.set(cx, yTop - 0.03, zc);
+      tread.castShadow = true; tread.receiveShadow = true;
       deck.add(tread);
-      const riser = box(width - 0.08, stair.riserHeight - 0.05, 0.03, woodDarkMat);
-      riser.position.set(cx, yTop - stair.riserHeight / 2 - 0.03, z - (run / steps) / 2 + 0.03);
+      // solid riser closing the vertical face beneath each tread nose
+      const riser = box(width - 0.08, Math.abs(stepRise) + 0.03, 0.03, woodDarkMat);
+      riser.position.set(cx, yTop - Math.abs(stepRise) / 2 - 0.03, zFront - Math.sign(stepRun) * 0.014);
       deck.add(riser);
     }
-    // slim bronze stringers on both sides of the flight
-    for (const sx of [flight.x0 + 0.03, flight.x1 - 0.03]) {
-      const yLow = ascendingNorth ? flight.y0 : flight.y1;
-      const yHigh = ascendingNorth ? flight.y1 : flight.y0;
-      const stringerLength = Math.hypot(run, yHigh - yLow);
-      const stringer = box(0.05, 0.24, stringerLength, bronze);
-      stringer.position.set(sx, (yLow + yHigh) / 2 - 0.05, (flight.z0 + flight.z1) / 2);
-      stringer.rotation.x = -Math.atan2(yHigh - yLow, run);
+    // closed teak stringers hugging the tread line on both sides (reads solid,
+    // not floating), each tilted to the flight's true slope
+    const stringerLen = Math.hypot(run, rise);
+    for (const sx of [flight.x0 + 0.04, flight.x1 - 0.04]) {
+      const stringer = box(0.09, 0.34, stringerLen + 0.12, teak);
+      stringer.position.set(sx, midY - 0.17, midZ);
+      stringer.rotation.x = -slope;
+      stringer.castShadow = true;
       deck.add(stringer);
-      // handrail above the stringer with the same slope
-      const handrail = cyl(0.025, 0.025, stringerLength, bronze, 8);
-      handrail.rotation.x = Math.PI / 2 + Math.atan2(yHigh - yLow, run);
-      handrail.position.set(sx, (yLow + yHigh) / 2 + 0.92, (flight.z0 + flight.z1) / 2);
-      deck.add(handrail);
-      const ledRun = box(0.02, 0.012, run - 0.2, ledMat);
-      ledRun.position.set(sx, (yLow + yHigh) / 2 + 0.84, (flight.z0 + flight.z1) / 2);
-      ledRun.rotation.x = -Math.atan2(yHigh - yLow, run);
+      // a real railing: newel posts stepping up the flight + a top rail and
+      // LED strip that follow the exact slope
+      for (let p = 0; p <= 4; p += 1) {
+        const f = p / 4;
+        const post = cyl(0.022, 0.022, 0.92, bronze, 6);
+        post.position.set(sx, flight.y0 + rise * f + 0.46, flight.z0 + run * f);
+        deck.add(post);
+      }
+      const rail = box(0.05, 0.05, stringerLen, bronze);
+      rail.position.set(sx, midY + 0.9, midZ);
+      rail.rotation.x = -slope;
+      deck.add(rail);
+      const ledRun = box(0.02, 0.012, Math.abs(run) - 0.2, ledMat);
+      ledRun.position.set(sx, midY + 0.82, midZ);
+      ledRun.rotation.x = -slope;
       deck.add(ledRun);
     }
   };
-  buildFlight({ ...stair.flightA }, true);
-  buildFlight({ ...stair.flightB, y0: stair.flightB.y1, y1: stair.flightB.y0 }, false);
+  buildFlight({ ...stair.flightA });
+  buildFlight({ ...stair.flightB });
 
-  // landing platform with textured face and rail posts
+  // -- landing platform: teak deck, a proper guard rail on the open north edge,
+  // slim timber piers and a closed soffit so the mass reads solid without the
+  // old featureless white wall/box.
   const landing = stair.landing;
-  const landingSlab = box(landing.x1 - landing.x0, 0.14, landing.z1 - landing.z0, teak);
-  landingSlab.position.set((landing.x0 + landing.x1) / 2, landing.y - 0.07, (landing.z0 + landing.z1) / 2);
+  const lcx = (landing.x0 + landing.x1) / 2;
+  const lw = landing.x1 - landing.x0;
+  const lz = (landing.z0 + landing.z1) / 2;
+  const landingSlab = box(lw, 0.16, landing.z1 - landing.z0, teak);
+  landingSlab.position.set(lcx, landing.y - 0.08, lz);
+  landingSlab.receiveShadow = true;
   deck.add(landingSlab);
-  const landingWall = box(landing.x1 - landing.x0, landing.y, 0.12, limewash);
-  landingWall.position.set((landing.x0 + landing.x1) / 2, landing.y / 2, landing.z1 + 0.06);
-  deck.add(landingWall);
-  const landingRail = box(landing.x1 - landing.x0, 0.06, 0.05, bronze);
-  landingRail.position.set((landing.x0 + landing.x1) / 2, landing.y + 1.0, landing.z1 - 0.05);
-  deck.add(landingRail);
-  // under-stair skirts so the mass reads solid from the courtyard
-  const skirtB = box(-3.5 - -4.55, 0.02 + landing.y, 2.0 - -2.0, limewash);
-  skirtB.position.set((-4.55 + -3.5) / 2, landing.y / 2, 0);
-  skirtB.scale.y = 1;
-  deck.add(skirtB);
+  const fascia = box(lw + 0.03, 0.2, 0.06, woodDarkMat);
+  fascia.position.set(lcx, landing.y - 0.16, landing.z1);
+  deck.add(fascia);
+  // guard rail along the open (north) edge of the landing
+  const railTop = box(lw, 0.05, 0.05, bronze);
+  railTop.position.set(lcx, landing.y + 0.95, landing.z1 - 0.05);
+  deck.add(railTop);
+  for (const px of [landing.x0 + 0.14, lcx, landing.x1 - 0.14]) {
+    const post = cyl(0.024, 0.024, 0.95, bronze, 6);
+    post.position.set(px, landing.y + 0.475, landing.z1 - 0.05);
+    deck.add(post);
+    const led = box(lw / 3, 0.012, 0.02, ledMat);
+    led.position.set(px, landing.y + 0.86, landing.z1 - 0.05);
+    deck.add(led);
+  }
+  // slim piers carrying the landing down to the courtyard floor
+  for (const px of [landing.x0 + 0.22, landing.x1 - 0.22]) {
+    const pierH = landing.y - 0.16;
+    const pier = box(0.13, pierH, 0.13, woodDarkMat);
+    pier.position.set(px, pierH / 2, landing.z1 - 0.22);
+    pier.castShadow = true;
+    deck.add(pier);
+  }
+  // closed soffit under flightB's west lane so there is no hollow gap seen
+  // from the courtyard, tucked below the treads
+  const soffitLen = Math.hypot(stair.flightB.z1 - stair.flightB.z0, stair.flightB.y1 - stair.flightB.y0);
+  const soffit = box(stair.flightB.x1 - stair.flightB.x0 - 0.1, 0.05, soffitLen,
+    new THREE.MeshStandardMaterial({ color: 0x6f5638, roughness: 0.7 }));
+  soffit.position.set(
+    (stair.flightB.x0 + stair.flightB.x1) / 2,
+    (stair.flightB.y0 + stair.flightB.y1) / 2 - 0.42,
+    (stair.flightB.z0 + stair.flightB.z1) / 2,
+  );
+  soffit.rotation.x = -Math.atan2(stair.flightB.y1 - stair.flightB.y0, stair.flightB.z1 - stair.flightB.z0);
+  deck.add(soffit);
 
   // -- integrated deck bench along the west edge -------------------------------
   const bench = roundedBox(0.5, 0.42, 3.0, teak, 0.04);
