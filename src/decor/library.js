@@ -172,13 +172,14 @@ export function buildFittedLibrary({
         library.add(onShelf(vase, slot.shelfY, name));
       }
     } else if (kind === 2) {
-      // a small framed photograph leaning on the backing
+      // a small framed photograph leaning on the backing; the lean pivots the
+      // frame's base corner up, so drop it slightly to keep visible contact
       const photoFrame = box(0.018, 0.16, 0.13, woodDarkMat);
-      photoFrame.position.set(bookCenterX + 0.03, slot.shelfY + 0.08, slot.z);
+      photoFrame.position.set(bookCenterX + 0.03, slot.shelfY + 0.076, slot.z);
       photoFrame.rotation.z = -0.09;
       library.add(onShelf(photoFrame, slot.shelfY, name));
       const photo = box(0.006, 0.12, 0.095, ceramicMat);
-      photo.position.set(bookCenterX + 0.016, slot.shelfY + 0.08, slot.z);
+      photo.position.set(bookCenterX + 0.016, slot.shelfY + 0.076, slot.z);
       photo.rotation.z = -0.09;
       library.add(onShelf(photo, slot.shelfY, name));
     } else if (plantsPlaced < 2) {

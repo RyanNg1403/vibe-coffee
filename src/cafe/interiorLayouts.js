@@ -310,6 +310,18 @@ const goldenhour = makeVenue({
       pegboard: { z: 4.9 },
       sconces: [-5.2, 5.4],
     },
+    // the lounge side table moved out of the oval group table's footprint
+    sideTable: { x: -6.25, z: 3.2 },
+    // A-frame menu board stands past the right window counter, off the
+    // arrival lane and clear of both counters' stool circulation
+    chalkboard: { x: 4.15, z: 5.5, rot: -0.85 },
+    // floor plants keep the shared ring EXCEPT: no plant in front of the
+    // fitted library (old spot 5) and none crowding the door (old spot 8)
+    plantSpots: [
+      [-HALF_W + 0.7, -HALF_D + 0.7], [HALF_W - 0.7, HALF_D - 1.3], [HALF_W - 0.6, -HALF_D + 3.0],
+      [-HALF_W + 0.6, 3.6], [-HALF_W + 0.6, -2.0], [HALF_W - 0.6, 2.62],
+      [3.8, -5.0], [-3.6, -5.0], [-4.2, 5.75],
+    ],
   },
   extraDestinations: [
     // browsing spot facing the library shelves; departing patrons may pause

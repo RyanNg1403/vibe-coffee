@@ -2379,7 +2379,6 @@ export function buildCafe(theme, models = null) {
         writingTable.center.z - ox * sin + oz * cos,
       );
       tw.rotation.y = rot + rand(-0.08, 0.08);
-      tw.scale.setScalar(0.85);
       group.add(tw);
       const deskSeat = seats.find((s) => s.tableId === writingTable.id);
       if (deskSeat) registerTableProp(deskSeat.surfaceProps, tw, 0.2);
@@ -2463,11 +2462,9 @@ export function buildCafe(theme, models = null) {
   }
 
   // plants
-  const plantSpots = [
-    [-W / 2 + 0.7, -D / 2 + 0.7], [W / 2 - 0.7, D / 2 - 1.3], [W / 2 - 0.6, -D / 2 + 3.0],
-    [-W / 2 + 0.6, 3.6], [-W / 2 + 0.6, -2.0], [W / 2 - 0.6, 0.4],
-    [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
-  ];
+  // floor-plant ring comes from the blueprint (venues with reserved wall
+  // bays move spots away from their fitted furniture)
+  const plantSpots = blueprint.decor.plantSpots;
   // Authored species palette per café (decor/decorManifest.js): recognizable
   // monstera/sansevieria/pothos/fern silhouettes instead of generic cones.
   const greenery = GREENERY[theme.id] ?? GREENERY.goldenhour;
@@ -3205,10 +3202,11 @@ export function buildCafe(theme, models = null) {
       panel.castShadow = true;
       cb.add(panel);
     }
-    cb.position.set(1.5, 0, D / 2 - 1.6);
-    cb.rotation.y = -0.5;
+    const cbSpot = blueprint.decor.chalkboard ?? { x: 1.5, z: D / 2 - 1.6, rot: -0.5 };
+    cb.position.set(cbSpot.x, 0, cbSpot.z);
+    cb.rotation.y = cbSpot.rot;
     group.add(cb);
-    contactShadow(1.5, D / 2 - 1.6, 1.0);
+    contactShadow(cbSpot.x, cbSpot.z, 1.0);
   }
 
   // warm wall sconces on the solid walls (kiosk face only, outdoors)
@@ -3342,10 +3340,11 @@ export function buildCafe(theme, models = null) {
     // a lantern on a lounge side table if we have one
     const sideT = cloneModel(models, 'side_table');
     if (sideT) {
-      sideT.position.set(-5.1, 0, -0.5);
+      const sideSpot = blueprint.decor.sideTable ?? { x: -5.1, z: -0.5 };
+      sideT.position.set(sideSpot.x, 0, sideSpot.z);
       group.add(sideT);
-      contactShadow(-5.1, -0.5, 0.8);
-      extraColliders.push({ x: -5.1, z: -0.5, r: 0.35 });
+      contactShadow(sideSpot.x, sideSpot.z, 0.8);
+      extraColliders.push({ x: sideSpot.x, z: sideSpot.z, r: 0.35 });
       // second one beside the sofa with a forgotten latte on it
       const sideT2 = cloneModel(models, 'side_table');
       sideT2.position.set(W / 2 - 0.7, 0, -6.1);
@@ -3370,11 +3369,12 @@ export function buildCafe(theme, models = null) {
     }
     const lantern = cloneModel(models, 'lantern');
     if (lantern) {
-      lantern.position.set(-5.1, sideT ? 0.5 : 0.56, -0.5);
+      const lanternSpot = blueprint.decor.sideTable ?? { x: -5.1, z: -0.5 };
+      lantern.position.set(lanternSpot.x, sideT ? 0.5 : 0.56, lanternSpot.z);
       group.add(lantern);
       if (theme.candles) {
         const lg = new THREE.PointLight(theme.lampColor, 2.5, 3);
-        lg.position.set(-5.1, 0.7, -0.5);
+        lg.position.set(lanternSpot.x, 0.7, lanternSpot.z);
         group.add(lg);
       }
     }
