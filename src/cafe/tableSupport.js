@@ -139,6 +139,81 @@ export function shapeBounds(shape) {
   return { x0, x1, z0, z1 };
 }
 
+// Walk a rotated footprint from `from` toward `to` in 0.02 m steps and stop
+// at the first spot where all four corners (and the centre) are supported.
+// Returns { x, z, dist } (dist = distance travelled from `from`) or null if
+// no point on the segment fits.
+export function supportedAlong(shape, from, to, footprint, margin = 0.01) {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const span = Math.hypot(dx, dz);
+  const steps = Math.ceil(span / 0.02);
+  for (let i = 0; i <= steps; i += 1) {
+    const t = steps === 0 ? 0 : i / steps;
+    const x = from.x + dx * t;
+    const z = from.z + dz * t;
+    if (footprintSupported(shape, {
+      x, z, yaw: footprint.yaw ?? 0, width: footprint.width, depth: footprint.depth,
+    }, margin)) {
+      return { x, z, dist: span * t };
+    }
+  }
+  return null;
+}
+
+// Walk inward from `startDist` along a ray from the shape centre until the
+// rotated footprint's four corners (and centre) are all supported. This is
+// the laptop-placement solver: prefer sitting near the guest's edge, pull
+// toward the centre only as far as the true support shape requires.
+export function supportedOffsetToward(shape, dirX, dirZ, startDist, footprint, margin = 0.01) {
+  for (let dist = Math.max(0, startDist); dist >= 0; dist -= 0.02) {
+    const x = shape.center.x + dirX * dist;
+    const z = shape.center.z + dirZ * dist;
+    if (footprintSupported(shape, {
+      x, z, yaw: footprint.yaw ?? 0, width: footprint.width, depth: footprint.depth,
+    }, margin)) {
+      return { x, z, dist };
+    }
+  }
+  return null;
+}
+
+// The laptop-placement rule shared by the player and NPCs (plan §9/§10):
+// aim for a spot roughly arm's reach in front of the guest, then pull it
+// toward the seat's table anchor (the projected point on a bar strip, the
+// centre of a freestanding table) until the whole base is supported. If even
+// the anchor line fails (an end stool on a counter), slide toward the
+// shape's true centre instead. Anchoring at the seat — not the table centre
+// — keeps two neighbours' laptops in front of their own chairs on long
+// communal tables instead of converging in the middle.
+export function placeFootprintForSeat(shape, seatPos, anchor, footprint, margin = 0.01) {
+  const dx = anchor.x - seatPos.x;
+  const dz = anchor.z - seatPos.z;
+  const d = Math.hypot(dx, dz) || 1;
+  const reach = Math.min(0.55, Math.max(0.35, d - 0.34));
+  const desired = {
+    x: seatPos.x + (dx / d) * reach,
+    z: seatPos.z + (dz / d) * reach,
+  };
+  return supportedAlong(shape, desired, anchor, footprint, margin)
+    ?? supportedAlong(shape, desired, shape.center, footprint, margin);
+}
+
+// Project a point (with a circular pad) back inside a support shape by
+// pulling it straight toward the shape centre. Used by the prop clamp.
+export function pullInsideShape(shape, x, z, pad) {
+  if (pointSupported(shape, x, z, pad)) return { x, z };
+  const dx = x - shape.center.x;
+  const dz = z - shape.center.z;
+  const dist = Math.hypot(dx, dz) || 1;
+  for (let t = dist; t >= 0; t -= 0.02) {
+    const px = shape.center.x + (dx / dist) * t;
+    const pz = shape.center.z + (dz / dist) * t;
+    if (pointSupported(shape, px, pz, pad)) return { x: px, z: pz };
+  }
+  return { x: shape.center.x, z: shape.center.z };
+}
+
 // The support shape of a table blueprint entry (tables carry their shape
 // fields inline; this normalizes them for the geometry helpers above).
 export function tableSupportShape(table) {

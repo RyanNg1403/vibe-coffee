@@ -149,8 +149,12 @@ try {
       // then every seat with the laptop out: clearance must keep everything
       // grounded, separated, and on the table
       const laptopBtn = document.getElementById('laptop-btn');
+      const skipped = [];
       for (let seat = 0; seat < seatCount; seat += 1) {
-        vibe.sit(seat);
+        // sit() mirrors gameplay: a seated guest is evicted (departing
+        // normally), a mid-walk/order reservation keeps the seat and the
+        // unreachable player-in-lap state is skipped
+        if (!vibe.sit(seat)) { skipped.push(seat); continue; }
         if (!laptopBtn.classList.contains('on')) laptopBtn.click();
         for (const v of vibe.decorAudit().violations) {
           violations.push({ ...v, phase: 'laptop@seat' + seat });
@@ -158,7 +162,7 @@ try {
       }
       if (laptopBtn.classList.contains('on')) laptopBtn.click();
       violations.push(...vibe.decorAudit().violations.map((v) => ({ ...v, phase: 'restored' })));
-      return { seatCount, violations };
+      return { seatCount, skipped, violations };
     })()`);
     report[THEMES[index]] = summary;
     total += summary.violations.length;

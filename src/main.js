@@ -9,6 +9,10 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { THEMES, ROOM, buildCafe, resolveEnvironment } from './cafe.js';
 import { createNavigator, pointInPolygon, surfaceHeightAt } from './cafe/levelNavigation.js';
+import {
+  placeFootprintForSeat, pullInsideShape, footprintSupported,
+  footprintCorners, convexPolygonsOverlap, pointSupported, shapeBounds,
+} from './cafe/tableSupport.js';
 import { CrowdSim } from './npc.js';
 import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
@@ -506,10 +510,12 @@ function restoreTableProps(seat) {
     if (!entry.object?.parent) continue;
     entry.object.position.copy(entry.home);
   }
+  // NPC props were only nudged aside (never hidden): walk them back to the
+  // spots their owners chose.
   for (const candidate of cafe?.seats ?? []) {
     if (!seat || candidate.tableCenter.distanceToSquared(seat.tableCenter) > 0.0001) continue;
     for (const entry of candidate.npcTableProps ?? []) {
-      if (entry.object?.parent) entry.object.visible = true;
+      if (entry.object?.parent) entry.object.position.copy(entry.home);
     }
   }
 }
@@ -525,18 +531,20 @@ function syncLaptopSurfaceProps() {
   const npcRevision = cafe.npcTablePropRevision ?? 0;
   if (activeCount === laptopSurfacePropCount && npcRevision === laptopNpcPropRevision) return;
   const tableSeats = cafe.seats.filter((candidate) => candidate.tableCenter.distanceToSquared(seat.tableCenter) < 0.0001);
+  // NPC laptops/sketchpads at a shared table stay visible next to the
+  // player's MacBook (plan §10) — they join the clearance flow below and are
+  // nudged aside only if the two would genuinely collide.
   const npcProps = tableSeats.flatMap((candidate) => candidate.npcTableProps ?? []).filter((entry) => entry.object?.parent);
-  for (const entry of npcProps) entry.object.visible = false;
   const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0).normalize();
   const beside = new THREE.Vector3(-toTable.z, 0, toTable.x);
   const towardRoom = new THREE.Vector3(-seat.tableCenter.x, 0, -seat.tableCenter.z);
   if (beside.dot(towardRoom) < 0) beside.negate();
-  clearTablePropsForLaptop(seat, beside);
+  clearTablePropsForLaptop(seat, beside, npcProps);
   laptopSurfacePropCount = activeCount;
   laptopNpcPropRevision = npcRevision;
 }
 
-function clearTablePropsForLaptop(seat, beside) {
+function clearTablePropsForLaptop(seat, beside, npcProps = []) {
   // widest settings claim the first slots so a book never overlaps a card
   const props = (seat.surfaceProps ?? [])
     .filter((entry) => entry.object?.parent)
@@ -557,14 +565,84 @@ function clearTablePropsForLaptop(seat, beside) {
     );
     clampToTable(object.position, seat, entry.footprint ?? 0.08);
   });
-  relaxClearedProps(props, seat);
+  // NPC props stay where their owners put them (the placement solver already
+  // guarantees a supported, collision-free spot) — they are never hidden, and
+  // never dragged around by the player's clearance. The player's cleared
+  // props route around them instead.
+  for (const entry of npcProps) {
+    const object = entry.object;
+    object.visible = true;
+    object.position.copy(entry.home);
+  }
+  relaxClearedProps(props, seat, npcProps);
+  finalizeClearedProps(props, seat, npcProps);
   renderer.shadowMap.needsUpdate = true;
+}
+
+// The radial relax can wedge a prop between the laptop's keep-off ring and
+// the table edge with nowhere to go along its push direction. This last pass
+// is exhaustive instead of iterative: any prop still in conflict is moved to
+// the nearest supported spot (polar sweep of the tabletop) that is clear of
+// the laptop, the pinned NPC props, and everything placed before it.
+function finalizeClearedProps(props, seat, pinned) {
+  const placed = pinned
+    .filter((entry) => entry.object?.parent)
+    .map((entry) => ({
+      x: entry.object.position.x, z: entry.object.position.z,
+      f: entry.footprint ?? 0.08,
+    }));
+  const shape = seat.supportShape;
+  const cx = shape?.center.x ?? seat.tableCenter.x;
+  const cz = shape?.center.z ?? seat.tableCenter.z;
+  let maxR = seat.tableRadius ?? 0.6;
+  if (shape) {
+    const bounds = shapeBounds(shape);
+    maxR = Math.max(bounds.x1 - bounds.x0, bounds.z1 - bounds.z0) / 2;
+  }
+  for (const prop of props) {
+    const p = prop.object.position;
+    const f = prop.footprint ?? 0.08;
+    if (!clearedPropConflicts(p.x, p.z, f, placed, seat)) {
+      placed.push({ x: p.x, z: p.z, f });
+      continue;
+    }
+    let best = null;
+    for (let r = 0.06; r <= maxR; r += 0.05) {
+      for (let k = 0; k < 24; k += 1) {
+        const a = (k / 24) * Math.PI * 2;
+        const x = cx + Math.cos(a) * r;
+        const z = cz + Math.sin(a) * r;
+        if (clearedPropConflicts(x, z, f, placed, seat)) continue;
+        const d2 = (x - p.x) ** 2 + (z - p.z) ** 2;
+        if (!best || d2 < best.d2) best = { x, z, d2 };
+      }
+    }
+    if (best) { p.x = best.x; p.z = best.z; }
+    placed.push({ x: p.x, z: p.z, f });
+  }
+}
+
+function clearedPropConflicts(x, z, f, placed, seat) {
+  if (playerLaptop) {
+    const d = Math.hypot(x - playerLaptop.position.x, z - playerLaptop.position.z);
+    if (d < 0.24 + f) return true;
+  }
+  for (const other of placed) {
+    if (Math.hypot(x - other.x, z - other.z) < (f + other.f) * 0.72) return true;
+  }
+  if (seat.supportShape) return !pointSupported(seat.supportShape, x, z, f + 0.01);
+  if (seat.tableRadius) {
+    return Math.hypot(x - seat.tableCenter.x, z - seat.tableCenter.z) > seat.tableRadius - f - 0.01;
+  }
+  return false;
 }
 
 // Clamping can bunch several cleared props onto the same stretch of table
 // rim. A few separation passes push overlapping pairs apart along the rim
-// while keeping everything on the table and off the laptop.
-function relaxClearedProps(props, seat) {
+// while keeping everything on the table and off the laptop. `pinned` props
+// (an NPC's laptop or sketchpad) act as fixed obstacles: only the player's
+// cleared props give way.
+function relaxClearedProps(props, seat, pinned = []) {
   for (let pass = 0; pass < 6; pass++) {
     let moved = false;
     for (let a = 0; a < props.length; a++) {
@@ -588,6 +666,23 @@ function relaxClearedProps(props, seat) {
         clampToTable(pb, seat, fb);
         moved = true;
       }
+      for (const obstacle of pinned) {
+        const pa = props[a].object.position;
+        const po = obstacle.object.position;
+        const fa = props[a].footprint ?? 0.08;
+        const fo = obstacle.footprint ?? 0.08;
+        const minGap = (fa + fo) * 0.72;
+        let dx = pa.x - po.x;
+        let dz = pa.z - po.z;
+        let d = Math.hypot(dx, dz);
+        if (d >= minGap) continue;
+        if (d < 0.001) { dx = 1; dz = 0; d = 1; }
+        const push = (minGap - d) + 0.005;
+        pa.x += (dx / d) * push; pa.z += (dz / d) * push;
+        keepOffLaptop(pa, fa);
+        clampToTable(pa, seat, fa);
+        moved = true;
+      }
     }
     if (!moved) break;
   }
@@ -606,9 +701,18 @@ function keepOffLaptop(position, footprint) {
 }
 
 // A cleared prop must stay ON its table: pull anything the slot grid pushed
-// past the top's edge back inside, keeping its height.
+// past the top's edge back inside, keeping its height. The clamp uses the
+// exact rotated support shape (rect/circle/ellipse — window bars included),
+// falling back to the legacy inscribed disc only if a seat carries no shape.
 function clampToTable(position, seat, footprint) {
-  if (!seat?.tableRadius) return; // window-bar strip: the grid stays shallow there
+  const shape = seat?.supportShape;
+  if (shape) {
+    const inside = pullInsideShape(shape, position.x, position.z, footprint + 0.01);
+    position.x = inside.x;
+    position.z = inside.z;
+    return;
+  }
+  if (!seat?.tableRadius) return;
   const maxR = Math.max(0.05, seat.tableRadius - footprint - 0.01);
   const dx = position.x - seat.tableCenter.x;
   const dz = position.z - seat.tableCenter.z;
@@ -666,25 +770,22 @@ function placePlayerLaptop() {
   const seat = cafe.seats[seatIndex];
   const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0);
   const d = toTable.length() || 1;
-  // Keep the whole 22 cm-deep base supported by the tabletop. Regular tables
-  // leave the laptop near the player's edge; the shallower window bar needs
-  // it almost centred, and small tables (writing desk, cabaret two-top) pull
-  // it inward until every base corner (half base 0.16 x 0.11) stays on the
-  // top with a 0.01 margin.
-  const clampR = seat.tableRadius ?? 0.52;
-  const cornerSafe = Math.sqrt(Math.max(0, (clampR - 0.01) ** 2 - 0.16 ** 2)) - 0.11;
-  const distanceFromCenter = seat.isBar
-    ? 0.075
-    : Math.min(0.34, Math.max(0.05, cornerSafe));
-  const edge = Math.max(0, d - distanceFromCenter);
+  const yaw = Math.atan2(toTable.x, toTable.z) + Math.PI; // open side faces you
+  // One placement rule for every tabletop (plan §9/§10): aim arm's reach in
+  // front of your chair, then let the solver pull the rotated base
+  // (0.32 x 0.23) onto the seat's true support shape.
+  const solved = seat.supportShape
+    ? placeFootprintForSeat(seat.supportShape, seat.pos, seat.tableCenter,
+      { yaw, width: 0.32, depth: 0.23 })
+    : null;
+  const fallbackReach = Math.max(0, d - 0.34);
   playerLaptop = makeMacBook();
   playerLaptop.position.set(
-    seat.pos.x + (toTable.x / d) * edge,
+    solved?.x ?? (seat.pos.x + (toTable.x / d) * fallbackReach),
     seat.tableTopY ?? (seat.isBar ? 1.035 : 0.81),
-    seat.pos.z + (toTable.z / d) * edge
+    solved?.z ?? (seat.pos.z + (toTable.z / d) * fallbackReach)
   );
-  // open side faces you
-  playerLaptop.rotation.y = Math.atan2(toTable.x, toTable.z) + Math.PI;
+  playerLaptop.rotation.y = yaw;
   cafe.group.add(playerLaptop);
   // clicking your MacBook types on it, right where it sits
   interactions.register(playerLaptop, {
@@ -1680,6 +1781,10 @@ window.__vibe = {
   },
   sit(index) {
     if (!cafe?.seats[index]) return false;
+    // mirror the click-to-sit occupancy rule: a seated guest gives the seat
+    // up (departing normally, props cleared); a guest mid-walk/order keeps
+    // their reservation and the caller skips this seat
+    if (crowd?.isSeatTaken(index) && !crowd.evictSeat(index)) return false;
     sitAt(index, true);
     return true;
   },
@@ -1708,7 +1813,14 @@ window.__vibe = {
         if (bottom < seat.tableTopY - 0.08) {
           violations.push({ kind: 'sunken', name, bottom: +bottom.toFixed(3), surface: seat.tableTopY });
         }
-        if (seat.tableRadius) {
+        // overhang against the exact rotated support shape (covers the long
+        // window-bar strips the old inscribed-disc rule couldn't describe)
+        if (seat.supportShape) {
+          const margin = (entry.footprint ?? 0.08) * 0.5 - 0.03;
+          if (!pointSupported(seat.supportShape, entry.object.position.x, entry.object.position.z, margin)) {
+            violations.push({ kind: 'overhang', name, footprint: entry.footprint ?? 0.08 });
+          }
+        } else if (seat.tableRadius) {
           const dx = entry.object.position.x - seat.tableCenter.x;
           const dz = entry.object.position.z - seat.tableCenter.z;
           const reach = Math.hypot(dx, dz) + (entry.footprint ?? 0.08) * 0.5;
@@ -1729,6 +1841,62 @@ window.__vibe = {
         }
       });
     });
+    // The player's MacBook is never a point: all four base corners must sit
+    // on the seat's true support shape (plan §9).
+    const playerSeat = seatIndex >= 0 ? cafe.seats[seatIndex] : null;
+    const playerBase = playerLaptop && playerSeat ? {
+      x: playerLaptop.position.x, z: playerLaptop.position.z,
+      yaw: playerLaptop.rotation.y, width: 0.32, depth: 0.23,
+    } : null;
+    if (playerBase && playerSeat.supportShape
+      && !footprintSupported(playerSeat.supportShape, playerBase, 0)) {
+      violations.push({
+        kind: 'laptop-overhang', name: `${cafe.theme.id} player laptop @${playerSeat.id}`,
+        x: +playerBase.x.toFixed(3), z: +playerBase.z.toFixed(3),
+      });
+    }
+    // NPC tabletop props: never hidden as a clearance workaround, always on
+    // their own tabletop, and an NPC laptop must coexist with the player's
+    // (visible + non-overlapping OBBs) at a shared table (plan §10).
+    for (const seat of cafe.seats) {
+      for (const entry of seat.npcTableProps ?? []) {
+        if (!entry.object?.parent) continue;
+        const name = `${cafe.theme.id} npc prop @${seat.id ?? 'seat'}`;
+        if (!entry.object.visible) {
+          violations.push({ kind: 'npc-prop-hidden', name });
+        }
+        entry.object.updateWorldMatrix(true, true);
+        box.setFromObject(entry.object);
+        if (!box.isEmpty()) {
+          if (box.min.y > seat.tableTopY + 0.06) {
+            violations.push({ kind: 'floating', name, bottom: +box.min.y.toFixed(3), surface: seat.tableTopY });
+          }
+          if (box.min.y < seat.tableTopY - 0.08) {
+            violations.push({ kind: 'sunken', name, bottom: +box.min.y.toFixed(3), surface: seat.tableTopY });
+          }
+        }
+        if (seat.supportShape) {
+          const margin = (entry.footprint ?? 0.08) * 0.5 - 0.03;
+          if (!pointSupported(seat.supportShape, entry.object.position.x, entry.object.position.z, margin)) {
+            violations.push({ kind: 'overhang', name, footprint: entry.footprint ?? 0.08 });
+          }
+        }
+        if (playerBase && playerSeat.tableCenter.distanceToSquared(seat.tableCenter) < 0.0001) {
+          const overlaps = entry.base
+            ? convexPolygonsOverlap(footprintCorners(playerBase), footprintCorners({
+              x: entry.object.position.x, z: entry.object.position.z,
+              yaw: entry.object.rotation.y, width: entry.base.width, depth: entry.base.depth,
+            }))
+            : Math.hypot(
+              entry.object.position.x - playerBase.x,
+              entry.object.position.z - playerBase.z,
+            ) < 0.16 + (entry.footprint ?? 0.08) * 0.5;
+          if (overlaps) {
+            violations.push({ kind: 'laptop-collision', name });
+          }
+        }
+      }
+    }
     // objects that declare their support surface (service-counter dressing)
     cafe.group.traverse((object) => {
       if (object.userData.surfaceY === undefined) return;
