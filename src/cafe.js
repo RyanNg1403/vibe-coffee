@@ -2654,9 +2654,9 @@ export function buildCafe(theme, models = null) {
     const topY = tt.lounge ? 0.575
       : tt.type === 'cabaret' ? 0.785
       : (tt.type === 'round' || tt.type === 'oval') ? 0.805 : 0.81;
-    if (tt.type === 'cabaret') {
-      // cabaret two-tops keep only their drink and candle: the small top must
-      // stay clear for the candle-lit stage view and laptop clearance
+    if (tt.type === 'cabaret' || tt.type === 'booth') {
+      // cabaret two-tops and booths keep only their drink and candle: the
+      // small tops must stay clear for the stage view and laptop clearance
       if (theme.candles) {
         const candleSet = new THREE.Group();
         const candle = cyl(0.022, 0.025, 0.05, waxMat, 8);
