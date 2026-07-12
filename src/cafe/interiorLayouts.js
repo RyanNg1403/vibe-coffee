@@ -59,7 +59,29 @@ const TABLE_ARCHETYPES = {
     shape: 'rect', width: 1.15, depth: 0.7, surfaceY: 0.81, clampRadius: 0.34,
     seatOffsets: [[0, 0.85], [0.95, -0.2]],
   },
+  // Roastery communal worktable (plan §6): one substantial slab, eight seats.
+  communal: {
+    shape: 'rect', width: 1.4, depth: 3.6, surfaceY: 0.81, clampRadius: 0.65,
+    seatOffsets: [
+      [-1.05, -1.35], [-1.05, -0.45], [-1.05, 0.45], [-1.05, 1.35],
+      [1.05, -1.35], [1.05, -0.45], [1.05, 0.45], [1.05, 1.35],
+    ],
+  },
 };
+
+// Standing/tasting rail: a bar-height strip with one-sided stools, authored
+// per venue (the Roastery cupping rail faces its production partition).
+function railTable(id, levelId, { center, length, depth = 0.4, surfaceY = BAR_SURFACE_Y, stools, stoolSide, footRail = true }) {
+  const seats = stools.map((z, index) => ({
+    id: `${id}-s${index + 1}`, tableId: id, levelId,
+    pos: { x: center.x + stoolSide, y: 0.15, z }, isBar: true,
+  }));
+  return {
+    id, levelId, archetype: 'rail', shape: 'rect',
+    center, rotation: 0, width: depth, depth: length, surfaceY,
+    supportMargin: 0.02, isBar: true, footRail, railAxis: 'z', seats,
+  };
+}
 
 // Front window counters flanking the door. The default spec mirrors the
 // legacy windowBar block in src/cafe.js (two long strips, 6 stools each);
@@ -92,7 +114,8 @@ function windowBarTables(prefix, levelId, spec = LEGACY_BAR) {
       id, levelId, archetype: 'bar', shape: 'rect',
       center: { x: cx, z: BAR_Z }, rotation: 0,
       width: spec.length, depth: spec.depth, surfaceY: BAR_SURFACE_Y,
-      supportMargin: 0.02, isBar: true, footRail: !!spec.footRail, seats,
+      supportMargin: 0.02, isBar: true, footRail: !!spec.footRail,
+      barStyle: spec.style ?? 'classic', seats,
     });
   }
   return tables;
@@ -123,6 +146,8 @@ function diningTables(prefix, levelId, specs) {
       center: { x: spec.x, z: spec.z }, rotation,
       surfaceY: archetype.surfaceY, supportMargin: 0.02, isBar: false,
       clampRadius: archetype.clampRadius,
+      // authored signature prop for this table (e.g. Golden's typewriter)
+      vignette: spec.vignette ?? null,
       // legacy builder inputs (src/cafe.js addTable)
       legacyType: spec.type, lounge: !!spec.lounge,
       seats,
@@ -190,7 +215,7 @@ function staffOnlyZone(prefix) {
   };
 }
 
-const TABLE_COLLIDER_R = { long: 1.5, oval: 1.6, writing: 1.0 };
+const TABLE_COLLIDER_R = { long: 1.5, oval: 1.6, writing: 1.0, communal: 2.0 };
 
 function tableColliders(tables) {
   return tables.filter((t) => !t.isBar).map((t) => ({
@@ -240,6 +265,7 @@ const PLANT_SPOTS = [
 function makeVenue({
   prefix, id, style, tables: tableSpecs, windowBar, barSpec = null,
   auditViews, decor = {}, lighting = {}, extraDestinations = [], contract = null,
+  extraTables = [], extraColliders = [], extraForbiddenZones = [],
 }) {
   const levels = [{ id: 'ground', y: 0 }];
   const rooms = [{
@@ -249,6 +275,7 @@ function makeVenue({
   const barTables = windowBar ? windowBarTables(prefix, 'ground', barSpec ?? LEGACY_BAR) : [];
   const tables = [
     ...diningTables(prefix, 'ground', tableSpecs),
+    ...extraTables,
     ...barTables,
   ];
   const seats = tables.flatMap((t) => t.seats);
@@ -261,11 +288,12 @@ function makeVenue({
     tables, seats,
     serviceZones: [serviceCounterZone(prefix)],
     npcDestinations: [...commonDestinations(prefix), ...extraDestinations],
-    npcForbiddenZones: [staffOnlyZone(prefix)],
+    npcForbiddenZones: [staffOnlyZone(prefix), ...extraForbiddenZones],
     colliders: [
       ...tableColliders(tables),
       counterCollider(prefix),
       ...(windowBar ? windowBarColliders(prefix, barTables, !barSpec) : []),
+      ...extraColliders,
     ],
     decor: { plantSpots: PLANT_SPOTS, ...decor },
     lighting,
@@ -286,7 +314,7 @@ const goldenhour = makeVenue({
   tables: [
     { x: -5.0, z: 2.6, type: 'round', lounge: true },
     { x: -4.6, z: -0.9, type: 'oval', rot: 0.35 },
-    { x: -6.6, z: -3.6, type: 'writing', rot: -0.15 },
+    { x: -6.6, z: -3.6, type: 'writing', rot: -0.15, vignette: 'typewriter' },
     { x: -2.3, z: 1.2, type: 'round' },
     { x: -2.5, z: -2.3, type: 'round' },
     { x: -2.0, z: 4.15, type: 'round' },
@@ -355,24 +383,86 @@ const goldenhour = makeVenue({
   ],
 });
 
+// Downtown Roastery process hall (plan §6): the room is organized around two
+// communal worktables; roasting happens in a glazed production corner
+// (left/back) that is visible but sealed off from patrons; a cupping rail
+// faces the partition; the window zone is a modern steel rail, deliberately
+// unlike Golden Hour's classic twin counters.
+const RO_PRODUCTION = { x0: -HALF_W, x1: -5.2, z0: -HALF_D, z1: -1.0 };
+
 const roastery = makeVenue({
   prefix: 'ro', id: 'roastery', style: 'modern-roastery',
   windowBar: true,
+  barSpec: { length: 4.5, depth: 0.38, centerX: 2.95, stools: 3, style: 'modern' },
   tables: [
-    { x: -4.6, z: 0.9, type: 'long' }, { x: 4.7, z: -0.9, type: 'long' },
-    { x: -4.8, z: -3.4, type: 'square' }, { x: -2.2, z: 3.4, type: 'round' },
-    { x: 2.2, z: 3.6, type: 'round' }, { x: -2.3, z: -2.0, type: 'square' },
-    { x: 2.4, z: 0.4, type: 'square' }, { x: 2.3, z: -3.4, type: 'round' },
-    { x: 5.2, z: 2.9, type: 'round', lounge: true },
+    { x: -1.9, z: 1.0, type: 'communal' },
+    { x: 2.7, z: -0.7, type: 'communal', rot: 0.1 },
+    { x: 5.9, z: 1.4, type: 'round', lounge: true },
+    { x: 5.6, z: 4.3, type: 'writing', rot: -0.2 },
+    { x: -6.2, z: 3.4, type: 'round' },
+  ],
+  extraTables: [
+    railTable('ro-tasting-rail', 'ground', {
+      center: { x: -4.6, z: -2.6 }, length: 2.6,
+      stools: [-3.4, -2.6, -1.8], stoolSide: 0.55,
+    }),
+  ],
+  extraColliders: [
+    { id: 'ro-partition-col', levelId: 'ground', rect: { x0: -5.32, x1: -5.12, z0: -HALF_D, z1: -1.0 } },
+    { id: 'ro-partition-return-col', levelId: 'ground', rect: { x0: -HALF_W, x1: -5.12, z0: -1.1, z1: -0.9 } },
+    { id: 'ro-tasting-rail-col', levelId: 'ground', rect: { x0: -4.85, x1: -4.35, z0: -3.95, z1: -1.25 } },
+  ],
+  extraForbiddenZones: [
+    {
+      id: 'ro-production-zone', levelId: 'ground', rect: RO_PRODUCTION,
+      appliesTo: 'patron', exceptRoles: ['barista', 'waiter', 'roaster'],
+    },
   ],
   lighting: { pendant: 'bulb', lampY: 2.4 },
+  decor: {
+    production: {
+      rect: RO_PRODUCTION,
+      partitionX: -5.2, returnZ: -1.0,
+      roaster: { x: -6.9, z: -3.3 },
+      coolingTray: { x: -6.5, z: -1.9 },
+      bench: { x: -8.05, z: -4.2, length: 2.0 },
+      sacks: [{ x: -5.9, z: -5.3 }, { x: -6.35, z: -5.55 }, { x: -6.05, z: -4.9 }],
+    },
+    // the right-wall unit displays beans and brewing kit, not borrowed books
+    rightWallShelf: 'process',
+    // bay partition keeps wall art, clock and mirror clear of the shelf unit
+    // (which owns z∈[-1.25, 0.55]) and of each other
+    rightWall: {
+      art: [{ z: -3.6, y: 1.85 }, { z: 2.35, y: 1.85 }],
+      clock: { z: 3.5, y: 2.55 },
+      mirror: { z: -4.7, y: 2.6 },
+    },
+    // menu board stands past the right window rail, clear of its stools
+    chalkboard: { x: 5.9, z: 5.6, rot: -0.9 },
+    plantSpots: [
+      [-HALF_W + 0.7, -HALF_D + 0.7], [HALF_W - 0.7, HALF_D - 1.3], [HALF_W - 0.6, -HALF_D + 3.0],
+      [-HALF_W + 0.6, 3.6], [-6.9, -0.2], [HALF_W - 0.6, 2.0],
+      [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
+    ],
+  },
+  contract: {
+    productionZone: { rect: RO_PRODUCTION, minBoundaryColliders: 2 },
+    communalTables: { min: 1, max: 2 },
+    windowBarStyle: 'modern',
+  },
   auditViews: [
     { id: 'ro-hall-from-entrance', pos: [0, 1.7, 5.9], lookAt: [0, 1.0, -2.5] },
-    { id: 'ro-roaster-zone', pos: [-4.2, 1.6, -1.2], lookAt: [-6.8, 1.2, -4.8] },
-    { id: 'ro-communal-left', pos: [-4.6, 1.6, 3.6], lookAt: [-4.6, 0.9, -0.4] },
-    { id: 'ro-communal-right', pos: [4.7, 1.6, -3.6], lookAt: [4.7, 0.9, 0.4] },
+    { id: 'ro-process-wall', pos: [-3.1, 1.5, -2.4], lookAt: [-7.6, 1.2, -3.6] },
+    { id: 'ro-partition-mullions', pos: [-3.9, 1.6, 0.8], lookAt: [-6.6, 1.3, -2.0] },
+    { id: 'ro-roaster-closeup', pos: [-4.4, 1.5, -3.0], lookAt: [-7.0, 1.1, -3.35] },
+    { id: 'ro-communal-a', pos: [-1.9, 1.6, 3.8], lookAt: [-1.9, 0.85, -0.8] },
+    { id: 'ro-communal-b', pos: [2.5, 1.6, -3.5], lookAt: [2.85, 0.85, 1.1] },
+    { id: 'ro-tasting-rail-view', pos: [-2.9, 1.5, -1.9], lookAt: [-4.75, 1.05, -2.7] },
+    { id: 'ro-project-table', pos: [4.1, 1.5, 3.5], lookAt: [5.7, 0.85, 4.4] },
+    { id: 'ro-process-shelf', pos: [6.0, 1.5, -0.3], lookAt: [8.2, 1.2, -0.35] },
     { id: 'ro-service-queue', pos: [2.2, 1.7, -1.6], lookAt: [1.2, 1.0, -5.4] },
-    { id: 'ro-window-rail', pos: [0, 1.8, 1.2], lookAt: [0, 1.0, 6.3] },
+    { id: 'ro-window-rail', pos: [0, 1.6, 2.5], lookAt: [0, 1.05, 6.35] },
+    { id: 'ro-ceiling-services', pos: [0.5, 1.2, 0.5], lookAt: [-2.0, 3.5, -2.0] },
   ],
 });
 

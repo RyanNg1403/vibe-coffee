@@ -11,6 +11,7 @@ import { GREENERY } from './decor/decorManifest.js';
 import { buildServiceUpgrades, menuBoardTexture } from './decor/serviceCounter.js';
 import { buildTableCluster } from './decor/tabletopFactory.js';
 import { buildFittedLibrary } from './decor/library.js';
+import { buildRoasteryProduction } from './decor/roasteryProduction.js';
 import { ROOM_SHELL } from './cafe/interiorLayouts.js';
 import { architectureFor } from './cafe/interiorArchitecture.js';
 
@@ -273,13 +274,7 @@ export const THEMES = [
     lampColor: 0xffd2a0, lampIntensity: 3.2, lampY: 2.4,
     outside: 'city',
     dust: false, neon: null,
-    tables: [
-      { x: -4.6, z: 0.9, type: 'long' }, { x: 4.7, z: -0.9, type: 'long' },
-      { x: -4.8, z: -3.4, type: 'square' }, { x: -2.2, z: 3.4, type: 'round' },
-      { x: 2.2, z: 3.6, type: 'round' }, { x: -2.3, z: -2.0, type: 'square' },
-      { x: 2.4, z: 0.4, type: 'square' }, { x: 2.3, z: -3.4, type: 'round' },
-      { x: 5.2, z: 2.9, type: 'round', lounge: true },
-    ],
+    // furniture placement lives in the venue blueprint (src/cafe/interiorLayouts.js)
     windowBar: true, plants: 5, crowd: 18, fan: true,
     pendant: 'bulb', ducts: true, roaster: true, chalkboard: true, cat: 0x3a3d42,
     varName: 'noon',
@@ -2265,6 +2260,20 @@ export function buildCafe(theme, models = null) {
         const leg = box(0.06, topY, 0.06, woodDarkMat);
         leg.position.set(lx, topY / 2, lz); tGroup.add(leg);
       }
+    } else if (type === 'communal') {
+      // roastery worktable: one substantial slab on steel trestles
+      const w = blueprintTable.width, d = blueprintTable.depth;
+      const top = roundedBox(w, 0.06, d, woodMat, 0.03); top.position.y = topY; tGroup.add(top);
+      const apron = box(w - 0.3, 0.09, d - 0.5, woodDarkMat);
+      apron.position.y = topY - 0.07; tGroup.add(apron);
+      for (const lz of [-d / 2 + 0.45, d / 2 - 0.45]) {
+        const trestle = box(w - 0.35, topY - 0.1, 0.1, metalMat);
+        trestle.position.set(0, (topY - 0.1) / 2, lz); tGroup.add(trestle);
+        const foot = box(w - 0.25, 0.06, 0.18, metalMat);
+        foot.position.set(0, 0.03, lz); tGroup.add(foot);
+      }
+      const stretcher = box(0.12, 0.07, d - 1.0, metalMat);
+      stretcher.position.y = 0.22; tGroup.add(stretcher);
     } else if (type === 'oval') {
       // salon group table: an elliptical top on twin pedestals
       const rx = blueprintTable.rx, rz = blueprintTable.rz;
@@ -2339,10 +2348,18 @@ export function buildCafe(theme, models = null) {
       seat.levelId = blueprintSeat.levelId;
       seat.isBar = false;
     });
-    // The writing desk's vignette is its typewriter; the generic place
-    // setting and curated cluster would overflow the small top the moment a
-    // laptop needs clearance space.
-    if (blueprintTable.archetype === 'writing') return;
+    // A writing desk with an authored typewriter vignette gets nothing else;
+    // other writing desks keep just the base cup. Either way the curated
+    // cluster is skipped — the small top must stay clear for laptop clearance.
+    if (blueprintTable.vignette === 'typewriter') return;
+    if (blueprintTable.archetype === 'writing') {
+      const deskCup = makeDrink(theme.accent, models);
+      deskCup.position.set(tx - 0.2, topY + 0.03, tz - 0.1);
+      group.add(deskCup);
+      cups.push(deskCup);
+      registerTableProp(surfaceProps, deskCup);
+      return;
+    }
     // Base place setting. Positions are reserved around the later curated
     // vignette instead of independently randomized, which previously allowed
     // cups, flowers, magazines and pastries to spawn inside one another.
@@ -2370,7 +2387,7 @@ export function buildCafe(theme, models = null) {
 
   // The salon writing desk keeps the vintage typewriter (it lived on the old
   // long window bar; the rebuilt Golden counters are dedicated laptop seats).
-  const writingTable = blueprint.tables.find((t) => t.archetype === 'writing');
+  const writingTable = blueprint.tables.find((t) => t.vignette === 'typewriter');
   if (writingTable) {
     const tw = cloneModel(models, 'typewriter');
     if (tw) {
@@ -2401,16 +2418,28 @@ export function buildCafe(theme, models = null) {
       registerTableProp(looseBarProps, paper);
     }
     for (const barTable of blueprint.tables.filter((t) => t.isBar)) {
+      if (barTable.archetype === 'rail') continue; // built separately below
       const barLen = barTable.width;
       const bx = barTable.center.x;
       const barZ = barTable.center.z;
-      const bar = box(barLen, 0.05, barTable.depth, woodMat);
+      const modern = barTable.barStyle === 'modern';
+      const bar = modern
+        ? roundedBox(barLen, 0.045, barTable.depth, metalMat, 0.015)
+        : box(barLen, 0.05, barTable.depth, woodMat);
       bar.position.set(bx, 1.0, barZ);
       group.add(bar);
       for (const [lx] of [[-barLen / 2 + 0.2], [barLen / 2 - 0.2]]) {
-        const leg = box(0.05, 1.0, 0.36, woodDarkMat);
-        leg.position.set(bx + lx, 0.5, barZ);
+        const leg = modern
+          ? box(0.04, 1.0, 0.04, metalMat)
+          : box(0.05, 1.0, 0.36, woodDarkMat);
+        leg.position.set(bx + lx, 0.5, barZ + (modern ? -barTable.depth / 2 + 0.06 : 0));
         group.add(leg);
+        if (modern) {
+          // wall bracket instead of a deep leg: the rail reads as mounted steel
+          const bracket = box(0.04, 0.05, barTable.depth, metalMat);
+          bracket.position.set(bx + lx, 0.95, barZ);
+          group.add(bracket);
+        }
       }
       if (barTable.footRail) {
         // continuous brass foot rail on visible brackets (plan §5)
@@ -2462,6 +2491,56 @@ export function buildCafe(theme, models = null) {
         if (distance < nearestDistance) { nearest = seat; nearestDistance = distance; }
       }
       nearest?.surfaceProps.push(entry);
+    }
+  }
+
+  // Standing/tasting rails (blueprint 'rail' tables): a bar-height steel
+  // strip running along z with one-sided stools — the Roastery's cupping
+  // rail faces its production partition.
+  for (const railTable of blueprint.tables.filter((t) => t.archetype === 'rail')) {
+    const cx = railTable.center.x;
+    const cz = railTable.center.z;
+    const railLen = railTable.depth; // runs along z
+    const railTop = roundedBox(railTable.width, 0.045, railLen, metalMat, 0.015);
+    railTop.position.set(cx, 1.0, cz);
+    group.add(railTop);
+    for (const lz of [-railLen / 2 + 0.25, railLen / 2 - 0.25]) {
+      const post = box(0.05, 1.0, 0.05, metalMat);
+      post.position.set(cx, 0.5, cz + lz);
+      group.add(post);
+      const foot = box(0.22, 0.05, 0.05, metalMat);
+      foot.position.set(cx, 0.025, cz + lz);
+      group.add(foot);
+    }
+    if (railTable.footRail) {
+      const stoolSide = Math.sign((railTable.seats[0]?.pos.x ?? cx + 1) - cx) || 1;
+      const rail = cyl(0.018, 0.018, railLen - 0.3, metalMat, 10);
+      rail.rotation.x = Math.PI / 2;
+      rail.position.set(cx + stoolSide * (railTable.width / 2 + 0.08), 0.24, cz);
+      group.add(rail);
+    }
+    for (const blueprintSeat of railTable.seats) {
+      const surfaceProps = [];
+      const stool = cloneModel(models, 'bar_stool') ?? makeStool(woodDarkMat, cushionMat);
+      stool.position.set(blueprintSeat.pos.x, 0, blueprintSeat.pos.z);
+      group.add(stool);
+      const facing = Math.sign(cx - blueprintSeat.pos.x) || -1;
+      const seat = addSeat(stool,
+        new THREE.Vector3(blueprintSeat.pos.x, blueprintSeat.pos.y, blueprintSeat.pos.z),
+        new THREE.Vector3(blueprintSeat.pos.x + facing * 3, 1.5, blueprintSeat.pos.z),
+        new THREE.Vector3(cx, 0, blueprintSeat.pos.z),
+        railTable.surfaceY, surfaceProps);
+      seat.id = blueprintSeat.id;
+      seat.tableId = railTable.id;
+      seat.levelId = blueprintSeat.levelId;
+      seat.isBar = true;
+      if (Math.random() < 0.5) {
+        const cup = makeDrink(theme.accent, models);
+        cup.position.set(cx + rand(-0.06, 0.06), 1.03, blueprintSeat.pos.z + rand(-0.08, 0.08));
+        group.add(cup);
+        cups.push(cup);
+        registerTableProp(surfaceProps, cup);
+      }
     }
   }
 
@@ -2523,7 +2602,11 @@ export function buildCafe(theme, models = null) {
     m.position.set(x, 0.012, z);
     group.add(m);
   }
-  for (const t of legacyTables) contactShadow(t.x, t.z, t.type === 'long' ? 3.4 : t.type === 'oval' ? 3.0 : 2.4);
+  for (const t of legacyTables) {
+    contactShadow(t.x, t.z, t.type === 'long' ? 3.4
+      : t.type === 'communal' ? 4.2
+      : t.type === 'oval' ? 3.0 : 2.4);
+  }
   contactShadow(-0.6, -D / 2 + 1.3, 7.5);
 
   // Curated table vignettes. Repeating a handful of believable arrangements
@@ -2980,8 +3063,14 @@ export function buildCafe(theme, models = null) {
     }
   }
 
-  // a big coffee roaster in the corner (roastery)
+  // a big coffee roaster in the corner (legacy dressing — venues with an
+  // authored production zone get the real glazed roasting lab instead)
   if (theme.roaster) {
+    const stand = makeCakeStand(models);
+    stand.position.set(-0.55, 1.06, -D / 2 + 1.15);
+    group.add(stand);
+  }
+  if (theme.roaster && !blueprint.decor.production) {
     // supply crates stacked beside the roaster, one tipped with bean bags
     for (const [cx2, cz2, cy2, ry2] of [[-7.6, -4.6, 0, 0.15], [-7.0, -4.7, 0, -0.3], [-7.3, -4.65, 0.42, 0.55]]) {
       const crate = cloneModel(models, 'crate');
@@ -2991,9 +3080,6 @@ export function buildCafe(theme, models = null) {
       group.add(crate);
       if (cy2 === 0) extraColliders.push({ x: cx2, z: cz2, r: 0.35 });
     }
-    const stand = makeCakeStand(models);
-    stand.position.set(-0.55, 1.06, -D / 2 + 1.15);
-    group.add(stand);
     const r = new THREE.Group();
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5f6267, roughness: 0.36, metalness: 0.84 });
     const brass = new THREE.MeshStandardMaterial({ color: 0xa88544, roughness: 0.32, metalness: 0.88 });
@@ -3240,6 +3326,21 @@ export function buildCafe(theme, models = null) {
     }
   }
 
+  // Glazed production corner (Roastery): partition, drum roaster, cooling
+  // tray, prep bench and bean sacks, all authored in the blueprint.
+  if (blueprint.decor.production) {
+    const productionBuilt = buildRoasteryProduction({
+      group,
+      spec: blueprint.decor.production,
+      roomHeight: H,
+      helpers: { box, roundedBox, cyl },
+      mats: { metalMat, woodDarkMat, counterTopMat },
+      track,
+      rand,
+    });
+    for (const c of productionBuilt.contactShadows) contactShadow(c.x, c.z, c.size);
+  }
+
   // a reading nook against the right wall: sofa, floor lamp, side table
   // (indoor cafés only — the terrace keeps its perimeter green)
   if (!theme.openAir) {
@@ -3286,6 +3387,74 @@ export function buildCafe(theme, models = null) {
       });
       extraColliders.push(fitted.collider);
       for (const c of fitted.contactShadows) contactShadow(c.x, c.z, c.size);
+    } else if (blueprint.decor.rightWallShelf === 'process') {
+      // Roastery retail/process shelving: beans, brewing kit and labeled
+      // jars, not books borrowed from another café (plan §6).
+      const unit = new THREE.Group();
+      const steelShelf = new THREE.MeshStandardMaterial({ color: 0x3c4046, roughness: 0.5, metalness: 0.6 });
+      const kraftMat = new THREE.MeshStandardMaterial({ color: 0xb98d5f, roughness: 0.9 });
+      for (const uz of [-0.82, 0.82]) {
+        const upright = box(0.3, 2.0, 0.05, steelShelf);
+        upright.position.set(0, 1.0, uz);
+        unit.add(upright);
+      }
+      const shelfYs = [0.4, 0.85, 1.3, 1.75];
+      for (const sy of shelfYs) {
+        const shelf = box(0.32, 0.03, 1.7, woodMat);
+        shelf.position.set(0, sy, 0);
+        unit.add(shelf);
+      }
+      // labeled jars: one InstancedMesh + kraft label bands
+      const jarBodies = new THREE.InstancedMesh(
+        new THREE.CylinderGeometry(0.07, 0.07, 0.2, 10),
+        new THREE.MeshStandardMaterial({ color: 0x6d5334, roughness: 0.75 }),
+        8,
+      );
+      const jarMatrix = new THREE.Matrix4();
+      for (let i = 0; i < 8; i += 1) {
+        jarMatrix.makeTranslation(0, shelfYs[2] + 0.115, -0.7 + i * 0.2);
+        jarBodies.setMatrixAt(i, jarMatrix);
+      }
+      unit.add(jarBodies);
+      const labels = new THREE.InstancedMesh(
+        new THREE.CylinderGeometry(0.072, 0.072, 0.07, 10),
+        new THREE.MeshStandardMaterial({ color: 0xd9cdb4, roughness: 0.9 }),
+        8,
+      );
+      for (let i = 0; i < 8; i += 1) {
+        jarMatrix.makeTranslation(0, shelfYs[2] + 0.1, -0.7 + i * 0.2);
+        labels.setMatrixAt(i, jarMatrix);
+      }
+      unit.add(labels);
+      // retail bean bags on the middle shelf, brewers up top, cups below
+      for (let i = 0; i < 4; i += 1) {
+        const bag = box(0.14, 0.24, 0.16, kraftMat);
+        bag.position.set(0, shelfYs[1] + 0.14, -0.55 + i * 0.36);
+        bag.rotation.y = rand(-0.15, 0.15);
+        unit.add(bag);
+      }
+      for (let i = 0; i < 2; i += 1) {
+        const brewTop = cyl(0.09, 0.03, 0.12, metalMat, 10);
+        brewTop.position.set(0, shelfYs[3] + 0.15, -0.35 + i * 0.7);
+        unit.add(brewTop);
+        const brewBase = cyl(0.03, 0.08, 0.1, metalMat, 10);
+        brewBase.position.set(0, shelfYs[3] + 0.05, -0.35 + i * 0.7);
+        unit.add(brewBase);
+      }
+      const cupStack = new THREE.InstancedMesh(
+        new THREE.CylinderGeometry(0.05, 0.042, 0.06, 10),
+        counterTopMat,
+        6,
+      );
+      for (let i = 0; i < 6; i += 1) {
+        jarMatrix.makeTranslation(0, shelfYs[0] + 0.03 + (i % 3) * 0.055, -0.3 + Math.floor(i / 3) * 0.6);
+        cupStack.setMatrixAt(i, jarMatrix);
+      }
+      unit.add(cupStack);
+      unit.position.set(W / 2 - 0.35, 0, -0.35);
+      group.add(unit);
+      contactShadow(W / 2 - 0.5, -0.35, 1.6);
+      extraColliders.push({ x: W / 2 - 0.5, z: -0.35, r: 0.8 });
     } else if (!theme.bookshelf) {
       const bc = cloneModel(models, 'bookcase');
       if (bc) {
@@ -3823,6 +3992,20 @@ export function buildCafe(theme, models = null) {
           const aheadX = cat.position.x + sx * 0.5;
           const aheadZ = cat.position.z + sz * 0.5;
           for (const col of colliders) {
+            if (col.rect) {
+              // walls and partitions: steer straight back out of the slab
+              const r2 = col.rect, m = 0.2;
+              if (aheadX > r2.x0 - m && aheadX < r2.x1 + m && aheadZ > r2.z0 - m && aheadZ < r2.z1 + m) {
+                const dxl = aheadX - (r2.x0 - m), dxr = (r2.x1 + m) - aheadX;
+                const dzl = aheadZ - (r2.z0 - m), dzr = (r2.z1 + m) - aheadZ;
+                const min = Math.min(dxl, dxr, dzl, dzr);
+                if (min === dxl) sx -= 1.6;
+                else if (min === dxr) sx += 1.6;
+                else if (min === dzl) sz -= 1.6;
+                else sz += 1.6;
+              }
+              continue;
+            }
             if (!col.r) continue;
             const cdx = aheadX - col.x, cdz = aheadZ - col.z;
             const cd = Math.hypot(cdx, cdz);
@@ -3850,10 +4033,14 @@ export function buildCafe(theme, models = null) {
         cu.naptime -= dt;
         cat.position.y = 0.02;
         if (cu.naptime <= 0) {
+          // favourite spots avoid staff/production zones the venue forbids
+          const production = blueprint.decor.production?.rect;
           cu.walkTo = pick([
             { x: 4.9, z: -0.2 }, { x: -5.4, z: 1.8 }, { x: 1.4, z: 4.1 },
             { x: -1.2, z: -3.6 }, { x: 6.2, z: 2.6 }, { x: -6.4, z: -2.2 },
-          ]);
+          ].filter((spot) => !production
+            || spot.x < production.x0 || spot.x > production.x1
+            || spot.z < production.z0 || spot.z > production.z1));
         }
       }
     }

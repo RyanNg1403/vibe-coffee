@@ -79,7 +79,7 @@ test('blueprint room shell matches the legacy ROOM export', () => {
 });
 
 test('window-bar geometry matches the legacy builder constants', () => {
-  const blueprint = getBlueprint('roastery');
+  const blueprint = getBlueprint('midnight');
   const bars = blueprint.tables.filter((t) => t.isBar);
   const expectedLen = (ROOM_SHELL.W - 1.1) / 2 - 1.3;
   for (const bar of bars) {
@@ -138,6 +138,53 @@ test('Golden Hour contract violations are caught by the validator', () => {
   const bar = shortCounter.tables.find((t) => t.isBar);
   bar.width = 1.2;
   assert.ok(errorsOf(shortCounter).some((e) => e.includes('length')));
+});
+
+// ---------------------------------------------------------------------------
+// Roastery process-hall contract (plan §6, Phase 2).
+
+test('Roastery is organized around communal worktables with a sealed production zone', () => {
+  const blueprint = getBlueprint('roastery');
+  const communal = blueprint.tables.filter((t) => t.archetype === 'communal');
+  assert.ok(communal.length >= 1 && communal.length <= 2);
+  assert.equal(communal[0].seats.length, 8);
+  const production = blueprint.npcForbiddenZones.find((z) => z.id === 'ro-production-zone');
+  assert.ok(production, 'production zone is patron-forbidden');
+  assert.deepEqual([...production.exceptRoles].sort(), ['barista', 'roaster', 'waiter']);
+  // no seat or patron destination inside the production rect
+  const rect = production.rect;
+  for (const seat of blueprint.seats) {
+    const inside = seat.pos.x >= rect.x0 && seat.pos.x <= rect.x1
+      && seat.pos.z >= rect.z0 && seat.pos.z <= rect.z1;
+    assert.ok(!inside, `seat ${seat.id} sits inside the production zone`);
+  }
+  assert.deepEqual(errorsOf(mutable('roastery')), []);
+});
+
+test('Roastery has a tasting rail and a modern window rail distinct from Golden Hour', () => {
+  const blueprint = getBlueprint('roastery');
+  const rail = blueprint.tables.find((t) => t.archetype === 'rail');
+  assert.ok(rail, 'cupping rail exists');
+  assert.equal(rail.seats.length, 3);
+  assert.ok(rail.seats.every((s) => s.isBar === true));
+  const bars = blueprint.tables.filter((t) => t.archetype === 'bar');
+  assert.ok(bars.every((b) => b.barStyle === 'modern'));
+  const golden = getBlueprint('goldenhour').tables.filter((t) => t.archetype === 'bar');
+  assert.ok(golden.every((b) => b.barStyle !== 'modern'));
+  assert.notEqual(bars[0].width, golden[0].width);
+});
+
+test('Roastery contract violations are caught by the validator', () => {
+  const unsealed = mutable('roastery');
+  unsealed.npcForbiddenZones = unsealed.npcForbiddenZones.filter((z) => z.id !== 'ro-production-zone');
+  assert.ok(errorsOf(unsealed).some((e) => e.includes('production zone')));
+  const gridded = mutable('roastery');
+  gridded.tables = gridded.tables.filter((t) => t.archetype !== 'communal');
+  gridded.seats = gridded.seats.filter((s) => !s.tableId.includes('-t0'));
+  assert.ok(errorsOf(gridded).some((e) => e.includes('communal')));
+  const classic = mutable('roastery');
+  classic.tables.find((t) => t.archetype === 'bar').barStyle = 'classic';
+  assert.ok(errorsOf(classic).some((e) => e.includes('modern')));
 });
 
 test('Golden Hour browse destination exists and is reachable', () => {
