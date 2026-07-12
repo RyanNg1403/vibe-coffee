@@ -15,6 +15,7 @@ import { buildRoasteryProduction } from './decor/roasteryProduction.js';
 import { buildJazzStage } from './decor/jazzStage.js';
 import { buildTerraceDeck } from './decor/terraceDeck.js';
 import { ROOM_SHELL } from './cafe/interiorLayouts.js';
+import { tableSupportShape } from './cafe/tableSupport.js';
 import { architectureFor } from './cafe/interiorArchitecture.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -2399,6 +2400,9 @@ export function buildCafe(theme, models = null) {
       seat.tableId = blueprintTable.id;
       seat.levelId = blueprintSeat.levelId;
       seat.isBar = false;
+      // exact rotated tabletop shape (plan §9): placement solvers use this
+      // instead of the conservative inscribed disc
+      seat.supportShape = tableSupportShape(blueprintTable);
     });
     // A writing desk with an authored typewriter vignette gets nothing else;
     // other writing desks keep just the base cup. Either way the curated
@@ -2523,6 +2527,7 @@ export function buildCafe(theme, models = null) {
         seat.tableId = barTable.id;
         seat.levelId = blueprintSeat.levelId;
         seat.isBar = true;
+        seat.supportShape = tableSupportShape(barTable);
         if (Math.random() < 0.5) {
           const cup = makeDrink(theme.accent, models);
           cup.position.set(sx + rand(-0.1, 0.1), 1.03, barZ);
@@ -2587,6 +2592,7 @@ export function buildCafe(theme, models = null) {
       seat.tableId = railTable.id;
       seat.levelId = blueprintSeat.levelId;
       seat.isBar = true;
+      seat.supportShape = tableSupportShape(railTable);
       if (Math.random() < 0.5) {
         const cup = makeDrink(theme.accent, models);
         cup.position.set(cx + rand(-0.06, 0.06), railBase + 1.03, blueprintSeat.pos.z + rand(-0.08, 0.08));

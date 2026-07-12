@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { ROOM } from './cafe.js';
 import { DoorCoordinator } from './doorFlow.js';
+import { placeFootprintForSeat, pullInsideShape } from './cafe/tableSupport.js';
 import { ServiceCoordinator } from './npc/serviceCoordinator.js';
 import { BehaviorPlanner, seedTraits } from './npc/behaviorPlanner.js';
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
@@ -1449,26 +1450,25 @@ class NPC {
     if (this.activity === 'laptop') {
       const laptop = makeLaptop();
       const d = toTable.length();
-      // stay far enough inside the tabletop that every base corner is
-      // supported (half base ~0.16 x 0.11), even on small salon/cabaret
-      // tables; the shallow window-bar strip (tableRadius null) centres it
-      // like the player's MacBook so it never floats past the counter edge
-      const clampR = seat.tableRadius;
-      const inset = clampR == null
-        ? 0.075
-        : Math.min(0.42, Math.max(0.05,
-          Math.sqrt(Math.max(0, (clampR - 0.01) ** 2 - 0.16 ** 2)) - 0.11));
-      const edge = Math.max(clampR == null ? 0 : 0.25, d - inset);
+      // Same placement rule as the player's MacBook (plan §9/§10): arm's
+      // reach in front of the guest, pulled onto the true support shape.
+      const solved = seat.supportShape
+        ? placeFootprintForSeat(seat.supportShape, seat.pos, seat.tableCenter,
+          { yaw: yaw + Math.PI, width: 0.31, depth: 0.22 })
+        : null;
+      const fallbackReach = Math.max(0, d - 0.36);
       const surfaceY = seat.tableTopY ?? 0.815;
       laptop.position.set(
-        seat.pos.x + (toTable.x / d) * edge,
+        solved?.x ?? (seat.pos.x + (toTable.x / d) * fallbackReach),
         surfaceY,
-        seat.pos.z + (toTable.z / d) * edge
+        solved?.z ?? (seat.pos.z + (toTable.z / d) * fallbackReach)
       );
       laptop.rotation.y = yaw + Math.PI;
       this.sim.cafe.group.add(laptop);
       this.props.push(laptop);
-      this._registerTableProp(seat, laptop, 0.24);
+      // the base rect lets the decor audit run exact OBB coexistence checks
+      // against the player's MacBook
+      this._registerTableProp(seat, laptop, 0.24, { width: 0.31, depth: 0.22 });
       this.isTyping = true;
     } else if (this.activity === 'book') {
       const book = makeBook();
@@ -1512,6 +1512,11 @@ class NPC {
         surfaceY,
         seat.pos.z + (toTable.z / d) * edge
       );
+      if (seat.supportShape) {
+        const inside = pullInsideShape(seat.supportShape, pad.position.x, pad.position.z, 0.16);
+        pad.position.x = inside.x;
+        pad.position.z = inside.z;
+      }
       pad.rotation.y = yaw + rand(-0.4, 0.4);
       this.sim.cafe.group.add(pad);
       this.props.push(pad);
@@ -1521,9 +1526,9 @@ class NPC {
     // rigged dog that arrives with a patron and leaves with them)
   }
 
-  _registerTableProp(seat, object, footprint) {
+  _registerTableProp(seat, object, footprint, base = null) {
     object.traverse((part) => { part.userData.npcTableProp = true; });
-    const entry = { object, home: object.position.clone(), footprint };
+    const entry = { object, home: object.position.clone(), footprint, base };
     (seat.npcTableProps ??= []).push(entry);
     this.sim.cafe.npcTablePropRevision = (this.sim.cafe.npcTablePropRevision ?? 0) + 1;
     this.tablePropEntries.push({ seat, entry });
@@ -3786,6 +3791,23 @@ export class CrowdSim {
 
   releaseSeat(i) { this.takenSeats.delete(i); }
   isSeatTaken(i) { return this.takenSeats.has(i); }
+
+  // Free a seat on demand (tooling sweeps that must photograph every seat).
+  // A seated occupant stands up through its normal departure transition —
+  // props clear synchronously in _beginLeavingSeat — and the reservation is
+  // released at once so the caller can sit immediately. A guest that only
+  // reserved the seat and is still walking, ordering, or queueing keeps it:
+  // rerouting those states safely is not worth the risk, so we report false
+  // and the caller skips the seat, exactly like the click-to-sit guard.
+  evictSeat(i) {
+    if (!this.takenSeats.has(i)) return true;
+    const occupant = this.npcs.find((npc) => npc.seatIndex === i);
+    if (!occupant) { this.takenSeats.delete(i); return true; }
+    if (occupant.state !== 'sitting' && occupant.state !== 'aligningSeat') return false;
+    occupant._beginLeavingSeat(this.cafe.seats[i]);
+    this.takenSeats.delete(i);
+    return true;
+  }
 
   // Plan §12 state-dwell audit: every standing state must stay bounded. The
   // tracker remembers the WORST standing dwell observed near the service
