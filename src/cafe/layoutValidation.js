@@ -84,7 +84,14 @@ export function validateBlueprint(blueprint) {
     if (!Array.isArray(surface.polygon) || surface.polygon.length < 3) {
       error(`walkSurface ${surface.id}: polygon needs at least 3 points`);
     }
-    if (typeof surface.y !== 'number') error(`walkSurface ${surface.id}: missing y`);
+    if (surface.ramp) {
+      const { axis, from, to, y0, y1 } = surface.ramp;
+      if ((axis !== 'x' && axis !== 'z') || [from, to, y0, y1].some((v) => typeof v !== 'number')) {
+        error(`walkSurface ${surface.id}: malformed ramp`);
+      }
+    } else if (typeof surface.y !== 'number') {
+      error(`walkSurface ${surface.id}: missing y (or ramp)`);
+    }
   });
   const surfaceIds = new Set(blueprint.walkSurfaces.map((s) => s.id));
   blueprint.verticalLinks.forEach((link) => {
@@ -406,6 +413,56 @@ function validateContract(blueprint, error) {
       .reduce((n, t) => n + t.seats.length, 0);
     if (boothSeats < contract.boothRun.minSeats) {
       error(`contract: ${boothSeats} booth seats, needs ${contract.boothRun.minSeats}`);
+    }
+  }
+
+  if (contract.twoLevels) {
+    const spec = contract.twoLevels;
+    const stair = spec.stair;
+    // the stair specification itself stays inside the plan's geometry bands
+    const envW = stair.envelope.x1 - stair.envelope.x0;
+    const envD = stair.envelope.z1 - stair.envelope.z0;
+    if (envW > stair.maxEnvelope.w || envD > stair.maxEnvelope.d) {
+      error(`contract: stair envelope ${envW.toFixed(2)} x ${envD.toFixed(2)} exceeds ${stair.maxEnvelope.w} x ${stair.maxEnvelope.d}`);
+    }
+    const deckSurface = blueprint.walkSurfaces.find((s) => s.id === spec.deckSurfaceId);
+    if (!deckSurface) error(`contract: missing deck surface ${spec.deckSurfaceId}`);
+    // upper program: enough seats that the deck is a real destination
+    const upperSeats = blueprint.seats.filter((s) => s.levelId === deckSurface?.levelId).length;
+    if (upperSeats < spec.minUpperSeats) {
+      error(`contract: ${upperSeats} upper seats, needs ${spec.minUpperSeats}`);
+    }
+    // every deck boundary edge must be covered by guard colliders (with level
+    // and vertical range) except the authored stair opening(s)
+    if (deckSurface) {
+      const guards = blueprint.colliders.filter((c) => c.guard && c.levelId === deckSurface.levelId);
+      for (const guard of guards) {
+        if (typeof guard.minY !== 'number' || typeof guard.maxY !== 'number') {
+          error(`contract: guard ${guard.id} missing minY/maxY`);
+        }
+      }
+      const polygon = deckSurface.polygon;
+      for (let i = 0; i < polygon.length; i += 1) {
+        const a = polygon[i];
+        const b = polygon[(i + 1) % polygon.length];
+        const steps = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.4));
+        for (let s = 0; s <= steps; s += 1) {
+          const px = a.x + ((b.x - a.x) * s) / steps;
+          const pz = a.z + ((b.z - a.z) * s) / steps;
+          const inOpening = (spec.openings ?? []).some((o) => rectContains(o, px, pz));
+          if (inOpening) continue;
+          const guarded = guards.some((g) => g.rect && rectContains(g.rect, px, pz, 0.12));
+          if (!guarded) {
+            error(`contract: deck edge unguarded near (${px.toFixed(2)}, ${pz.toFixed(2)})`);
+            s = steps; i = polygon.length; // report once, not per sample
+          }
+        }
+      }
+    }
+    // the upper deck must be reachable through stair links from the entrance
+    const navigator = createNavigator(blueprint);
+    if (!navigator.reachableSurfaceIds(blueprint.entranceSurfaceId).has(spec.deckSurfaceId)) {
+      error('contract: upper deck unreachable from the entrance');
     }
   }
 

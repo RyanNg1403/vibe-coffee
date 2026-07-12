@@ -9,12 +9,23 @@
 //
 // Blueprint inputs:
 //   walkSurfaces: [{ id, levelId, y, polygon: [{x, z}, ...] }]
+//     — a flat surface at height y, OR a stair flight with a linear run:
+//   { id, levelId, polygon, ramp: { axis: 'z'|'x', from, to, y0, y1 } }
+//     — height interpolates from y0 (where axis === from) to y1 (at to)
 //   verticalLinks: [{
 //     id, kind: 'stair',
 //     a: { surfaceId, portal: {x, z, r} },
 //     b: { surfaceId, portal: {x, z, r} },
 //     path: [{x, y, z}, ...],   // walk waypoints from a's portal to b's portal
 //   }]
+
+export function surfaceHeightAt(surface, x, z) {
+  if (!surface.ramp) return surface.y;
+  const { axis, from, to, y0, y1 } = surface.ramp;
+  const v = axis === 'x' ? x : z;
+  const t = Math.min(1, Math.max(0, (v - from) / (to - from)));
+  return y0 + (y1 - y0) * t;
+}
 
 export function pointInPolygon(polygon, x, z) {
   let inside = false;
@@ -48,9 +59,10 @@ export function createNavigator(blueprint) {
 
   // Height of the walk surface under (x, z) on a specific level, or null when
   // the point is off every surface of that level (never a ground fallback).
+  // Stair flights (ramp surfaces) interpolate along their run.
   function resolveHeight(levelId, x, z) {
     const surface = surfaceAt(levelId, x, z);
-    return surface ? surface.y : null;
+    return surface ? surfaceHeightAt(surface, x, z) : null;
   }
 
   // The vertical-link end whose portal disc contains (x, z) while standing on

@@ -83,14 +83,17 @@ const TABLE_ARCHETYPES = {
 
 // Standing/tasting rail: a bar-height strip with one-sided stools, authored
 // per venue (the Roastery cupping rail faces its production partition).
-function railTable(id, levelId, { center, length, depth = 0.4, surfaceY = BAR_SURFACE_Y, stools, stoolSide, footRail = true }) {
+function railTable(id, levelId, {
+  center, length, depth = 0.4, stools, stoolSide, footRail = true, baseY = 0,
+}) {
   const seats = stools.map((z, index) => ({
     id: `${id}-s${index + 1}`, tableId: id, levelId,
-    pos: { x: center.x + stoolSide, y: 0.15, z }, isBar: true,
+    pos: { x: center.x + stoolSide, y: baseY + 0.15, z }, isBar: true,
   }));
   return {
     id, levelId, archetype: 'rail', shape: 'rect',
-    center, rotation: 0, width: depth, depth: length, surfaceY,
+    center, rotation: 0, width: depth, depth: length,
+    surfaceY: BAR_SURFACE_Y + baseY, baseY,
     supportMargin: 0.02, isBar: true, footRail, railAxis: 'z', seats,
   };
 }
@@ -140,23 +143,28 @@ function rotate(ox, oz, rotation) {
   return [ox * cos + oz * sin, -ox * sin + oz * cos];
 }
 
-function diningTables(prefix, levelId, specs) {
+function diningTables(prefix, defaultLevelId, specs, levels = null) {
+  const levelY = (levelId) => levels?.find((l) => l.id === levelId)?.y ?? 0;
   return specs.map((spec, index) => {
     const archetypeName = spec.lounge ? 'lounge' : spec.type;
     const archetype = TABLE_ARCHETYPES[archetypeName];
     const rotation = spec.rot ?? 0;
+    const levelId = spec.level ?? defaultLevelId;
+    const baseY = levelY(levelId);
     const id = `${prefix}-t${String(index + 1).padStart(2, '0')}`;
     const seats = archetype.seatOffsets.map(([ox, oz], seatIndex) => {
       const [wx, wz] = rotate(ox, oz, rotation);
       return {
         id: `${id}-s${seatIndex + 1}`, tableId: id, levelId,
-        pos: { x: spec.x + wx, y: 0, z: spec.z + wz }, isBar: false,
+        pos: { x: spec.x + wx, y: baseY, z: spec.z + wz }, isBar: false,
       };
     });
     const table = {
       id, levelId, archetype: archetypeName, shape: archetype.shape,
       center: { x: spec.x, z: spec.z }, rotation,
-      surfaceY: archetype.surfaceY, supportMargin: 0.02, isBar: false,
+      // surfaceY is WORLD height: archetype height above the table's floor
+      surfaceY: archetype.surfaceY + baseY, baseY,
+      supportMargin: 0.02, isBar: false,
       clampRadius: archetype.clampRadius,
       // authored signature prop for this table (e.g. Golden's typewriter)
       vignette: spec.vignette ?? null,
@@ -280,15 +288,16 @@ function makeVenue({
   prefix, id, style, tables: tableSpecs, windowBar, barSpec = null,
   auditViews, decor = {}, lighting = {}, extraDestinations = [], contract = null,
   extraTables = [], extraColliders = [], extraForbiddenZones = [],
+  levels: customLevels = null, extraRooms = [], extraWalkSurfaces = [], verticalLinks = [],
 }) {
-  const levels = [{ id: 'ground', y: 0 }];
+  const levels = customLevels ?? [{ id: 'ground', y: 0 }];
   const rooms = [{
     id: `${prefix}-main`, levelId: 'ground',
     bounds: { x0: -HALF_W, x1: HALF_W, z0: -HALF_D, z1: HALF_D },
-  }];
+  }, ...extraRooms];
   const barTables = windowBar ? windowBarTables(prefix, 'ground', barSpec ?? LEGACY_BAR) : [];
   const tables = [
-    ...diningTables(prefix, 'ground', tableSpecs),
+    ...diningTables(prefix, 'ground', tableSpecs, levels),
     ...extraTables,
     ...barTables,
   ];
@@ -296,8 +305,8 @@ function makeVenue({
   return {
     id, style, prefix,
     levels, rooms,
-    walkSurfaces: [groundWalkSurface(prefix)],
-    verticalLinks: [],
+    walkSurfaces: [groundWalkSurface(prefix), ...extraWalkSurfaces],
+    verticalLinks,
     entranceSurfaceId: `${prefix}-ground-floor`,
     tables, seats,
     serviceZones: [serviceCounterZone(prefix)],
@@ -572,21 +581,208 @@ const midnight = makeVenue({
   ],
 });
 
+// Garden Terrace two-level courtyard (plan §8). ONE stair specification is
+// the source for walk surfaces, navigation links, colliders, rendered
+// geometry (src/decor/terraceDeck.js) and tests. Compact U/switchback stair
+// in a 2.25 x 4.0 m envelope: flight A (east lane) rises north from the
+// courtyard to a half-height landing, flight B (west lane) rises back south
+// onto the upper deck. 20 x 162.5 mm risers for a 3.25 m rise, 285 mm treads,
+// 1.15 m landing.
+export const TE_DECK_Y = 3.25;
+export const TE_STAIR = {
+  envelope: { x0: -4.55, x1: -2.30, z0: -2.0, z1: 2.0 },      // 2.25 x 4.0
+  rise: TE_DECK_Y, risers: 20, riserHeight: TE_DECK_Y / 20,   // 0.1625
+  treadDepth: 0.285, flightWidth: 1.05, landingDepth: 1.15,
+  flightA: { x0: -3.35, x1: -2.30, z0: -2.0, z1: 0.85, y0: 0, y1: 1.625 },
+  landing: { x0: -4.55, x1: -2.30, z0: 0.85, z1: 2.0, y: 1.625 },
+  flightB: { x0: -4.55, x1: -3.50, z0: -2.0, z1: 0.85, y0: 3.25, y1: 1.625 },
+  // clear holding zones at the bottom, on the landing, and at the top
+  bottomHold: { x: -2.82, z: -2.6 },
+  topHold: { x: -4.0, z: -2.65 },
+};
+// Upper deck: the west wing plus a notch that receives the top of flight B.
+export const TE_DECK_POLYGON = [
+  { x: -HALF_W, z: -HALF_D }, { x: -4.55, z: -HALF_D },
+  { x: -4.55, z: -3.3 }, { x: -3.42, z: -3.3 },
+  { x: -3.42, z: -1.95 }, { x: -4.55, z: -1.95 },
+  { x: -4.55, z: 3.0 }, { x: -HALF_W, z: 3.0 },
+];
+// deck boundary edges that need guards (all except the stair-top opening,
+// which is the notch's north edge x[-4.55,-3.42] at z=-1.95)
+const TE_GUARDS = [
+  { id: 'te-guard-east-s', rect: { x0: -4.62, x1: -4.45, z0: -HALF_D, z1: -3.3 } },
+  { id: 'te-guard-notch-s', rect: { x0: -4.55, x1: -3.35, z0: -3.42, z1: -3.25 } },
+  { id: 'te-guard-notch-e', rect: { x0: -3.5, x1: -3.34, z0: -3.42, z1: -1.95 } },
+  { id: 'te-guard-east-n', rect: { x0: -4.62, x1: -4.45, z0: -1.95, z1: 3.0 } },
+  { id: 'te-guard-north', rect: { x0: -HALF_W, x1: -4.45, z0: 2.92, z1: 3.08 } },
+  { id: 'te-guard-west', rect: { x0: -HALF_W, x1: -HALF_W + 0.16, z0: -HALF_D, z1: 3.0 } },
+  { id: 'te-guard-south', rect: { x0: -HALF_W, x1: -4.45, z0: -HALF_D, z1: -HALF_D + 0.16 } },
+];
+
 const terrace = makeVenue({
   prefix: 'te', id: 'terrace', style: 'garden-terrace',
   windowBar: false,
-  tables: [
-    { x: -4.9, z: 2.4, type: 'round', lounge: true }, { x: -5.0, z: -0.8, type: 'round' },
-    { x: -4.6, z: -3.5, type: 'round' }, { x: -2.2, z: 1.0, type: 'round' },
-    { x: -2.5, z: -2.2, type: 'square' }, { x: -1.9, z: 4.0, type: 'round' },
-    { x: 2.2, z: 2.7, type: 'round' }, { x: 2.1, z: -0.4, type: 'round' },
-    { x: 2.4, z: -3.3, type: 'square' }, { x: 5.1, z: 1.2, type: 'round' },
-    { x: 5.2, z: -2.1, type: 'round' },
+  levels: [
+    { id: 'ground', y: 0 },
+    { id: 'stairs', y: 0 },
+    { id: 'upper', y: TE_DECK_Y },
   ],
+  extraRooms: [{
+    id: 'te-upper-room', levelId: 'upper',
+    bounds: { x0: -HALF_W, x1: -3.42, z0: -HALF_D, z1: 3.0 },
+  }, {
+    id: 'te-stair-room', levelId: 'stairs',
+    bounds: TE_STAIR.envelope,
+  }],
+  extraWalkSurfaces: [
+    {
+      id: 'te-stair-a', levelId: 'stairs',
+      polygon: [
+        { x: TE_STAIR.flightA.x0, z: TE_STAIR.flightA.z0 }, { x: TE_STAIR.flightA.x1, z: TE_STAIR.flightA.z0 },
+        { x: TE_STAIR.flightA.x1, z: TE_STAIR.flightA.z1 }, { x: TE_STAIR.flightA.x0, z: TE_STAIR.flightA.z1 },
+      ],
+      ramp: { axis: 'z', from: TE_STAIR.flightA.z0, to: TE_STAIR.flightA.z1, y0: TE_STAIR.flightA.y0, y1: TE_STAIR.flightA.y1 },
+    },
+    {
+      id: 'te-stair-landing', levelId: 'stairs', y: TE_STAIR.landing.y,
+      polygon: [
+        { x: TE_STAIR.landing.x0, z: TE_STAIR.landing.z0 }, { x: TE_STAIR.landing.x1, z: TE_STAIR.landing.z0 },
+        { x: TE_STAIR.landing.x1, z: TE_STAIR.landing.z1 }, { x: TE_STAIR.landing.x0, z: TE_STAIR.landing.z1 },
+      ],
+    },
+    {
+      id: 'te-stair-b', levelId: 'stairs',
+      polygon: [
+        { x: TE_STAIR.flightB.x0, z: TE_STAIR.flightB.z0 }, { x: TE_STAIR.flightB.x1, z: TE_STAIR.flightB.z0 },
+        { x: TE_STAIR.flightB.x1, z: TE_STAIR.flightB.z1 }, { x: TE_STAIR.flightB.x0, z: TE_STAIR.flightB.z1 },
+      ],
+      ramp: { axis: 'z', from: TE_STAIR.flightB.z1, to: TE_STAIR.flightB.z0, y0: TE_STAIR.flightB.y1, y1: TE_STAIR.flightB.y0 },
+    },
+    { id: 'te-upper-deck', levelId: 'upper', y: TE_DECK_Y, polygon: TE_DECK_POLYGON },
+  ],
+  verticalLinks: [
+    {
+      id: 'te-stair-bottom', kind: 'stair',
+      a: { surfaceId: 'te-ground-floor', portal: { x: -2.82, z: -2.45, r: 0.6 } },
+      // the stair-side disc stays within the first riser's run so stepping
+      // off early is a single-step drop, never a hop down the flight
+      b: { surfaceId: 'te-stair-a', portal: { x: -2.82, z: -1.95, r: 0.3 } },
+      path: [{ x: -2.82, y: 0, z: -2.55 }, { x: -2.82, y: 0.24, z: -1.55 }],
+    },
+    {
+      id: 'te-seam-a-landing', kind: 'seam',
+      a: { surfaceId: 'te-stair-a', portal: { x: -2.82, z: 0.65, r: 0.45 } },
+      b: { surfaceId: 'te-stair-landing', portal: { x: -2.82, z: 1.1, r: 0.45 } },
+      path: [{ x: -2.82, y: 1.51, z: 0.65 }, { x: -2.82, y: 1.625, z: 1.15 }],
+    },
+    {
+      id: 'te-seam-landing-b', kind: 'seam',
+      a: { surfaceId: 'te-stair-landing', portal: { x: -4.02, z: 1.1, r: 0.45 } },
+      b: { surfaceId: 'te-stair-b', portal: { x: -4.02, z: 0.65, r: 0.45 } },
+      path: [{ x: -4.02, y: 1.625, z: 1.15 }, { x: -4.02, y: 1.74, z: 0.65 }],
+    },
+    {
+      id: 'te-stair-top', kind: 'stair',
+      a: { surfaceId: 'te-stair-b', portal: { x: -4.02, z: -1.65, r: 0.5 } },
+      b: { surfaceId: 'te-upper-deck', portal: { x: -4.0, z: -2.5, r: 0.55 } },
+      path: [{ x: -4.02, y: 3.05, z: -1.6 }, { x: -4.0, y: 3.25, z: -2.55 }],
+    },
+  ],
+  tables: [
+    // ground courtyard (stair envelope kept clear)
+    { x: -6.6, z: 2.2, type: 'round', lounge: true },
+    { x: -6.3, z: -0.8, type: 'round' },
+    { x: -6.0, z: -3.9, type: 'round' },
+    { x: -1.6, z: 1.4, type: 'round' },
+    { x: -1.5, z: -3.0, type: 'square', rot: 0.2 },
+    { x: -1.9, z: 4.3, type: 'round' },
+    { x: 2.2, z: 2.7, type: 'round' },
+    { x: 2.1, z: -0.4, type: 'round' },
+    { x: 2.4, z: -3.3, type: 'square' },
+    { x: 5.1, z: 1.2, type: 'round' },
+    { x: 5.2, z: -2.1, type: 'round' },
+    // upper deck: quiet study/overlook program
+    { x: -7.2, z: -4.9, type: 'round', level: 'upper' },
+    { x: -7.3, z: -0.3, type: 'round', level: 'upper' },
+    { x: -6.1, z: 1.9, type: 'writing', rot: 0.5, level: 'upper' },
+  ],
+  extraTables: [
+    // overlook rail on the deck's east guard: stools face the courtyard
+    railTable('te-overlook-rail', 'upper', {
+      center: { x: -4.85, z: -4.7 }, length: 2.0,
+      stools: [-5.35, -4.7, -4.05], stoolSide: -0.55, baseY: TE_DECK_Y,
+    }),
+  ],
+  extraColliders: [
+    // stair mass blocks the ground beneath it, except the bottom entry gap
+    { id: 'te-stair-mass-w', levelId: 'ground', rect: { x0: -4.55, x1: -3.42, z0: -2.0, z1: 2.0 } },
+    { id: 'te-stair-mass-landing', levelId: 'ground', rect: { x0: -4.55, x1: -2.3, z0: 0.85, z1: 2.0 } },
+    { id: 'te-stair-mass-a', levelId: 'ground', rect: { x0: -3.42, x1: -2.3, z0: -1.7, z1: 0.85 } },
+    // stair side guards (players on the stairs cannot step off laterally —
+    // resolveHeight already rejects it — these are the physical stringers)
+    { id: 'te-stringer-a-e', levelId: 'stairs', guard: true, minY: 0, maxY: 4.4, rect: { x0: -2.36, x1: -2.24, z0: -2.0, z1: 2.0 } },
+    { id: 'te-stringer-mid', levelId: 'stairs', guard: true, minY: 0, maxY: 4.4, rect: { x0: -3.48, x1: -3.37, z0: -2.0, z1: 0.85 } },
+    { id: 'te-stringer-b-w', levelId: 'stairs', guard: true, minY: 0, maxY: 4.4, rect: { x0: -4.61, x1: -4.49, z0: -2.0, z1: 2.0 } },
+    { id: 'te-stair-back', levelId: 'stairs', guard: true, minY: 0, maxY: 4.4, rect: { x0: -4.55, x1: -2.3, z0: 2.0, z1: 2.12 } },
+    // deck support columns on the courtyard
+    { id: 'te-col-1', levelId: 'ground', x: -4.75, z: -6.0, r: 0.16 },
+    { id: 'te-col-2', levelId: 'ground', x: -4.75, z: -3.5, r: 0.16 },
+    { id: 'te-col-3', levelId: 'ground', x: -4.75, z: 2.7, r: 0.16 },
+    // upper guard rails: continuous, with level + vertical range
+    ...TE_GUARDS.map((g) => ({
+      id: g.id, levelId: 'upper', guard: true, minY: TE_DECK_Y, maxY: TE_DECK_Y + 1.1, rect: g.rect,
+    })),
+  ],
+  extraForbiddenZones: [],
   lighting: { pendant: 'cone', lampY: 2.45 },
+  decor: {
+    deck: {
+      polygon: TE_DECK_POLYGON, y: TE_DECK_Y, stair: TE_STAIR,
+      guards: TE_GUARDS.map((g) => g.rect),
+      opening: { x0: -4.55, x1: -3.42, z: -1.95 },
+      columns: [{ x: -4.75, z: -6.0 }, { x: -4.75, z: -3.5 }, { x: -4.75, z: 2.7 }],
+      planters: [
+        { x: -8.1, z: -5.9 }, { x: -8.1, z: -1.35 }, { x: -8.1, z: 2.5 },
+        { x: -5.2, z: 0.5 }, { x: -5.1, z: -6.05 },
+      ],
+      canopy: { x0: -8.4, x1: -4.7, z0: -5.9, z1: -0.2, y: TE_DECK_Y + 2.5 },
+    },
+    plantSpots: [
+      [-HALF_W + 0.7, -HALF_D + 0.7], [HALF_W - 0.7, HALF_D - 1.3], [HALF_W - 0.6, -HALF_D + 3.0],
+      [-1.0, 2.9], [-6.6, 4.4], [HALF_W - 0.6, 0.4],
+      [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
+    ],
+  },
+  extraDestinations: [
+    // upper points of interest arrive with NPC circulation in Phase 5; the
+    // holding zones exist now so tests can reference them
+    { id: 'te-stair-bottom-hold', levelId: 'ground', x: TE_STAIR.bottomHold.x, z: TE_STAIR.bottomHold.z, role: 'patron', purpose: 'stair-hold' },
+    { id: 'te-stair-top-hold', levelId: 'upper', x: TE_STAIR.topHold.x, z: TE_STAIR.topHold.z, role: 'patron', purpose: 'stair-hold' },
+  ],
+  contract: {
+    twoLevels: {
+      stair: {
+        envelope: TE_STAIR.envelope, maxEnvelope: { w: 2.3, d: 4.05 },
+        riserRange: [0.155, 0.17], flightWidthMin: 1.0, landingDepthMin: 1.1,
+      },
+      deckSurfaceId: 'te-upper-deck',
+      openings: [{ x0: -4.6, x1: -3.38, z0: -2.1, z1: -1.8 }],
+      minUpperSeats: 8,
+    },
+  },
   auditViews: [
-    { id: 'te-terrace-from-entrance', pos: [0, 1.7, 5.9], lookAt: [0, 1.0, -2.5] },
-    { id: 'te-pergola-wide', pos: [-5.8, 1.8, 4.8], lookAt: [2.0, 1.2, -3.0] },
+    { id: 'te-terrace-from-entrance', pos: [0, 1.7, 5.9], lookAt: [-1.5, 1.4, -2.5] },
+    { id: 'te-stair-from-courtyard', pos: [-0.6, 1.6, -3.2], lookAt: [-3.6, 1.8, 0.2] },
+    { id: 'te-stair-bottom-portal', pos: [-2.82, 1.5, -3.6], lookAt: [-2.82, 1.6, 0.5] },
+    { id: 'te-stair-landing-turn', level: 'stairs', pos: [-2.9, 1.5 + 1.625, 0.2], lookAt: [-4.2, 1.4 + 1.625, 1.6] },
+    { id: 'te-stair-top-view', level: 'upper', pos: [-4.0, 1.5 + TE_DECK_Y, -2.9], lookAt: [-4.02, 1.2 + TE_DECK_Y, 0.5] },
+    { id: 'te-deck-from-stair-top', level: 'upper', pos: [-4.0, 1.55 + TE_DECK_Y, -2.6], lookAt: [-7.5, 0.9 + TE_DECK_Y, -2.0] },
+    { id: 'te-deck-overlook', level: 'upper', pos: [-6.5, 1.55 + TE_DECK_Y, -4.6], lookAt: [-4.5, 0.8 + TE_DECK_Y, -4.7] },
+    { id: 'te-deck-study', level: 'upper', pos: [-7.6, 1.5 + TE_DECK_Y, 0.9], lookAt: [-6.0, 0.9 + TE_DECK_Y, 1.9] },
+    { id: 'te-deck-guards-east', level: 'upper', pos: [-6.0, 1.55 + TE_DECK_Y, -1.0], lookAt: [-4.5, 0.7 + TE_DECK_Y, -1.0] },
+    { id: 'te-under-deck', pos: [-3.2, 1.5, -5.4], lookAt: [-7.0, 1.6, -3.5] },
+    { id: 'te-deck-from-courtyard', pos: [2.4, 1.6, 4.6], lookAt: [-6.0, 3.6, -1.5] },
+    { id: 'te-pergola-wide', pos: [3.8, 1.8, 4.8], lookAt: [-2.0, 1.2, -3.0] },
     { id: 'te-service-queue', pos: [2.2, 1.7, -1.6], lookAt: [1.2, 1.0, -5.4] },
     { id: 'te-garden-edge', pos: [5.6, 1.6, 4.4], lookAt: [0, 1.0, -1.0] },
   ],
