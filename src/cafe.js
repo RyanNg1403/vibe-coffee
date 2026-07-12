@@ -10,6 +10,7 @@ import { clockAngles } from './clock.js';
 import { GREENERY } from './decor/decorManifest.js';
 import { buildServiceUpgrades, menuBoardTexture } from './decor/serviceCounter.js';
 import { buildTableCluster } from './decor/tabletopFactory.js';
+import { buildFittedLibrary } from './decor/library.js';
 import { ROOM_SHELL } from './cafe/interiorLayouts.js';
 import { architectureFor } from './cafe/interiorArchitecture.js';
 
@@ -244,14 +245,7 @@ export const THEMES = [
     lampColor: 0xffb46e, lampIntensity: 6.5, lampY: 2.3,
     outside: 'sunset',
     dust: true, neon: null,
-    tables: [
-      { x: -4.9, z: 2.6, type: 'round', lounge: true }, { x: -5.1, z: -0.5, type: 'round' },
-      { x: -4.7, z: -3.4, type: 'round' }, { x: -2.4, z: 1.1, type: 'square' },
-      { x: -2.6, z: -2.0, type: 'round' }, { x: -2.1, z: 4.3, type: 'round' },
-      { x: 2.2, z: 2.9, type: 'round' }, { x: 2.0, z: -0.2, type: 'square' },
-      { x: 2.4, z: -3.2, type: 'round' }, { x: 5.0, z: 1.3, type: 'round' },
-      { x: 5.2, z: -1.9, type: 'square' },
-    ],
+    // furniture placement lives in the venue blueprint (src/cafe/interiorLayouts.js)
     windowBar: true, plants: 9, crowd: 16, shafts: true, stringLights: true,
     pendant: 'cone', beams: true, hangingPlants: true, chalkboard: true, cat: 0xb0713a,
     varName: 'sunset',
@@ -2128,9 +2122,16 @@ export function buildCafe(theme, models = null) {
     group.add(neonLight);
   }
 
-  // wall art on right wall
+  // wall art on right wall. When the blueprint partitions the wall into
+  // reserved bays (Golden Hour), frame positions come from it; the other
+  // venues keep the legacy evenly-spaced run until their rebuild phase.
   const wallArtDepth = wallArtDepths(W);
-  for (let i = 0; i < (theme.openAir ? 0 : 4); i++) {
+  const rightWallBays = blueprint.decor.rightWall ?? null;
+  const artSlots = theme.openAir ? []
+    : rightWallBays
+      ? rightWallBays.art.map((a) => ({ y: a.y, z: a.z }))
+      : [0, 1, 2, 3].map((i) => ({ y: 1.8, z: -3.8 + i * 2.3 }));
+  for (const slot of artSlots) {
     const artMap = track(artTexture('#' + theme.accent.toString(16).padStart(6, '0')));
     artMap.anisotropy = 8;
     const art = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.95),
@@ -2144,14 +2145,14 @@ export function buildCafe(theme, models = null) {
         polygonOffsetUnits: -1,
       }));
     art.rotation.y = -Math.PI / 2;
-    art.position.set(wallArtDepth.artX, 1.8, -3.8 + i * 2.3);
+    art.position.set(wallArtDepth.artX, slot.y, slot.z);
     art.castShadow = false;
     art.receiveShadow = false;
     art.renderOrder = 1;
     art.userData.wallArtwork = true;
     group.add(art);
     const frame = box(0.04, 1.05, 0.85, woodDarkMat);
-    frame.position.set(wallArtDepth.frameCenterX, 1.8, -3.8 + i * 2.3);
+    frame.position.set(wallArtDepth.frameCenterX, slot.y, slot.z);
     group.add(frame);
   }
 
@@ -2264,6 +2265,37 @@ export function buildCafe(theme, models = null) {
         const leg = box(0.06, topY, 0.06, woodDarkMat);
         leg.position.set(lx, topY / 2, lz); tGroup.add(leg);
       }
+    } else if (type === 'oval') {
+      // salon group table: an elliptical top on twin pedestals
+      const rx = blueprintTable.rx, rz = blueprintTable.rz;
+      const top = cyl(1, 1, 0.05, woodMat, 32);
+      top.scale.set(rx, 1, rz);
+      top.position.y = topY; tGroup.add(top);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.024, 8, 40), woodDarkMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.scale.set(rx, rz, 1);
+      rim.position.y = topY;
+      tGroup.add(rim);
+      for (const px of [-0.55, 0.55]) {
+        const pole = cyl(0.055, 0.055, topY, woodDarkMat); pole.position.set(px, topY / 2, 0); tGroup.add(pole);
+        const base = cyl(0.26, 0.3, 0.04, woodDarkMat, 18); base.position.set(px, 0.02, 0); tGroup.add(base);
+      }
+      const stretcher = box(0.9, 0.05, 0.07, woodDarkMat);
+      stretcher.position.y = 0.16; tGroup.add(stretcher);
+    } else if (type === 'writing') {
+      // quieter writing desk: rectangular top, slim legs, shallow drawer front
+      const w = blueprintTable.width, d = blueprintTable.depth;
+      const top = roundedBox(w, 0.05, d, woodMat, 0.022); top.position.y = topY; tGroup.add(top);
+      const drawer = box(w - 0.18, 0.11, d - 0.14, woodDarkMat);
+      drawer.position.y = topY - 0.085; tGroup.add(drawer);
+      const knob = cyl(0.014, 0.014, 0.03, metalMat, 8);
+      knob.rotation.x = Math.PI / 2;
+      knob.position.set(0, topY - 0.085, d / 2 - 0.055); tGroup.add(knob);
+      for (const [lx, lz] of [[-w / 2 + 0.06, -d / 2 + 0.06], [w / 2 - 0.06, -d / 2 + 0.06],
+        [-w / 2 + 0.06, d / 2 - 0.06], [w / 2 - 0.06, d / 2 - 0.06]]) {
+        const leg = box(0.05, topY, 0.05, woodDarkMat);
+        leg.position.set(lx, topY / 2, lz); tGroup.add(leg);
+      }
     } else {
       const roundRadius = lounge ? 0.46 : 0.52;
       const top = cyl(roundRadius, roundRadius, 0.05, woodMat, 24); top.position.y = topY; tGroup.add(top);
@@ -2276,6 +2308,9 @@ export function buildCafe(theme, models = null) {
       const base = cyl(0.3, 0.34, 0.04, woodDarkMat, 20); base.position.y = 0.02; tGroup.add(base);
     }
     tGroup.position.set(tx, 0, tz);
+    // subtle authored rotations (plan §5: don't mirror every table perfectly);
+    // same yaw convention as the blueprint's support footprints
+    tGroup.rotation.y = blueprintTable.rotation ?? 0;
     group.add(tGroup);
 
     // seating comes from the blueprint's per-archetype seat plan (armchairs
@@ -2292,9 +2327,9 @@ export function buildCafe(theme, models = null) {
         chair.lookAt(tx, 0, tz);
         group.add(chair);
       }
-      const tableRadius = type === 'long' ? 0.55
-        : type === 'square' ? 0.475
-        : lounge ? 0.46 : 0.52;
+      // conservative inscribed-disc radius from the blueprint archetype
+      // (Phase 6 replaces the disc clamp with exact rotated footprints)
+      const tableRadius = blueprintTable.clampRadius ?? 0.52;
       const seat = addSeat(chair,
         new THREE.Vector3(px, 0, pz),
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
@@ -2304,6 +2339,10 @@ export function buildCafe(theme, models = null) {
       seat.levelId = blueprintSeat.levelId;
       seat.isBar = false;
     });
+    // The writing desk's vignette is its typewriter; the generic place
+    // setting and curated cluster would overflow the small top the moment a
+    // laptop needs clearance space.
+    if (blueprintTable.archetype === 'writing') return;
     // Base place setting. Positions are reserved around the later curated
     // vignette instead of independently randomized, which previously allowed
     // cups, flowers, magazines and pastries to spawn inside one another.
@@ -2329,23 +2368,37 @@ export function buildCafe(theme, models = null) {
     batch.computeBoundingSphere();
   });
 
+  // The salon writing desk keeps the vintage typewriter (it lived on the old
+  // long window bar; the rebuilt Golden counters are dedicated laptop seats).
+  const writingTable = blueprint.tables.find((t) => t.archetype === 'writing');
+  if (writingTable) {
+    const tw = cloneModel(models, 'typewriter');
+    if (tw) {
+      const rot = writingTable.rotation ?? 0;
+      const cos = Math.cos(rot), sin = Math.sin(rot);
+      const ox = 0, oz = -0.14; // toward the back edge, keys facing the chair
+      tw.position.set(
+        writingTable.center.x + ox * cos + oz * sin,
+        writingTable.surfaceY - 0.005,
+        writingTable.center.z - ox * sin + oz * cos,
+      );
+      tw.rotation.y = rot + rand(-0.08, 0.08);
+      group.add(tw);
+      const deskSeat = seats.find((s) => s.tableId === writingTable.id);
+      if (deskSeat) registerTableProp(deskSeat.surfaceProps, tw, 0.2);
+    }
+  }
+
   // window bar with stools, looking out the front window
   if (theme.windowBar) {
     const looseBarProps = [];
     if (theme.id === 'goldenhour') {
-      // somebody's vintage writing spot at the end of the bar
-      const tw = cloneModel(models, 'typewriter');
-      if (tw) {
-        tw.position.set(-7.2, 1.03, D / 2 - 0.45);
-        tw.rotation.y = Math.PI + rand(-0.15, 0.15);
-        group.add(tw);
-        registerTableProp(looseBarProps, tw);
-        const paper = makeNewspaper();
-        paper.position.set(-6.7, 1.035, D / 2 - 0.42);
-        paper.rotation.y = rand(0, Math.PI * 2);
-        group.add(paper);
-        registerTableProp(looseBarProps, paper);
-      }
+      // this morning's paper, abandoned on the left window counter
+      const paper = makeNewspaper();
+      paper.position.set(-2.85, 1.035, D / 2 - 0.42);
+      paper.rotation.y = rand(0, Math.PI * 2);
+      group.add(paper);
+      registerTableProp(looseBarProps, paper);
     }
     for (const barTable of blueprint.tables.filter((t) => t.isBar)) {
       const barLen = barTable.width;
@@ -2358,6 +2411,21 @@ export function buildCafe(theme, models = null) {
         const leg = box(0.05, 1.0, 0.36, woodDarkMat);
         leg.position.set(bx + lx, 0.5, barZ);
         group.add(leg);
+      }
+      if (barTable.footRail) {
+        // continuous brass foot rail on visible brackets (plan §5)
+        const rail = cyl(0.018, 0.018, barLen - 0.15, metalMat, 10);
+        rail.rotation.z = Math.PI / 2;
+        rail.position.set(bx, 0.24, barZ - barTable.depth / 2 - 0.1);
+        group.add(rail);
+        for (const rx of [-barLen / 2 + 0.25, barLen / 2 - 0.25]) {
+          const bracket = box(0.03, 0.24, 0.05, metalMat);
+          bracket.position.set(bx + rx, 0.12, barZ - barTable.depth / 2 - 0.08);
+          group.add(bracket);
+          const brace = box(0.05, 0.08, 0.3, woodDarkMat);
+          brace.position.set(bx + rx, 0.92, barZ);
+          group.add(brace);
+        }
       }
       for (const blueprintSeat of barTable.seats) {
         const sx = blueprintSeat.pos.x;
@@ -2398,11 +2466,9 @@ export function buildCafe(theme, models = null) {
   }
 
   // plants
-  const plantSpots = [
-    [-W / 2 + 0.7, -D / 2 + 0.7], [W / 2 - 0.7, D / 2 - 1.3], [W / 2 - 0.6, -D / 2 + 3.0],
-    [-W / 2 + 0.6, 3.6], [-W / 2 + 0.6, -2.0], [W / 2 - 0.6, 0.4],
-    [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
-  ];
+  // floor-plant ring comes from the blueprint (venues with reserved wall
+  // bays move spots away from their fitted furniture)
+  const plantSpots = blueprint.decor.plantSpots;
   // Authored species palette per café (decor/decorManifest.js): recognizable
   // monstera/sansevieria/pothos/fern silhouettes instead of generic cones.
   const greenery = GREENERY[theme.id] ?? GREENERY.goldenhour;
@@ -2457,18 +2523,19 @@ export function buildCafe(theme, models = null) {
     m.position.set(x, 0.012, z);
     group.add(m);
   }
-  for (const t of legacyTables) contactShadow(t.x, t.z, t.type === 'long' ? 3.4 : 2.4);
+  for (const t of legacyTables) contactShadow(t.x, t.z, t.type === 'long' ? 3.4 : t.type === 'oval' ? 3.0 : 2.4);
   contactShadow(-0.6, -D / 2 + 1.3, 7.5);
 
   // Curated table vignettes. Repeating a handful of believable arrangements
   // reads as hospitality styling; independent random props read as clutter.
   const candleFlames = [];
   legacyTables.forEach((tt, ti) => {
+    if (tt.type === 'writing') return; // the typewriter is the whole vignette
     const surfaceProps = tableSurfaceProps[ti];
     // Lounge tables are intentionally coffee-table height. Their curated
     // place settings must use that lower surface instead of the standard
     // dining-table height, or they appear to float 25 cm above the top.
-    const topY = tt.lounge ? 0.575 : tt.type === 'round' ? 0.805 : 0.81;
+    const topY = tt.lounge ? 0.575 : (tt.type === 'round' || tt.type === 'oval') ? 0.805 : 0.81;
     if (tt.lounge) {
       // Lounge tables stay intentionally sparse: one drink from addTable and
       // a slim reading stack opposite it. This keeps the low surface visible.
@@ -2530,7 +2597,14 @@ export function buildCafe(theme, models = null) {
   });
 
   // a working wall clock on the right wall
-  const rightWallDecor = rightWallDecorLayout();
+  // blueprint bay partition wins over the legacy shared layout when authored
+  const sharedRightWallDecor = rightWallDecorLayout();
+  const rightWallDecor = blueprint.decor.rightWall
+    ? {
+      clock: { y: blueprint.decor.rightWall.clock.y, z: blueprint.decor.rightWall.clock.z },
+      mirror: { y: blueprint.decor.rightWall.mirror.y, z: blueprint.decor.rightWall.mirror.z },
+    }
+    : sharedRightWallDecor;
   const clockGroup = new THREE.Group();
   {
     const face = cyl(0.28, 0.28, 0.04, ceramicMat, 24);
@@ -3133,10 +3207,11 @@ export function buildCafe(theme, models = null) {
       panel.castShadow = true;
       cb.add(panel);
     }
-    cb.position.set(1.5, 0, D / 2 - 1.6);
-    cb.rotation.y = -0.5;
+    const cbSpot = blueprint.decor.chalkboard ?? { x: 1.5, z: D / 2 - 1.6, rot: -0.5 };
+    cb.position.set(cbSpot.x, 0, cbSpot.z);
+    cb.rotation.y = cbSpot.rot;
     group.add(cb);
-    contactShadow(1.5, D / 2 - 1.6, 1.0);
+    contactShadow(cbSpot.x, cbSpot.z, 1.0);
   }
 
   // warm wall sconces on the solid walls (kiosk face only, outdoors)
@@ -3194,8 +3269,24 @@ export function buildCafe(theme, models = null) {
       lamp2.position.set(-W / 2 + 0.6, 0, 1.2);
       group.add(lamp2);
     }
-    // a proper bookcase for the golden hour café (midnight has its own wall)
-    if (!theme.bookshelf) {
+    // The venue library. When the blueprint reserves a right-wall bay
+    // (Golden Hour), build the fitted local-coordinate cabinetry from it;
+    // otherwise keep the legacy freestanding bookcase (midnight has its own
+    // built-in wall and skips both).
+    if (blueprint.decor.rightWall?.library) {
+      const fitted = buildFittedLibrary({
+        group,
+        spec: blueprint.decor.rightWall.library,
+        wallX: W / 2,
+        helpers: { box, roundedBox, cyl },
+        mats: { woodMat, woodDarkMat, metalMat, ceramicMat },
+        models,
+        cloneModel,
+        rand,
+      });
+      extraColliders.push(fitted.collider);
+      for (const c of fitted.contactShadows) contactShadow(c.x, c.z, c.size);
+    } else if (!theme.bookshelf) {
       const bc = cloneModel(models, 'bookcase');
       if (bc) {
         bc.position.set(W / 2 - 0.35, 0, -0.35);
@@ -3254,10 +3345,11 @@ export function buildCafe(theme, models = null) {
     // a lantern on a lounge side table if we have one
     const sideT = cloneModel(models, 'side_table');
     if (sideT) {
-      sideT.position.set(-5.1, 0, -0.5);
+      const sideSpot = blueprint.decor.sideTable ?? { x: -5.1, z: -0.5 };
+      sideT.position.set(sideSpot.x, 0, sideSpot.z);
       group.add(sideT);
-      contactShadow(-5.1, -0.5, 0.8);
-      extraColliders.push({ x: -5.1, z: -0.5, r: 0.35 });
+      contactShadow(sideSpot.x, sideSpot.z, 0.8);
+      extraColliders.push({ x: sideSpot.x, z: sideSpot.z, r: 0.35 });
       // second one beside the sofa with a forgotten latte on it
       const sideT2 = cloneModel(models, 'side_table');
       sideT2.position.set(W / 2 - 0.7, 0, -6.1);
@@ -3282,11 +3374,12 @@ export function buildCafe(theme, models = null) {
     }
     const lantern = cloneModel(models, 'lantern');
     if (lantern) {
-      lantern.position.set(-5.1, sideT ? 0.5 : 0.56, -0.5);
+      const lanternSpot = blueprint.decor.sideTable ?? { x: -5.1, z: -0.5 };
+      lantern.position.set(lanternSpot.x, sideT ? 0.5 : 0.56, lanternSpot.z);
       group.add(lantern);
       if (theme.candles) {
         const lg = new THREE.PointLight(theme.lampColor, 2.5, 3);
-        lg.position.set(-5.1, 0.7, -0.5);
+        lg.position.set(lanternSpot.x, 0.7, lanternSpot.z);
         group.add(lg);
       }
     }

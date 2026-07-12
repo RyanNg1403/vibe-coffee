@@ -659,8 +659,11 @@ function placePlayerLaptop() {
   const d = toTable.length() || 1;
   // Keep the whole 22 cm-deep base supported by the tabletop. Regular tables
   // leave the laptop near the player's edge; the shallower window bar needs it
-  // almost centred so its front edge does not hang over the counter.
-  const distanceFromCenter = seat.pos.y > 0.05 ? 0.075 : 0.34;
+  // almost centred, and small tables (the salon writing desk) pull it inward
+  // so the base corners stay on the top: half depth 0.11 plus a 0.02 margin.
+  const distanceFromCenter = seat.pos.y > 0.05
+    ? 0.075
+    : Math.min(0.34, (seat.tableRadius ?? 0.52) - 0.13);
   const edge = Math.max(0, d - distanceFromCenter);
   playerLaptop = makeMacBook();
   playerLaptop.position.set(

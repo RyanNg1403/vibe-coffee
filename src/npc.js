@@ -1104,6 +1104,26 @@ class NPC {
     this._joinDoorLine('out');
   }
 
+  // Some departing patrons pause at the venue's browse spot (Golden Hour's
+  // library) on their way out. The state is fully bounded: one authored
+  // anchor, a facing, a duration, then the normal exit. At most one browser
+  // at a time so the aisle never clogs.
+  _maybeBrowseLibrary() {
+    const browse = this.sim.browseDestination;
+    if (!browse || this.sim.browsingNpc || Math.random() > 0.35) return false;
+    this.sim.browsingNpc = this;
+    this.browseFaceYaw = browse.faceYaw ?? Math.PI / 2;
+    this.state = 'toBrowse';
+    this.stateT = 0;
+    this._walkTo(new THREE.Vector3(browse.x, 0, browse.z));
+    return true;
+  }
+
+  _finishBrowsing() {
+    if (this.sim.browsingNpc === this) this.sim.browsingNpc = null;
+    this._beginExit();
+  }
+
   _updateTravelUmbrella(dt) {
     if (!this.umbrella?.root.visible) return this.umbrella?.openAmount ?? 0;
     const amount = animateHeldUmbrella(this.umbrella, this.umbrellaTarget, dt);
@@ -1290,7 +1310,7 @@ class NPC {
       }
       this.sim.releaseSeat(this.seatIndex);
       this.seatIndex = -1;
-      this._beginExit();
+      if (!this._maybeBrowseLibrary()) this._beginExit();
     }
     this.transitionFrom = null;
   }
@@ -1312,7 +1332,14 @@ class NPC {
     if (this.activity === 'laptop') {
       const laptop = makeLaptop();
       const d = toTable.length();
-      const edge = Math.max(0.25, d - 0.42);
+      // stay far enough inside the tabletop that the whole base is supported
+      // (half depth ~0.11 plus margin), even on small salon tables; the
+      // shallow window-bar strip (tableRadius null) centres it like the
+      // player's MacBook so it never floats past the counter's front edge
+      const inset = seat.tableRadius == null
+        ? 0.075
+        : Math.min(0.42, seat.tableRadius - 0.13);
+      const edge = Math.max(seat.tableRadius == null ? 0 : 0.25, d - inset);
       const surfaceY = seat.tableTopY ?? 0.815;
       laptop.position.set(
         seat.pos.x + (toTable.x / d) * edge,
@@ -1769,6 +1796,19 @@ class NPC {
       return;
     }
 
+    if (this.state === 'browsing') {
+      this._setPose(false);
+      this._faceBrowseShelves(dt);
+      p.head.rotation.x = 0.1 + Math.sin(t * 0.22 + this.walkPhase) * 0.12;
+      p.head.rotation.y = Math.sin(t * 0.3 + this.walkPhase) * 0.4;
+      p.torso.rotation.z = Math.sin(t * 0.7 + this.walkPhase) * 0.02;
+      if (this.stateT > this.browseDuration) {
+        p.head.rotation.x = 0;
+        this._finishBrowsing();
+      }
+      return;
+    }
+
     if (this.state === 'queueing') {
       this._setPose(false);
       this._faceCounter(dt); // never fight the walking block for the yaw
@@ -1934,12 +1974,33 @@ class NPC {
     this.mesh.rotation.y += dy * Math.min(1, dt * 5);
   }
 
+  _faceBrowseShelves(dt) {
+    if (this.path) return;
+    let dy = (this.browseFaceYaw ?? Math.PI / 2) - this.mesh.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    this.mesh.rotation.y += dy * Math.min(1, dt * 4);
+  }
+
   _updateSkinnedStationary(dt, t, seat) {
     const av = this.avatar;
     // While walking to the queue slot / pickup spot, the walking block owns
     // the gait and facing; forcing idle+yaw from here as well thrashed the
     // animation mixer every frame (both actions permanently mid-fade).
     const enRoute = !!this.path;
+    if (this.state === 'browsing') {
+      this._setPose(false);
+      if (!enRoute) av.setMode('idle');
+      this._faceBrowseShelves(dt);
+      // eyes wander across the spines
+      av.headPitch = 0.12 + Math.sin(t * 0.22 + this.walkPhase) * 0.12;
+      av.headYawTarget = Math.sin(t * 0.3 + this.walkPhase) * 0.45;
+      if (this.stateT > this.browseDuration) {
+        av.headPitch = 0;
+        this._finishBrowsing();
+      }
+      return;
+    }
     if (this.state === 'queueing') {
       this._setPose(false);
       if (!enRoute) av.setMode('idle');
@@ -2065,6 +2126,11 @@ class NPC {
       const seat = this.sim.cafe.seats[this.seatIndex];
       this.sitY = sitYFor(this, seat);
       this.transitionFrom = this.mesh.position.clone();
+    } else if (this.state === 'toBrowse') {
+      // bounded browsing pause at the library: anchored, timed, then leave
+      this.state = 'browsing';
+      this.stateT = 0;
+      this.browseDuration = rand(8, 16);
     } else if (this.state === 'crossingDoorOut') {
       this.sim.doorFlow.release(this);
       if (this._prepareExitUmbrella()) {
@@ -2922,6 +2988,10 @@ export class CrowdSim {
     this.planner = new BehaviorPlanner({ hz: 1.5, batch: 4 });
     this.petSources = []; // live pets array, assigned by main.js
     this.grinderUntil = -Infinity;
+    // authored browse spot (Golden Hour's library); at most one browser at a time
+    this.browseDestination = cafe.blueprint?.npcDestinations
+      ?.find((destination) => destination.purpose === 'browse') ?? null;
+    this.browsingNpc = null;
     this.waiter = this.cafe.serviceAnchors && this.maxCrowd >= 9 ? new Waiter(this) : null;
     // Exterior walkers are a real actor pool: arrivals are claimed from it and
     // departing indoor patrons are returned to it, so identity continues
@@ -3365,10 +3435,13 @@ export class CrowdSim {
         this.dequeue(npc);
         if (this.ordering === npc) this.ordering = null;
         if (this.brewFor === npc) this.brewFor = null;
+        if (this.browsingNpc === npc) this.browsingNpc = null;
         if (npc.state === 'gone') npc.dispose();
         this.npcs.splice(i, 1);
       }
     }
+
+    this._trackDwell();
 
     // let the audio engine know where people actually are
     this.spotSyncT -= dt;
@@ -3384,6 +3457,33 @@ export class CrowdSim {
 
   releaseSeat(i) { this.takenSeats.delete(i); }
   isSeatTaken(i) { return this.takenSeats.has(i); }
+
+  // Plan §12 state-dwell audit: every standing state must stay bounded. The
+  // tracker remembers the WORST standing dwell observed near the service
+  // counter, so a probe can detect purposeless loitering after the fact.
+  _trackDwell() {
+    for (const npc of this.npcs) {
+      if (npc.seatIndex >= 0 || npc.state === 'sitting') continue;
+      const pos = npc.mesh.position;
+      if (pos.z > -3.9 || Math.abs(pos.x) > 6.5) continue;
+      if (!this.maxServiceDwell || npc.stateT > this.maxServiceDwell.seconds) {
+        this.maxServiceDwell = { state: npc.state, seconds: +npc.stateT.toFixed(1) };
+      }
+    }
+  }
+
+  dwellReport() {
+    return {
+      npcs: this.npcs.map((npc) => ({
+        state: npc.state,
+        seconds: +npc.stateT.toFixed(1),
+        x: +npc.mesh.position.x.toFixed(2),
+        z: +npc.mesh.position.z.toFixed(2),
+        seated: npc.seatIndex >= 0,
+      })),
+      maxServiceDwell: this.maxServiceDwell ?? null,
+    };
+  }
 
   dispose() {
     this.npcs.forEach((n) => n.dispose());
