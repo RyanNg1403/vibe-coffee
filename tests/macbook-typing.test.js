@@ -59,9 +59,18 @@ test('a click burst replaces a live scheduled burst instead of stacking', () => 
   const scheduled = audio.ctx.sources[0];
   audio.playPlayerTyping(null, { intentional: true }); // direct click
   assert.equal(scheduled.stopped, true, 'previous source must be stopped');
+  assert.equal(audio.activeOneShotSources, 1, 'stopped burst must release its source budget immediately');
   assert.equal(audio.ctx.sources.length, 2);
   assert.equal(audio._playerTypingNodes.length, 1);
   assert.equal(audio._playerTypingNodes[0], audio.ctx.sources[1]);
+});
+
+test('rapid clicks replace immediately without queued or rejected bursts', () => {
+  const audio = audioWithBuffers(['macbook_typing']);
+  for (let i = 0; i < 12; i += 1) audio.playPlayerTyping(null, { intentional: true });
+  assert.equal(audio.ctx.sources.length, 12);
+  assert.equal(audio.activeOneShotSources, 1);
+  assert.equal(audio._playerTypingNodes[0], audio.ctx.sources.at(-1));
 });
 
 test('stopPlayerTyping silences the active source and clears tracking', () => {

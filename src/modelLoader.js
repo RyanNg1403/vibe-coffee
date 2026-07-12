@@ -12,6 +12,11 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODEL_MANIFEST } from './modelManifest.js';
 
+// This asset's exaggerated head/hair proportions and seated silhouette clash
+// with the established café cast. Keep the source in the repository for
+// provenance, but do not download or instantiate it in the live experience.
+const CAST_EXCLUSIONS = new Set(['char_wcasual']);
+
 // target height per prop, meters
 const NORMALIZE = {
   cup: { height: 0.1 },
@@ -131,6 +136,7 @@ export function loadModelLibrary() {
   loader.setDRACOLoader(dracoLoader);
   const models = new Map();
   libraryPromise = Promise.all(Object.entries(MODEL_MANIFEST).map(async ([key, def]) => {
+    if (CAST_EXCLUSIONS.has(key)) return;
     try {
       let gltf;
       if (def.url.startsWith('data:')) {

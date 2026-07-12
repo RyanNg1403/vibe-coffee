@@ -287,6 +287,8 @@ let lastModels = null;
 let playerCup = null;
 let playerLaptop = null;
 let playerLaptopSeatIndex = -1;
+let laptopSurfacePropCount = -1;
+let laptopNpcPropRevision = -1;
 let orderPending = false;
 let currentTheme = resolveEnvironment(THEMES[currentThemeIndex], envTime, envSky);
 function activeTheme(index = currentThemeIndex) {
@@ -306,6 +308,8 @@ async function loadTheme(index) {
   playerCup = null; // the old room takes the old cup with it
   playerLaptop = null;
   playerLaptopSeatIndex = -1;
+  laptopSurfacePropCount = -1;
+  laptopNpcPropRevision = -1;
 
   interactions.clear(); // world click targets belong to the departing room
   hoveredWorld = null;
@@ -493,6 +497,34 @@ function restoreTableProps(seat) {
     if (!entry.object?.parent) continue;
     entry.object.position.copy(entry.home);
   }
+  for (const candidate of cafe?.seats ?? []) {
+    if (!seat || candidate.tableCenter.distanceToSquared(seat.tableCenter) > 0.0001) continue;
+    for (const entry of candidate.npcTableProps ?? []) {
+      if (entry.object?.parent) entry.object.visible = true;
+    }
+  }
+}
+
+function syncLaptopSurfaceProps() {
+  if (!playerLaptop || seatIndex < 0 || !cafe) {
+    laptopSurfacePropCount = -1;
+    laptopNpcPropRevision = -1;
+    return;
+  }
+  const seat = cafe.seats[seatIndex];
+  const activeCount = (seat.surfaceProps ?? []).filter((entry) => entry.object?.parent).length;
+  const npcRevision = cafe.npcTablePropRevision ?? 0;
+  if (activeCount === laptopSurfacePropCount && npcRevision === laptopNpcPropRevision) return;
+  const tableSeats = cafe.seats.filter((candidate) => candidate.tableCenter.distanceToSquared(seat.tableCenter) < 0.0001);
+  const npcProps = tableSeats.flatMap((candidate) => candidate.npcTableProps ?? []).filter((entry) => entry.object?.parent);
+  for (const entry of npcProps) entry.object.visible = false;
+  const toTable = new THREE.Vector3().subVectors(seat.tableCenter, seat.pos).setY(0).normalize();
+  const beside = new THREE.Vector3(-toTable.z, 0, toTable.x);
+  const towardRoom = new THREE.Vector3(-seat.tableCenter.x, 0, -seat.tableCenter.z);
+  if (beside.dot(towardRoom) < 0) beside.negate();
+  clearTablePropsForLaptop(seat, beside);
+  laptopSurfacePropCount = activeCount;
+  laptopNpcPropRevision = npcRevision;
 }
 
 function clearTablePropsForLaptop(seat, beside) {
@@ -610,6 +642,8 @@ function placePlayerLaptop() {
   const previousSeat = cafe?.seats[playerLaptopSeatIndex];
   restoreTableProps(previousSeat);
   playerLaptopSeatIndex = -1;
+  laptopSurfacePropCount = -1;
+  laptopNpcPropRevision = -1;
   audio.stopPlayerTyping(); // a moved or packed laptop takes its sound with it
   if (playerLaptop) {
     interactions.unregister(playerLaptop);
@@ -646,10 +680,7 @@ function placePlayerLaptop() {
       audio.playPlayerTyping(playerLaptopWorld, { intentional: true });
     },
   });
-  const beside = new THREE.Vector3(-(toTable.z / d), 0, toTable.x / d);
-  const towardRoom = new THREE.Vector3(-seat.tableCenter.x, 0, -seat.tableCenter.z);
-  if (beside.dot(towardRoom) < 0) beside.negate();
-  clearTablePropsForLaptop(seat, beside);
+  syncLaptopSurfaceProps();
   playerLaptopSeatIndex = seatIndex;
   placePlayerCup();
 }
@@ -1270,6 +1301,10 @@ function frame(now = performance.now()) {
     }
   }
 
+  // Patrons may open or pack a laptop after the player has already sat down.
+  // Reflow only when the registered prop count changes, never every frame.
+  syncLaptopSurfaceProps();
+
   // camera tween between seats
   let cameraMoved = false;
   if (tween.active) {
@@ -1400,7 +1435,7 @@ function frame(now = performance.now()) {
     if (elapsed >= nextPlayerTypingAt) {
       playerLaptop.getWorldPosition(playerLaptopWorld);
       audio.playPlayerTyping(playerLaptopWorld);
-      nextPlayerTypingAt = elapsed + 2.8 + Math.random() * 4.8;
+      nextPlayerTypingAt = elapsed + 9 + Math.random() * 9;
     }
   } else if (playerTypingActive) {
     playerTypingActive = false;

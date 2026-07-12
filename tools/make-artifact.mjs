@@ -98,7 +98,11 @@ for (const id of uniqueTracks) {
   await run('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',
     '-i', join(root, 'public', 'music', `${id}.ogg`),
-    '-t', '45', '-ac', '2', '-ar', '48000', '-c:a', 'libopus', '-b:a', '64k',
+    // Opus remains transparent enough for the deliberately soft café mix at
+    // 56 kbps, while recovering the artifact headroom consumed by V2 code.
+    // Runtime/full-quality assets are untouched; this only affects the
+    // self-contained fallback artifact.
+    '-t', '45', '-ac', '2', '-ar', '48000', '-c:a', 'libopus', '-b:a', '56k',
     join(musicDir, `${id}.ogg`),
   ]);
 }

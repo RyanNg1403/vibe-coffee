@@ -70,6 +70,17 @@ test('looping beds are not counted as one-shot sources', () => {
   assert.equal(audio.ctx.listeners.length, 0);
 });
 
+test('recorded loops honor authored audible windows instead of padded silence', () => {
+  const audio = new CafeAudio();
+  audio.ctx = fakeAudioContext();
+  audio.ambienceBus = { connect() {} };
+  audio.buffers.set('rain', { buffer: { duration: 36 }, gain: 1 });
+  const node = audio._playBuf('rain', { loop: true, loopStart: 0.25, loopEnd: 5.7, offset: 2 });
+  assert.equal(node.src.loopStart, 0.25);
+  assert.equal(node.src.loopEnd, 5.7);
+  assert.equal(audio.activeOneShotSources, 0);
+});
+
 test('high-frequency recorded effects are rejected before exceeding their group cap', () => {
   const audio = new CafeAudio();
   audio.ctx = fakeAudioContext();

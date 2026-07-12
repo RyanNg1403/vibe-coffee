@@ -23,6 +23,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // avoids the conspicuous mid-sound slices produced by arbitrary offsets.
 const FOOTSTEP_ONSETS = [0.55, 1.3, 2.1, 2.91, 3.71, 4.57, 5.23, 5.96, 6.69, 7.47, 8.24, 9.04, 9.84, 10.54, 11.32];
 const CLINK_ONSETS = [0.43, 1.6, 2.67, 3.35, 3.7, 3.89, 4.23];
+const MACBOOK_TYPING_ONSETS = [0.02, 0.47, 1.05, 1.35, 2, 2.3, 2.52, 3.06, 3.44, 3.81, 4.02, 4.73, 4.98, 5.26, 5.54, 5.78, 6.35, 6.56, 7.15, 7.81, 8.41];
 
 // Discrete rain-intensity stops for the sound menu. Each stop is a different
 // recording (a heavier storm, not merely a louder one); only the selected
@@ -30,9 +31,11 @@ const CLINK_ONSETS = [0.43, 1.6, 2.67, 3.35, 3.7, 3.89, 4.23];
 // two offset window plays; the synth gain covers the brief load window.
 const RAIN_LEVELS = [
   { name: 'off', key: null, layers: [0, 0], synth: 0 },
-  { name: 'light', key: 'rain_light', layers: [0.4, 0.18], synth: 0.014 },
-  { name: 'steady', key: 'rain_steady', layers: [0.52, 0.24], synth: 0.028 },
-  { name: 'heavy', key: 'rain_heavy', layers: [0.66, 0.32], synth: 0.046 },
+  // These recordings contain useful rain followed by padded silence. Loop only
+  // the authored rain window so heavy rain cannot abruptly vanish for 30 s.
+  { name: 'light', key: 'rain_light', layers: [0.4, 0.18], synth: 0.014, loop: [0.25, 10.65] },
+  { name: 'steady', key: 'rain_steady', layers: [0.52, 0.24], synth: 0.028, loop: [0.25, 35.6] },
+  { name: 'heavy', key: 'rain_heavy', layers: [0.66, 0.32], synth: 0.046, loop: [0.25, 5.7] },
 ];
 
 // Pet voice routing: which recording serves each (kind, event), how long a
@@ -166,7 +169,7 @@ const AMBIENCE_PROFILES = {
     chatterRate: 1.0, chatterLP: 7500,
     traffic: 0.8, murmur: 0.3, stepRate: 1.0, stepVol: 1.0,
     room: { seconds: 1.35, decay: 3.8, wet: 0.32 },
-    clinkMs: [5000, 17000], typeMs: [1500, 7000],
+    clinkMs: [5000, 17000], typeMs: [28000, 70000],
   },
   roastery: {
     // busy daytime spot: its own denser, livelier crowd recording; loud street
@@ -174,7 +177,7 @@ const AMBIENCE_PROFILES = {
     chatterRate: 1.04, chatterLP: 11000,
     traffic: 1.5, murmur: 0.45, stepRate: 1.14, stepVol: 1.2,
     room: { seconds: 0.95, decay: 4.6, wet: 0.22 },
-    clinkMs: [3000, 11000], typeMs: [1000, 4500],
+    clinkMs: [3000, 11000], typeMs: [22000, 60000],
   },
   midnight: {
     // nearly empty, hushed: its own sparse late-night recording; rain-wet street
@@ -182,7 +185,7 @@ const AMBIENCE_PROFILES = {
     chatterRate: 0.92, chatterLP: 2400,
     traffic: 0.55, murmur: 0.14, stepRate: 0.88, stepVol: 0.8,
     room: { seconds: 1.85, decay: 3.1, wet: 0.46 },
-    clinkMs: [9000, 26000], typeMs: [4000, 14000],
+    clinkMs: [9000, 26000], typeMs: [35000, 90000],
   },
   terrace: {
     // open air: conversation floats away, distant road, gravel underfoot
@@ -190,7 +193,7 @@ const AMBIENCE_PROFILES = {
     chatterRate: 0.98, chatterLP: 6000,
     traffic: 0.18, murmur: 0.2, stepRate: 0.85, stepVol: 0.65,
     room: { seconds: 0.55, decay: 5.0, wet: 0.08 },
-    clinkMs: [7000, 20000], typeMs: [2500, 9000],
+    clinkMs: [7000, 20000], typeMs: [30000, 80000],
   },
 };
 
@@ -332,14 +335,17 @@ export class CafeAudio {
     // A busy accelerated audit used to accumulate hundreds of spatial source
     // nodes. Bound the graph before allocating; important ambience beds loop
     // outside this budget and deliberate sounds still have ample headroom.
-    if (isOneShot && this.activeOneShotSources >= (opts.maxTotal ?? 48)) return null;
-    if (isOneShot && groupName && groupCount >= (opts.maxConcurrent ?? Infinity)) return null;
+    if (isOneShot && !opts.priority && this.activeOneShotSources >= (opts.maxTotal ?? 32)) return null;
+    if (isOneShot && !opts.priority && groupName && groupCount >= (opts.maxConcurrent ?? Infinity)) return null;
     const src = this.ctx.createBufferSource();
     src.buffer = entry.buffer;
     src.playbackRate.value = opts.rate ?? 1;
     if (opts.loop) {
       src.loop = true;
-      if (entry.buffer.duration > 4 && !opts.seamless) { // skip raw file edges
+      if (opts.loopStart != null || opts.loopEnd != null) {
+        src.loopStart = clamp(opts.loopStart ?? 0, 0, entry.buffer.duration);
+        src.loopEnd = clamp(opts.loopEnd ?? entry.buffer.duration, src.loopStart + 0.05, entry.buffer.duration);
+      } else if (entry.buffer.duration > 4 && !opts.seamless) { // skip raw file edges
         src.loopStart = 0.4;
         src.loopEnd = entry.buffer.duration - 0.4;
       }
@@ -353,7 +359,10 @@ export class CafeAudio {
       // Audio can reclaim them promptly during long ambient sessions.
       this.activeOneShotSources += 1;
       if (groupName) this._oneShotGroups.set(groupName, groupCount + 1);
-      src.addEventListener('ended', () => {
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
         this.activeOneShotSources = Math.max(0, this.activeOneShotSources - 1);
         if (groupName) {
           const remaining = Math.max(0, (this._oneShotGroups.get(groupName) ?? 1) - 1);
@@ -362,11 +371,16 @@ export class CafeAudio {
         }
         src.disconnect?.();
         g.disconnect?.();
-      }, { once: true });
+      };
+      src._vibeRelease = release;
+      src.addEventListener('ended', release, { once: true });
     }
     const when = opts.when ?? this.ctx.currentTime;
     let offset = opts.offset ?? 0;
-    if (opts.randomSlice) {
+    if (opts.onsets?.length) {
+      const maxOffset = Math.max(0, entry.buffer.duration - (opts.dur ?? 0.6) - 0.05);
+      offset = clamp(pick(opts.onsets), 0, maxOffset);
+    } else if (opts.randomSlice) {
       // grab a random window from a longer recording, for one-shot variety
       const dur = opts.dur ?? 1;
       offset = rand(0, Math.max(0.01, entry.buffer.duration - dur - 0.1));
@@ -382,7 +396,7 @@ export class CafeAudio {
     } else {
       src.start(when, offset);
     }
-    return { src, gain: g };
+    return { src, gain: g, release: src._vibeRelease ?? null };
   }
 
   // once assets are loaded: recorded chatter/traffic/rain beds fade in,
@@ -933,11 +947,13 @@ export class CafeAudio {
     };
     nodes.recordedSources = [
       fadeIn(this._playBuf(key, {
-        out: layerOut(-0.34), vol: level.layers[0], loop: true, seamless: true, offset: 0.05,
+        out: layerOut(-0.34), vol: level.layers[0], loop: true,
+        loopStart: level.loop?.[0], loopEnd: level.loop?.[1], offset: level.loop?.[0] ?? 0.05,
       })),
       fadeIn(this._playBuf(key, {
-        out: layerOut(0.38), vol: level.layers[1], loop: true, seamless: true,
-        offset: entry.buffer.duration * 0.43,
+        out: layerOut(0.38), vol: level.layers[1], loop: true,
+        loopStart: level.loop?.[0], loopEnd: level.loop?.[1],
+        offset: level.loop ? level.loop[0] + (level.loop[1] - level.loop[0]) * 0.43 : entry.buffer.duration * 0.43,
       })),
     ].filter(Boolean);
     nodes.mountedKey = key;
@@ -1535,8 +1551,9 @@ export class CafeAudio {
     if (key) {
       const node = this._playBuf(key, {
         out, vol: rand(0.2, 0.4) * volumeScale, rate: rand(0.96, 1.04),
-        randomSlice: true, dur: opts.dur ?? rand(1.2, 3),
+        randomSlice: !opts.onsets, onsets: opts.onsets, dur: opts.dur ?? rand(1.2, 3),
         group: 'typing', maxConcurrent: trackPlayer ? 7 : 6,
+        priority: opts.priority,
       });
       if (trackPlayer && node) this._playerTypingNodes = [node.src];
       return;
@@ -1567,7 +1584,9 @@ export class CafeAudio {
     this.stopPlayerTyping();
     this._typeBurst(pos, intentional ? 0.52 : 0.3, true, {
       key: 'macbook_typing',
-      dur: intentional ? rand(1.2, 2.5) : rand(1.4, 3),
+      dur: intentional ? rand(0.7, 1.25) : rand(1, 1.8),
+      onsets: MACBOOK_TYPING_ONSETS,
+      priority: intentional,
     });
     this.playerTypingBursts = (this.playerTypingBursts ?? 0) + 1;
   }
@@ -1575,6 +1594,7 @@ export class CafeAudio {
   stopPlayerTyping() {
     for (const node of this._playerTypingNodes ?? []) {
       try { node.stop(); } catch { /* source already ended */ }
+      node._vibeRelease?.();
     }
     this._playerTypingNodes = [];
   }
@@ -1596,7 +1616,8 @@ export class CafeAudio {
     };
     this._timer(dishes, 15000);
     const typing = () => {
-      if (this.typingSpots.length) this._typeBurst(pick(this.typingSpots));
+      // Typing is a sparse, local detail rather than a room-wide metronome.
+      if (this.typingSpots.length && Math.random() < 0.3) this._typeBurst(pick(this.typingSpots), 0.72);
       const [a, b] = this._profile().typeMs;
       this._timer(typing, rand(a, b));
     };

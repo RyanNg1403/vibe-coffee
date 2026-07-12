@@ -130,6 +130,10 @@ export const WALL_MIRROR_RADIUS = 0.345;
 export const COUNTER_SURFACE_Y = 1.06;
 export const PASTRY_TRAY_THICKNESS = 0.015;
 export const PASTRY_TRAY_CLEARANCE = 0.008;
+export const MIDNIGHT_NEON_WIDTH = 2.6;
+export function midnightWallLayout() {
+  return { panelCenters: [-4.8, -3.8, 3.3, 4.15], panelWidth: 0.72, neonCenter: 6, neonWidth: MIDNIGHT_NEON_WIDTH };
+}
 export function pastryTrayY(row, surfaceY = COUNTER_SURFACE_Y) {
   return surfaceY + PASTRY_TRAY_CLEARANCE + PASTRY_TRAY_THICKNESS / 2 + row * 0.2;
 }
@@ -630,8 +634,20 @@ function steamTexture() {
 
 // ---------- small builders ----------
 
+let _unitBoxGeometry = null;
+function unitBoxGeometry() {
+  if (_unitBoxGeometry) return _unitBoxGeometry;
+  _unitBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
+  // Hundreds of architectural and décor boxes can share one GPU geometry;
+  // their world dimensions live on the mesh transform and survive the static
+  // merge. The café teardown must therefore never dispose this module cache.
+  _unitBoxGeometry.userData.vibeShared = true;
+  _unitBoxGeometry.userData.shared = true;
+  return _unitBoxGeometry;
+}
 function box(w, h, d, mat) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  const m = new THREE.Mesh(unitBoxGeometry(), mat);
+  m.scale.set(w, h, d);
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
@@ -2081,12 +2097,15 @@ export function buildCafe(theme, models = null) {
   // neon sign (night café)
   let neonMesh = null;
   if (theme.neon) {
-    neonMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65),
+    const midnightWall = midnightWallLayout();
+    neonMesh = new THREE.Mesh(new THREE.PlaneGeometry(midnightWall.neonWidth, 0.65),
       new THREE.MeshBasicMaterial({ map: track(neonTexture(theme.neon.text, theme.neon.color)), transparent: true }));
-    neonMesh.position.set(5.6, 2.5, -D / 2 + 0.09);
+    // The sign occupies the clear bay between the right acoustic panel and
+    // wall art; its text must never sit behind the velvet treatment.
+    neonMesh.position.set(midnightWall.neonCenter, 2.5, -D / 2 + 0.09);
     group.add(neonMesh);
     const neonLight = new THREE.PointLight(theme.neon.color, 6, 6);
-    neonLight.position.set(5.6, 2.5, -D / 2 + 0.6);
+    neonLight.position.set(midnightWall.neonCenter, 2.5, -D / 2 + 0.6);
     group.add(neonLight);
   }
 
@@ -2660,7 +2679,7 @@ export function buildCafe(theme, models = null) {
     group.add(tiles);
   } else if (theme.id === 'midnight') {
     const velvet = new THREE.MeshStandardMaterial({ color: 0x241c22, roughness: 1, map: clothTex, bumpMap: clothTex, bumpScale: 0.008 });
-    for (const x of [-4.8, -3.8, 3.8, 4.8]) {
+    for (const x of midnightWallLayout().panelCenters) {
       const panel = box(0.72, 1.25, 0.055, velvet);
       panel.position.set(x, 2.15, -D / 2 + 0.18);
       group.add(panel);

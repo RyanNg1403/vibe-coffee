@@ -996,6 +996,7 @@ class NPC {
     this.sitY = -0.10;
     this.stepTick = 0;
     this.props = [];
+    this.tablePropEntries = [];
     this.headTarget = 0;            // desired head yaw offset
     this.glanceT = rand(2, 8);
     // context-planner state: seeded personality, current gaze intent, and
@@ -1321,6 +1322,7 @@ class NPC {
       laptop.rotation.y = yaw + Math.PI;
       this.sim.cafe.group.add(laptop);
       this.props.push(laptop);
+      this._registerTableProp(seat, laptop, 0.24);
       this.isTyping = true;
     } else if (this.activity === 'book') {
       const book = makeBook();
@@ -1367,12 +1369,29 @@ class NPC {
       pad.rotation.y = yaw + rand(-0.4, 0.4);
       this.sim.cafe.group.add(pad);
       this.props.push(pad);
+      this._registerTableProp(seat, pad, 0.15);
     }
     // (the sleepy table-side dog prop is retired — pets.js now brings a real
     // rigged dog that arrives with a patron and leaves with them)
   }
 
+  _registerTableProp(seat, object, footprint) {
+    object.traverse((part) => { part.userData.npcTableProp = true; });
+    const entry = { object, home: object.position.clone(), footprint };
+    (seat.npcTableProps ??= []).push(entry);
+    this.sim.cafe.npcTablePropRevision = (this.sim.cafe.npcTablePropRevision ?? 0) + 1;
+    this.tablePropEntries.push({ seat, entry });
+  }
+
   _clearProps() {
+    for (const { seat, entry } of this.tablePropEntries) {
+      const index = seat.npcTableProps?.indexOf(entry) ?? -1;
+      if (index >= 0) {
+        seat.npcTableProps.splice(index, 1);
+        this.sim.cafe.npcTablePropRevision = (this.sim.cafe.npcTablePropRevision ?? 0) + 1;
+      }
+    }
+    this.tablePropEntries = [];
     for (const prop of this.props) {
       prop.parent?.remove(prop);
       disposeOwnedObject(prop);
