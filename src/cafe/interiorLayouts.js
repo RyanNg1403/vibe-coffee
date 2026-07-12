@@ -30,40 +30,59 @@ const DOOR_W = 1.1;
 
 const TABLE_ARCHETYPES = {
   round: {
-    shape: 'circle', radius: 0.52, surfaceY: 0.81,
+    shape: 'circle', radius: 0.52, surfaceY: 0.81, clampRadius: 0.52,
     seatOffsets: [[0, -0.85], [0, 0.85], [-0.85, 0]],
   },
   square: {
-    shape: 'rect', width: 0.95, depth: 0.95, surfaceY: 0.81,
+    shape: 'rect', width: 0.95, depth: 0.95, surfaceY: 0.81, clampRadius: 0.475,
     seatOffsets: [[0, -0.85], [0, 0.85], [-0.85, 0], [0.85, 0]],
   },
   long: {
-    shape: 'rect', width: 1.1, depth: 2.6, surfaceY: 0.81,
+    shape: 'rect', width: 1.1, depth: 2.6, surfaceY: 0.81, clampRadius: 0.55,
     seatOffsets: [[-0.95, -0.7], [-0.95, 0.7], [0.95, -0.7], [0.95, 0.7]],
   },
   lounge: {
-    shape: 'circle', radius: 0.46, surfaceY: 0.58,
+    shape: 'circle', radius: 0.46, surfaceY: 0.58, clampRadius: 0.46,
     seatOffsets: [[0, -1.22], [0, 1.22]],
+  },
+  // Golden Hour salon pieces (plan §5): one oval group table and one quieter
+  // writing table. clampRadius is the conservative inscribed disc used by the
+  // laptop/prop clamp until Phase 6 lands exact rotated-footprint placement.
+  oval: {
+    shape: 'ellipse', rx: 0.92, rz: 0.62, surfaceY: 0.81, clampRadius: 0.6,
+    seatOffsets: [
+      [-1.27, 0], [1.27, 0],
+      [-0.45, -0.95], [0.45, -0.95], [-0.45, 0.95], [0.45, 0.95],
+    ],
+  },
+  writing: {
+    shape: 'rect', width: 1.15, depth: 0.7, surfaceY: 0.81, clampRadius: 0.34,
+    seatOffsets: [[0, 0.85], [0.95, -0.2]],
   },
 };
 
-// Front window bar (two strips flanking the door). Geometry mirrors the
-// windowBar block in src/cafe.js: strip length, centres, stool spacing.
-const BAR_LEN = (ROOM_SHELL.W - DOOR_W) / 2 - 1.3;           // 6.65
-const BAR_CENTER_X = DOOR_W / 2 + 0.65 + BAR_LEN / 2;        // 4.525
+// Front window counters flanking the door. The default spec mirrors the
+// legacy windowBar block in src/cafe.js (two long strips, 6 stools each);
+// venues override it as their rebuild phase lands (Golden Hour: plan §5's
+// pair of 2.0 m counters with two stools each and a foot rail).
 const BAR_Z = HALF_D - 0.45;                                 // 6.30
 const STOOL_Z = HALF_D - 1.05;                               // 5.70
 const BAR_SURFACE_Y = 1.035;
-const STOOLS_PER_SIDE = Math.floor(BAR_LEN / 1.1);           // 6
+const LEGACY_BAR = {
+  length: (ROOM_SHELL.W - DOOR_W) / 2 - 1.3,                 // 6.65
+  depth: 0.42,
+  centerX: DOOR_W / 2 + 0.65 + ((ROOM_SHELL.W - DOOR_W) / 2 - 1.3) / 2, // 4.525
+  stools: Math.floor(((ROOM_SHELL.W - DOOR_W) / 2 - 1.3) / 1.1),        // 6
+};
 
-function windowBarTables(prefix, levelId) {
+function windowBarTables(prefix, levelId, spec = LEGACY_BAR) {
   const tables = [];
   for (const side of [-1, 1]) {
     const id = `${prefix}-bar-${side < 0 ? 'l' : 'r'}`;
-    const cx = side * BAR_CENTER_X;
+    const cx = side * spec.centerX;
     const seats = [];
-    for (let i = 0; i < STOOLS_PER_SIDE; i += 1) {
-      const sx = cx - BAR_LEN / 2 + (i + 0.5) * (BAR_LEN / STOOLS_PER_SIDE);
+    for (let i = 0; i < spec.stools; i += 1) {
+      const sx = cx - spec.length / 2 + (i + 0.5) * (spec.length / spec.stools);
       seats.push({
         id: `${id}-s${i + 1}`, tableId: id, levelId,
         pos: { x: sx, y: 0.15, z: STOOL_Z }, isBar: true,
@@ -72,32 +91,44 @@ function windowBarTables(prefix, levelId) {
     tables.push({
       id, levelId, archetype: 'bar', shape: 'rect',
       center: { x: cx, z: BAR_Z }, rotation: 0,
-      width: BAR_LEN, depth: 0.42, surfaceY: BAR_SURFACE_Y,
-      supportMargin: 0.02, isBar: true, seats,
+      width: spec.length, depth: spec.depth, surfaceY: BAR_SURFACE_Y,
+      supportMargin: 0.02, isBar: true, footRail: !!spec.footRail, seats,
     });
   }
   return tables;
+}
+
+function rotate(ox, oz, rotation) {
+  if (!rotation) return [ox, oz];
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  return [ox * cos + oz * sin, -ox * sin + oz * cos];
 }
 
 function diningTables(prefix, levelId, specs) {
   return specs.map((spec, index) => {
     const archetypeName = spec.lounge ? 'lounge' : spec.type;
     const archetype = TABLE_ARCHETYPES[archetypeName];
+    const rotation = spec.rot ?? 0;
     const id = `${prefix}-t${String(index + 1).padStart(2, '0')}`;
-    const seats = archetype.seatOffsets.map(([ox, oz], seatIndex) => ({
-      id: `${id}-s${seatIndex + 1}`, tableId: id, levelId,
-      pos: { x: spec.x + ox, y: 0, z: spec.z + oz }, isBar: false,
-    }));
+    const seats = archetype.seatOffsets.map(([ox, oz], seatIndex) => {
+      const [wx, wz] = rotate(ox, oz, rotation);
+      return {
+        id: `${id}-s${seatIndex + 1}`, tableId: id, levelId,
+        pos: { x: spec.x + wx, y: 0, z: spec.z + wz }, isBar: false,
+      };
+    });
     const table = {
       id, levelId, archetype: archetypeName, shape: archetype.shape,
-      center: { x: spec.x, z: spec.z }, rotation: 0,
+      center: { x: spec.x, z: spec.z }, rotation,
       surfaceY: archetype.surfaceY, supportMargin: 0.02, isBar: false,
-      // legacy builder inputs (src/cafe.js addTable) — kept until the shared
-      // furniture loop is replaced per venue in Phases 1–4
+      clampRadius: archetype.clampRadius,
+      // legacy builder inputs (src/cafe.js addTable)
       legacyType: spec.type, lounge: !!spec.lounge,
       seats,
     };
     if (archetype.shape === 'circle') table.radius = archetype.radius;
+    else if (archetype.shape === 'ellipse') { table.rx = archetype.rx; table.rz = archetype.rz; }
     else { table.width = archetype.width; table.depth = archetype.depth; }
     return table;
   });
@@ -159,24 +190,38 @@ function staffOnlyZone(prefix) {
   };
 }
 
+const TABLE_COLLIDER_R = { long: 1.5, oval: 1.6, writing: 1.0 };
+
 function tableColliders(tables) {
   return tables.filter((t) => !t.isBar).map((t) => ({
     id: `${t.id}-col`, levelId: t.levelId,
-    x: t.center.x, z: t.center.z, r: t.archetype === 'long' ? 1.5 : 1.05,
+    x: t.center.x, z: t.center.z, r: TABLE_COLLIDER_R[t.archetype] ?? 1.05,
   }));
 }
 
-function windowBarColliders(prefix) {
-  return [
-    {
-      id: `${prefix}-bar-l-col`, levelId: 'ground',
-      rect: { x0: -HALF_W, x1: -DOOR_W / 2 - 0.3, z0: HALF_D - 0.9, z1: HALF_D },
+// One blocking rect per window counter, hugging the strip itself. The legacy
+// venues keep their original full-width front-wall strips; a venue whose bars
+// are shorter (Golden Hour) gets exact per-counter rects.
+function windowBarColliders(prefix, barTables, legacy) {
+  if (legacy) {
+    return [
+      {
+        id: `${prefix}-bar-l-col`, levelId: 'ground',
+        rect: { x0: -HALF_W, x1: -DOOR_W / 2 - 0.3, z0: HALF_D - 0.9, z1: HALF_D },
+      },
+      {
+        id: `${prefix}-bar-r-col`, levelId: 'ground',
+        rect: { x0: DOOR_W / 2 + 0.3, x1: HALF_W, z0: HALF_D - 0.9, z1: HALF_D },
+      },
+    ];
+  }
+  return barTables.map((bar) => ({
+    id: `${bar.id}-col`, levelId: bar.levelId,
+    rect: {
+      x0: bar.center.x - bar.width / 2 - 0.1, x1: bar.center.x + bar.width / 2 + 0.1,
+      z0: bar.center.z - bar.depth / 2 - 0.35, z1: HALF_D,
     },
-    {
-      id: `${prefix}-bar-r-col`, levelId: 'ground',
-      rect: { x0: DOOR_W / 2 + 0.3, x1: HALF_W, z0: HALF_D - 0.9, z1: HALF_D },
-    },
-  ];
+  }));
 }
 
 function counterCollider(prefix) {
@@ -192,15 +237,19 @@ const PLANT_SPOTS = [
 
 // ---------- venue blueprints ----------
 
-function makeVenue({ prefix, id, style, tables: tableSpecs, windowBar, auditViews, decor = {}, lighting = {} }) {
+function makeVenue({
+  prefix, id, style, tables: tableSpecs, windowBar, barSpec = null,
+  auditViews, decor = {}, lighting = {}, extraDestinations = [], contract = null,
+}) {
   const levels = [{ id: 'ground', y: 0 }];
   const rooms = [{
     id: `${prefix}-main`, levelId: 'ground',
     bounds: { x0: -HALF_W, x1: HALF_W, z0: -HALF_D, z1: HALF_D },
   }];
+  const barTables = windowBar ? windowBarTables(prefix, 'ground', barSpec ?? LEGACY_BAR) : [];
   const tables = [
     ...diningTables(prefix, 'ground', tableSpecs),
-    ...(windowBar ? windowBarTables(prefix, 'ground') : []),
+    ...barTables,
   ];
   const seats = tables.flatMap((t) => t.seats);
   return {
@@ -211,39 +260,86 @@ function makeVenue({ prefix, id, style, tables: tableSpecs, windowBar, auditView
     entranceSurfaceId: `${prefix}-ground-floor`,
     tables, seats,
     serviceZones: [serviceCounterZone(prefix)],
-    npcDestinations: commonDestinations(prefix),
+    npcDestinations: [...commonDestinations(prefix), ...extraDestinations],
     npcForbiddenZones: [staffOnlyZone(prefix)],
     colliders: [
       ...tableColliders(tables),
       counterCollider(prefix),
-      ...(windowBar ? windowBarColliders(prefix) : []),
+      ...(windowBar ? windowBarColliders(prefix, barTables, !barSpec) : []),
     ],
     decor: { plantSpots: PLANT_SPOTS, ...decor },
     lighting,
     auditViews,
+    // venue-specific protected-layout contract, checked by layoutValidation
+    contract,
   };
 }
 
+// Golden Hour salon (plan §5): varied round bistro tables, one oval group
+// table, one quieter writing table, subtle rotations, a clear 1.4 m+ arrival
+// lane on x∈[-0.7, 0.7], and two protected 2.0 m window counters flanking the
+// door. The right wall is partitioned into reserved bays (see decor.rightWall).
 const goldenhour = makeVenue({
   prefix: 'gh', id: 'goldenhour', style: 'classic-salon',
   windowBar: true,
-  // order matches THEMES[0].tables — placement order feeds the seeded PRNG
+  barSpec: { length: 2.0, depth: 0.45, centerX: 2.2, stools: 2, footRail: true },
   tables: [
-    { x: -4.9, z: 2.6, type: 'round', lounge: true }, { x: -5.1, z: -0.5, type: 'round' },
-    { x: -4.7, z: -3.4, type: 'round' }, { x: -2.4, z: 1.1, type: 'square' },
-    { x: -2.6, z: -2.0, type: 'round' }, { x: -2.1, z: 4.3, type: 'round' },
-    { x: 2.2, z: 2.9, type: 'round' }, { x: 2.0, z: -0.2, type: 'square' },
-    { x: 2.4, z: -3.2, type: 'round' }, { x: 5.0, z: 1.3, type: 'round' },
-    { x: 5.2, z: -1.9, type: 'square' },
+    { x: -5.0, z: 2.6, type: 'round', lounge: true },
+    { x: -4.6, z: -0.9, type: 'oval', rot: 0.35 },
+    { x: -6.6, z: -3.6, type: 'writing', rot: -0.15 },
+    { x: -2.3, z: 1.2, type: 'round' },
+    { x: -2.5, z: -2.3, type: 'round' },
+    { x: -2.0, z: 4.15, type: 'round' },
+    { x: 2.3, z: 3.0, type: 'round' },
+    { x: 2.1, z: -0.3, type: 'round' },
+    { x: 2.5, z: -3.1, type: 'round' },
+    { x: 5.0, z: 1.4, type: 'square', rot: 0.28 },
+    { x: 5.3, z: -1.8, type: 'round' },
+    { x: 5.6, z: 3.6, type: 'round' },
   ],
   lighting: { pendant: 'cone', lampY: 2.3 },
+  decor: {
+    // Right-wall bay partition (x = +8.5 wall). The fitted library owns
+    // z∈[library.z0, library.z1]; mirror, clock, artwork and coat rack each
+    // get their own bay and must never intersect the library span.
+    rightWall: {
+      library: { z0: -2.8, z1: 1.3, bays: 5, height: 2.16 },
+      art: [{ z: -4.6, y: 2.0 }, { z: 4.0, y: 1.9 }],
+      clock: { z: 2.1, y: 2.55 },
+      mirror: { z: 3.1, y: 2.6 },
+      pegboard: { z: 4.9 },
+      sconces: [-5.2, 5.4],
+    },
+  },
+  extraDestinations: [
+    // browsing spot facing the library shelves; departing patrons may pause
+    // here (bounded, anchored, timed) before heading to the door
+    {
+      id: 'gh-library-browse', levelId: 'ground', x: 7.1, z: -0.75,
+      role: 'patron', purpose: 'browse', faceYaw: Math.PI / 2, // face the +x wall
+    },
+  ],
+  contract: {
+    windowCounters: {
+      count: 2, minLength: 1.8, maxLength: 2.2, minDepth: 0.42, maxDepth: 0.48,
+      minSeats: 2, doorClearance: DOOR_W / 2 + 0.2, stoolCirculation: 0.9,
+    },
+    arrivalLane: { rect: { x0: -0.7, x1: 0.7, z0: -4.5, z1: HALF_D } },
+    rightWallBays: true,
+  },
   auditViews: [
     { id: 'gh-salon-from-entrance', pos: [0, 1.7, 5.9], lookAt: [0, 1.0, -2.5] },
-    { id: 'gh-window-counters-wide', pos: [0, 1.8, 1.2], lookAt: [0, 1.0, 6.3] },
-    { id: 'gh-window-counter-left', pos: [-4.5, 1.6, 4.2], lookAt: [-4.5, 1.0, 6.3] },
-    { id: 'gh-window-counter-right', pos: [4.5, 1.6, 4.2], lookAt: [4.5, 1.0, 6.3] },
+    { id: 'gh-window-counters-wide', pos: [0, 1.6, 2.5], lookAt: [0, 1.1, 6.4] },
+    { id: 'gh-window-counter-left', pos: [-2.2, 1.5, 4.0], lookAt: [-2.2, 1.05, 6.3] },
+    { id: 'gh-window-counter-right', pos: [2.2, 1.5, 4.0], lookAt: [2.2, 1.05, 6.3] },
+    { id: 'gh-library-straight', pos: [5.8, 1.4, -0.75], lookAt: [8.3, 1.2, -0.75] },
+    { id: 'gh-library-oblique', pos: [6.3, 1.6, 1.8], lookAt: [8.3, 1.1, -1.2] },
+    { id: 'gh-library-top-shelf', pos: [7.0, 1.9, -0.75], lookAt: [8.3, 1.85, -0.75] },
+    { id: 'gh-library-lower-shelf', pos: [7.1, 0.7, -0.75], lookAt: [8.3, 0.5, -0.75] },
+    { id: 'gh-wall-decor-boundary', pos: [5.6, 1.9, 3.4], lookAt: [8.4, 2.3, 2.4] },
+    { id: 'gh-salon-oval', pos: [-2.6, 1.5, -0.9], lookAt: [-4.6, 0.9, -0.9] },
+    { id: 'gh-writing-desk', pos: [-5.0, 1.4, -2.6], lookAt: [-6.6, 0.9, -3.6] },
     { id: 'gh-service-queue', pos: [2.2, 1.7, -1.6], lookAt: [1.2, 1.0, -5.4] },
-    { id: 'gh-library-wall', pos: [5.6, 1.5, 1.4], lookAt: [8.3, 1.3, 1.6] },
   ],
 });
 

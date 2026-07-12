@@ -55,6 +55,9 @@ test('every seat has explicit identity: id, tableId, levelId, isBar', () => {
 
 test('blueprint dining tables mirror the legacy THEMES table lists exactly', () => {
   for (const theme of THEMES) {
+    // venues whose rebuild phase has landed drop the legacy table array —
+    // the blueprint alone is authoritative for them
+    if (!theme.tables) continue;
     const blueprint = getBlueprint(theme.id);
     const dining = blueprint.tables.filter((t) => !t.isBar);
     assert.equal(dining.length, theme.tables.length, `${theme.id}: table count`);
@@ -76,7 +79,7 @@ test('blueprint room shell matches the legacy ROOM export', () => {
 });
 
 test('window-bar geometry matches the legacy builder constants', () => {
-  const blueprint = getBlueprint('goldenhour');
+  const blueprint = getBlueprint('roastery');
   const bars = blueprint.tables.filter((t) => t.isBar);
   const expectedLen = (ROOM_SHELL.W - 1.1) / 2 - 1.3;
   for (const bar of bars) {
@@ -89,6 +92,60 @@ test('window-bar geometry matches the legacy builder constants', () => {
       assert.ok(Math.abs(seat.pos.z - (ROOM_SHELL.D / 2 - 1.05)) < 1e-9);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// Golden Hour protected-layout contract (plan §5, Phase 1).
+
+test('Golden Hour keeps two short window counters flanking the door', () => {
+  const blueprint = getBlueprint('goldenhour');
+  const bars = blueprint.tables.filter((t) => t.isBar);
+  assert.equal(bars.length, 2);
+  const sides = bars.map((b) => Math.sign(b.center.x)).sort();
+  assert.deepEqual(sides, [-1, 1]);
+  for (const bar of bars) {
+    assert.ok(bar.width >= 1.8 && bar.width <= 2.2, `counter length ${bar.width}`);
+    assert.ok(bar.depth >= 0.42 && bar.depth <= 0.48, `counter depth ${bar.depth}`);
+    assert.equal(bar.seats.length, 2);
+    assert.ok(bar.footRail, 'counters carry a foot rail');
+    // clear of the door opening
+    assert.ok(Math.abs(bar.center.x) - bar.width / 2 >= 0.55 + 0.2);
+  }
+});
+
+test('Golden Hour salon has an oval group table and a writing table', () => {
+  const blueprint = getBlueprint('goldenhour');
+  const archetypes = blueprint.tables.map((t) => t.archetype);
+  assert.equal(archetypes.filter((a) => a === 'oval').length, 1);
+  assert.equal(archetypes.filter((a) => a === 'writing').length, 1);
+  assert.ok(blueprint.tables.some((t) => (t.rotation ?? 0) !== 0),
+    'some tables carry authored rotations');
+  const oval = blueprint.tables.find((t) => t.archetype === 'oval');
+  assert.equal(oval.seats.length, 6);
+});
+
+test('Golden Hour contract violations are caught by the validator', () => {
+  // a table parked in the arrival lane must fail
+  const laneBlocked = mutable('goldenhour');
+  laneBlocked.tables.find((t) => !t.isBar).center = { x: 0, z: 2.0 };
+  assert.ok(errorsOf(laneBlocked).some((e) => e.includes('arrival lane')));
+  // a wall item moved into the library bay must fail
+  const badBay = mutable('goldenhour');
+  badBay.decor.rightWall.mirror.z = 0.0;
+  assert.ok(errorsOf(badBay).some((e) => e.includes('library bay')));
+  // shrinking a counter below contract length must fail
+  const shortCounter = mutable('goldenhour');
+  const bar = shortCounter.tables.find((t) => t.isBar);
+  bar.width = 1.2;
+  assert.ok(errorsOf(shortCounter).some((e) => e.includes('length')));
+});
+
+test('Golden Hour browse destination exists and is reachable', () => {
+  const blueprint = getBlueprint('goldenhour');
+  const browse = blueprint.npcDestinations.find((d) => d.purpose === 'browse');
+  assert.ok(browse);
+  assert.equal(browse.role, 'patron');
+  assert.deepEqual(errorsOf(mutable('goldenhour')), []);
 });
 
 // ---------------------------------------------------------------------------

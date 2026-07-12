@@ -6,6 +6,7 @@
 
 import {
   tableSupportShape, shapesOverlap, shapeBounds, pointSupported,
+  shapeOutline, convexPolygonsOverlap,
 } from './tableSupport.js';
 import { createNavigator, pointInPolygon } from './levelNavigation.js';
 
@@ -242,6 +243,9 @@ export function validateBlueprint(blueprint) {
     }
   });
 
+  // -- venue-specific protected-layout contract -------------------------------
+  validateContract(blueprint, error);
+
   // -- vertical links: real stair geometry, monotonic path --------------------
   blueprint.verticalLinks.forEach((link) => {
     if (!Array.isArray(link.path) || link.path.length < 2) {
@@ -259,6 +263,84 @@ export function validateBlueprint(blueprint) {
   });
 
   return { id: blueprint.id, errors, warnings };
+}
+
+// Protected-layout contracts (plan §5–§8): venue-specific rules the blueprint
+// promises to keep — e.g. Golden Hour's two window counters flanking the door,
+// a clear arrival lane, and reserved right-wall decor bays.
+function validateContract(blueprint, error) {
+  const contract = blueprint.contract;
+  if (!contract) return;
+
+  if (contract.windowCounters) {
+    const c = contract.windowCounters;
+    const bars = blueprint.tables.filter((t) => t.isBar);
+    if (bars.length !== c.count) {
+      error(`contract: expected ${c.count} window counters, found ${bars.length}`);
+    }
+    if (!bars.some((b) => b.center.x < 0) || !bars.some((b) => b.center.x > 0)) {
+      error('contract: window counters must flank the entrance (one per side)');
+    }
+    for (const bar of bars) {
+      if (bar.width < c.minLength || bar.width > c.maxLength) {
+        error(`contract: counter ${bar.id} length ${bar.width} outside [${c.minLength}, ${c.maxLength}]`);
+      }
+      if (bar.depth < c.minDepth || bar.depth > c.maxDepth) {
+        error(`contract: counter ${bar.id} depth ${bar.depth} outside [${c.minDepth}, ${c.maxDepth}]`);
+      }
+      if (bar.seats.length < c.minSeats) {
+        error(`contract: counter ${bar.id} has ${bar.seats.length} seats, needs ${c.minSeats}`);
+      }
+      const innerEdge = Math.abs(bar.center.x) - bar.width / 2;
+      if (innerEdge < c.doorClearance) {
+        error(`contract: counter ${bar.id} encroaches on the door (inner edge ${innerEdge.toFixed(2)} < ${c.doorClearance})`);
+      }
+      if (c.stoolCirculation) {
+        for (const seat of bar.seats) {
+          for (const table of blueprint.tables) {
+            if (table.isBar) continue;
+            if (pointSupported(tableSupportShape(table), seat.pos.x, seat.pos.z, -c.stoolCirculation)) {
+              error(`contract: table ${table.id} is within ${c.stoolCirculation} m of stool ${seat.id}`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (contract.arrivalLane) {
+    const r = contract.arrivalLane.rect;
+    const lane = [
+      { x: r.x0, z: r.z0 }, { x: r.x1, z: r.z0 },
+      { x: r.x1, z: r.z1 }, { x: r.x0, z: r.z1 },
+    ];
+    for (const table of blueprint.tables) {
+      if (convexPolygonsOverlap(shapeOutline(tableSupportShape(table)), lane)) {
+        error(`contract: table ${table.id} blocks the arrival lane`);
+      }
+    }
+  }
+
+  if (contract.rightWallBays) {
+    const rightWall = blueprint.decor?.rightWall;
+    if (!rightWall?.library) {
+      error('contract: rightWallBays requires decor.rightWall.library');
+    } else {
+      const { library } = rightWall;
+      const clearance = 0.5; // half a frame width plus breathing room
+      const items = [
+        ...(rightWall.art ?? []).map((a, i) => ({ id: `art[${i}]`, z: a.z })),
+        rightWall.clock && { id: 'clock', z: rightWall.clock.z },
+        rightWall.mirror && { id: 'mirror', z: rightWall.mirror.z },
+        rightWall.pegboard && { id: 'pegboard', z: rightWall.pegboard.z },
+      ].filter(Boolean);
+      for (const item of items) {
+        if (item.z > library.z0 - clearance && item.z < library.z1 + clearance) {
+          error(`contract: right-wall ${item.id} at z=${item.z} intersects the library bay [${library.z0}, ${library.z1}]`);
+        }
+      }
+    }
+  }
 }
 
 // Fingerprint of a venue's furniture plan, used to prove venues are not
