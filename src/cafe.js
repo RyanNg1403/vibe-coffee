@@ -10,6 +10,8 @@ import { clockAngles } from './clock.js';
 import { GREENERY } from './decor/decorManifest.js';
 import { buildServiceUpgrades, menuBoardTexture } from './decor/serviceCounter.js';
 import { buildTableCluster } from './decor/tabletopFactory.js';
+import { ROOM_SHELL } from './cafe/interiorLayouts.js';
+import { architectureFor } from './cafe/interiorArchitecture.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -109,7 +111,8 @@ function mergeStaticDecor(group, animatedRoots) {
 }
 
 // Room shell is shared across themes; palette, light, view and layout differ.
-export const ROOM = { W: 17, D: 13.5, H: 3.8 };
+// The dimensions are owned by the venue blueprint layer.
+export const ROOM = ROOM_SHELL;
 
 // The picture surface must sit measurably in front of the solid backing. The
 // old values put both faces at exactly the same x coordinate, so the depth
@@ -1148,6 +1151,15 @@ const FLOOR_SURF = {
 export function buildCafe(theme, models = null) {
   const group = new THREE.Group();
   const { W, D, H } = ROOM;
+  // The venue blueprint is the authoritative interior plan: furniture
+  // placement, seat identity, service zones and static colliders come from
+  // here, not from ad-hoc literals in this builder.
+  const { blueprint } = architectureFor(theme.id);
+  const layoutTables = blueprint.tables.filter((t) => !t.isBar);
+  // flat {x, z, type, lounge} view for the legacy decor loops below
+  const legacyTables = layoutTables.map((t) => ({
+    x: t.center.x, z: t.center.z, type: t.legacyType, lounge: !!t.lounge,
+  }));
   const disposables = [];
   const track = (t) => { disposables.push(t); return t; };
   const extraColliders = []; // decor added before the collider list is built
@@ -2229,7 +2241,11 @@ export function buildCafe(theme, models = null) {
     return seat;
   }
 
-  function addTable(tx, tz, type, lounge = false, tableIndex = 0) {
+  function addTable(blueprintTable, tableIndex = 0) {
+    const tx = blueprintTable.center.x;
+    const tz = blueprintTable.center.z;
+    const type = blueprintTable.legacyType;
+    const lounge = !!blueprintTable.lounge;
     const tGroup = new THREE.Group();
     const center = new THREE.Vector3(tx, 0, tz);
     const surfaceProps = [];
@@ -2262,17 +2278,10 @@ export function buildCafe(theme, models = null) {
     tGroup.position.set(tx, 0, tz);
     group.add(tGroup);
 
-    // seating: armchairs around lounge tables, chairs everywhere else
-    const chairDefs = type === 'long'
-      ? [[-0.95, -0.7], [-0.95, 0.7], [0.95, -0.7], [0.95, 0.7]]
-      : lounge
-        // A lounge vignette is a pair of armchairs across a low coffee table.
-        // Three large chairs crowded the table and read as a second white
-        // table underneath it when seen from the window-bar viewpoint.
-        ? [[0, -1.22], [0, 1.22]]
-        : [[0, -0.85], [0, 0.85], [-0.85, 0], [0.85, 0]].slice(0, type === 'square' ? 4 : 3);
-    for (const [cx, cz] of chairDefs) {
-      const px = tx + cx, pz = tz + cz;
+    // seating comes from the blueprint's per-archetype seat plan (armchairs
+    // around lounge tables, chairs everywhere else)
+    blueprintTable.seats.forEach((blueprintSeat, chairIndex) => {
+      const px = blueprintSeat.pos.x, pz = blueprintSeat.pos.z;
       const facingYaw = Math.atan2(tx - px, tz - pz);
       const chair = lounge
         ? makeArmchair(cushionMat, woodDarkMat, models)
@@ -2286,11 +2295,15 @@ export function buildCafe(theme, models = null) {
       const tableRadius = type === 'long' ? 0.55
         : type === 'square' ? 0.475
         : lounge ? 0.46 : 0.52;
-      addSeat(chair,
+      const seat = addSeat(chair,
         new THREE.Vector3(px, 0, pz),
         new THREE.Vector3(tx, 1.08, tz), // near eye level, so the room stays in view
         center, topY + 0.03, surfaceProps, tableRadius);
-    }
+      seat.id = blueprintSeat.id;
+      seat.tableId = blueprintTable.id;
+      seat.levelId = blueprintSeat.levelId;
+      seat.isBar = false;
+    });
     // Base place setting. Positions are reserved around the later curated
     // vignette instead of independently randomized, which previously allowed
     // cups, flowers, magazines and pastries to spawn inside one another.
@@ -2310,7 +2323,7 @@ export function buildCafe(theme, models = null) {
     }
   }
 
-  theme.tables.forEach((t, tableIndex) => addTable(t.x, t.z, t.type, !!t.lounge, tableIndex));
+  layoutTables.forEach((blueprintTable, tableIndex) => addTable(blueprintTable, tableIndex));
   chairBatches.forEach((batch) => {
     batch.instanceMatrix.needsUpdate = true;
     batch.computeBoundingSphere();
@@ -2334,32 +2347,36 @@ export function buildCafe(theme, models = null) {
         registerTableProp(looseBarProps, paper);
       }
     }
-    for (const s of [-1, 1]) {
-      const barLen = (W - doorW) / 2 - 1.3;
-      const bx = s * (doorW / 2 + 0.65 + barLen / 2);
-      const bar = box(barLen, 0.05, 0.42, woodMat);
-      bar.position.set(bx, 1.0, D / 2 - 0.45);
+    for (const barTable of blueprint.tables.filter((t) => t.isBar)) {
+      const barLen = barTable.width;
+      const bx = barTable.center.x;
+      const barZ = barTable.center.z;
+      const bar = box(barLen, 0.05, barTable.depth, woodMat);
+      bar.position.set(bx, 1.0, barZ);
       group.add(bar);
       for (const [lx] of [[-barLen / 2 + 0.2], [barLen / 2 - 0.2]]) {
         const leg = box(0.05, 1.0, 0.36, woodDarkMat);
-        leg.position.set(bx + lx, 0.5, D / 2 - 0.45);
+        leg.position.set(bx + lx, 0.5, barZ);
         group.add(leg);
       }
-      const nStools = Math.floor(barLen / 1.1);
-      for (let i = 0; i < nStools; i++) {
-        const sx = bx - barLen / 2 + (i + 0.5) * (barLen / nStools);
+      for (const blueprintSeat of barTable.seats) {
+        const sx = blueprintSeat.pos.x;
         const surfaceProps = [];
         const stool = cloneModel(models, 'bar_stool') ?? makeStool(woodDarkMat, cushionMat);
-        stool.position.set(sx, 0, D / 2 - 1.05);
+        stool.position.set(sx, 0, blueprintSeat.pos.z);
         group.add(stool);
-        addSeat(stool,
-          new THREE.Vector3(sx, 0.15, D / 2 - 1.05),
+        const seat = addSeat(stool,
+          new THREE.Vector3(sx, blueprintSeat.pos.y, blueprintSeat.pos.z),
           new THREE.Vector3(sx, 1.5, D / 2 + 3),
-          new THREE.Vector3(sx, 0, D / 2 - 0.45),
-          1.035, surfaceProps);
+          new THREE.Vector3(sx, 0, barZ),
+          barTable.surfaceY, surfaceProps);
+        seat.id = blueprintSeat.id;
+        seat.tableId = barTable.id;
+        seat.levelId = blueprintSeat.levelId;
+        seat.isBar = true;
         if (Math.random() < 0.5) {
           const cup = makeDrink(theme.accent, models);
-          cup.position.set(sx + rand(-0.1, 0.1), 1.03, D / 2 - 0.45);
+          cup.position.set(sx + rand(-0.1, 0.1), 1.03, barZ);
           group.add(cup);
           cups.push(cup);
           registerTableProp(surfaceProps, cup);
@@ -2372,7 +2389,7 @@ export function buildCafe(theme, models = null) {
       let nearest = null;
       let nearestDistance = Infinity;
       for (const seat of seats) {
-        if (seat.pos.y <= 0.05) continue;
+        if (!seat.isBar) continue;
         const distance = Math.abs(seat.tableCenter.x - entry.home.x);
         if (distance < nearestDistance) { nearest = seat; nearestDistance = distance; }
       }
@@ -2440,13 +2457,13 @@ export function buildCafe(theme, models = null) {
     m.position.set(x, 0.012, z);
     group.add(m);
   }
-  for (const t of theme.tables) contactShadow(t.x, t.z, t.type === 'long' ? 3.4 : 2.4);
+  for (const t of legacyTables) contactShadow(t.x, t.z, t.type === 'long' ? 3.4 : 2.4);
   contactShadow(-0.6, -D / 2 + 1.3, 7.5);
 
   // Curated table vignettes. Repeating a handful of believable arrangements
   // reads as hospitality styling; independent random props read as clutter.
   const candleFlames = [];
-  theme.tables.forEach((tt, ti) => {
+  legacyTables.forEach((tt, ti) => {
     const surfaceProps = tableSurfaceProps[ti];
     // Lounge tables are intentionally coffee-table height. Their curated
     // place settings must use that lower surface instead of the standard
@@ -3402,11 +3419,11 @@ export function buildCafe(theme, models = null) {
   const bulbMat = new THREE.MeshBasicMaterial({
     color: new THREE.Color(theme.lampColor).lerp(new THREE.Color(0xffffff), 0.28),
   });
-  const litPendantCount = Math.min(theme.rain ? 8 : theme.openAir ? 4 : 6, theme.tables.length);
+  const litPendantCount = Math.min(theme.rain ? 8 : theme.openAir ? 4 : 6, legacyTables.length);
   const litPendantIndices = new Set(Array.from({ length: litPendantCount }, (_, index) => (
-    litPendantCount === 1 ? 0 : Math.round(index * (theme.tables.length - 1) / (litPendantCount - 1))
+    litPendantCount === 1 ? 0 : Math.round(index * (legacyTables.length - 1) / (litPendantCount - 1))
   )));
-  theme.tables.forEach((t, i) => {
+  legacyTables.forEach((t, i) => {
     const cord = cyl(0.008, 0.008, H - theme.lampY, woodDarkMat, 6);
     cord.position.set(t.x, theme.lampY + (H - theme.lampY) / 2, t.z);
     group.add(cord);
@@ -3608,16 +3625,13 @@ export function buildCafe(theme, models = null) {
     corridorX: 0, // the clear vertical aisle
   };
 
-  // circles the player can't walk through (walk mode)
-  const colliders = theme.tables.map((tt) => ({
-    x: tt.x, z: tt.z, r: tt.type === 'long' ? 1.5 : 1.05,
-  }));
-  colliders.push({ x: -0.6, z: -D / 2 + 1.15, r: 0, rect: { x0: -5.2, x1: 4.0, z0: -D / 2, z1: -D / 2 + 1.8 } });
+  // Static architecture colliders (tables, service counter, window bars) are
+  // authored in the blueprint; extraColliders holds runtime decor such as
+  // large plant pots and the dish-return stand.
+  const colliders = blueprint.colliders.map((c) => (c.rect
+    ? { x: c.x ?? 0, z: c.z ?? 0, r: 0, rect: c.rect }
+    : { x: c.x, z: c.z, r: c.r }));
   colliders.push(...extraColliders);
-  if (theme.windowBar) {
-    colliders.push({ rect: { x0: -W / 2, x1: -doorW / 2 - 0.3, z0: D / 2 - 0.9, z1: D / 2 } });
-    colliders.push({ rect: { x0: doorW / 2 + 0.3, x1: W / 2, z0: D / 2 - 0.9, z1: D / 2 } });
-  }
 
   // ---------- per-frame animation ----------
   let t = 0;
@@ -3803,7 +3817,7 @@ export function buildCafe(theme, models = null) {
   mergeStaticDecor(group, [passingCar, cat, clockGroup, fan, vinylDisc, neonMesh, entrance?.root]);
 
   return {
-    group, seats, seatMeshes, nav, colliders, theme, entrance, serviceAnchors,
+    group, seats, seatMeshes, nav, colliders, theme, entrance, serviceAnchors, blueprint,
     animate, setQuality, dispose, woodMat, cushionMat,
     // runtime-audit inventory: today every steam wisp is its own sprite; the
     // planned pooled system will report its emitter count through this field

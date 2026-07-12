@@ -13,7 +13,8 @@
     "perf:baseline": "node tools/perf-baseline.mjs",
     "preview": "vite preview",
     "test": "node --test",
-    "audit:decor": "node tools/decor-audit.mjs"
+    "audit:decor": "node tools/decor-audit.mjs",
+    "audit:layout": "node tools/layout-audit.mjs"
   },
   "dependencies": {
     "three": "^0.166.1"
