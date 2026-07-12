@@ -51,7 +51,9 @@ async function freePort() {
   return port;
 }
 
-async function retry(task, label, attempts = 300) {
+const RETRY_SCALE = Math.max(1, Number(process.env.VIBE_RETRY_SCALE) || 1);
+
+async function retry(task, label, attempts = 300 * RETRY_SCALE) {
   let error;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
@@ -226,6 +228,26 @@ if (isMain) {
         const frames = await client.evaluate('window.__vibe.metrics().renderedFrames');
         if (frames < settledFrames + 3) throw new Error('new scene has not rendered yet');
       }, `${THEMES[index]} fresh frames`);
+      // A cold dev-server cache can leave models and audio still streaming in
+      // when the theme flag flips; sampling then records an empty renderer
+      // (calls=0) and zero decoded audio. Wait for real draw calls and for the
+      // decoded-audio pool to stop growing before reading the metrics.
+      await retry(async () => {
+        const m = await client.evaluate(
+          'JSON.stringify({calls: window.__vibe.metrics().calls, audio: window.__vibe.metrics().decodedAudioBytes})',
+        );
+        const { calls, audio } = JSON.parse(m);
+        if (calls < 50) throw new Error(`scene not rendering yet (calls=${calls})`);
+        if (audio <= 0) throw new Error('audio still decoding');
+      }, `${THEMES[index]} assets resident`);
+      let lastAudio = -1;
+      await retry(async () => {
+        const audio = await client.evaluate('window.__vibe.metrics().decodedAudioBytes');
+        if (audio !== lastAudio) {
+          lastAudio = audio;
+          throw new Error('decoded audio still growing');
+        }
+      }, `${THEMES[index]} audio settled`);
       await delay(1000);
       await client.send('HeapProfiler.collectGarbage');
       await delay(250);
@@ -306,6 +328,8 @@ if (isMain) {
     client?.close();
     chrome.kill('SIGTERM');
     await Promise.race([chromeExited, delay(5000)]);
-    await rm(profile, { recursive: true, force: true });
+    // Chrome can still be flushing profile files as it exits; a leaked temp
+    // profile is not worth failing the whole baseline over.
+    await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 400 }).catch(() => {});
   }
 }
