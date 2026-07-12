@@ -351,6 +351,64 @@ function validateContract(blueprint, error) {
     }
   }
 
+  if (contract.stage) {
+    const stage = contract.stage;
+    const spec = blueprint.decor?.stage;
+    if (!spec) error('contract: stage requires decor.stage');
+    else {
+      if (spec.height < stage.minHeight || spec.height > stage.maxHeight) {
+        error(`contract: stage height ${spec.height} outside [${stage.minHeight}, ${stage.maxHeight}]`);
+      }
+      for (const name of stage.anchors) {
+        const anchor = spec.anchors?.[name];
+        if (!anchor) { error(`contract: stage missing performer anchor "${name}"`); continue; }
+        if (!rectContains(stage.rect, anchor.x, anchor.z)) {
+          error(`contract: stage anchor "${name}" lies off the platform`);
+        }
+      }
+    }
+    const covered = blueprint.npcForbiddenZones.some((zone) => zone.rect
+      && zone.appliesTo === 'patron'
+      && zone.rect.x0 <= stage.rect.x0 && zone.rect.x1 >= stage.rect.x1
+      && zone.rect.z0 <= stage.rect.z0 && zone.rect.z1 >= stage.rect.z1);
+    if (!covered) error('contract: stage has no covering patron-forbidden zone');
+    const sealed = blueprint.colliders.some((collider) => collider.rect
+      && collider.rect.x0 <= stage.rect.x0 + 0.01 && collider.rect.x1 >= stage.rect.x1 - 0.01
+      && collider.rect.z0 <= stage.rect.z0 + 0.01 && collider.rect.z1 >= stage.rect.z1 - 0.01);
+    if (!sealed) error('contract: stage platform has no blocking collider');
+    // no table support may intrude on the platform, and the nearest cabaret
+    // two-tops sit close (plan §7: 1.5-1.8 m) but never inside the band
+    const distanceToStage = (x, z) => {
+      const dx = Math.max(stage.rect.x0 - x, 0, x - stage.rect.x1);
+      const dz = Math.max(stage.rect.z0 - z, 0, z - stage.rect.z1);
+      return Math.hypot(dx, dz);
+    };
+    const cabarets = blueprint.tables.filter((t) => t.archetype === 'cabaret');
+    if (stage.minCabaretTables && cabarets.length < stage.minCabaretTables) {
+      error(`contract: only ${cabarets.length} cabaret tables, needs ${stage.minCabaretTables}`);
+    }
+    if (stage.cabaretDistance && cabarets.length) {
+      const nearest = Math.min(...cabarets.map((t) => distanceToStage(t.center.x, t.center.z)));
+      if (nearest < stage.cabaretDistance.min || nearest > stage.cabaretDistance.max) {
+        error(`contract: nearest cabaret table is ${nearest.toFixed(2)} m from the stage, outside [${stage.cabaretDistance.min}, ${stage.cabaretDistance.max}]`);
+      }
+    }
+    for (const table of blueprint.tables) {
+      if (distanceToStage(table.center.x, table.center.z) < 0.01) {
+        error(`contract: table ${table.id} stands on the stage platform`);
+      }
+    }
+  }
+
+  if (contract.boothRun) {
+    const boothSeats = blueprint.tables
+      .filter((t) => t.archetype === 'booth')
+      .reduce((n, t) => n + t.seats.length, 0);
+    if (boothSeats < contract.boothRun.minSeats) {
+      error(`contract: ${boothSeats} booth seats, needs ${contract.boothRun.minSeats}`);
+    }
+  }
+
   if (contract.rightWallBays) {
     const rightWall = blueprint.decor?.rightWall;
     if (!rightWall?.library) {

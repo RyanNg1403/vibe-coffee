@@ -187,6 +187,57 @@ test('Roastery contract violations are caught by the validator', () => {
   assert.ok(errorsOf(classic).some((e) => e.includes('modern')));
 });
 
+// ---------------------------------------------------------------------------
+// Midnight performance-lounge contract (plan §7, Phase 3).
+
+test('Midnight has a low corner stage with three anchors, sealed off from patrons', () => {
+  const blueprint = getBlueprint('midnight');
+  const stage = blueprint.decor.stage;
+  assert.ok(stage);
+  assert.ok(stage.height >= 0.16 && stage.height <= 0.22);
+  const w = stage.rect.x1 - stage.rect.x0;
+  const d = stage.rect.z1 - stage.rect.z0;
+  assert.ok(w >= 3.0 && w <= 3.7, `stage width ${w}`);
+  assert.ok(d >= 2.2 && d <= 2.6, `stage depth ${d}`);
+  for (const name of ['piano', 'mic', 'bass']) assert.ok(stage.anchors[name], name);
+  const zone = blueprint.npcForbiddenZones.find((z) => z.id === 'mi-stage-zone');
+  assert.ok(zone && zone.appliesTo === 'patron');
+  assert.deepEqual([...zone.exceptRoles], ['performer']);
+  assert.ok(blueprint.colliders.some((c) => c.id === 'mi-stage-col'));
+  assert.deepEqual(errorsOf(mutable('midnight')), []);
+});
+
+test('Midnight cabaret arcs and booth run satisfy the plan', () => {
+  const blueprint = getBlueprint('midnight');
+  const cabarets = blueprint.tables.filter((t) => t.archetype === 'cabaret');
+  assert.ok(cabarets.length >= 4);
+  for (const table of cabarets) assert.equal(table.seats.length, 2);
+  const booths = blueprint.tables.filter((t) => t.archetype === 'booth');
+  assert.ok(booths.reduce((n, t) => n + t.seats.length, 0) >= 4);
+  assert.ok(blueprint.decor.boothRun);
+  // performer destinations exist for the stage and the rest spot
+  const roles = blueprint.npcDestinations.filter((dst) => dst.role === 'performer');
+  assert.equal(roles.length, 2);
+});
+
+test('Midnight stage contract violations are caught by the validator', () => {
+  const tall = mutable('midnight');
+  tall.decor.stage.height = 0.4;
+  assert.ok(errorsOf(tall).some((e) => e.includes('stage height')));
+  const offPlatform = mutable('midnight');
+  offPlatform.decor.stage.anchors.bass = { x: 0, z: 0 };
+  assert.ok(errorsOf(offPlatform).some((e) => e.includes('off the platform')));
+  const tooClose = mutable('midnight');
+  tooClose.tables.find((t) => t.archetype === 'cabaret').center = { x: 5.6, z: -3.4 };
+  assert.ok(errorsOf(tooClose).some((e) => e.includes('nearest cabaret')));
+  const open = mutable('midnight');
+  open.npcForbiddenZones = open.npcForbiddenZones.filter((z) => z.id !== 'mi-stage-zone');
+  assert.ok(errorsOf(open).some((e) => e.includes('forbidden zone')));
+  const onStage = mutable('midnight');
+  onStage.tables.find((t) => t.archetype === 'cabaret').center = { x: 6.5, z: -5.0 };
+  assert.ok(errorsOf(onStage).some((e) => e.includes('on the stage platform')));
+});
+
 test('Golden Hour browse destination exists and is reachable', () => {
   const blueprint = getBlueprint('goldenhour');
   const browse = blueprint.npcDestinations.find((d) => d.purpose === 'browse');

@@ -67,6 +67,18 @@ const TABLE_ARCHETYPES = {
       [1.05, -1.35], [1.05, -0.45], [1.05, 0.45], [1.05, 1.35],
     ],
   },
+  // Midnight cabaret two-top (plan §7): both chairs on the room side, so a
+  // seated guest faces the table AND the stage beyond it. Tables are placed
+  // north-west of the corner stage; the seat pair points away from it.
+  cabaret: {
+    shape: 'circle', radius: 0.4, surfaceY: 0.79, clampRadius: 0.4,
+    seatOffsets: [[0, 0.78], [-0.78, 0]],
+  },
+  // Midnight booth: wall-side banquette cushion + room-side chair.
+  booth: {
+    shape: 'rect', width: 0.75, depth: 0.75, surfaceY: 0.81, clampRadius: 0.36,
+    seatOffsets: [[0.52, 0], [-0.55, 0]],
+  },
 };
 
 // Standing/tasting rail: a bar-height strip with one-sided stools, authored
@@ -215,7 +227,9 @@ function staffOnlyZone(prefix) {
   };
 }
 
-const TABLE_COLLIDER_R = { long: 1.5, oval: 1.6, writing: 1.0, communal: 2.0 };
+const TABLE_COLLIDER_R = {
+  long: 1.5, oval: 1.6, writing: 1.0, communal: 2.0, cabaret: 0.85, booth: 0.95,
+};
 
 function tableColliders(tables) {
   return tables.filter((t) => !t.isBar).map((t) => ({
@@ -466,21 +480,93 @@ const roastery = makeVenue({
   ],
 });
 
+// Midnight Jazz Corner performance lounge (plan §7): a low corner stage in
+// the back-right with three permanent performance anchors (piano, vocal mic
+// and stool, upright bass), staggered cabaret arcs pulled close and oriented
+// toward it, a booth run along the right wall behind a clear service aisle,
+// and the record wall beyond. The stage is patron-forbidden.
+const MI_STAGE = { x0: 4.9, x1: HALF_W, z0: -HALF_D, z1: -4.2 };
+
 const midnight = makeVenue({
   prefix: 'mi', id: 'midnight', style: 'jazz-lounge',
   windowBar: true,
   tables: [
-    { x: -5.0, z: 2.4, type: 'round', lounge: true }, { x: -5.2, z: -0.7, type: 'round' },
-    { x: -4.8, z: -3.5, type: 'round' }, { x: -2.4, z: 0.9, type: 'round' },
-    { x: -2.6, z: -2.2, type: 'square' }, { x: -2.0, z: 4.2, type: 'round' },
-    { x: 2.2, z: 2.5, type: 'round' }, { x: 2.0, z: -0.5, type: 'round' },
-    { x: 2.4, z: -3.3, type: 'square' }, { x: 5.0, z: 1.5, type: 'round' },
+    { x: -5.0, z: 2.4, type: 'round', lounge: true },
+    { x: -5.2, z: -0.7, type: 'round' },
+    { x: -4.8, z: -3.5, type: 'round' },
+    { x: -2.4, z: 0.9, type: 'round' },
+    { x: -2.6, z: -2.2, type: 'round', rot: 0.2 },
+    { x: -2.0, z: 4.2, type: 'round' },
+    // cabaret arcs, nearest first (distance to the stage edge is contractual)
+    { x: 5.0, z: -2.6, type: 'cabaret', rot: 0.15 },
+    { x: 6.6, z: -2.45, type: 'cabaret', rot: -0.12 },
+    { x: 3.4, z: -1.8, type: 'cabaret', rot: 0.3 },
+    { x: 5.4, z: -0.8, type: 'cabaret', rot: 0.05 },
+    { x: 2.2, z: -0.2, type: 'cabaret', rot: 0.42 },
+    { x: 4.2, z: 0.7, type: 'cabaret', rot: 0.18 },
+    // booth run along the right wall (seat 1 is the banquette cushion)
+    { x: 7.5, z: -2.6, type: 'booth' },
+    { x: 7.5, z: -1.3, type: 'booth' },
+    { x: 7.5, z: 0.0, type: 'booth' },
+  ],
+  extraColliders: [
+    { id: 'mi-stage-col', levelId: 'ground', rect: MI_STAGE },
+    { id: 'mi-booth-bench-col', levelId: 'ground', rect: { x0: 7.78, x1: HALF_W, z0: -3.3, z1: 0.65 } },
+  ],
+  extraForbiddenZones: [
+    {
+      id: 'mi-stage-zone', levelId: 'ground', rect: MI_STAGE,
+      appliesTo: 'patron', exceptRoles: ['performer'],
+    },
+  ],
+  extraDestinations: [
+    { id: 'mi-stage-mic', levelId: 'ground', x: 5.75, z: -4.85, role: 'performer', purpose: 'perform' },
+    { id: 'mi-stage-rest', levelId: 'ground', x: 8.0, z: -3.62, role: 'performer', purpose: 'rest' },
   ],
   lighting: { pendant: 'drum', lampY: 2.25 },
+  decor: {
+    stage: {
+      rect: MI_STAGE, height: 0.18,
+      anchors: {
+        piano: { x: 7.45, z: -5.55, rot: -2.35 },
+        mic: { x: 5.75, z: -4.85, rot: 0.35 },
+        bass: { x: 6.6, z: -6.05, rot: 0.5 },
+      },
+      restSpot: { x: 8.0, z: -3.62 },
+      speakers: [{ x: 5.15, z: -4.55 }, { x: 8.25, z: -4.5 }],
+      curtain: { z: -HALF_D + 0.14, x0: 5.1, x1: 8.35, y0: 0.18, y1: 3.0 },
+    },
+    boothRun: { x: 8.05, z0: -3.15, z1: 0.55 },
+    rightWall: {
+      art: [{ z: -3.8, y: 1.8 }, { z: -0.35, y: 2.05 }],
+      clock: { z: 1.2, y: 2.55 },
+      mirror: { z: 5.5, y: 2.35 },
+    },
+    plantSpots: [
+      [-HALF_W + 0.7, -HALF_D + 0.7], [HALF_W - 0.7, HALF_D - 1.3], [-HALF_W + 0.8, 5.6],
+      [-HALF_W + 0.6, 3.6], [-HALF_W + 0.6, -2.0], [HALF_W - 0.6, 1.25],
+      [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
+    ],
+  },
+  contract: {
+    stage: {
+      rect: MI_STAGE, minHeight: 0.16, maxHeight: 0.22,
+      anchors: ['piano', 'mic', 'bass'],
+      cabaretDistance: { min: 1.4, max: 1.9 },
+      minCabaretTables: 4,
+    },
+    boothRun: { minSeats: 4 },
+  },
   auditViews: [
-    { id: 'mi-room-from-entrance', pos: [0, 1.7, 5.9], lookAt: [0, 1.0, -2.5] },
-    { id: 'mi-bookshelf-wall', pos: [5.4, 1.5, 3.0], lookAt: [8.2, 1.2, 3.2] },
-    { id: 'mi-neon-wall', pos: [4.4, 1.7, -2.4], lookAt: [6.0, 2.3, -6.6] },
+    { id: 'mi-room-from-entrance', pos: [0, 1.7, 5.9], lookAt: [3.5, 0.9, -5.0] },
+    { id: 'mi-stage-from-center', pos: [4.2, 1.5, -1.0], lookAt: [6.6, 0.8, -5.4] },
+    { id: 'mi-stage-from-left', pos: [2.6, 1.5, -3.4], lookAt: [6.8, 0.7, -5.6] },
+    { id: 'mi-stage-from-right', pos: [7.15, 1.5, -1.9], lookAt: [6.2, 0.7, -5.4] },
+    { id: 'mi-stage-edge-closeup', pos: [5.4, 1.1, -3.4], lookAt: [6.4, 0.4, -5.0] },
+    { id: 'mi-cabaret-arcs', pos: [1.4, 1.7, 1.6], lookAt: [5.4, 0.8, -2.4] },
+    { id: 'mi-booth-run', pos: [5.6, 1.5, 1.4], lookAt: [7.9, 0.9, -1.4] },
+    { id: 'mi-record-wall', pos: [5.4, 1.5, 3.0], lookAt: [8.2, 1.2, 3.2] },
+    { id: 'mi-service-aisle', pos: [6.9, 1.6, 1.8], lookAt: [7.1, 0.9, -3.6] },
     { id: 'mi-service-queue', pos: [2.2, 1.7, -1.6], lookAt: [1.2, 1.0, -5.4] },
     { id: 'mi-window-bar-night', pos: [0, 1.8, 1.2], lookAt: [0, 1.0, 6.3] },
   ],
