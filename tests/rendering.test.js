@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ROOM,
   COUNTER_SURFACE_Y,
+  MIDNIGHT_BOOKSHELF_PLAN,
   PASTRY_TRAY_CLEARANCE,
   PASTRY_TRAY_THICKNESS,
   WALL_ART_DEPTH_GAP,
@@ -28,6 +29,15 @@ test('midnight neon stays on the wall and clears its acoustic panels', () => {
   const rightPanelEdge = Math.max(...layout.panelCenters) + layout.panelWidth / 2;
   assert.ok(neonLeft > rightPanelEdge + 0.1, 'neon needs a visible gap from acoustic treatment');
   assert.ok(layout.neonCenter + layout.neonWidth / 2 < ROOM.W / 2 - 0.1, 'neon must remain inside the wall');
+});
+
+test('every midnight bookshelf bay has dense books and a curated object', () => {
+  assert.equal(MIDNIGHT_BOOKSHELF_PLAN.length, 4);
+  for (const shelf of MIDNIGHT_BOOKSHELF_PLAN) {
+    assert.ok(shelf.left + shelf.right >= 30, 'each shelf needs enough books to read as occupied');
+    assert.ok(shelf.decor, 'each shelf needs a visual anchor between book clusters');
+  }
+  assert.equal(new Set(MIDNIGHT_BOOKSHELF_PLAN.map((shelf) => shelf.decor)).size, 4);
 });
 
 test('pastry trays clear the counter instead of sharing its depth plane', () => {

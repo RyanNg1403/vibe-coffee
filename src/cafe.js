@@ -131,6 +131,12 @@ export const COUNTER_SURFACE_Y = 1.06;
 export const PASTRY_TRAY_THICKNESS = 0.015;
 export const PASTRY_TRAY_CLEARANCE = 0.008;
 export const MIDNIGHT_NEON_WIDTH = 2.6;
+export const MIDNIGHT_BOOKSHELF_PLAN = [
+  { y: 0.11, left: 16, right: 15, decor: 'vinyl' },
+  { y: 0.65, left: 14, right: 18, decor: 'ceramics' },
+  { y: 1.19, left: 18, right: 14, decor: 'frame' },
+  { y: 1.73, left: 15, right: 16, decor: 'plant' },
+];
 export function midnightWallLayout() {
   return { panelCenters: [-4.8, -3.8, 3.3, 4.15], panelWidth: 0.72, neonCenter: 6, neonWidth: MIDNIGHT_NEON_WIDTH };
 }
@@ -988,6 +994,7 @@ function makeBooks(n) {
     g.add(book);
     x += w + 0.008;
   }
+  g.userData.width = x;
   return g;
 }
 
@@ -2958,10 +2965,56 @@ export function buildCafe(theme, models = null) {
       side.position.set(x, SH / 2, 0);
       shelfG.add(side);
     }
-    for (const y of [0.11, 0.65, 1.19, 1.73]) {
-      const row = makeBooks(Math.floor(rand(12, 17)));
-      row.position.set(-SW / 2 + 0.12, y, 0);
-      shelfG.add(row);
+    // Two book clusters and one object per shelf give the case the collected,
+    // evolving feel of a real café library. Geometry/materials are shared and
+    // the case is merged with static décor later, so the fuller design adds
+    // negligible steady-state draw-call and memory cost.
+    const shelfPaper = new THREE.MeshStandardMaterial({ color: 0xd9d0bb, roughness: 0.94 });
+    const shelfCeramic = new THREE.MeshStandardMaterial({ color: 0xb9a58a, roughness: 0.84 });
+    const shelfAccent = new THREE.MeshStandardMaterial({ color: 0x6c3e52, roughness: 0.78 });
+    const addShelfDecor = (kind, y) => {
+      const decor = new THREE.Group();
+      if (kind === 'vinyl') {
+        const sleeve = box(0.3, 0.3, 0.035, shelfAccent);
+        sleeve.position.y = 0.15;
+        sleeve.rotation.z = -0.06;
+        const label = new THREE.Mesh(new THREE.CircleGeometry(0.07, 16), shelfPaper);
+        label.position.set(0, 0.15, 0.02);
+        decor.add(sleeve, label);
+      } else if (kind === 'ceramics') {
+        for (const [x, scale] of [[-0.1, 1], [0.1, 0.78]]) {
+          const vase = cyl(0.065 * scale, 0.05 * scale, 0.2 * scale, shelfCeramic, 12);
+          vase.position.set(x, 0.1 * scale, 0);
+          decor.add(vase);
+        }
+      } else if (kind === 'frame') {
+        const frame = box(0.3, 0.25, 0.03, shelfAccent);
+        frame.position.y = 0.125;
+        const print = box(0.23, 0.18, 0.008, shelfPaper);
+        print.position.set(0, 0.125, 0.02);
+        decor.add(frame, print);
+      } else {
+        const plant = cloneModel(models, 'plant_succulent');
+        if (plant) {
+          plant.scale.multiplyScalar(0.55);
+          decor.add(plant);
+        } else {
+          const pot = cyl(0.075, 0.06, 0.11, shelfCeramic, 12);
+          pot.position.y = 0.055;
+          decor.add(pot);
+        }
+      }
+      decor.position.set(0, y, 0.035);
+      shelfG.add(decor);
+    };
+    for (const plan of MIDNIGHT_BOOKSHELF_PLAN) {
+      const left = makeBooks(plan.left);
+      left.position.set(-SW / 2 + 0.12, plan.y, 0);
+      shelfG.add(left);
+      const right = makeBooks(plan.right);
+      right.position.set(SW / 2 - 0.12 - right.userData.width, plan.y, 0);
+      shelfG.add(right);
+      addShelfDecor(plan.decor, plan.y);
     }
     shelfG.position.set(W / 2 - 0.35, 0, 3.2);
     shelfG.rotation.y = -Math.PI / 2;
