@@ -321,6 +321,36 @@ function validateContract(blueprint, error) {
     }
   }
 
+  if (contract.productionZone) {
+    const zone = contract.productionZone;
+    const covered = blueprint.npcForbiddenZones.some((forbidden) => forbidden.rect
+      && forbidden.rect.x0 <= zone.rect.x0 && forbidden.rect.x1 >= zone.rect.x1
+      && forbidden.rect.z0 <= zone.rect.z0 && forbidden.rect.z1 >= zone.rect.z1
+      && forbidden.appliesTo === 'patron');
+    if (!covered) error('contract: production zone has no covering patron-forbidden zone');
+    const sealing = blueprint.colliders.filter((collider) => collider.rect
+      && collider.rect.x1 >= zone.rect.x0 - 0.2 && collider.rect.x0 <= zone.rect.x1 + 0.2
+      && collider.rect.z1 >= zone.rect.z0 - 0.2 && collider.rect.z0 <= zone.rect.z1 + 0.2);
+    if (sealing.length < (zone.minBoundaryColliders ?? 2)) {
+      error(`contract: production zone sealed by ${sealing.length} colliders, needs ${zone.minBoundaryColliders ?? 2}`);
+    }
+  }
+
+  if (contract.communalTables) {
+    const communal = blueprint.tables.filter((t) => t.archetype === 'communal').length;
+    if (communal < contract.communalTables.min || communal > contract.communalTables.max) {
+      error(`contract: ${communal} communal tables outside [${contract.communalTables.min}, ${contract.communalTables.max}]`);
+    }
+  }
+
+  if (contract.windowBarStyle) {
+    for (const bar of blueprint.tables.filter((t) => t.archetype === 'bar')) {
+      if (bar.barStyle !== contract.windowBarStyle) {
+        error(`contract: window counter ${bar.id} style "${bar.barStyle}" is not "${contract.windowBarStyle}"`);
+      }
+    }
+  }
+
   if (contract.rightWallBays) {
     const rightWall = blueprint.decor?.rightWall;
     if (!rightWall?.library) {
