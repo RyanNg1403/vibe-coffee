@@ -987,6 +987,10 @@ class NPC {
     this.currentSpeed = 0;
     this.velocity = new THREE.Vector3();
     this.walkDir = new THREE.Vector3(0, 0, 1);
+    // §8: persistent floor identity — changes only via the stair script
+    this.walkLevel = 'ground';
+    this.baseY = 0;
+    this.serial = NPC.nextSerial = (NPC.nextSerial ?? 0) + 1;
     this.avoidanceSide = 1; // shared keep-right convention for head-on passes
     this.personalSpace = rand(0.44, 0.56);
     this.strideScale = rand(0.9, 1.08);
@@ -1124,6 +1128,110 @@ class NPC {
     this._beginExit();
   }
 
+  // ---- level-aware circulation (§8): stairs are the only floor change ----
+
+  _headToSeat() {
+    const seat = this.sim.cafe.seats[this.seatIndex];
+    if (seat.levelId === 'upper' && this.walkLevel !== 'upper') {
+      const hold = this.sim.deckSpec.stair.bottomHold;
+      this.state = 'toStairBottom';
+      this.stateT = 0;
+      this._walkTo(new THREE.Vector3(hold.x, 0, hold.z));
+      return;
+    }
+    this.state = 'toSeat';
+    this.stateT = 0;
+    if (this.walkLevel === 'upper') this._walkUpperTo(seat.approach ?? seat.pos);
+    else this._walkTo(seat.approach ?? seat.pos);
+  }
+
+  // upper-deck routing: the wing is one convex rect, so a single safe anchor
+  // beside the stair notch keeps every route on the deck polygon
+  _walkUpperTo(target) {
+    const safe = new THREE.Vector3(-5.15, 0, -2.4);
+    this.path = [this.mesh.position.clone().setY(0), safe, target.clone().setY(0)];
+    this.pathI = 1;
+    this._bestDist = Infinity;
+    this._stallT = 0;
+  }
+
+  _stairWaypoints(direction) {
+    const spec = this.sim.deckSpec;
+    const stair = spec.stair;
+    const laneA = (stair.flightA.x0 + stair.flightA.x1) / 2;
+    const laneB = (stair.flightB.x0 + stair.flightB.x1) / 2;
+    const yA = (z) => stair.flightA.y0
+      + ((z - stair.flightA.z0) / (stair.flightA.z1 - stair.flightA.z0)) * (stair.flightA.y1 - stair.flightA.y0);
+    const yB = (z) => stair.flightB.y1
+      + ((stair.flightB.z1 - z) / (stair.flightB.z1 - stair.flightB.z0)) * (stair.flightB.y0 - stair.flightB.y1);
+    const up = [
+      { x: laneA, z: stair.envelope.z0 - 0.35, y: 0 },
+      { x: laneA, z: -1.6, y: yA(-1.6) },
+      { x: laneA, z: 0.5, y: yA(0.5) },
+      { x: laneA, z: stair.landing.z0 + 0.55, y: stair.landing.y },
+      { x: laneB, z: stair.landing.z0 + 0.55, y: stair.landing.y },
+      { x: laneB, z: 0.5, y: yB(0.5) },
+      { x: laneB, z: -1.6, y: yB(-1.6) },
+      { x: laneB + 0.02, z: stair.envelope.z0 - 0.55, y: spec.y },
+    ];
+    return direction === 'up' ? up : [...up].reverse();
+  }
+
+  _beginStairTraversal(direction) {
+    this.stairDirection = direction;
+    this.stairPath = this._stairWaypoints(direction);
+    this.stairI = 1;
+    this.path = null;
+    this.state = 'traversingStair';
+    this.stateT = 0;
+  }
+
+  _updateStairTraversal(dt) {
+    const target = this.stairPath[this.stairI];
+    const dx = target.x - this.mesh.position.x;
+    const dz = target.z - this.mesh.position.z;
+    const dist = Math.hypot(dx, dz);
+    const speed = Math.max(0.45, this.speed * 0.7) * (this.hasCup ? 0.88 : 1);
+    if (dist < 0.09) {
+      this.mesh.position.x = target.x;
+      this.mesh.position.z = target.z;
+      this.baseY = target.y;
+      this.stairI += 1;
+      if (this.stairI >= this.stairPath.length) {
+        this.sim.stairs.release(this);
+        this.walkLevel = this.stairDirection === 'up' ? 'upper' : 'ground';
+        this.baseY = this.stairDirection === 'up' ? this.sim.deckSpec.y : 0;
+        this.stairPath = null;
+        if (this.stairDirection === 'up') this._headToSeat();
+        else this._beginExit();
+      }
+      return;
+    }
+    const step = Math.min(dist, speed * dt);
+    this.mesh.position.x += (dx / dist) * step;
+    this.mesh.position.z += (dz / dist) * step;
+    // tread height follows the run — blended, never snapped
+    const yGap = target.y - this.baseY;
+    this.baseY += yGap * Math.min(1, (step / Math.max(dist, 0.001)) * 1.6);
+    const desired = Math.atan2(dx, dz);
+    let dy = desired - this.mesh.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    this.mesh.rotation.y += dy * Math.min(1, dt * 6);
+    this.walkPhase += dt * 6.7 * speed;
+    if (this.avatar) {
+      this.avatar.sitting = false;
+      this.avatar.setMode('walk', Math.max(0.5, speed * 1.2));
+      this._setRootY(0);
+    } else {
+      const p = this.mesh.userData.parts;
+      const s = Math.sin(this.walkPhase);
+      p.legL.rotation.x = s * 0.5;
+      p.legR.rotation.x = -s * 0.5;
+      this._setRootY((0.5 - 0.5 * Math.cos(this.walkPhase * 2)) * 0.012);
+    }
+  }
+
   _updateTravelUmbrella(dt) {
     if (!this.umbrella?.root.visible) return this.umbrella?.openAmount ?? 0;
     const amount = animateHeldUmbrella(this.umbrella, this.umbrellaTarget, dt);
@@ -1210,7 +1318,9 @@ class NPC {
   }
 
   _setRootY(y) {
-    setGroundedY(this.mesh, y, this.avatar?.blob ?? this.mesh.userData.parts?.blob);
+    // y is floor-relative; baseY is the walker's persistent floor height
+    // (0 on the ground, deck height upstairs, interpolated on the stair)
+    setGroundedY(this.mesh, y + (this.baseY ?? 0), this.avatar?.blob ?? this.mesh.userData.parts?.blob);
   }
 
   _setPose(sitting) {
@@ -1299,7 +1409,7 @@ class NPC {
       if (this.deliveredCup) {
         const cup = this.deliveredCup;
         this.deliveredCup = null;
-        const added = this.sim.service && this.sim.waiter
+        const added = this.sim.service && this.sim.waiter && seat.levelId !== 'upper'
           ? this.sim.service.addTask('clear', {
             dedupeKey: `table-${this.seatIndex}`,
             target: seat.approach,
@@ -1310,7 +1420,14 @@ class NPC {
       }
       this.sim.releaseSeat(this.seatIndex);
       this.seatIndex = -1;
-      if (!this._maybeBrowseLibrary()) this._beginExit();
+      if (this.walkLevel === 'upper') {
+        const hold = this.sim.deckSpec.stair.topHold;
+        this.state = 'toStairTop';
+        this.stateT = 0;
+        this._walkUpperTo(new THREE.Vector3(hold.x, 0, hold.z));
+      } else if (!this._maybeBrowseLibrary()) {
+        this._beginExit();
+      }
     }
     this.transitionFrom = null;
   }
@@ -1492,6 +1609,7 @@ class NPC {
         || other.state === 'ordering'
         || other.state === 'waitingPickup';
       if (!otherMoving && !blocksAisle) continue;
+      if (Math.abs(other.mesh.position.y - this.mesh.position.y) > 1.4) continue;
       const dx = pos.x - other.mesh.position.x;
       const dz = pos.z - other.mesh.position.z;
       const d2 = dx * dx + dz * dz;
@@ -1528,6 +1646,7 @@ class NPC {
     const x = pos.x + dir.x * lookAhead;
     const z = pos.z + dir.z * lookAhead;
     for (const collider of this.sim.cafe.colliders) {
+      if ((collider.levelId ?? 'ground') !== (this.walkLevel ?? 'ground')) continue;
       if (collider.r) {
         const radius = collider.r + 0.25;
         const dx = x - collider.x;
@@ -1774,6 +1893,32 @@ class NPC {
       return;
     }
 
+    if (this.state === 'traversingStair') {
+      this._updateStairTraversal(dt);
+      if (this.avatar) this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
+      return;
+    }
+    if (this.state === 'stairWaiting') {
+      // marked holding zone: idle facing the stair until the flight clears
+      if (this.sim.stairs.request(this)) {
+        this._beginStairTraversal(this.stairPending);
+      } else {
+        const stair = this.sim.deckSpec.stair;
+        const lookZ = this.stairPending === 'up' ? stair.envelope.z0 : stair.envelope.z0 - 1.2;
+        let dy = Math.atan2(((stair.flightA.x0 + stair.flightB.x1) / 2) - this.mesh.position.x, lookZ - this.mesh.position.z) - this.mesh.rotation.y;
+        while (dy > Math.PI) dy -= Math.PI * 2;
+        while (dy < -Math.PI) dy += Math.PI * 2;
+        this.mesh.rotation.y += dy * Math.min(1, dt * 3);
+        if (this.avatar) {
+          this.avatar.setMode('idle');
+          this.avatar.headYawTarget = Math.sin(t * 0.5 + this.walkPhase) * 0.25;
+        }
+        this._setRootY(0);
+      }
+      if (this.avatar) this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
+      return;
+    }
+
     if (this.state === 'holdingDoorIn'
       || this.state === 'holdingDoorOut'
       || this.state === 'waitingDoorIn'
@@ -1847,12 +1992,14 @@ class NPC {
         this.sim.brewFor = this;
         this.sim.brewT = 0;
         this.sim.brewDuration = rand(14.8, 16.2);
-        if (this.sim.waiter && this.seatIndex >= 0 && Math.random() < 0.7) {
-          // table service: head straight to the seat, the waiter brings it over
+        const boundSeat = this.seatIndex >= 0 ? this.sim.cafe.seats[this.seatIndex] : null;
+        if (this.sim.waiter && boundSeat && boundSeat.levelId !== 'upper' && Math.random() < 0.7) {
+          // table service: head straight to the seat, the waiter brings it
+          // over (upstairs guests always collect at the counter themselves)
           this.awaitingDelivery = true;
           this.state = 'toSeat';
           this.stateT = 0;
-          this._walkTo(this.sim.cafe.seats[this.seatIndex].approach);
+          this._walkTo(boundSeat.approach);
         } else {
           this.state = 'waitingPickup';
           this.stateT = 0;
@@ -1868,9 +2015,7 @@ class NPC {
         this.setCup(true);
         this.stateT = 0;
         if (this.seatIndex >= 0) {
-          this.state = 'toSeat';
-          const seatTarget = this.sim.cafe.seats[this.seatIndex];
-          this._walkTo(seatTarget.approach ?? seatTarget.pos);
+          this._headToSeat();
         } else {
           this._beginExit();
         }
@@ -2041,12 +2186,14 @@ class NPC {
         this.sim.brewFor = this;
         this.sim.brewT = 0;
         this.sim.brewDuration = rand(14.8, 16.2);
-        if (this.sim.waiter && this.seatIndex >= 0 && Math.random() < 0.7) {
-          // table service: head straight to the seat, the waiter brings it over
+        const boundSeat = this.seatIndex >= 0 ? this.sim.cafe.seats[this.seatIndex] : null;
+        if (this.sim.waiter && boundSeat && boundSeat.levelId !== 'upper' && Math.random() < 0.7) {
+          // table service: head straight to the seat, the waiter brings it
+          // over (upstairs guests always collect at the counter themselves)
           this.awaitingDelivery = true;
           this.state = 'toSeat';
           this.stateT = 0;
-          this._walkTo(this.sim.cafe.seats[this.seatIndex].approach);
+          this._walkTo(boundSeat.approach);
         } else {
           this.state = 'waitingPickup';
           this.stateT = 0;
@@ -2061,9 +2208,7 @@ class NPC {
         this.setCup(true);
         this.stateT = 0;
         if (this.seatIndex >= 0) {
-          this.state = 'toSeat';
-          const seatTarget = this.sim.cafe.seats[this.seatIndex];
-          this._walkTo(seatTarget.approach ?? seatTarget.pos);
+          this._headToSeat();
         } else {
           this._beginExit();
         }
@@ -2128,6 +2273,11 @@ class NPC {
       const seat = this.sim.cafe.seats[this.seatIndex];
       this.sitY = sitYFor(this, seat);
       this.transitionFrom = this.mesh.position.clone();
+    } else if (this.state === 'toStairBottom' || this.state === 'toStairTop') {
+      this.stairPending = this.state === 'toStairBottom' ? 'up' : 'down';
+      this.stateT = 0;
+      if (this.sim.stairs.request(this)) this._beginStairTraversal(this.stairPending);
+      else this.state = 'stairWaiting';
     } else if (this.state === 'toBrowse') {
       // bounded browsing pause at the library: anchored, timed, then leave
       this.state = 'browsing';
@@ -2152,6 +2302,31 @@ class NPC {
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
     disposeOwnedObject(this.mesh);
+  }
+}
+
+// Exclusive stair reservation (§8): one actor owns the whole flight+landing
+// at a time; opposing traffic holds in the marked zones until it clears.
+class StairCoordinator {
+  constructor() {
+    this.occupant = null;
+    this.queue = [];
+  }
+
+  request(npc) {
+    if (this.occupant === npc) return true;
+    if (!this.occupant && (!this.queue.length || this.queue[0] === npc)) {
+      if (this.queue[0] === npc) this.queue.shift();
+      this.occupant = npc;
+      return true;
+    }
+    if (this.occupant !== npc && !this.queue.includes(npc)) this.queue.push(npc);
+    return false;
+  }
+
+  release(npc) {
+    if (this.occupant === npc) this.occupant = null;
+    this.queue = this.queue.filter((waiting) => waiting !== npc);
   }
 }
 
@@ -2500,6 +2675,7 @@ class Waiter {
     const aheadX = pos.x + dirX * 0.45;
     const aheadZ = pos.z + dirZ * 0.45;
     for (const c of this.sim.cafe.colliders) {
+      if ((c.levelId ?? 'ground') !== this.walkLevel) continue;
       if (!c.r) continue;
       const r = c.r + 0.2;
       const ox = aheadX - c.x;
@@ -3131,6 +3307,9 @@ export class CrowdSim {
     this.waiter = this.cafe.serviceAnchors && this.maxCrowd >= 9 ? new Waiter(this) : null;
     // dedicated stage performer wherever the blueprint authors a stage
     this.performer = cafe.blueprint?.decor?.stage ? new Performer(this) : null;
+    // two-level venues: stair reservations + the deck spec the script follows
+    this.deckSpec = cafe.blueprint?.decor?.deck ?? null;
+    this.stairs = this.deckSpec ? new StairCoordinator() : null;
     // Exterior walkers are a real actor pool: arrivals are claimed from it and
     // departing indoor patrons are returned to it, so identity continues
     // through the doorway without creating and destroying character clones.
@@ -3220,10 +3399,12 @@ export class CrowdSim {
   // Treat every patron as a soft capsule in first-person mode. Static furniture
   // already has room colliders; this closes the conspicuous gap where the camera
   // could walk straight through a moving customer or somebody in the queue.
-  resolvePlayerCollision(position, playerRadius = 0.3) {
+  resolvePlayerCollision(position, playerRadius = 0.3, playerY = 0) {
     for (let pass = 0; pass < 2; pass++) {
       for (const npc of this.npcs) {
         if (npc.state === 'gone') continue;
+        // an actor on another floor (deck vs courtyard below) never pushes
+        if (Math.abs(npc.mesh.position.y - playerY) > 1.4) continue;
         const dx = position.x - npc.mesh.position.x;
         const dz = position.z - npc.mesh.position.z;
         const minDistance = playerRadius + (npc.state === 'sitting' ? 0.28 : 0.32);
@@ -3255,7 +3436,7 @@ export class CrowdSim {
   }
 
   _preseat() {
-    const seat = this._freeSeat();
+    const seat = this._freeSeat({ allowUpper: true });
     if (seat < 0) return;
     this.takenSeats.add(seat);
     const npc = new NPC(this, { seatIndex: seat, silent: true });
@@ -3265,6 +3446,10 @@ export class CrowdSim {
     npc.path = null;
     npc.setCup(Math.random() < 0.7);
     const s = this.cafe.seats[seat];
+    if (s.levelId === 'upper') {
+      npc.walkLevel = 'upper';
+      npc.baseY = this.deckSpec.y;
+    }
     npc.sitY = sitYFor(npc, s);
     npc.mesh.position.set(s.pos.x, 0, s.pos.z);
     applySitOffset(npc, s);
@@ -3453,14 +3638,15 @@ export class CrowdSim {
     return this.playerSeat >= 0 ? this.cafe.seats[this.playerSeat].tableCenter : null;
   }
 
-  _freeSeat() {
+  _freeSeat({ allowUpper = false } = {}) {
     const free = [];
     const playerTable = this._playerTable();
+    const upperOk = allowUpper && this.deckSpec;
     for (let i = 0; i < this.cafe.seats.length; i++) {
       if (i === this.playerSeat || this.takenSeats.has(i)) continue;
-      // upper-floor seats become NPC destinations with the level-aware
-      // circulation phase (stair reservations); until then patrons stay down
-      if (this.cafe.seats[i].levelId === 'upper') continue;
+      // upper seats join the pool for walkers that can take the stairs, so
+      // the deck population follows availability like any other zone
+      if (this.cafe.seats[i].levelId === 'upper' && !upperOk) continue;
       if (playerTable && this.cafe.seats[i].tableCenter.distanceTo(playerTable) < 0.01) continue;
       free.push(i);
     }
@@ -3562,7 +3748,7 @@ export class CrowdSim {
       }
       if (!spawned && this.outside.availableArrivals > 0) {
         const sourceWalker = this.outside.claimArrival();
-        const seat = this._freeSeat();
+        const seat = this._freeSeat({ allowUpper: true });
         const toGo = Math.random() < 0.3 || seat < 0;
         if (!toGo) this.takenSeats.add(seat);
         this.npcs.push(new NPC(this, { seatIndex: toGo ? -1 : seat, sourceWalker }));
@@ -3618,10 +3804,13 @@ export class CrowdSim {
   dwellReport() {
     return {
       npcs: this.npcs.map((npc) => ({
+        serial: npc.serial,
         state: npc.state,
         seconds: +npc.stateT.toFixed(1),
         x: +npc.mesh.position.x.toFixed(2),
+        y: +npc.mesh.position.y.toFixed(2),
         z: +npc.mesh.position.z.toFixed(2),
+        level: npc.walkLevel ?? 'ground',
         seated: npc.seatIndex >= 0,
       })),
       maxServiceDwell: this.maxServiceDwell ?? null,
