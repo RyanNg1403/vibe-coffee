@@ -904,6 +904,7 @@ document.addEventListener('pointerdown', (e) => {
 });
 
 const musicToggle = document.getElementById('music-toggle');
+const muteToggle = document.getElementById('mute-toggle');
 const trackStyle = document.getElementById('track-style');
 const musicVolume = document.getElementById('music-vol');
 const ambienceVolume = document.getElementById('amb-vol');
@@ -924,12 +925,23 @@ renderRainStop();
 musicToggle.classList.toggle('on', preferences.musicOn);
 musicToggle.textContent = preferences.musicOn ? '♪ music on' : '♪ music off';
 musicToggle.setAttribute('aria-pressed', String(preferences.musicOn));
+let masterMuted = preferences.muted || SEEDED_AUDIT_MODE;
+function renderMuteToggle() {
+  muteToggle?.classList.toggle('on', masterMuted);
+  if (!muteToggle) return;
+  muteToggle.textContent = masterMuted ? '🔇 muted' : '🔊 sound';
+  muteToggle.setAttribute('aria-pressed', String(masterMuted));
+  muteToggle.setAttribute('aria-label', masterMuted ? 'Unmute all sound' : 'Mute all sound');
+  muteToggle.title = masterMuted ? 'unmute all sound' : 'mute all sound';
+}
+renderMuteToggle();
 document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
 audio.setMusicVolume(preferences.musicVolume);
 audio.setAmbienceVolume(preferences.ambienceVolume);
 audio.setVoicesVolume(preferences.voicesVolume);
 audio.setPetVolume(preferences.petVolume);
 audio.setRainIntensity(preferences.rainIntensity);
+audio.setMuted(masterMuted);
 
 const fullscreenButton = document.getElementById('fullscreen-btn');
 const fullscreenElement = () => document.fullscreenElement ?? document.webkitFullscreenElement;
@@ -978,6 +990,7 @@ function persistPreferences() {
     petVolume: Number(petsVolume.value),
     rainIntensity: Number(rainSlider.value),
     musicOn: musicToggle.classList.contains('on'),
+    muted: masterMuted,
     cafeIndex: currentThemeIndex,
     envTime,
     envSky,
@@ -1002,6 +1015,13 @@ musicToggle.addEventListener('click', () => {
   musicToggle.textContent = on ? '♪ music on' : '♪ music off';
   musicToggle.setAttribute('aria-pressed', String(on));
   persistPreferences();
+});
+muteToggle?.addEventListener('click', () => {
+  masterMuted = !masterMuted;
+  audio.setMuted(masterMuted);
+  renderMuteToggle();
+  persistPreferences();
+  toast(masterMuted ? 'all sound muted' : 'sound restored');
 });
 
 const qualityToggle = document.getElementById('quality-toggle');
@@ -1166,6 +1186,7 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   audio.setPetVolume(Number(petsVolume.value));
   audio.setRainIntensity(Number(rainSlider.value));
   audio.setMusicOn(musicToggle.classList.contains('on'));
+  audio.setMuted(masterMuted);
 });
 
 function applyRenderPixelRatio(nextRatio) {

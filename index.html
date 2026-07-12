@@ -96,7 +96,7 @@
     .chip.active { background: #c98e4e; border-color: #c98e4e; color: #241809; }
     #sky-btn.open { background: rgba(240, 230, 212, 0.18); }
     #sky-btn.on { border-color: #c98e4e; color: #f2c27b; }
-    #music-toggle, #walk-btn, #order-btn, #quality-toggle, #laptop-btn, #mixer-btn, #sky-btn, #fullscreen-btn {
+    #mute-toggle, #music-toggle, #walk-btn, #order-btn, #quality-toggle, #laptop-btn, #mixer-btn, #sky-btn, #fullscreen-btn {
       font-family: inherit; font-size: 12.5px; cursor: pointer;
       color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
       border: 1px solid rgba(240, 230, 212, 0.18);
@@ -105,6 +105,7 @@
     }
     #walk-btn:hover { background: rgba(240, 230, 212, 0.16); }
     #music-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
+    #mute-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
     #laptop-btn.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
     #quality-toggle { color: rgba(240, 230, 212, .76); min-width: 102px; }
     #fullscreen-btn { min-width: 42px; }
@@ -255,6 +256,7 @@
     <button id="order-btn" aria-label="Order a drink">☕ order</button>
     <button id="laptop-btn" aria-label="Set up your MacBook on this table" title="set up your MacBook on this table">💻 laptop</button>
     <div class="divider"></div>
+    <button id="mute-toggle" aria-label="Mute all sound" aria-pressed="false" title="mute all sound">🔊 sound</button>
     <button id="music-toggle" class="on" aria-pressed="true">♪ music on</button>
     <div id="mixer">
       <button id="mixer-btn" aria-expanded="false" aria-haspopup="true" aria-label="Sound levels" title="sound levels">🎚 sound</button>

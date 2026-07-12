@@ -15,7 +15,7 @@ import { MODEL_MANIFEST } from './modelManifest.js';
 // This asset's exaggerated head/hair proportions and seated silhouette clash
 // with the established café cast. Keep the source in the repository for
 // provenance, but do not download or instantiate it in the live experience.
-const CAST_EXCLUSIONS = new Set(['char_wcasual']);
+const CAST_EXCLUSIONS = new Set(['char_matt', 'char_wcasual']);
 
 // target height per prop, meters
 const NORMALIZE = {

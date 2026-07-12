@@ -21,6 +21,7 @@ test('round-trips every preference', () => {
     petVolume: 0.4,
     rainIntensity: 3,
     musicOn: false,
+    muted: true,
     cafeIndex: 3,
     envTime: 'night',
     envSky: 'rain',

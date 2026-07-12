@@ -7,6 +7,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   petVolume: 0.65,
   rainIntensity: 2,
   musicOn: true,
+  muted: false,
   cafeIndex: 0,
   envTime: 'auto',
   envSky: 'auto',
@@ -30,6 +31,7 @@ export function loadPreferences() {
       petVolume: numberIn(saved.petVolume, 0, 1, DEFAULT_PREFERENCES.petVolume),
       rainIntensity: Math.round(numberIn(saved.rainIntensity, 0, 3, DEFAULT_PREFERENCES.rainIntensity)),
       musicOn: typeof saved.musicOn === 'boolean' ? saved.musicOn : DEFAULT_PREFERENCES.musicOn,
+      muted: typeof saved.muted === 'boolean' ? saved.muted : DEFAULT_PREFERENCES.muted,
       cafeIndex: Math.round(numberIn(saved.cafeIndex, 0, 3, DEFAULT_PREFERENCES.cafeIndex)),
       envTime: ['auto', 'morning', 'noon', 'sunset', 'night'].includes(saved.envTime)
         ? saved.envTime

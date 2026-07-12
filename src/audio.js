@@ -202,6 +202,7 @@ export class CafeAudio {
     this.ctx = null;
     this.started = false;
     this.musicOn = true;
+    this.muted = false;
     this.theme = null;
     this._timers = new Set();
     this.clinkSpots = [];   // world positions where seated people are
@@ -229,7 +230,7 @@ export class CafeAudio {
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
     this.master = ctx.createGain();
-    this.master.gain.value = 0.9;
+    this.master.gain.value = this.muted ? 0 : 0.9;
     // gentle mastering squeeze so quiet layers stay audible
     this.comp = ctx.createDynamicsCompressor();
     this.comp.threshold.value = -20;
@@ -579,6 +580,17 @@ export class CafeAudio {
     this.recordedVolume = v;
     this._applyRecordedVolumes();
     if (this.musicBus) this.musicBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
+  }
+  setMuted(muted) {
+    this.muted = Boolean(muted);
+    if (this.master && this.ctx) {
+      const t = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues?.(t);
+      this.master.gain.setTargetAtTime(this.muted ? 0 : 0.9, t, 0.025);
+    }
+    // Recorded playlists use HTMLMediaElement volume instead of WebAudio, so
+    // the same master state must cover them explicitly.
+    this._applyRecordedVolumes();
   }
   setAmbienceVolume(v) {
     if (this.ambienceBus) this.ambienceBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.08);
@@ -1744,7 +1756,7 @@ export class CafeAudio {
 
   _applyRecordedVolumes() {
     if (!this._musicDecks) return;
-    const master = (this.musicOn ? 1 : 0) * this.recordedVolume * this.recordedDuck;
+    const master = (this.muted ? 0 : 1) * (this.musicOn ? 1 : 0) * this.recordedVolume * this.recordedDuck;
     for (const deck of this._musicDecks) deck.el.volume = clamp(deck.mix * master, 0, 1);
   }
 
