@@ -3,10 +3,42 @@
 // surfaces, navigation links, colliders and tests — treads, landing, guards
 // and the deck slab are rendered exactly where the resolver says they are.
 import * as THREE from 'three';
+import { cloneModel } from '../modelLoader.js';
 
-export function buildTerraceDeck({ group, spec, helpers, mats, rand }) {
+export function buildTerraceDeck({ group, spec, helpers, mats, models, rand }) {
   const { box, roundedBox, cyl } = helpers;
   const { woodMat, woodDarkMat, metalMat, plantPotMat, foliageMat } = mats;
+
+  // A cluster of curved leaf blades — a real plant reads far better than a
+  // fan of cones. Each blade is a tapered double-sided card, splayed and
+  // bowed outward from the crown. Used as the fallback when a GLB plant model
+  // is unavailable, and for the box-planter greenery.
+  const leafBlade = (() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.bezierCurveTo(0.05, 0.18, 0.04, 0.42, 0, 0.6);
+    shape.bezierCurveTo(-0.04, 0.42, -0.05, 0.18, 0, 0);
+    const geo = new THREE.ShapeGeometry(shape, 6);
+    geo.computeVertexNormals();
+    return geo;
+  })();
+  function makeLeafClump(mat, { blades = 9, spread = 0.16, rise = 0.55, curl = 0.5 } = {}) {
+    const clump = new THREE.Group();
+    for (let i = 0; i < blades; i += 1) {
+      const blade = new THREE.Mesh(leafBlade, mat);
+      const a = (i / blades) * Math.PI * 2 + rand(-0.3, 0.3);
+      const lean = rand(0.25, 0.7);
+      const h = rise * rand(0.7, 1.15);
+      blade.scale.set(rand(0.8, 1.2), h / 0.6, 1);
+      blade.position.set(Math.cos(a) * spread * rand(0.2, 1), 0, Math.sin(a) * spread * rand(0.2, 1));
+      blade.rotation.order = 'YXZ';
+      blade.rotation.y = a;
+      blade.rotation.x = lean * curl;
+      blade.castShadow = true;
+      clump.add(blade);
+    }
+    return clump;
+  }
 
   const deck = new THREE.Group();
   const bronze = new THREE.MeshStandardMaterial({ color: 0x4d4238, roughness: 0.45, metalness: 0.7 });
@@ -102,11 +134,12 @@ export function buildTerraceDeck({ group, spec, helpers, mats, rand }) {
     const dirt = box(0.18, 0.03, 0.64, soil);
     dirt.position.set(-4.54, railTopY + 0.1, pz);
     deck.add(dirt);
-    for (let i = 0; i < 4; i += 1) {
-      const sprig = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 6), foliageMat);
-      sprig.position.set(-4.54 + rand(-0.05, 0.05), railTopY + 0.22, pz + rand(-0.26, 0.26));
-      sprig.rotation.z = rand(-0.25, 0.25);
-      deck.add(sprig);
+    // trailing greenery: three leaf clumps spilling along the box planter
+    for (const off of [-0.22, 0, 0.22]) {
+      const clump = makeLeafClump(foliageMat, { blades: 7, spread: 0.09, rise: 0.34, curl: 0.85 });
+      clump.position.set(-4.54, railTopY + 0.12, pz + off + rand(-0.03, 0.03));
+      clump.rotation.y = rand(0, Math.PI);
+      deck.add(clump);
     }
   }
 
@@ -190,12 +223,19 @@ export function buildTerraceDeck({ group, spec, helpers, mats, rand }) {
     const dirt = cyl(0.26, 0.26, 0.04, soil, 12);
     dirt.position.set(planter.x, deckY + 0.46, planter.z);
     deck.add(dirt);
-    const stemCount = 3 + Math.floor(rand(0, 3));
-    for (let i = 0; i < stemCount; i += 1) {
-      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.12, rand(0.35, 0.6), 6), foliageMat);
-      leaf.position.set(planter.x + rand(-0.1, 0.1), deckY + 0.55 + rand(0.1, 0.25), planter.z + rand(-0.1, 0.1));
-      leaf.rotation.z = rand(-0.35, 0.35);
-      deck.add(leaf);
+    // a real potted plant (leafy monstera/pothos) rather than a fan of cones;
+    // fall back to a full leaf-blade clump if the model library is absent
+    const kinds = ['plant_monstera', 'plant_pothos', 'plant_succulent'];
+    const potted = cloneModel(models, kinds[Math.floor(rand(0, kinds.length)) % kinds.length]);
+    if (potted) {
+      potted.position.set(planter.x, deckY + 0.48, planter.z);
+      potted.scale.setScalar(rand(0.85, 1.1));
+      potted.rotation.y = rand(0, Math.PI * 2);
+      deck.add(potted);
+    } else {
+      const clump = makeLeafClump(foliageMat, { blades: 11, spread: 0.18, rise: 0.62, curl: 0.45 });
+      clump.position.set(planter.x, deckY + 0.5, planter.z);
+      deck.add(clump);
     }
     const potBase = cyl(0.26, 0.28, 0.03, plantPotMat ?? woodDarkMat, 12);
     potBase.position.set(planter.x, deckY + 0.015, planter.z);

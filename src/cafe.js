@@ -1240,12 +1240,22 @@ export function buildCafe(theme, models = null) {
       const slat = box(0.07, 0.05, D, woodMat);
       slat.position.set(sx, pergY + 0.19, 0);
       group.add(slat);
-      // a few vines draped over the slats
+      // a few leafy vines draped over the slats: a real trailing plant reads
+      // better than a bare green cylinder
       if (Math.random() < 0.4) {
-        const vine = cyl(0.02, 0.012, rand(0.4, 0.9), new THREE.MeshStandardMaterial({ color: 0x4e7a3c, roughness: 0.9 }), 5);
-        vine.position.set(sx, pergY - 0.15, rand(-D / 2 + 1, D / 2 - 1));
-        vine.rotation.z = rand(-0.3, 0.3);
-        group.add(vine);
+        const vz = rand(-D / 2 + 1, D / 2 - 1);
+        const drape = cloneModel(models, 'plant_pothos_vine');
+        if (drape) {
+          drape.position.set(sx, pergY + 0.12, vz);
+          drape.scale.setScalar(rand(1.1, 1.6));
+          drape.rotation.y = rand(0, Math.PI * 2);
+          group.add(drape);
+        } else {
+          const vine = cyl(0.02, 0.012, rand(0.4, 0.9), new THREE.MeshStandardMaterial({ color: 0x4e7a3c, roughness: 0.9 }), 5);
+          vine.position.set(sx, pergY - 0.15, vz);
+          vine.rotation.z = rand(-0.3, 0.3);
+          group.add(vine);
+        }
       }
     }
   }
@@ -3439,6 +3449,7 @@ export function buildCafe(theme, models = null) {
       spec: blueprint.decor.deck,
       helpers: { box, roundedBox, cyl },
       mats: { woodMat, woodDarkMat, metalMat, plantPotMat, foliageMat },
+      models,
       rand,
     });
     for (const c of deckBuilt.contactShadows) contactShadow(c.x, c.z, c.size);
