@@ -4,6 +4,7 @@
 // reviewed by a human instead of inferred from pass flags.
 //
 //   node tools/venue-shots.mjs --venue=goldenhour [--views-only] [--out=DIR]
+//     [--time=auto|morning|noon|sunset|night] [--sky=auto|clear|rain]
 //
 // Requires a dev server (VIBE_URL or http://127.0.0.1:5173) and CHROME_PATH.
 import { spawn } from 'node:child_process';
@@ -29,6 +30,8 @@ const args = new Map(process.argv.slice(2)
 const VENUE = args.get('venue') ?? 'goldenhour';
 const VIEWS_ONLY = !!args.get('views-only');
 const OUT_DIR = args.get('out') ?? `.venue-shots/${VENUE}`;
+const ENV_TIME = args.get('time') ?? 'auto';
+const ENV_SKY = args.get('sky') ?? 'auto';
 const DEFAULT_EYE_Y = 1.6;
 
 const blueprint = getBlueprint(VENUE);
@@ -101,6 +104,8 @@ const profile = await mkdtemp(join(tmpdir(), 'vibe-venue-shots-'));
 const port = await freePort();
 const chrome = spawn(CHROME, [
   '--headless=new', '--disable-extensions', '--disable-gpu-sandbox', '--hide-scrollbars',
+  // root (containerized CI) cannot use the zygote sandbox at all
+  ...(typeof process.getuid === 'function' && process.getuid() === 0 ? ['--no-sandbox'] : []),
   '--window-size=880,560', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, 'about:blank',
 ], { stdio: 'ignore' });
 
@@ -126,7 +131,7 @@ try {
   }, 'app');
   await client.evaluate(`localStorage.setItem('vibe-coffee.preferences.v1', JSON.stringify({
     musicVolume: 0, ambienceVolume: 0, voicesVolume: 0, musicOn: false,
-    cafeIndex: ${THEME_INDEX[VENUE]}, qualityMode: 'auto', laptopOn: true, envTime: 'auto', envSky: 'auto'
+    cafeIndex: ${THEME_INDEX[VENUE]}, qualityMode: 'auto', laptopOn: true, envTime: '${ENV_TIME}', envSky: '${ENV_SKY}'
   }))`);
   await client.evaluate('location.reload()');
   await retry(async () => {
@@ -134,6 +139,10 @@ try {
     if (!ready) throw new Error('app not ready after reload');
   }, 'app reload');
   await client.evaluate("document.querySelector('#enter-btn').click()");
+  // keep captures unobstructed: the venue picker and hints are chrome, not scene
+  await client.evaluate(`for (const id of ['hud-top', 'hud-bottom', 'hint']) {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  }`);
   await retry(async () => {
     const theme = await client.evaluate('window.__vibe.metrics().theme');
     if (theme !== VENUE) throw new Error(`theme is ${theme}`);

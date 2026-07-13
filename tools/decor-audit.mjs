@@ -101,6 +101,7 @@ const profile = await mkdtemp(join(tmpdir(), 'vibe-decor-audit-'));
 const port = await freePort();
 const chrome = spawn(CHROME, [
   '--headless=new',
+  ...(typeof process.getuid === 'function' && process.getuid() === 0 ? ['--no-sandbox'] : []),
   '--disable-extensions',
   '--disable-gpu-sandbox',
   `--remote-debugging-port=${port}`,
