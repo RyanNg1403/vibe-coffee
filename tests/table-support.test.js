@@ -4,6 +4,7 @@ import {
   pointSupported, footprintCorners, footprintSupported,
   shapesOverlap, shapeBounds, tableSupportShape, convexPolygonsOverlap,
   supportedOffsetToward, pullInsideShape, supportedAlong, placeFootprintForSeat,
+  findClearTabletopPoint,
 } from '../src/cafe/tableSupport.js';
 
 const LAPTOP = { width: 0.32, depth: 0.22 };
@@ -137,6 +138,25 @@ test('pullInsideShape clamps a prop onto the window-bar strip', () => {
   const bar = { kind: 'rect', center: { x: 3, z: 6.1 }, rotation: 0, width: 2.0, depth: 0.42 };
   const pulled = pullInsideShape(bar, 3.4, 6.5, 0.07);
   assert.ok(pointSupported(bar, pulled.x, pulled.z, 0.07));
+});
+
+test('tabletop drink placement rejects edges and chooses clearance from existing props', () => {
+  const table = { kind: 'circle', center: { x: 0, z: 0 }, radius: 0.52 };
+  const candidates = [
+    { x: 0.5, z: 0, penalty: 0 }, // centre is on the top, cup footprint is not
+    { x: 0.18, z: 0, penalty: 0 }, // supported, but occupied
+    { x: -0.18, z: 0, penalty: 0.01 }, // supported and clear
+  ];
+  const spot = findClearTabletopPoint(table, candidates, [{ x: 0.18, z: 0, radius: 0.08 }], 0.065);
+  assert.ok(spot);
+  assert.ok(spot.x < 0, 'the drink moves to the clear side of the tabletop');
+  assert.ok(pointSupported(table, spot.x, spot.z, 0.075));
+});
+
+test('tabletop drink placement reports when no candidate supports the cup', () => {
+  const table = { kind: 'circle', center: { x: 0, z: 0 }, radius: 0.2 };
+  const spot = findClearTabletopPoint(table, [{ x: 0.3, z: 0 }], [], 0.065);
+  assert.equal(spot, null);
 });
 
 test('supportedAlong finds the first supported spot on the segment', () => {

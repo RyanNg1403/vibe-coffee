@@ -9,7 +9,9 @@
 import * as THREE from 'three';
 import { ROOM } from './cafe.js';
 import { DoorCoordinator } from './doorFlow.js';
-import { placeFootprintForSeat, pullInsideShape } from './cafe/tableSupport.js';
+import {
+  findClearTabletopPoint, placeFootprintForSeat, pullInsideShape,
+} from './cafe/tableSupport.js';
 import { ServiceCoordinator } from './npc/serviceCoordinator.js';
 import { BehaviorPlanner, seedTraits } from './npc/behaviorPlanner.js';
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
@@ -1403,6 +1405,13 @@ class NPC {
       applySitOffset(this, seat);
       this._setPose(true);
       this._addProps();
+      // A carried drink stops being a hand prop once the guest sits. It is
+      // transferred to a supported, clear point on the real tabletop instead
+      // of remaining parented to the wrist for the whole visit.
+      if (this.hasCup) {
+        this.setCup(false);
+        this.sim._placeDrinkFor(this);
+      }
     } else {
       this._setPose(false);
       // A delivered drink stays behind as a dirty cup; exactly one clear task
@@ -1526,9 +1535,9 @@ class NPC {
     // rigged dog that arrives with a patron and leaves with them)
   }
 
-  _registerTableProp(seat, object, footprint, base = null) {
+  _registerTableProp(seat, object, footprint, base = null, options = {}) {
     object.traverse((part) => { part.userData.npcTableProp = true; });
-    const entry = { object, home: object.position.clone(), footprint, base };
+    const entry = { object, home: object.position.clone(), footprint, base, ...options };
     (seat.npcTableProps ??= []).push(entry);
     this.sim.cafe.npcTablePropRevision = (this.sim.cafe.npcTablePropRevision ?? 0) + 1;
     this.tablePropEntries.push({ seat, entry });
@@ -2335,6 +2344,51 @@ class StairCoordinator {
   }
 }
 
+// A tiny shared uniform kit makes staff roles legible even when their imported
+// base character changes. Geometry and materials are reused by both workers,
+// so the clarity improvement costs no textures and only a handful of meshes.
+let _staffUniformShared = null;
+function staffUniformShared() {
+  if (_staffUniformShared) return _staffUniformShared;
+  const shared = (resource) => {
+    resource.userData.vibeShared = true;
+    resource.userData.shared = true;
+    return resource;
+  };
+  _staffUniformShared = {
+    bib: shared(new THREE.BoxGeometry(0.25, 0.28, 0.018)),
+    skirt: shared(new THREE.BoxGeometry(0.34, 0.34, 0.02)),
+    belt: shared(new THREE.BoxGeometry(0.38, 0.035, 0.024)),
+    badge: shared(new THREE.BoxGeometry(0.075, 0.038, 0.008)),
+    barista: shared(new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: 0.94 })),
+    waiter: shared(new THREE.MeshStandardMaterial({ color: 0x59695c, roughness: 0.94 })),
+    badgeMat: shared(new THREE.MeshStandardMaterial({
+      color: 0xe8dcc0, emissive: 0x4b3c28, emissiveIntensity: 0.12, roughness: 0.58,
+    })),
+  };
+  return _staffUniformShared;
+}
+
+function addStaffUniform(root, role) {
+  const shared = staffUniformShared();
+  const uniform = new THREE.Group();
+  uniform.name = `${role}-uniform`;
+  const material = role === 'waiter' ? shared.waiter : shared.barista;
+  const bib = new THREE.Mesh(shared.bib, material);
+  // Keep the upper bib and badge visible above the 1.06 m counter edge; the
+  // lower apron remains naturally occluded when staff work behind it.
+  bib.position.set(0, 1.05, 0.155);
+  const skirt = new THREE.Mesh(shared.skirt, material);
+  skirt.position.set(0, 0.69, 0.145);
+  const belt = new THREE.Mesh(shared.belt, material);
+  belt.position.set(0, 0.84, 0.145);
+  const badge = new THREE.Mesh(shared.badge, shared.badgeMat);
+  badge.position.set(0.07, 1.11, 0.168);
+  uniform.add(bib, skirt, belt, badge);
+  root.add(uniform);
+  return uniform;
+}
+
 class Barista {
   constructor(sim) {
     this.sim = sim;
@@ -2345,13 +2399,8 @@ class Barista {
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
-      const apron = new THREE.Mesh(
-        new THREE.BoxGeometry(0.26, 0.34, 0.02),
-        new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: 0.95 })
-      );
-      apron.position.set(0, 0.82, 0.13);
-      this.mesh.add(apron);
     }
+    addStaffUniform(this.mesh, 'barista');
     this.home = sim.cafe.nav.baristaHome.clone();
     this.registerSpot = sim.cafe.nav.baristaRegister.clone();
     this.machineSpot = sim.cafe.nav.baristaMachine.clone();
@@ -2627,19 +2676,68 @@ class Waiter {
     } else {
       this.mesh = makePerson();
     }
+    addStaffUniform(this.mesh, 'waiter');
     this.anchors = sim.cafe.serviceAnchors;
     this.standby = this.anchors.waiterStandby.clone();
     this.mesh.position.copy(this.standby);
     this.mesh.rotation.y = Math.PI / 2;
     this.task = null;
-    this.phase = 'standby'; // standby | toPickup | toTable | wiping | toDishes
+    // An idle waiter still has visible work: alternate between tidying the
+    // pickup side and checking the dish return. This replaces the indefinite
+    // mannequin-like pause beside the counter while keeping one stable worker
+    // available for real deliveries and clearing tasks.
+    this.phase = 'idleWork'; // idleWork | idleTransit | toPickup | toTable | wiping | toDishes
     this.phaseT = 0;
+    this.idleStation = 'standby';
+    this.idleDuration = rand(3.2, 5.8);
     this.path = null;
     this.pathI = 1;
     this.walkSpeed = 0.72;
     this.carrySpeed = 0.52; // tray in hand: slower, wider turns
     this.microPhase = rand(0, 10);
     sim.cafe.group.add(this.mesh);
+  }
+
+  _setCup(visible) {
+    if (this.avatar) this.avatar.setCup(visible);
+    else this.mesh.userData.parts.cup.visible = visible;
+  }
+
+  _claimTask() {
+    const task = this.sim.service.claim(this.id, ['deliver', 'clear']);
+    if (!task) return false;
+    this.task = task;
+    if (task.kind === 'deliver') {
+      this.phase = 'toPickup';
+      this.sim.service.reserve('pickup', this.id);
+      this._walkTo(this.anchors.pickup);
+    } else {
+      this.phase = 'toTable';
+      this._walkTo(task.target ?? this.standby);
+    }
+    this.phaseT = 0;
+    return true;
+  }
+
+  _beginIdleTransit() {
+    this.phase = 'idleTransit';
+    this.phaseT = 0;
+    this.idleStation = this.idleStation === 'standby' ? 'dishes' : 'standby';
+    this._walkTo(this.idleStation === 'dishes' ? this.anchors.dirtyDish : this.standby);
+  }
+
+  _workPose(t) {
+    if (this.avatar) {
+      this.avatar.setMode('work', 0.72);
+      this.avatar.headYawTarget = Math.sin(t * 0.5 + this.microPhase) * 0.22;
+      return;
+    }
+    const parts = this.mesh.userData.parts;
+    parts.legL.rotation.x = parts.legR.rotation.x = 0;
+    parts.armL.rotation.x = -0.58 + Math.sin(t * 2.1 + this.microPhase) * 0.18;
+    parts.armR.rotation.x = -0.72 + Math.cos(t * 1.8 + this.microPhase) * 0.2;
+    parts.head.rotation.y = Math.sin(t * 0.5 + this.microPhase) * 0.18;
+    setGroundedY(this.mesh, 0, parts.blob);
   }
 
   _walkTo(target) {
@@ -2716,10 +2814,11 @@ class Waiter {
     if (this.task) this.sim.service.release(this.task);
     this.task = null;
     this.sim.service.releaseAllFor(this.id);
-    this.avatar?.setCup(false);
+    this._setCup(false);
     this._carriedCup?.parent?.remove(this._carriedCup);
     this._carriedCup = null;
-    this.phase = 'standby';
+    this.phase = 'idleTransit';
+    this.idleStation = 'standby';
     this.phaseT = 0;
     this._walkTo(this.standby);
   }
@@ -2727,26 +2826,24 @@ class Waiter {
   update(dt, t) {
     const service = this.sim.service;
     this.phaseT += dt;
-    if (this.phase === 'standby') {
-      const arrived = this._follow(dt, this.walkSpeed, 4.0);
-      if (arrived) {
-        this.avatar?.setMode('idle');
-        this.avatar && (this.avatar.headYawTarget = Math.sin(t * 0.35 + this.microPhase) * 0.4);
-        const task = service.claim(this.id, ['deliver', 'clear']);
-        if (task) {
-          this.task = task;
-          if (task.kind === 'deliver') {
-            this.phase = 'toPickup';
-            service.reserve('pickup', this.id);
-            this._walkTo(this.anchors.pickup);
-          } else {
-            this.phase = 'toTable';
-            this._walkTo(task.target ?? this.standby);
-          }
-          this.phaseT = 0;
-        }
+    if (!this.task && (this.phase === 'idleWork' || this.phase === 'idleTransit')) {
+      this._claimTask();
+    }
+    if (this.phase === 'idleTransit') {
+      if (this._follow(dt, this.walkSpeed, 4.0)) {
+        this.phase = 'idleWork';
+        this.phaseT = 0;
+        this.idleDuration = rand(3.2, 5.8);
       }
       if (this.avatar) this.avatar.update(dt, 0, this.sim.qualityLevel);
+      else animateMicroMotion(this.mesh.userData.parts, t, this.microPhase);
+      return;
+    }
+    if (this.phase === 'idleWork') {
+      this._workPose(t);
+      if (this.phaseT > this.idleDuration) this._beginIdleTransit();
+      if (this.avatar) this.avatar.update(dt, 0, this.sim.qualityLevel);
+      else animateMicroMotion(this.mesh.userData.parts, t, this.microPhase);
       return;
     }
     if (this.phase === 'toPickup') {
@@ -2757,7 +2854,7 @@ class Waiter {
           this.task = null;
           this._dropTask();
         } else {
-          this.avatar?.setCup(true); // the drink leaves the pickup shelf with us
+          this._setCup(true); // the drink leaves the pickup shelf with us
           service.releaseStation('pickup', this.id);
           const seat = this.sim.cafe.seats[patron.seatIndex];
           this.phase = 'toTable';
@@ -2770,7 +2867,7 @@ class Waiter {
       if (this._follow(dt, speed, this.task?.kind === 'deliver' ? 2.6 : 4.0)) {
         if (this.task?.kind === 'deliver') {
           const patron = this.task.data?.patron;
-          this.avatar?.setCup(false);
+          this._setCup(false);
           if (patron && patron.seatIndex >= 0) {
             this.sim._placeDrinkFor(patron); // the carried drink lands on the table
           }
@@ -2782,7 +2879,7 @@ class Waiter {
           const cup = this.task.data?.cup;
           if (cup?.parent) {
             cup.parent.remove(cup); // the dirty cup leaves the table exactly once
-            this.avatar?.setCup(true);
+            this._setCup(true);
           }
           this.phase = 'wiping'; // wipe the table before walking the cup back
           this.phaseT = 0;
@@ -2802,7 +2899,7 @@ class Waiter {
       }
     } else if (this.phase === 'toDishes') {
       if (this._follow(dt, this.carrySpeed, 2.6)) {
-        this.avatar?.setCup(false);
+        this._setCup(false);
         service.releaseStation('dirtyDish', this.id);
         service.complete(this.task);
         this.task = null;
@@ -3449,7 +3546,7 @@ export class CrowdSim {
     npc.state = 'sitting';
     npc.stateT = rand(0, 40);
     npc.path = null;
-    npc.setCup(Math.random() < 0.7);
+    npc.setCup(false);
     const s = this.cafe.seats[seat];
     if (s.levelId === 'upper') {
       npc.walkLevel = 'upper';
@@ -3460,6 +3557,9 @@ export class CrowdSim {
     applySitOffset(npc, s);
     npc._setPose(true);
     npc._addProps();
+    // Seed some real tabletop drinks for visual variety. Never start a seated
+    // guest with a cup permanently glued to the hand.
+    if (Math.random() < 0.58) this._placeDrinkFor(npc);
     this.npcs.push(npc);
   }
 
@@ -3475,7 +3575,7 @@ export class CrowdSim {
       npc.stateT = rand(0, 30);
       npc.sitDuration = rand(80, 200);
       npc.path = null;
-      npc.setCup(true);
+      npc.setCup(false);
       const s = this.cafe.seats[seat];
       npc.sitY = sitYFor(npc, s);
       npc.mesh.position.set(s.pos.x, 0, s.pos.z);
@@ -3495,7 +3595,11 @@ export class CrowdSim {
       board.rotation.y = rand(0, Math.PI * 2);
       this.cafe.group.add(board);
       members[0].props.push(board);
+      members[0]._registerTableProp(seatA, board, 0.26);
       members[0].sitDuration = members[1].sitDuration = rand(150, 300);
+    }
+    for (const member of members) {
+      if (Math.random() < 0.78) this._placeDrinkFor(member);
     }
   }
 
@@ -3597,16 +3701,65 @@ export class CrowdSim {
     if (!patron || patron.seatIndex < 0 || patron.deliveredCup) return null;
     if (!['toSeat', 'aligningSeat', 'sitting'].includes(patron.state)) return null;
     const seat = this.cafe.seats[patron.seatIndex];
-    const cup = cloneModel(this.models, Math.random() < 0.5 ? 'latte' : 'mug');
-    if (!cup) { patron.setCup(true); return null; } // model-less fallback
+    let cup = cloneModel(this.models, Math.random() < 0.5 ? 'latte' : 'mug');
+    const procedural = !cup;
+    if (!cup) cup = makeToGoCup();
     const tc = seat.tableCenter;
+    const inwardX = tc.x - seat.pos.x;
+    const inwardZ = tc.z - seat.pos.z;
+    const length = Math.hypot(inwardX, inwardZ) || 1;
+    const dirX = inwardX / length;
+    const dirZ = inwardZ / length;
+    const sideX = -dirZ;
+    const sideZ = dirX;
+    const base = seat.supportShape
+      ? placeFootprintForSeat(seat.supportShape, seat.pos, tc, {
+        yaw: 0, width: 0.11, depth: 0.11,
+      })
+      : null;
+    const baseX = base?.x ?? (tc.x + (seat.pos.x - tc.x) * 0.45);
+    const baseZ = base?.z ?? (tc.z + (seat.pos.z - tc.z) * 0.45);
+    const sidePreference = (patron.serial ?? 0) % 2 ? 1 : -1;
+    const sideOffsets = [0.17 * sidePreference, -0.17 * sidePreference, 0.28 * sidePreference, 0];
+    const forwardOffsets = [0, 0.12, -0.1, 0.22];
+    const candidates = [];
+    for (let forwardIndex = 0; forwardIndex < forwardOffsets.length; forwardIndex += 1) {
+      for (let sideIndex = 0; sideIndex < sideOffsets.length; sideIndex += 1) {
+        const forward = forwardOffsets[forwardIndex];
+        const side = sideOffsets[sideIndex];
+        candidates.push({
+          x: baseX + dirX * forward + sideX * side,
+          z: baseZ + dirZ * forward + sideZ * side,
+          penalty: forwardIndex * 0.015 + sideIndex * 0.008,
+        });
+      }
+    }
+    const sameTableSeats = this.cafe.seats.filter((candidate) => (
+      candidate.tableCenter.distanceToSquared(tc) < 0.0001
+    ));
+    const obstacles = sameTableSeats.flatMap((candidate) => [
+      ...(candidate.surfaceProps ?? []), ...(candidate.npcTableProps ?? []),
+    ]).filter((entry) => entry.object?.parent).map((entry) => ({
+      x: entry.object.position.x,
+      z: entry.object.position.z,
+      radius: entry.footprint ?? 0.07,
+    }));
+    const clear = seat.supportShape
+      ? findClearTabletopPoint(seat.supportShape, candidates, obstacles, 0.065)
+      : candidates[0];
+    const fallback = seat.supportShape
+      ? pullInsideShape(seat.supportShape, baseX, baseZ, 0.075)
+      : { x: baseX, z: baseZ };
     cup.position.set(
-      tc.x + (seat.pos.x - tc.x) * 0.45,
-      seat.tableTopY ?? 0.81,
-      tc.z + (seat.pos.z - tc.z) * 0.45,
+      clear?.x ?? fallback.x,
+      (seat.tableTopY ?? 0.81) + (procedural ? 0.05 : 0),
+      clear?.z ?? fallback.z,
     );
+    cup.userData.surfaceY = seat.tableTopY ?? 0.81;
+    cup.userData.surfaceName = 'patron drink';
     this.cafe.group.add(cup);
     patron.deliveredCup = cup;
+    patron._registerTableProp(seat, cup, 0.065, null, { movableForPlayer: true });
     return cup;
   }
 
@@ -3836,6 +3989,14 @@ export class CrowdSim {
         seated: npc.seatIndex >= 0,
       })),
       maxServiceDwell: this.maxServiceDwell ?? null,
+      seatedHandCups: this.npcs.filter((npc) => npc.state === 'sitting' && npc.hasCup).length,
+      waiter: this.waiter ? {
+        phase: this.waiter.phase,
+        seconds: +this.waiter.phaseT.toFixed(1),
+        hasTask: !!this.waiter.task,
+        x: +this.waiter.mesh.position.x.toFixed(2),
+        z: +this.waiter.mesh.position.z.toFixed(2),
+      } : null,
     };
   }
 

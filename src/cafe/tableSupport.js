@@ -214,6 +214,28 @@ export function pullInsideShape(shape, x, z, pad) {
   return { x: shape.center.x, z: shape.center.z };
 }
 
+// Pick the candidate that is both supported by the tabletop and furthest from
+// existing props. Callers provide a short, deterministic candidate list, so
+// this remains allocation-light and avoids running a physics solver in the
+// animation loop. A small `penalty` keeps the chosen point near the patron's
+// preferred reach when two positions offer similar clearance.
+export function findClearTabletopPoint(shape, candidates, obstacles = [], radius = 0.06, margin = 0.01) {
+  let best = null;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (!pointSupported(shape, candidate.x, candidate.z, radius + margin)) continue;
+    let clearance = Infinity;
+    for (const obstacle of obstacles) {
+      const distance = Math.hypot(candidate.x - obstacle.x, candidate.z - obstacle.z);
+      clearance = Math.min(clearance, distance - radius - (obstacle.radius ?? 0.06));
+    }
+    if (!Number.isFinite(clearance)) clearance = 1;
+    const score = clearance - (candidate.penalty ?? index * 0.002);
+    if (!best || score > best.score) best = { x: candidate.x, z: candidate.z, score, clearance };
+  }
+  return best;
+}
+
 // The support shape of a table blueprint entry (tables carry their shape
 // fields inline; this normalizes them for the geometry helpers above).
 export function tableSupportShape(table) {

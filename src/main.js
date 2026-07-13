@@ -546,8 +546,12 @@ function syncLaptopSurfaceProps() {
 
 function clearTablePropsForLaptop(seat, beside, npcProps = []) {
   // widest settings claim the first slots so a book never overlaps a card
-  const props = (seat.surfaceProps ?? [])
-    .filter((entry) => entry.object?.parent)
+  const movableNpcProps = npcProps.filter((entry) => entry.movableForPlayer);
+  const pinnedNpcProps = npcProps.filter((entry) => !entry.movableForPlayer);
+  const props = [
+    ...(seat.surfaceProps ?? []).filter((entry) => entry.object?.parent),
+    ...movableNpcProps,
+  ]
     .sort((a, b) => (b.footprint ?? 0.08) - (a.footprint ?? 0.08));
   const towardFarEdge = new THREE.Vector3()
     .subVectors(seat.tableCenter, playerLaptop.position)
@@ -565,17 +569,16 @@ function clearTablePropsForLaptop(seat, beside, npcProps = []) {
     );
     clampToTable(object.position, seat, entry.footprint ?? 0.08);
   });
-  // NPC props stay where their owners put them (the placement solver already
-  // guarantees a supported, collision-free spot) — they are never hidden, and
-  // never dragged around by the player's clearance. The player's cleared
-  // props route around them instead.
-  for (const entry of npcProps) {
+  // Large owned props (especially another laptop) stay pinned and visible;
+  // small drink props opt into the same gentle clearance motion as fixed
+  // décor, then restore to `home` when the player's MacBook closes.
+  for (const entry of pinnedNpcProps) {
     const object = entry.object;
     object.visible = true;
     object.position.copy(entry.home);
   }
-  relaxClearedProps(props, seat, npcProps);
-  finalizeClearedProps(props, seat, npcProps);
+  relaxClearedProps(props, seat, pinnedNpcProps);
+  finalizeClearedProps(props, seat, pinnedNpcProps);
   renderer.shadowMap.needsUpdate = true;
 }
 

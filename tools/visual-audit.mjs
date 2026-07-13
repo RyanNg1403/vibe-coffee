@@ -163,6 +163,7 @@ try {
     });`);
 
   const files = [];
+  const serviceChecks = {};
   async function capture(name, settleMilliseconds = 700) {
     await delay(settleMilliseconds);
     const { data } = await client.send('Page.captureScreenshot', {
@@ -210,11 +211,57 @@ try {
     await capture(`${THEMES[index]}-seat-last`);
     await client.evaluate('window.__vibe.place(0, 4.8, 0, 0.04)');
     await capture(`${THEMES[index]}-overview`);
+    // Service-area regression: seated patrons keep drinks on the table, while
+    // the floor waiter must either service a real task or move between bounded
+    // tidying stations instead of becoming a permanent counter mannequin.
+    await client.evaluate('window.__vibe.place(0, 1.65, 0, 0.04)');
+    const staffStart = await client.evaluate(`(() => {
+      const report = window.__vibe.crowd.dwellReport();
+      const waiter = window.__vibe.crowd.waiter;
+      return {
+        x: waiter?.mesh.position.x ?? 0,
+        z: waiter?.mesh.position.z ?? 0,
+        phase: waiter?.phase ?? null,
+        seatedHandCups: report.seatedHandCups,
+        staffUniforms: Boolean(
+          waiter?.mesh.getObjectByName('waiter-uniform')
+          && window.__vibe.crowd.barista?.mesh.getObjectByName('barista-uniform')
+        ),
+      };
+    })()`);
+    const staffResult = await retry(async () => {
+      const result = await client.evaluate(`(() => {
+        const waiter = window.__vibe.crowd.waiter;
+        const report = window.__vibe.crowd.dwellReport();
+        if (!waiter) return { moved: true, purposeful: true, phase: null, seatedHandCups: report.seatedHandCups };
+        const moved = Math.hypot(waiter.mesh.position.x - ${staffStart.x}, waiter.mesh.position.z - ${staffStart.z}) > 0.2;
+        const purposeful = moved || waiter.phase !== '${staffStart.phase}' || !!waiter.task;
+        return { moved, purposeful, phase: waiter.phase, seatedHandCups: report.seatedHandCups };
+      })()`);
+      if (!result.purposeful) throw new Error('waiter has not begun a service or tidying action');
+      return result;
+    }, `${THEMES[index]} purposeful waiter`, 140);
+    serviceChecks[THEMES[index]] = {
+      ...staffResult,
+      seatedHandCupsAtStart: staffStart.seatedHandCups,
+      passed: staffResult.purposeful
+        && staffStart.staffUniforms
+        && staffStart.seatedHandCups === 0
+        && staffResult.seatedHandCups === 0,
+    };
+    await capture(`${THEMES[index]}-service-staff`, 180);
     if (index < 3) {
       await client.evaluate('window.__vibe.place(4.4, 1.25, -Math.PI / 2, 0.22)');
       await capture(`${THEMES[index]}-right-wall`);
     }
   }
+  // Persist the focused NPC/service result before the longer door, rain and
+  // cadence scenarios. If an unrelated later performance gate is noisy on a
+  // particular machine, these screenshots and assertions remain inspectable.
+  await writeFile(
+    join(OUTPUT_DIR, 'service-checks.json'),
+    `${JSON.stringify({ serviceChecks, passed: Object.values(serviceChecks).every((check) => check.passed) }, null, 2)}\n`,
+  );
 
   // Follow one real street actor through the hinged door and back out. The
   // mesh UUID must remain identical across both ownership handoffs.
@@ -465,8 +512,12 @@ try {
     && autoMetrics.qualityMode === 'auto'
     && autoMetrics.effects === 0
     && autoMetrics.targetFps === 24
+    && Object.values(serviceChecks).every((check) => check.passed)
     && Object.values(continuityChecks).every(Boolean);
-  const manifest = { url: APP_URL, files, rainyMetrics, autoMetrics, cadenceState, continuityChecks, passed };
+  const manifest = {
+    url: APP_URL, files, rainyMetrics, autoMetrics, cadenceState,
+    serviceChecks, continuityChecks, passed,
+  };
   await writeFile(join(OUTPUT_DIR, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(JSON.stringify(manifest, null, 2));
   if (!passed) process.exitCode = 1;
