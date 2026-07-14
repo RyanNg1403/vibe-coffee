@@ -1228,7 +1228,6 @@ export function buildCafe(theme, models = null) {
     // main beams along x, slats along z — both yield the stair envelope so
     // nobody climbs through timber near the top of the flight
     const stairEnv = blueprint.decor.deck?.stair?.envelope ?? null;
-    const beamW = W / 2 - pergX0;
     for (const bz of [-D / 2 + 0.3, -D / 4, 0, D / 4, D / 2 - 0.3]) {
       const crossesStair = stairEnv && bz > stairEnv.z0 - 0.2 && bz < stairEnv.z1 + 0.2;
       const bx0 = crossesStair ? stairEnv.x1 + 0.2 : pergX0;

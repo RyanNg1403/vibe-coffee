@@ -218,7 +218,26 @@ dead: verify in-app), `ro-main-corner-nw` (half-occluded by the roaster drum).
 
 ---
 
-## 8. Recommended fix order
+## 8. Fixes applied on this branch (post-audit)
+
+All P1 findings were fixed and re-verified with fresh captures reviewed against the
+pre-fix baselines (`.venue-shots/verify-*`):
+
+| Finding | Fix | Verification |
+|---|---|---|
+| S1 skin-tone clothing | Removed skin-adjacent tans from `SHIRT`/`IMPORTED_OUTFITS`, clamped HSL lighten drift | PASS — no nude-reading NPC in any verify capture |
+| S2 embedded in armchair | Lounge seats approach/stand from the chair front; lounge-specific sit height | PASS — armchair occupants seated correctly |
+| S7 pets on tables | Pet wander targets validated against venue colliders (stale pre-rebuild spots dropped) | PASS — cat observed mid-floor |
+| G1/C9 pedestal stool + poses | Retired the static patron whose asset baked in its own chair | PASS — venue stools only at all window counters |
+| R1 staff-side patron | Waiter standby moved out of the rail slot (venue destination override by id); slot sealed by rail collider | pending re-capture confirmation |
+| M1/M6/M7 stage | Piano faces audience; mic boom at mouth height aimed at the singing spot; performer pinned to shirt-and-tie rig in charcoal; bass/stool clearances | PASS — all four confirmed vs baselines |
+| R2 menu board | Board mounted on a backer proud of the subway-tile courses (root cause: tile faces stood 0.179 proud and buried the board's lower third — the "clipped rows" and "black band" were occlusion) | pending re-capture confirmation |
+| T1/T2 terrace structure | Pergola bears on the deck fascia (floating edge posts removed); over-stair slat ends terminate on beams; pendant cords hang from the pergola plane, not the absent indoor ceiling; canopy posts get base plates | pending re-capture confirmation |
+
+Remaining P2 noted during verification: bar-stool sit poses keep near-straight legs that
+clip the stool footprint (visible up close at window counters).
+
+## 8b. Recommended fix order
 
 1. **S1/S2/S7 + G1 + R1 + M1/M6/M7 + T1 (P1s):** NPC wardrobe palette (exclude skin tones from
    clothing tints), seated/standing pose resolution vs furniture, pet destination filter (never
