@@ -340,6 +340,15 @@ export class PetSystem {
     if (theme.cat !== undefined) {
       const cat = clonePet(models, 'pet_cat');
       if (cat) {
+        // the asset's atlas is flat grey and read as an unshaded placeholder
+        // (audit S8); tint it with the venue's cat colour so each café keeps
+        // its own warm-coated resident
+        const tint = new THREE.Color(theme.cat).lerp(new THREE.Color(0xffffff), 0.35);
+        cat.mesh.traverse((o) => {
+          if (!o.isMesh) return;
+          o.material = o.material.clone();
+          o.material.color.copy(tint);
+        });
         const spot = pick(clearFloorSpots(cafe));
         cat.mesh.position.set(spot.x, 0, spot.z);
         cat.mesh.rotation.y = rand(0, Math.PI * 2);

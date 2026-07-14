@@ -3045,7 +3045,7 @@ export function buildCafe(theme, models = null) {
   } else if (theme.id === 'midnight') {
     // deep plum velvet with a slim bronze frame: the old near-black panels
     // rendered as featureless void rectangles beside the menu (audit M4)
-    const velvet = new THREE.MeshStandardMaterial({ color: 0x3d2b34, roughness: 1, map: clothTex, bumpMap: clothTex, bumpScale: 0.008 });
+    const velvet = new THREE.MeshStandardMaterial({ color: 0x533c47, roughness: 1, map: clothTex, bumpMap: clothTex, bumpScale: 0.008 });
     const panelFrameMat = new THREE.MeshStandardMaterial({ color: 0x6a563a, roughness: 0.45, metalness: 0.6 });
     for (const x of midnightWallLayout().panelCenters) {
       const frame = box(0.78, 1.31, 0.04, panelFrameMat);
@@ -3531,8 +3531,11 @@ export function buildCafe(theme, models = null) {
     if (theme.id === 'midnight') {
       // two dim warm pools below the new entrance sconces and one over the
       // booth corner: guests stay readable while the stage stays brightest
-      for (const [lx, lz, reach] of [[-2.4, 5.6, 4.5], [3.2, 5.6, 4.5], [7.7, 4.4, 4.0]]) {
-        const pool = new THREE.PointLight(0xffb066, 1.6, reach);
+      // intensity in the renderer's physical units — the stage wash runs at
+      // 7.5, so anything much below ~5 vanished into the dark floor (first
+      // pass at 1.6 measured no change in front-third luminance)
+      for (const [lx, lz, reach] of [[-2.4, 5.6, 5.5], [3.2, 5.6, 5.5], [7.7, 4.4, 5.0]]) {
+        const pool = new THREE.PointLight(0xffb066, 5.5, reach);
         pool.position.set(lx, 2.35, lz);
         group.add(pool);
       }

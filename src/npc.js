@@ -964,7 +964,11 @@ class NPC {
   constructor(sim, opts = {}) {
     this.sim = sim;
     const sourceWalker = opts.sourceWalker ?? null;
-    const willSit = (opts.seatIndex ?? -1) >= 0;
+    // opts.willSit lets spawners that queue an actor before seating (queue
+    // seeding) demand a sit-capable model up front — heroes have no sit clip
+    // and must never end up routed to a chair (P2 regression: a hero seeded
+    // into the queue later "sat" by standing through the furniture)
+    const willSit = opts.willSit ?? (opts.seatIndex ?? -1) >= 0;
     // Imported, skinned people are the default. The procedural actor remains a
     // true resilience fallback for failed/missing assets; seated models use an
     // authored clip when present and the compatible leg-bone pose otherwise.
@@ -3373,7 +3377,7 @@ export class CrowdSim {
 
   _prequeue() {
     if (this.npcs.length >= this.maxCrowd) return;
-    const npc = new NPC(this, { silent: true });
+    const npc = new NPC(this, { silent: true, willSit: true });
     const slot = this.queueSlot(this.queue.length);
     npc.mesh.position.set(slot.x, 0, slot.z);
     npc._joinQueue();
