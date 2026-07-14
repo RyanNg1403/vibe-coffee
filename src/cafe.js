@@ -2433,12 +2433,15 @@ export function buildCafe(theme, models = null) {
       seat.isBar = false;
       if (lounge) {
         // Armchairs are deep: the default behind-the-chair approach anchor
-        // stands an actor inside the backrest (audit S2). Approach and stand
-        // up on the clear floor between chair and side table instead, and
-        // let sitYFor drop the hips to the lower cushion.
+        // stands an actor inside the backrest (audit S2), and the floor
+        // between chair and side table sits inside the table collider, so an
+        // anchor there stalls the walker against the table. Approach from
+        // the chair's open side instead, and let sitYFor drop the hips to
+        // the lower cushion.
         seat.isLounge = true;
+        const toTable = new THREE.Vector3(tx - px, 0, tz - pz).normalize();
         seat.approach = new THREE.Vector3(
-          THREE.MathUtils.lerp(px, tx, 0.45), baseY, THREE.MathUtils.lerp(pz, tz, 0.45));
+          px + toTable.z * 0.55, baseY, pz - toTable.x * 0.55);
       }
       // exact rotated tabletop shape (plan §9): placement solvers use this
       // instead of the conservative inscribed disc
