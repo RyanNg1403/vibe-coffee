@@ -226,16 +226,20 @@ pre-fix baselines (`.venue-shots/verify-*`):
 | Finding | Fix | Verification |
 |---|---|---|
 | S1 skin-tone clothing | Removed skin-adjacent tans from `SHIRT`/`IMPORTED_OUTFITS`, clamped HSL lighten drift | PASS — no nude-reading NPC in any verify capture |
-| S2 embedded in armchair | Lounge seats approach/stand from the chair front; lounge-specific sit height | PASS — armchair occupants seated correctly |
+| S2 embedded in armchair | Lounge seats approach/stand beside the chair (a first front-of-chair anchor landed inside the table collider and stalled a walker against the player's table — caught and corrected during verification); lounge-specific sit height | PASS — re-verified 4/4 at both lounge seats and wider views |
 | S7 pets on tables | Pet wander targets validated against venue colliders (stale pre-rebuild spots dropped) | PASS — cat observed mid-floor |
 | G1/C9 pedestal stool + poses | Retired the static patron whose asset baked in its own chair | PASS — venue stools only at all window counters |
-| R1 staff-side patron | Waiter standby moved out of the rail slot (venue destination override by id); slot sealed by rail collider | pending re-capture confirmation |
+| R1 staff-side patron | Root cause: the waiter reads her standby from `serviceCounter.js`'s semantic anchors, not blueprint destinations — that anchor is now venue-aware and the Roastery waiter holds by the pickup end; the rail-to-glass slot is also sealed by the rail collider | PASS — slot empty in all re-captured views and rail seats; waiter observed at the pickup end |
 | M1/M6/M7 stage | Piano faces audience; mic boom at mouth height aimed at the singing spot; performer pinned to shirt-and-tie rig in charcoal; bass/stool clearances | PASS — all four confirmed vs baselines |
-| R2 menu board | Board mounted on a backer proud of the subway-tile courses (root cause: tile faces stood 0.179 proud and buried the board's lower third — the "clipped rows" and "black band" were occlusion) | pending re-capture confirmation |
-| T1/T2 terrace structure | Pergola bears on the deck fascia (floating edge posts removed); over-stair slat ends terminate on beams; pendant cords hang from the pergola plane, not the absent indoor ceiling; canopy posts get base plates | pending re-capture confirmation |
+| R2 menu board | Board mounted on a backer proud of the subway-tile courses (root cause: tile faces stood 0.179 proud and buried the board's lower third — the "clipped rows" and "black band" were occlusion); dot leaders added to bind each price to its item | PASS — all rows + special line readable, no artifact band. A reported "price row shift" was adjudicated as perspective shear only (leaders trace to the correct prices; texture proven correct) |
+| T1/T2 terrace structure | Pergola bears on the deck fascia (floating edge posts removed); over-stair slat ends terminate on beams; pendant cords hang from the pergola plane, not the absent indoor ceiling; canopy posts get base plates + heavier gauge | PASS — all four confirmed against baselines, including pixel-diff checks; stair/rails unchanged |
 
-Remaining P2 noted during verification: bar-stool sit poses keep near-straight legs that
-clip the stool footprint (visible up close at window counters).
+Remaining P2s noted during verification: bar-stool sit poses keep near-straight legs that
+clip the stool footprint (visible up close at window counters); Roastery seats `bar-l-s1`
+and `bar-r-s3` were NPC-occupied in the final capture run (laptop check covered by the
+earlier run); one Terrace corner camera (`te-upper-room-corner-se`) still needs smarter
+placement. Verification evidence: `.venue-shots/verify-midnight/`, `verify-goldenhour/`,
+`verify3-gh/`, `verify-ro-full/`, `verify2-terrace/`, `verify2-terrace-corners/`.
 
 ## 8b. Recommended fix order
 
