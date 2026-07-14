@@ -2519,9 +2519,9 @@ class Performer {
     const headX = mic.x + Math.cos(boomRot) * 0.34;
     const headZ = mic.z - Math.sin(boomRot) * 0.34;
     this.micPos = new THREE.Vector3(
-      headX - Math.sin(this.faceYaw) * 0.26,
+      headX - Math.sin(this.faceYaw) * 0.34,
       stage.height,
-      headZ - Math.cos(this.faceYaw) * 0.26);
+      headZ - Math.cos(this.faceYaw) * 0.34);
     this.restPos = new THREE.Vector3(stage.restSpot.x, 0, stage.restSpot.z);
     // exit route: mic -> platform front corner -> floor beside the platform
     this.exitPath = [

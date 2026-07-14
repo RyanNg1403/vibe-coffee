@@ -1239,7 +1239,10 @@ export function buildCafe(theme, models = null) {
     for (let sx = pergX0 + 0.35; sx < W / 2; sx += 0.85) {
       const overStair = stairEnv && sx > stairEnv.x0 - 0.15 && sx < stairEnv.x1 + 0.15;
       if (overStair) {
-        for (const [z0, z1] of [[-D / 2, stairEnv.z0 - 0.3], [stairEnv.z1 + 0.3, D / 2]]) {
+        // the cut ends terminate ON the quarter-span beams, not mid-air just
+        // past the stair — free-hanging strip ends at slat height read as
+        // stray floating slabs from stair-top cameras (audit T1)
+        for (const [z0, z1] of [[-D / 2, -D / 4 + 0.05], [D / 4 - 0.05, D / 2]]) {
           const piece = box(0.07, 0.05, z1 - z0, woodMat);
           piece.position.set(sx, pergY + 0.19, (z0 + z1) / 2);
           group.add(piece);
@@ -2119,10 +2122,20 @@ export function buildCafe(theme, models = null) {
       bag.position.set(-1.5 + i * 0.3, 1.83, -D / 2 + 0.25);
       group.add(bag);
     }
+    // The roastery's subway-tile courses stand 0.179 proud of the wall and
+    // used to bury the board's lower third — the dark face read through the
+    // mortar gaps as a black band and cut the bottom rows (audit R2). Mount
+    // the board on a slim backer clear of whichever cladding the venue has.
+    const menuZ = -D / 2 + (theme.id === 'roastery' ? 0.21 : 0.09);
     const menu = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 1.4),
       new THREE.MeshBasicMaterial({ map: track(menuBoardTexture(theme.id)) }));
-    menu.position.set(2.2, 2.45, -D / 2 + 0.09);
+    menu.position.set(2.2, 2.45, menuZ);
     group.add(menu);
+    if (theme.id === 'roastery') {
+      const backer = box(2.18, 1.48, 0.04, woodDarkMat);
+      backer.position.set(2.2, 2.45, menuZ - 0.025);
+      group.add(backer);
+    }
 
     // POS details, pickup tray + bell, espresso tools, cup station, and the
     // dirty-dish return, plus the semantic service anchors (see the module)
@@ -3863,8 +3876,12 @@ export function buildCafe(theme, models = null) {
     // upper-deck tables sit above the pendant plane; their light comes from
     // the canopy, rail LEDs and planter pools instead of a cord through the slab
     if (t.baseY > 0) return;
-    const cord = cyl(0.008, 0.008, H - theme.lampY, woodDarkMat, 6);
-    cord.position.set(t.x, theme.lampY + (H - theme.lampY) / 2, t.z);
+    // outdoors the cord hangs from the pergola beam plane, not the (absent)
+    // indoor ceiling — full-height cords pierced up through the slats and
+    // read as floating rods from the deck (audit T2)
+    const cordTop = theme.openAir ? 3.16 : H;
+    const cord = cyl(0.008, 0.008, cordTop - theme.lampY, woodDarkMat, 6);
+    cord.position.set(t.x, theme.lampY + (cordTop - theme.lampY) / 2, t.z);
     group.add(cord);
     if (theme.pendant === 'bulb') {
       // industrial: bare Edison bulb under a small metal disc
@@ -4273,8 +4290,11 @@ export function buildCafe(theme, models = null) {
   }
 
   // Everything is placed — fold the static decor into per-material meshes.
-  // The animate() loop only ever touches the roots excluded here.
-  mergeStaticDecor(group, [passingCar, cat, clockGroup, fan, vinylDisc, neonMesh, entrance?.root]);
+  // The animate() loop only ever touches the roots excluded here. `?no-merge`
+  // keeps individual meshes addressable for scene-debugging probes.
+  if (!new URLSearchParams(window.location.search).has('no-merge')) {
+    mergeStaticDecor(group, [passingCar, cat, clockGroup, fan, vinylDisc, neonMesh, entrance?.root]);
+  }
 
   return {
     group, seats, seatMeshes, nav, colliders, theme, entrance, serviceAnchors, blueprint,

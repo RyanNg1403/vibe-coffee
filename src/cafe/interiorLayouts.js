@@ -559,7 +559,7 @@ const midnight = makeVenue({
         piano: { x: 7.45, z: -5.55, rot: -0.95 },
         // rot points the boom back toward the singing spot behind it
         mic: { x: 5.75, z: -4.85, rot: 0.89 },
-        bass: { x: 6.6, z: -6.05, rot: 0.5 },
+        bass: { x: 6.3, z: -6.25, rot: 0.5 },
       },
       restSpot: { x: 8.0, z: -3.62 },
       speakers: [{ x: 5.15, z: -4.55 }, { x: 8.25, z: -4.5 }],
