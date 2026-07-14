@@ -72,6 +72,13 @@ export function menuBoardTexture(themeId) {
       g.fillText(name, 34, y);
       g.textAlign = 'right';
       g.fillText(price, w - 34, y);
+      // dot leaders bind each price to its item at oblique viewing angles,
+      // where column foreshortening otherwise misregisters the rows
+      const leaderStart = 34 + g.measureText(name).width + 10;
+      const leaderEnd = w - 34 - g.measureText(price).width - 10;
+      g.fillStyle = 'rgba(232,220,192,0.35)';
+      for (let dot = leaderStart; dot < leaderEnd; dot += 9) g.fillRect(dot, y - 3, 2, 2);
+      g.fillStyle = '#e8dcc0';
     });
     g.fillStyle = '#d8b26a';
     g.font = 'italic 15px Georgia';
@@ -84,7 +91,7 @@ export function menuBoardTexture(themeId) {
 // the future waiter reserve these, and audio positions derive from them so
 // sound and visible action cannot drift apart. Coordinates follow the
 // counter layout in cafe.js (row at z = -D/2 + 1.15).
-export function serviceAnchorsFor(D) {
+export function serviceAnchorsFor(D, themeId = null) {
   const counterZ = -D / 2 + 1.15;
   const staffZ = -D / 2 + 0.6;
   const customerZ = -D / 2 + 2.2;
@@ -95,7 +102,12 @@ export function serviceAnchorsFor(D) {
     pastryCase: new THREE.Vector3(-3.9, 0, staffZ),
     restock: new THREE.Vector3(0.4, 0, staffZ),
     dirtyDish: new THREE.Vector3(4.0, 0, -D / 2 + 2.6),
-    waiterStandby: new THREE.Vector3(-4.6, 0, -D / 2 + 2.5),
+    // the Roastery's tasting rail occupies the shared standby spot — its
+    // waiter holds near the pickup end instead (audit R1: she read as a
+    // patron wedged between the rail and the roasting-lab glass)
+    waiterStandby: themeId === 'roastery'
+      ? new THREE.Vector3(-3.7, 0, -D / 2 + 2.2)
+      : new THREE.Vector3(-4.6, 0, -D / 2 + 2.5),
     // audio emitter positions (world, with height) derived from the same rows
     audio: {
       register: new THREE.Vector3(2.2, 1.1, counterZ),
@@ -245,5 +257,5 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
   dishSign.position.set(standX, 0.62, standZ + 0.215);
   group.add(dishSign);
 
-  return { anchors: serviceAnchorsFor(D), dishReturnCollider: { x: standX, z: standZ, r: 0.42 } };
+  return { anchors: serviceAnchorsFor(D, theme.id), dishReturnCollider: { x: standX, z: standZ, r: 0.42 } };
 }
