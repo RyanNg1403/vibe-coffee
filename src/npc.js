@@ -18,16 +18,20 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const SKIN_TONES = [0xf1c9a5, 0xe0ac7e, 0xc68a5b, 0x9c6b43, 0x71492c, 0x513425];
-const SHIRT = [0x7a5c8f, 0x4a7a6f, 0xa85751, 0x4f6d9c, 0xb08d4f, 0x5a5f66, 0x8a4a68, 0x3f6b4f, 0x946b52, 0x6b7f5a];
+// No low-saturation orange/tan tones here: lightened they read as bare skin
+// (audit S1 — patrons looked shirtless/trouserless at a glance).
+const SHIRT = [0x7a5c8f, 0x4a7a6f, 0xa85751, 0x4f6d9c, 0xb08d4f, 0x5a5f66, 0x8a4a68, 0x3f6b4f, 0x4e6e78, 0x6b7f5a];
 const PANTS = [0x37414f, 0x4a4038, 0x2f3438, 0x5a4a5f, 0x39504a, 0x54452f];
 const HAIR = [0x241a12, 0x3f2a17, 0x6b4a26, 0x8a8a8a, 0x151515, 0x743e21, 0x4a3b32];
 
 // Muted, natural-dye colours keep the imported characters in the same visual
 // world as the café.  A controlled palette also prevents the old unrestricted
 // hue rotation from producing fluorescent suits or green hair.
+// Skin-adjacent khaki/tan entries removed for the same S1 reason — a muted
+// tan garment plus the random lighten offset rendered as a bare torso.
 const IMPORTED_OUTFITS = [
-  0x334653, 0x5b3d35, 0x435744, 0x665345, 0x51465f,
-  0x7a6750, 0x3e5557, 0x6b4149, 0x54585f, 0x796f58,
+  0x334653, 0x5b3d35, 0x435744, 0x4e5a48, 0x51465f,
+  0x5d4a57, 0x3e5557, 0x6b4149, 0x54585f, 0x556455,
 ];
 const IMPORTED_HAIR = [0x17120f, 0x2b2019, 0x49301f, 0x6a4930, 0x8a8177];
 
@@ -432,7 +436,9 @@ class SkinnedAvatar {
     // textures and makes a balanced rotation of four meshes read as a crowd.
     const appearanceIndex = options.appearanceIndex ?? Math.floor(rand(0, IMPORTED_OUTFITS.length));
     const keySalt = Math.max(0, key.charCodeAt(key.length - 1) - 97);
-    const outfit = new THREE.Color(IMPORTED_OUTFITS[(appearanceIndex + keySalt * 2) % IMPORTED_OUTFITS.length]);
+    // role wardrobes (e.g. the stage performer) pin the outfit tint
+    const outfit = new THREE.Color(options.outfit
+      ?? IMPORTED_OUTFITS[(appearanceIndex + keySalt * 2) % IMPORTED_OUTFITS.length]);
     const skinTone = new THREE.Color(SKIN_TONES[(appearanceIndex * 5 + keySalt) % SKIN_TONES.length]);
     const hairTone = new THREE.Color(IMPORTED_HAIR[(appearanceIndex * 3 + keySalt) % IMPORTED_HAIR.length]);
     mesh.traverse((o) => {
@@ -476,10 +482,12 @@ class SkinnedAvatar {
             } else {
               // Related, rather than identical, tones preserve multi-material
               // garment details while keeping each outfit coherent.
+              // lightness drifts mostly down — lightening muted garment tones
+              // pushes them toward flesh tones (audit S1)
               material.color.copy(outfit).offsetHSL(
                 materialIndex * 0.025 - 0.025,
                 rand(-0.05, 0.05),
-                rand(-0.1, 0.1),
+                rand(-0.1, 0.03),
               );
               material.roughness = Math.max(0.72, material.roughness ?? 0.82);
             }
@@ -925,6 +933,9 @@ function makeDog() {
 // hips carried up to the stool top; regular chairs sink slightly instead
 function sitYFor(npc, seat) {
   const elevated = !!seat.isBar;
+  // lounge armchair cushions sit ~0.11 lower than dining chairs (audit S2:
+  // dining-height sit poses perched actors above the armrests)
+  if (seat.isLounge) return npc.avatar ? (npc.avatar.hasSitClip ? -0.06 : -0.49) : -0.21;
   if (!npc.avatar) return elevated ? 0.17 : -0.10;
   // measured: authored sit poses put the hip bone ~0.10 below these offsets
   // plus the cushion top, which reads as sinking through the chair
@@ -2487,17 +2498,30 @@ class Performer {
     const stage = sim.cafe.blueprint.decor.stage;
     this.stage = stage;
     if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, sim.pickStandardCharacter(), {
+      // the vocalist dresses for the stage: prefer the shirt-and-tie model
+      // with a uniform charcoal wardrobe, never a random casual patron look
+      // (audit M7: shorts and bare legs read as a patron who wandered on)
+      const stageKey = sim.charKeys.includes('char_j') ? 'char_j' : sim.pickStandardCharacter();
+      this.avatar = new SkinnedAvatar(sim.models, stageKey, {
         appearanceIndex: sim.nextAppearanceIndex(),
+        outfit: 0x24272e,
       });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
     }
     const mic = stage.anchors.mic;
-    // stand just behind the microphone, facing the audience across the room
-    this.micPos = new THREE.Vector3(mic.x - 0.14, stage.height, mic.z - 0.14);
     this.faceYaw = Math.atan2(-mic.x, 2.2 - mic.z);
+    // the boom (anchor rot) points back toward the singing spot: stand there,
+    // mouth just behind the capsule, facing the audience across the room
+    // (audit M1: the old spot put the mic behind and above the singer's head)
+    const boomRot = mic.rot ?? 0;
+    const headX = mic.x + Math.cos(boomRot) * 0.34;
+    const headZ = mic.z - Math.sin(boomRot) * 0.34;
+    this.micPos = new THREE.Vector3(
+      headX - Math.sin(this.faceYaw) * 0.26,
+      stage.height,
+      headZ - Math.cos(this.faceYaw) * 0.26);
     this.restPos = new THREE.Vector3(stage.restSpot.x, 0, stage.restSpot.z);
     // exit route: mic -> platform front corner -> floor beside the platform
     this.exitPath = [
@@ -3320,7 +3344,9 @@ export class CrowdSim {
     // through the doorway without creating and destroying character clones.
     this.outside = new OutsideLife(cafe, models, this.standardCharKeys);
     this.staticPatrons = [];
-    this._placeStaticPatron();
+    // The static seated patron is retired (audit G1): her asset bakes a modern
+    // pedestal chair into the mesh, which replaced a venue stool in every café
+    // style and clipped her pose. Live NPCs already occupy window bars.
     this.spawnCooldown = rand(3, 7);
     this.spotSyncT = 0;
 
@@ -3373,23 +3399,6 @@ export class CrowdSim {
   pickStandardCharacter() {
     const pool = this.standardCharKeys.length ? this.standardCharKeys : this.charKeys;
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-  }
-
-  _placeStaticPatron() {
-    const model = cloneModel(this.models, 'patron_seated_female');
-    if (!model) return;
-    // Her authored asset includes a matching pedestal chair, so reserve and
-    // replace one window-bar stool. Garden Terrace has no window bar and simply
-    // skips this guest rather than forcing a tall stool against a low table.
-    const seatIndex = this.cafe.seats.findIndex((seat) => seat.isBar && seat.levelId !== 'upper');
-    if (seatIndex < 0) return;
-    const seat = this.cafe.seats[seatIndex];
-    this.takenSeats.add(seatIndex);
-    seat.chair.visible = false;
-    model.position.set(seat.pos.x, 0, seat.pos.z);
-    model.rotation.y = seat.facingYaw;
-    this.cafe.group.add(model);
-    this.staticPatrons.push({ model, seatIndex });
   }
 
   nextAppearanceIndex() {

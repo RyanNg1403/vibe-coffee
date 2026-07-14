@@ -8,17 +8,29 @@ import { clonePet } from './modelLoader.js';
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-// proven collision-free floor spots shared by all four rooms (the old cat's
-// waypoint list, extended) — targets only; steering still avoids furniture
+// candidate floor spots shared by all four rooms (the old cat's waypoint
+// list, extended). These predate the blueprint rebuild, so each venue must
+// filter them against its own colliders (audit S7/S8: stale spots now land
+// inside furniture, leaving a stalled pet clipping through a chair or table).
 const FLOOR_SPOTS = [
   { x: 4.9, z: -0.2 }, { x: -5.4, z: 1.8 }, { x: 1.4, z: 4.1 },
   { x: -1.2, z: -3.6 }, { x: 6.2, z: 2.6 }, { x: -6.4, z: -2.2 },
   { x: 0.4, z: 1.2 }, { x: -3.2, z: 4.4 },
 ];
 
+// a spot is only a valid wander target if it clears every ground collider by
+// a pet-body margin — the jitter added at walk time stays inside that margin
+function clearFloorSpots(cafe) {
+  const clear = FLOOR_SPOTS.filter((s) => !cafe.colliders.some((c) =>
+    (c.levelId ?? 'ground') === 'ground' && c.r
+    && Math.hypot(s.x - c.x, s.z - c.z) < c.r + 0.55));
+  return clear.length ? clear : FLOOR_SPOTS;
+}
+
 class Pet {
   constructor(cafe, kind, mesh, animations) {
     this.cafe = cafe;
+    this.spots = clearFloorSpots(cafe);
     this.kind = kind; // 'cat' | 'dog'
     this.mesh = mesh;
     this.mixer = new THREE.AnimationMixer(mesh);
@@ -196,8 +208,8 @@ class CatPet extends Pet {
       this._setMode('lie', 0.8); // properly lies down and holds the doze
       if (nearPlayer) { this.state = 'watchPlayer'; this.stateT = 0; }
       else if (this.stateT > rand(16, 32)) {
-        const s = pick(FLOOR_SPOTS);
-        this._walkTo(s.x + rand(-0.4, 0.4), s.z + rand(-0.4, 0.4));
+        const s = pick(this.spots);
+        this._walkTo(s.x + rand(-0.25, 0.25), s.z + rand(-0.25, 0.25));
       }
       return;
     }
@@ -208,8 +220,8 @@ class CatPet extends Pet {
       this._tryVoice('chirp', 'meow');
     }
     else if (this.stateT > rand(4, 9)) {
-      const s = pick(FLOOR_SPOTS);
-      this._walkTo(s.x + rand(-0.4, 0.4), s.z + rand(-0.4, 0.4));
+      const s = pick(this.spots);
+      this._walkTo(s.x + rand(-0.25, 0.25), s.z + rand(-0.25, 0.25));
     }
   }
 
@@ -328,7 +340,7 @@ export class PetSystem {
     if (theme.cat !== undefined) {
       const cat = clonePet(models, 'pet_cat');
       if (cat) {
-        const spot = pick(FLOOR_SPOTS);
+        const spot = pick(clearFloorSpots(cafe));
         cat.mesh.position.set(spot.x, 0, spot.z);
         cat.mesh.rotation.y = rand(0, Math.PI * 2);
         cat.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });

@@ -310,7 +310,15 @@ function makeVenue({
     entranceSurfaceId: `${prefix}-ground-floor`,
     tables, seats,
     serviceZones: [serviceCounterZone(prefix)],
-    npcDestinations: [...commonDestinations(prefix), ...extraDestinations],
+    // a venue extra with a matching id replaces the shared destination — the
+    // shared coordinates predate venue-specific architecture (audit R1: the
+    // Roastery's shared waiter-standby landed inside the tasting-rail slot)
+    npcDestinations: extraDestinations.reduce((dests, extra) => {
+      const shared = dests.findIndex((d) => d.id === extra.id);
+      if (shared >= 0) dests[shared] = extra;
+      else dests.push(extra);
+      return dests;
+    }, [...commonDestinations(prefix)]),
     npcForbiddenZones: [staffOnlyZone(prefix), ...extraForbiddenZones],
     colliders: [
       ...tableColliders(tables),
@@ -433,13 +441,21 @@ const roastery = makeVenue({
   extraColliders: [
     { id: 'ro-partition-col', levelId: 'ground', rect: { x0: -5.32, x1: -5.12, z0: -HALF_D, z1: -1.0 } },
     { id: 'ro-partition-return-col', levelId: 'ground', rect: { x0: -HALF_W, x1: -5.12, z0: -1.1, z1: -0.9 } },
-    { id: 'ro-tasting-rail-col', levelId: 'ground', rect: { x0: -4.85, x1: -4.35, z0: -3.95, z1: -1.25 } },
+    // the rail collider reaches the partition glass: the 35 cm slot between
+    // them held no destination or purpose, yet actors could be steered into it
+    // and hold there against the lab (audit R1)
+    { id: 'ro-tasting-rail-col', levelId: 'ground', rect: { x0: -5.15, x1: -4.35, z0: -3.95, z1: -1.25 } },
   ],
   extraForbiddenZones: [
     {
       id: 'ro-production-zone', levelId: 'ground', rect: RO_PRODUCTION,
       appliesTo: 'patron', exceptRoles: ['barista', 'waiter', 'roaster'],
     },
+  ],
+  extraDestinations: [
+    // the shared standby coordinates sit inside the tasting-rail slot in this
+    // floor plan; hold near the pickup end of the counter instead (audit R1)
+    { id: 'ro-waiter-standby', levelId: 'ground', x: -3.7, z: -4.55, role: 'waiter', purpose: 'staff' },
   ],
   lighting: { pendant: 'bulb', lampY: 2.4 },
   decor: {
@@ -537,8 +553,12 @@ const midnight = makeVenue({
     stage: {
       rect: MI_STAGE, height: 0.18,
       anchors: {
-        piano: { x: 7.45, z: -5.55, rot: -2.35 },
-        mic: { x: 5.75, z: -4.85, rot: 0.35 },
+        // keyboard and bench face the room (audit M6: at -2.35 the keys and
+        // bench pointed into the curtain — unplayable — while the tall back
+        // panel walled off stage centre from the right-hand tables)
+        piano: { x: 7.45, z: -5.55, rot: -0.95 },
+        // rot points the boom back toward the singing spot behind it
+        mic: { x: 5.75, z: -4.85, rot: 0.89 },
         bass: { x: 6.6, z: -6.05, rot: 0.5 },
       },
       restSpot: { x: 8.0, z: -3.62 },

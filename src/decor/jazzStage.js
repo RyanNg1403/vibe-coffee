@@ -48,14 +48,16 @@ export function buildJazzStage({ group, spec, helpers, mats, rand }) {
   const micPole = cyl(0.016, 0.016, 1.45, metalMat, 8);
   micPole.position.y = 0.74;
   micGroup.add(micPole);
+  // boom drops to mouth height — the singer stands just behind the capsule
+  // along the boom's +x direction (audit M1: it used to float over their head)
   const boom = cyl(0.012, 0.012, 0.4, metalMat, 8);
   boom.rotation.z = 1.15;
-  boom.position.set(0.16, 1.5, 0);
+  boom.position.set(0.16, 1.42, 0);
   micGroup.add(boom);
   const micHead = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), dark);
   micHead.scale.set(1, 1.4, 1);
   micHead.rotation.z = 1.15;
-  micHead.position.set(0.34, 1.56, 0);
+  micHead.position.set(0.34, 1.47, 0);
   micGroup.add(micHead);
   micGroup.position.set(spec.anchors.mic.x, h, spec.anchors.mic.z);
   micGroup.rotation.y = spec.anchors.mic.rot ?? 0;
@@ -72,7 +74,9 @@ export function buildJazzStage({ group, spec, helpers, mats, rand }) {
     leg.rotation.x = -Math.sin(angle) * 0.12;
     stool.add(leg);
   }
-  stool.position.set(spec.anchors.mic.x + 0.45, h, spec.anchors.mic.z - 0.55);
+  // singer's rest stool sits stage-left of the mic, clear of the singing spot
+  // behind the boom and of the piano bench (audit M1/M6 repositioning)
+  stool.position.set(spec.anchors.mic.x - 0.6, h, spec.anchors.mic.z - 0.6);
   stage.add(stool);
 
   // upright bass resting on a stand

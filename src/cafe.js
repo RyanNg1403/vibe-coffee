@@ -1203,14 +1203,23 @@ export function buildCafe(theme, models = null) {
   } else {
     const pergY = 3.15;
     // the pergola covers the courtyard; where the blueprint raises an upper
-    // deck (west wing) the deck structure takes over and the pergola stops
-    const deckEdgeX = blueprint.decor.deck ? -4.35 : null;
+    // deck (west wing) its beams bear on the deck fascia like a ledger — the
+    // old row of freestanding posts along the deck edge topped out 10 cm
+    // below deck level and read as floating capped rods skewering the rail
+    // planters from above (audit T1)
+    const deckEdgeX = blueprint.decor.deck ? -4.56 : null;
     const pergX0 = deckEdgeX ?? -W / 2 + 0.3;
-    const postSpots = [
-      [pergX0, -D / 2 + 0.3], [W / 2 - 0.3, -D / 2 + 0.3],
-      [pergX0, D / 2 - 0.3], [W / 2 - 0.3, D / 2 - 0.3],
-      [pergX0, 0], [W / 2 - 0.3, 0],
-    ];
+    const postSpots = deckEdgeX
+      ? [
+        [W / 2 - 0.3, -D / 2 + 0.3],
+        [W / 2 - 0.3, D / 2 - 0.3],
+        [W / 2 - 0.3, 0],
+      ]
+      : [
+        [pergX0, -D / 2 + 0.3], [W / 2 - 0.3, -D / 2 + 0.3],
+        [pergX0, D / 2 - 0.3], [W / 2 - 0.3, D / 2 - 0.3],
+        [pergX0, 0], [W / 2 - 0.3, 0],
+      ];
     for (const [px, pz] of postSpots) {
       const post = box(0.16, pergY, 0.16, woodDarkMat);
       post.position.set(px, pergY / 2, pz);
@@ -2410,6 +2419,15 @@ export function buildCafe(theme, models = null) {
       seat.tableId = blueprintTable.id;
       seat.levelId = blueprintSeat.levelId;
       seat.isBar = false;
+      if (lounge) {
+        // Armchairs are deep: the default behind-the-chair approach anchor
+        // stands an actor inside the backrest (audit S2). Approach and stand
+        // up on the clear floor between chair and side table instead, and
+        // let sitYFor drop the hips to the lower cushion.
+        seat.isLounge = true;
+        seat.approach = new THREE.Vector3(
+          THREE.MathUtils.lerp(px, tx, 0.45), baseY, THREE.MathUtils.lerp(pz, tz, 0.45));
+      }
       // exact rotated tabletop shape (plan §9): placement solvers use this
       // instead of the conservative inscribed disc
       seat.supportShape = tableSupportShape(blueprintTable);

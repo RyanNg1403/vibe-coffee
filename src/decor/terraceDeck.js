@@ -294,9 +294,14 @@ export function buildTerraceDeck({ group, spec, helpers, mats, models, rand }) {
   const canopy = spec.canopy;
   for (const [px, pz] of [[canopy.x0 + 0.2, canopy.z0 + 0.2], [canopy.x1 - 0.2, canopy.z0 + 0.2],
     [canopy.x0 + 0.2, canopy.z1 - 0.2], [canopy.x1 - 0.2, canopy.z1 - 0.2]]) {
-    const post = cyl(0.05, 0.05, canopy.y - deckY, bronze, 8);
+    // a visible base plate and timber-gauge section keep the posts reading
+    // structural instead of as bare floating rods (audit T2)
+    const post = cyl(0.055, 0.065, canopy.y - deckY, bronze, 8);
     post.position.set(px, deckY + (canopy.y - deckY) / 2, pz);
     deck.add(post);
+    const plate = cyl(0.11, 0.13, 0.04, woodDarkMat, 10);
+    plate.position.set(px, deckY + 0.02, pz);
+    deck.add(plate);
   }
   const sail = box(canopy.x1 - canopy.x0, 0.03, canopy.z1 - canopy.z0, canvasMat);
   sail.position.set((canopy.x0 + canopy.x1) / 2, canopy.y, (canopy.z0 + canopy.z1) / 2);
