@@ -101,6 +101,21 @@ export function buildJazzStage({ group, spec, helpers, mats, rand }) {
   const tailpiece = box(0.05, 0.22, 0.02, dark);
   tailpiece.position.set(0, 0.42, 0.09);
   bass.add(tailpiece);
+  // bridge, strings and endpin: without them the instrument read as a
+  // featureless ovoid from the audience side (audit M11)
+  const bridge = box(0.09, 0.055, 0.018, woodDarkMat);
+  bridge.position.set(0, 0.64, 0.115);
+  bass.add(bridge);
+  for (let stringIndex = 0; stringIndex < 4; stringIndex += 1) {
+    const sx = -0.021 + stringIndex * 0.014;
+    const string = box(0.004, 1.44, 0.004, metalMat);
+    string.position.set(sx, 1.2, 0.065);
+    string.rotation.x = 0.045; // over the bridge, into the tailpiece
+    bass.add(string);
+  }
+  const endpin = cyl(0.008, 0.008, 0.3, metalMat, 6);
+  endpin.position.set(0, 0.15, 0);
+  bass.add(endpin);
   const standLegA = cyl(0.015, 0.015, 0.5, metalMat, 6);
   standLegA.rotation.z = 0.5;
   standLegA.position.set(-0.18, 0.25, -0.05);

@@ -17,12 +17,16 @@ import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './m
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-const SKIN_TONES = [0xf1c9a5, 0xe0ac7e, 0xc68a5b, 0x9c6b43, 0x71492c, 0x513425];
+// warmest tone deepened from 0xf1c9a5: under cool venue light the palest
+// pick read as a chalk-white mannequin face (audit S3)
+const SKIN_TONES = [0xe6b98e, 0xe0ac7e, 0xc68a5b, 0x9c6b43, 0x71492c, 0x513425];
 // No low-saturation orange/tan tones here: lightened they read as bare skin
 // (audit S1 — patrons looked shirtless/trouserless at a glance).
 const SHIRT = [0x7a5c8f, 0x4a7a6f, 0xa85751, 0x4f6d9c, 0xb08d4f, 0x5a5f66, 0x8a4a68, 0x3f6b4f, 0x4e6e78, 0x6b7f5a];
 const PANTS = [0x37414f, 0x4a4038, 0x2f3438, 0x5a4a5f, 0x39504a, 0x54452f];
-const HAIR = [0x241a12, 0x3f2a17, 0x6b4a26, 0x8a8a8a, 0x151515, 0x743e21, 0x4a3b32];
+// the flat neutral grey hair contributed to the same mannequin read; a warm
+// silver keeps the elder look without the plastic-wig tone
+const HAIR = [0x241a12, 0x3f2a17, 0x6b4a26, 0x9a9082, 0x151515, 0x743e21, 0x4a3b32];
 
 // Muted, natural-dye colours keep the imported characters in the same visual
 // world as the café.  A controlled palette also prevents the old unrestricted
@@ -2366,6 +2370,10 @@ class Barista {
     this.home = sim.cafe.nav.baristaHome.clone();
     this.registerSpot = sim.cafe.nav.baristaRegister.clone();
     this.machineSpot = sim.cafe.nav.baristaMachine.clone();
+    // work at the machine's side: standing dead behind it eclipsed the
+    // barista down to a pair of eyebrows over the group head (audit S4)
+    this.machineSpot.x += 0.55;
+    if (this.avatar) this.mesh.scale.setScalar(1.05);
     this.mesh.position.copy(this.home);
     this.phase = rand(0, 10);
     this.target = this.home.clone();
@@ -3356,6 +3364,21 @@ export class CrowdSim {
     // a couple of pre-seated chatting pairs if there's room
     this._preseatPair();
     if (this.maxCrowd >= 14) this._preseatPair();
+    // seed the order line too — the audit's service-queue views caught all
+    // four venues with an empty counter because arrivals only trickle in
+    // (audit S21): one or two patrons start already queueing
+    this._prequeue();
+    if (this.maxCrowd >= 10 && Math.random() < 0.7) this._prequeue();
+  }
+
+  _prequeue() {
+    if (this.npcs.length >= this.maxCrowd) return;
+    const npc = new NPC(this, { silent: true });
+    const slot = this.queueSlot(this.queue.length);
+    npc.mesh.position.set(slot.x, 0, slot.z);
+    npc._joinQueue();
+    npc.stateT = rand(0, 6);
+    this.npcs.push(npc);
   }
 
   // Shuffle-bag selection guarantees all suitable designs appear before one is

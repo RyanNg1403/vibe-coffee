@@ -104,8 +104,15 @@ function flowerSetting({ table, topY, seed }) {
 }
 
 function foldedLinen({ table, topY, mats }) {
-  const linen = mesh(new THREE.BoxGeometry(0.16, 0.02, 0.12), mats.cushionMat);
-  linen.position.set(table.x - 0.13, topY + 0.01, table.z + 0.12);
+  // cream linen with a visible fold line — the upholstery-tinted flat slab
+  // read as an unidentifiable green plate on the tabletop (audit S22)
+  const linen = new THREE.Group();
+  const cloth = mesh(new THREE.BoxGeometry(0.16, 0.014, 0.12), mats.paperMat);
+  linen.add(cloth);
+  const foldedHalf = mesh(new THREE.BoxGeometry(0.15, 0.012, 0.055), mats.paperMat);
+  foldedHalf.position.set(0, 0.013, -0.028);
+  linen.add(foldedHalf);
+  linen.position.set(table.x - 0.13, topY + 0.008, table.z + 0.12);
   linen.rotation.y = 0.34;
   return [{ object: linen, footprint: 0.1 }];
 }

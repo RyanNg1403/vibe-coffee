@@ -560,15 +560,32 @@ function outsideTexture(kind) {
   });
 }
 
-function artTexture(accentHex) {
+// paper: pass a dim parchment for dark venues so the canvas does not become
+// the brightest surface in the room (audit M4); motif: vary the composition
+// per slot so adjacent bays don't hang the same print (audit S16)
+function artTexture(accentHex, { paper = '#efe8da', motif = 0 } = {}) {
   return canvasTexture(128, 160, (g, w, h) => {
-    g.fillStyle = '#efe8da'; g.fillRect(0, 0, w, h);
+    g.fillStyle = paper; g.fillRect(0, 0, w, h);
     const cols = ['#c96f4a', accentHex, '#54683f', '#b89a5b', '#71563c'];
+    const kind = motif % 3;
     for (let i = 0; i < 5; i++) {
       g.fillStyle = cols[i % cols.length];
       g.globalAlpha = rand(0.5, 0.9);
       g.beginPath();
-      g.arc(rand(20, w - 20), rand(20, h - 20), rand(10, 34), 0, 7);
+      if (kind === 0) {
+        g.arc(rand(20, w - 20), rand(20, h - 20), rand(10, 34), 0, 7);
+      } else if (kind === 1) {
+        // leaning brush bands
+        const bx = rand(6, w - 40);
+        g.save();
+        g.translate(bx, rand(10, 40));
+        g.rotate(rand(-0.2, 0.2));
+        g.rect(0, 0, rand(10, 22), rand(60, h - 50));
+        g.restore();
+      } else {
+        // stacked horizon strokes
+        g.rect(rand(6, 26), 14 + i * rand(24, 30), rand(50, w - 40), rand(8, 18));
+      }
       g.fill();
     }
     g.globalAlpha = 1;
@@ -726,6 +743,28 @@ function cyl(rt, rb, h, mat, seg = 20) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
   m.castShadow = true; m.receiveShadow = true;
   return m;
+}
+
+// Venue-specific stool tints: the stock asset ships one bubble-gum-pink seat
+// that appeared in all four cafés and blurred their fingerprints (audit S13).
+const STOOL_TINTS = {
+  goldenhour: { seat: 0x7a3a30, wood: 0x8a5a34 }, // oxblood leather on oak
+  roastery: { seat: 0x3a3f45, wood: 0xcfc4ae },   // charcoal on pale ash
+  midnight: { seat: 0x4a2230, wood: 0x4a3626 },   // burgundy on walnut
+  terrace: { seat: 0xa9634a, wood: 0x8a6a44 },    // terracotta on teak
+};
+function tintStool(stool, themeId) {
+  const tint = STOOL_TINTS[themeId];
+  if (!stool || !tint) return stool;
+  stool.traverse((o) => {
+    if (!o.isMesh) return;
+    const name = (o.material.name || '').toLowerCase();
+    const kind = name.includes('carpet') ? 'seat' : name.includes('wood') ? 'wood' : null;
+    if (!kind) return;
+    o.material = o.material.clone();
+    o.material.color.setHex(tint[kind]);
+  });
+  return stool;
 }
 
 function makeStool(woodMat, cushionMat) {
@@ -1870,7 +1909,9 @@ export function buildCafe(theme, models = null) {
       });
       return compactCar(car);
     };
-    const parkedColors = [0x7a4a3a, 0x39505e, 0x5c5f64];
+    // clearly automotive paint: the old leather-brown body plus chrome seam
+    // lines read as a tufted chesterfield dumped on the sidewalk (audit S18)
+    const parkedColors = [0x8a3a30, 0x39505e, 0x9aa0a5];
     const parked = mkCar(parkedColors[Math.floor(rand(0, parkedColors.length))]);
     parked.position.set(W / 2 - 1, 0, D / 2 + 3.6);
     parked.rotation.y = -0.035;
@@ -2178,8 +2219,11 @@ export function buildCafe(theme, models = null) {
     : rightWallBays
       ? rightWallBays.art.map((a) => ({ y: a.y, z: a.z }))
       : [0, 1, 2, 3].map((i) => ({ y: 1.8, z: -3.8 + i * 2.3 }));
-  for (const slot of artSlots) {
-    const artMap = track(artTexture('#' + theme.accent.toString(16).padStart(6, '0')));
+  artSlots.forEach((slot, slotIndex) => {
+    const artMap = track(artTexture('#' + theme.accent.toString(16).padStart(6, '0'), {
+      paper: theme.id === 'midnight' ? '#7a6f5e' : '#efe8da',
+      motif: slotIndex,
+    }));
     artMap.anisotropy = 8;
     const art = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.95),
       new THREE.MeshStandardMaterial({
@@ -2201,7 +2245,7 @@ export function buildCafe(theme, models = null) {
     const frame = box(0.04, 1.05, 0.85, woodDarkMat);
     frame.position.set(wallArtDepth.frameCenterX, slot.y, slot.z);
     group.add(frame);
-  }
+  });
 
   // ---------- tables + seats ----------
   const seats = [];      // {pos, look, tableCenter}
@@ -2558,7 +2602,7 @@ export function buildCafe(theme, models = null) {
       for (const blueprintSeat of barTable.seats) {
         const sx = blueprintSeat.pos.x;
         const surfaceProps = [];
-        const stool = cloneModel(models, 'bar_stool') ?? makeStool(woodDarkMat, cushionMat);
+        const stool = tintStool(cloneModel(models, 'bar_stool'), theme.id) ?? makeStool(woodDarkMat, cushionMat);
         stool.position.set(sx, 0, blueprintSeat.pos.z);
         group.add(stool);
         const seat = addSeat(stool,
@@ -2622,7 +2666,7 @@ export function buildCafe(theme, models = null) {
     }
     for (const blueprintSeat of railTable.seats) {
       const surfaceProps = [];
-      const stool = cloneModel(models, 'bar_stool') ?? makeStool(woodDarkMat, cushionMat);
+      const stool = tintStool(cloneModel(models, 'bar_stool'), theme.id) ?? makeStool(woodDarkMat, cushionMat);
       stool.position.set(blueprintSeat.pos.x, railBase, blueprintSeat.pos.z);
       group.add(stool);
       const facing = Math.sign(cx - blueprintSeat.pos.x) || -1;
@@ -2756,8 +2800,19 @@ export function buildCafe(theme, models = null) {
       return;
     }
     if (ti % 2 === 0) {
-      const napkins = box(0.09, 0.07, 0.05, metalMat);
-      napkins.position.set(tt.x + 0.24, topY + 0.035, tt.z - 0.12);
+      // a readable napkin holder — white napkin stack between two slim metal
+      // cheeks; the old bare metal box read as a placeholder cube (audit S22)
+      const napkins = new THREE.Group();
+      for (const dz of [-0.026, 0.026]) {
+        const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.008), metalMat);
+        cheek.position.set(0, 0.03, dz);
+        napkins.add(cheek);
+      }
+      const stack = new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.05, 0.038), paperMat);
+      stack.position.y = 0.028;
+      napkins.add(stack);
+      napkins.position.set(tt.x + 0.24, topY, tt.z - 0.12);
+      napkins.rotation.y = 0.3;
       group.add(napkins);
       registerTableProp(surfaceProps, napkins);
     }
@@ -2815,7 +2870,11 @@ export function buildCafe(theme, models = null) {
     : sharedRightWallDecor;
   const clockGroup = new THREE.Group();
   {
-    const face = cyl(0.28, 0.28, 0.04, ceramicMat, 24);
+    // parchment face in the dark lounge — bright ceramic read as self-lit
+    // against the near-black wall (audit M4)
+    const face = cyl(0.28, 0.28, 0.04, theme.id === 'midnight'
+      ? new THREE.MeshStandardMaterial({ color: 0xb3a892, roughness: 0.85 })
+      : ceramicMat, 24);
     face.rotation.x = Math.PI / 2;
     clockGroup.add(face);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.02, 8, 24), woodDarkMat);
@@ -2984,8 +3043,14 @@ export function buildCafe(theme, models = null) {
     tiles.receiveShadow = true;
     group.add(tiles);
   } else if (theme.id === 'midnight') {
-    const velvet = new THREE.MeshStandardMaterial({ color: 0x241c22, roughness: 1, map: clothTex, bumpMap: clothTex, bumpScale: 0.008 });
+    // deep plum velvet with a slim bronze frame: the old near-black panels
+    // rendered as featureless void rectangles beside the menu (audit M4)
+    const velvet = new THREE.MeshStandardMaterial({ color: 0x3d2b34, roughness: 1, map: clothTex, bumpMap: clothTex, bumpScale: 0.008 });
+    const panelFrameMat = new THREE.MeshStandardMaterial({ color: 0x6a563a, roughness: 0.45, metalness: 0.6 });
     for (const x of midnightWallLayout().panelCenters) {
+      const frame = box(0.78, 1.31, 0.04, panelFrameMat);
+      frame.position.set(x, 2.15, -D / 2 + 0.16);
+      group.add(frame);
       const panel = box(0.72, 1.25, 0.055, velvet);
       panel.position.set(x, 2.15, -D / 2 + 0.18);
       group.add(panel);
@@ -3443,6 +3508,12 @@ export function buildCafe(theme, models = null) {
       [W / 2 - 0.12, 2.3, 5.4, -Math.PI / 2],
       [-3.9, 2.3, -D / 2 + 0.12, 0],
       [4.6, 2.3, -D / 2 + 0.12, 0],
+      // the jazz lounge also lights its entrance wall: the front third of the
+      // room and the corner beyond the booth run sat in a black void (audit M3)
+      ...(theme.id === 'midnight' ? [
+        [-2.4, 2.3, D / 2 - 0.12, Math.PI],
+        [3.2, 2.3, D / 2 - 0.12, Math.PI],
+      ] : []),
     ];
     const glowMat = new THREE.MeshBasicMaterial({ color: theme.lampColor });
     for (const [sx, sy, sz, ry] of sconceSpots) {
@@ -3456,6 +3527,15 @@ export function buildCafe(theme, models = null) {
       holder.position.set(sx, sy, sz);
       holder.rotation.y = ry;
       group.add(holder);
+    }
+    if (theme.id === 'midnight') {
+      // two dim warm pools below the new entrance sconces and one over the
+      // booth corner: guests stay readable while the stage stays brightest
+      for (const [lx, lz, reach] of [[-2.4, 5.6, 4.5], [3.2, 5.6, 4.5], [7.7, 4.4, 4.0]]) {
+        const pool = new THREE.PointLight(0xffb066, 1.6, reach);
+        pool.position.set(lx, 2.35, lz);
+        group.add(pool);
+      }
     }
   }
 
