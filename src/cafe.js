@@ -3531,12 +3531,13 @@ export function buildCafe(theme, models = null) {
     if (theme.id === 'midnight') {
       // two dim warm pools below the new entrance sconces and one over the
       // booth corner: guests stay readable while the stage stays brightest
-      // intensity in the renderer's physical units — the stage wash runs at
-      // 7.5, so anything much below ~5 vanished into the dark floor (first
-      // pass at 1.6 measured no change in front-third luminance)
-      for (const [lx, lz, reach] of [[-2.4, 5.6, 5.5], [3.2, 5.6, 5.5], [7.7, 4.4, 5.0]]) {
-        const pool = new THREE.PointLight(0xffb066, 5.5, reach);
-        pool.position.set(lx, 2.35, lz);
+      // setQuality keeps only the six highest-importance (intensity×distance)
+      // point lights at the lowest tier — three modest pools all ranked just
+      // below the pendants and were culled invisible (probed live: vis:false).
+      // Two stronger pools rank into the kept set on every tier.
+      for (const [lx, lz, intensity, reach] of [[0.4, 5.5, 8, 7], [7.7, 4.4, 6.5, 5.5]]) {
+        const pool = new THREE.PointLight(0xffb066, intensity, reach, 2);
+        pool.position.set(lx, 2.4, lz);
         group.add(pool);
       }
     }
