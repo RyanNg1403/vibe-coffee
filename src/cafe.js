@@ -861,7 +861,12 @@ function cremaTexture() {
 
 function makeCup(accent, models, latteArt = false) {
   const fromLib = !latteArt && cloneModel(models, 'cup');
-  if (fromLib) return fromLib;
+  if (fromLib) {
+    // same café-scale correction as makeDrink (audit S17): the normalized
+    // library cup reads oversized on small tables without it
+    fromLib.scale.multiplyScalar(0.78);
+    return fromLib;
+  }
 
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.26, metalness: 0 });
@@ -1552,6 +1557,12 @@ export function buildCafe(theme, models = null) {
     // the camera and to the right as well as at the two window-facing sides.
     addBackdrop(sideLen, W / 2 + 14, 0, -Math.PI / 2);
     addBackdrop(W * 3.2, 0, -D / 2 - 17, 0);
+    // zenith cap: looking straight up between the pergola beams used to hit
+    // the pale scene background instead of sky (audit T6 residual)
+    const zenith = new THREE.Mesh(new THREE.PlaneGeometry(sideLen + 6, sideLen + 6), skyBandMat);
+    zenith.rotation.x = Math.PI / 2;
+    zenith.position.y = 23;
+    group.add(zenith);
   }
 
   // ---------- a real street outside the windows ----------
@@ -2760,19 +2771,20 @@ export function buildCafe(theme, models = null) {
   for (const spec of greenery.floor.slice(0, Math.min(theme.plants, plantSpots.length))) {
     const [px, pz] = plantSpots[spec.spot];
     let fromLib = cloneModel(models, spec.kind);
-    // the fern asset is a bare frond cluster with no pot (audit S9: it read
-    // as foliage sprouting straight out of interior floors) — seat it in a
-    // proper terracotta planter with a soil surface
-    if (fromLib && spec.kind === 'plant_fern') {
+    // every floor plant sits in a legible terracotta planter with a soil
+    // surface (audit S9): the fern asset has no pot at all, and the potted
+    // models' own bases are too small and dark to read at room distance
+    if (fromLib) {
       const potted = new THREE.Group();
-      const pot = cyl(0.17, 0.13, 0.24, plantPotMat, 12);
-      pot.position.y = 0.12;
+      const potR = spec.collider ? 0.21 : 0.18;
+      const pot = cyl(potR, potR * 0.78, 0.26, plantPotMat, 12);
+      pot.position.y = 0.13;
       potted.add(pot);
-      const soilTop = cyl(0.145, 0.145, 0.03, new THREE.MeshStandardMaterial({ color: 0x3d2f22, roughness: 1 }), 12);
-      soilTop.position.y = 0.225;
+      const soilTop = cyl(potR * 0.86, potR * 0.86, 0.03, new THREE.MeshStandardMaterial({ color: 0x3d2f22, roughness: 1 }), 12);
+      soilTop.position.y = 0.245;
       potted.add(soilTop);
-      fromLib.scale.setScalar(0.82);
-      fromLib.position.y = 0.22;
+      fromLib.scale.setScalar(spec.kind === 'plant_fern' ? 0.82 : 0.9);
+      fromLib.position.y = 0.24;
       potted.add(fromLib);
       fromLib = potted;
     }
@@ -2915,12 +2927,16 @@ export function buildCafe(theme, models = null) {
       registerTableProp(surfaceProps, item.object, item.footprint);
     }
     if (tt.type === 'communal') {
-      // a 4 m worktable with one place setting read as an empty slab (audit
-      // R7) — the far end gets its own cluster from the next rotation slot
-      const second = buildTableCluster(theme.id, ti + 2, {
-        table: { x: tt.x + Math.cos(tt.rot ?? 0) * 1.35, z: tt.z - Math.sin(tt.rot ?? 0) * 1.35 },
+      // a 4 m worktable with one central place setting read as an empty slab
+      // (audit R7) — both ends get their own clusters from later rotation slots
+      for (const [endSign, slot] of [[-1, 2], [1, 3]]) {
+      const second = buildTableCluster(theme.id, ti + slot, {
+        table: {
+          x: tt.x + Math.cos(tt.rot ?? 0) * 1.35 * endSign,
+          z: tt.z - Math.sin(tt.rot ?? 0) * 1.35 * endSign,
+        },
         topY,
-        seed: ti + 3,
+        seed: ti + 3 + slot,
         mats: {
           ceramicMat, paperMat, cushionMat, metalMat, woodDarkMat,
           glassMat: new THREE.MeshPhysicalMaterial({
@@ -2932,6 +2948,7 @@ export function buildCafe(theme, models = null) {
       for (const item of second.items) {
         group.add(item.object);
         registerTableProp(surfaceProps, item.object, item.footprint);
+      }
       }
     }
     const vignette = ti % 4; // still steers the candle offset below
@@ -3972,10 +3989,7 @@ export function buildCafe(theme, models = null) {
         crownPlant.position.set(-6.1, 1.6, -D / 2 + 0.5);
         group.add(crownPlant);
       }
-      const shelfMags = makeMagazineStack();
-      shelfMags.position.set(-5.95, 0, -D / 2 + 0.62);
-      shelfMags.rotation.y = 0.5;
-      group.add(shelfMags);
+
     }
     // real pendant lamps hanging over the counter
     const counterPendant = cloneModel(models, 'pendant_lamp');

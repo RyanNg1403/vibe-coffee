@@ -3639,6 +3639,8 @@ export class CrowdSim {
     const seat = this.cafe.seats[patron.seatIndex];
     const cup = cloneModel(this.models, Math.random() < 0.5 ? 'latte' : 'mug');
     if (!cup) { patron.setCup(true); return null; } // model-less fallback
+    // café-scale correction (audit S17) — matches the fixed table settings
+    cup.scale.multiplyScalar(0.78);
     const tc = seat.tableCenter;
     cup.position.set(
       tc.x + (seat.pos.x - tc.x) * 0.45,

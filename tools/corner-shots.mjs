@@ -102,6 +102,13 @@ function insideCollider(x, z, levelId) {
         && z > c.rect.z0 - margin && z < c.rect.z1 + margin) return true;
     }
   }
+  // equipment-dense areas (roasting lab, stage) are forbidden zones without
+  // colliders — a camera inside them ends up buried in the machinery
+  for (const zone of blueprint.npcForbiddenZones ?? []) {
+    if ((zone.levelId ?? 'ground') !== (levelId ?? 'ground')) continue;
+    if (zone.rect && x > zone.rect.x0 - margin && x < zone.rect.x1 + margin
+      && z > zone.rect.z0 - margin && z < zone.rect.z1 + margin) return true;
+  }
   return false;
 }
 
