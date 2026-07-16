@@ -262,3 +262,32 @@ placement. Verification evidence: `.venue-shots/verify-midnight/`, `verify-golde
    laptops.
 6. **Dressing pass (G3, R7–R8, S16–S17):** fill or remove empty fixtures, differentiate repeated
    props, rescale cups.
+
+---
+
+## 10. P2 polish batch — fixes applied and verified
+
+All verified against fresh captures (`.venue-shots/p2-*`, `p2b-*`, `p2c-*`, `p2d-*`), with
+before/after pixel-luminance measurements where lighting was involved.
+
+| Finding | Fix | Verification |
+|---|---|---|
+| S22 placeholder props | The "grey cube" was the napkin holder (a bare `metalMat` box) — rebuilt as a white napkin stack between metal cheeks; the "green slab" was `foldedLinen` tinted with venue upholstery — now cream cloth with a fold line | PASS — reads as napkins/linen in all venues |
+| S13 pink stools everywhere | Per-venue stool tints (oxblood/oak, charcoal/ash, burgundy/walnut, terracotta/teak) applied to the stock asset at both clone sites | PASS in all four venues |
+| S21 empty service queues | One or two patrons pre-seed the order line at boot; seeding demands sit-capable models (`opts.willSit`) after a hero with no sit clip leaned broken in the line and later "sat" through furniture | PASS — every venue's queue view now shows barista + patrons, normal low-poly cast, upright |
+| S18 sidewalk "sofa" | Adjudicated: it is the parked car — leather-brown paint plus chrome seam lines read as tufted upholstery; palette switched to automotive red/blue/silver | PASS — reads as cars |
+| S8 "blocky grey" pets | Adjudicated: rigged, textured assets (2.4k tris) — the cat's atlas is authored flat grey; it now takes the venue's `theme.cat` warm tint | PASS — warm-coated cat |
+| S3 mannequin heads | Palest skin tone deepened, neutral-grey hair warmed | Improved (spot-checked; full re-review pending) |
+| S4 sunken barista | Works beside the espresso machine (+0.55 x) at 1.05 scale instead of eclipsed behind it | Improved (visible torso at queue views) |
+| M4 void panels / glowing clock+art | Plum velvet + bronze frames; parchment clock face; art paper dimmed for the dark room; motifs vary per bay | PASS — panels read plum with frames at native exposure; clock parchment; art varied |
+| M3 dark front-of-house | Entrance + booth warm pools. Root cause of two failed attempts: the quality system keeps only the 6 highest-importance point lights at the lowest tier and silently culled the new pools (probed live: `visible:false`). Midnight's tier-0 budget raised 6→8 (documented tradeoff) with stronger pools | Entrance PASS (+30–42% front-third luminance, guests readable, stage still brightest); booth corner re-check in `p2d` |
+| M11 featureless bass | Bridge, four strings, endpin added | PASS at close range (occluded from some angles) |
+| "Woman standing on cabaret table" (P2 regression report) | Adjudicated: perspective — with a near-horizontal camera, floor behind a low pedestal table projects above the tabletop edge, so a deterministic (seeded) walker's feet read as "on" the table; runtime probes at two timestamps show no elevated NPC | No defect |
+| "Appliance on floor at rug edge" | Adjudicated: the vinyl record sideboard — intentional furniture; consider legs/records dressing so it reads furniture at a glance (P3) | No defect |
+
+**Still open (P2/P3):** S5 idle clusters/roadway loiterers; S9–S11 plant grounding (pots,
+hangers, tabletop sprigs); S14 window-zone motif shared across three venues; S15 Midnight
+record wall reuse; G2 bar seats facing the wall pier; G3/R7–R8 empty-fixture dressing; M8
+booth seats facing the banquette back; M10 speaker occlusion from rear seats; T3 hedge-top
+walk path; T6/C7 skybox seams from the deck; S17 cup scale; bar-stool sit poses (straight
+legs); corner-camera placement for four views.

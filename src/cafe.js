@@ -3535,7 +3535,7 @@ export function buildCafe(theme, models = null) {
       // point lights at the lowest tier — three modest pools all ranked just
       // below the pendants and were culled invisible (probed live: vis:false).
       // Two stronger pools rank into the kept set on every tier.
-      for (const [lx, lz, intensity, reach] of [[0.4, 5.5, 8, 7], [7.7, 4.4, 6.5, 5.5]]) {
+      for (const [lx, lz, intensity, reach] of [[0.4, 5.5, 8, 7], [7.7, 4.4, 8, 6]]) {
         const pool = new THREE.PointLight(0xffb066, intensity, reach, 2);
         pool.position.set(lx, 2.4, lz);
         group.add(pool);
@@ -4368,9 +4368,14 @@ export function buildCafe(theme, models = null) {
 
   function setQuality(level) {
     steamStride = level === 0 ? 2 : 1;
+    // The dark lounge carries two more essential lights (entrance + booth
+    // fill pools) than the daylight venues; a six-light floor forced a choice
+    // between readable guests and lit tables (audit M3). Documented tradeoff:
+    // +2 point lights at the lowest tier for this one venue.
+    const budget = theme.id === 'midnight' ? [8, 11] : [6, 9];
     const keep = level >= 2
       ? pointLights.length
-      : level === 1 ? Math.min(9, pointLights.length) : Math.min(6, pointLights.length);
+      : Math.min(budget[Math.min(level, 1)], pointLights.length);
     pointLights.forEach(({ light }, index) => { light.visible = index < keep; });
     contactShadowMat.opacity = level >= 1 ? 0.3 : 0.48;
   }
