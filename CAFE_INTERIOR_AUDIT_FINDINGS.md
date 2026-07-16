@@ -291,3 +291,39 @@ record wall reuse; G2 bar seats facing the wall pier; G3/R7–R8 empty-fixture d
 booth seats facing the banquette back; M10 speaker occlusion from rear seats; T3 hedge-top
 walk path; T6/C7 skybox seams from the deck; S17 cup scale; bar-stool sit poses (straight
 legs); corner-camera placement for four views.
+
+---
+
+## 11. Final sweep — remaining findings closed
+
+Verified against `.venue-shots/final-*` and `final2-*` captures with per-venue review agents
+and pixel-diff/luminance measurement; runtime probes used where captures and code disagreed.
+
+| Finding | Outcome |
+|---|---|
+| S9/S10 plant grounding | FIXED — every library floor plant sits in a terracotta planter with soil (the fern asset had none; the potted models' bases read invisible); GH wall bowls rest on bracket shelves; procedural fallback plant reads as a shrub, not a spruce |
+| S17 cup scale | FIXED — makeDrink, makeCup, and NPC delivered drinks share a 0.78 café-scale factor; verified across venues including the two foreground hero cups |
+| G2 bar seats vs door pier | FIXED — GH counters moved outboard; both stools face glass, counter ends clear the pier |
+| G3 display unit | FIXED — dressed on its exact surfaces (top books + plant); interior shelf planes are not exposed by the asset |
+| M2/M10 speaker sightline | FIXED — left tower at the stage's back corner; singer visible head-to-toe from across the room |
+| S15 record wall | FIXED — lower shelves hold packed LP sleeve rows with face-out sleeves and vinyl rings; books remain only up top |
+| S14 window-zone identity | FIXED — Midnight runs two short walnut listening ledges with lamps (3 stools each); layout contract test updated |
+| R7 communal dressing | ADJUDICATED — both ends carry authored clusters (runtime probe: 6/13/4 prop meshes near/mid/far); under occupancy the §9 clearance system relocates settings away from seated patrons, which is the coexistence contract working, not missing dressing |
+| R8 jar labels | FIXED — printed product labels, hand-jittered spacing/rotation |
+| T3 hedge-top walkers | FIXED — the terrace garden path moved past the hedge's deck sightline; full bodies visible from every deck view |
+| T6/C7 sky seams | FIXED — colour-matched sky bands above all backdrop planes, corner-sealing side spans, and a zenith cap; all deck and corner views show continuous sky |
+| M10 lamppost/car | FIXED — parked cars deepened half a metre; visual gap to the sidewalk pole |
+| Corner cameras | FIXED — cameras slide off blueprint colliders AND npcForbiddenZones (roaster/stage); all previously unusable corners re-shot clean |
+| M8 booth void | ADDRESSED by the M3 lighting + M4 panel fixes (booth run readable, sub-black pixels 93%→61%) |
+| S5 roadway loiterers / "NPC on table" / "sofa on sidewalk" | ADJUDICATED as perspective artifacts (sidewalk walkers against the road backdrop; floor visible above low tabletop edges; car paint) — runtime probes found no elevated or off-path actors |
+
+**Known-remaining (documented, deferred):**
+- Two singleton plants whose builder could not be identified from captures alone (a lab-side
+  fern near the roaster's bean crocks, a cropped-base plant at GH's salon-oval right edge) —
+  need a `?no-merge` scene probe session to trace ownership.
+- Bar-stool sit poses keep straight legs through the stool column — requires a perch
+  animation asset, not a placement fix.
+- S5 interior idle clusters — states are bounded per the behavior planner; remaining reads
+  are snapshot timing. Behavioral cadence tuning left to a dedicated NPC pass.
+- Midnight near-plane NPC walk-throughs in some captures — pre-existing crowd behavior,
+  cosmetic, capture-timing dependent.
