@@ -341,7 +341,9 @@ function makeVenue({
 const goldenhour = makeVenue({
   prefix: 'gh', id: 'goldenhour', style: 'classic-salon',
   windowBar: true,
-  barSpec: { length: 2.0, depth: 0.45, centerX: 2.2, stools: 2, footRail: true },
+  // centerX clears the door pier: at 2.2 the inner stools looked half into
+  // the blank wall between window and door instead of the street (audit G2)
+  barSpec: { length: 2.0, depth: 0.45, centerX: 2.45, stools: 2, footRail: true },
   tables: [
     { x: -5.0, z: 2.6, type: 'round', lounge: true },
     { x: -4.6, z: -0.9, type: 'oval', rot: 0.35 },
@@ -515,6 +517,9 @@ const MI_STAGE = { x0: 4.9, x1: HALF_W, z0: -HALF_D, z1: -4.2 };
 const midnight = makeVenue({
   prefix: 'mi', id: 'midnight', style: 'jazz-lounge',
   windowBar: true,
+  // its own window identity (audit S14): short walnut listening ledges with
+  // lamps, not Golden Hour's long classic counters or the Roastery's rails
+  barSpec: { length: 3.4, depth: 0.4, centerX: 3.0, stools: 3, style: 'lounge' },
   tables: [
     { x: -5.0, z: 2.4, type: 'round', lounge: true },
     { x: -5.2, z: -0.7, type: 'round' },
@@ -562,7 +567,9 @@ const midnight = makeVenue({
         bass: { x: 6.3, z: -6.25, rot: 0.5 },
       },
       restSpot: { x: 8.0, z: -3.62 },
-      speakers: [{ x: 5.15, z: -4.55 }, { x: 8.25, z: -4.5 }],
+      // left tower moves to the back corner: at the front edge it stood
+      // directly between the singer and the left/rear tables (audit M2/M10)
+      speakers: [{ x: 5.1, z: -6.3 }, { x: 8.33, z: -4.45 }],
       curtain: { z: -HALF_D + 0.14, x0: 5.1, x1: 8.35, y0: 0.18, y1: 3.0 },
     },
     boothRun: { x: 8.05, z0: -3.15, z1: 0.55 },

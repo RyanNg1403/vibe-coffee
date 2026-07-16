@@ -78,13 +78,16 @@ test('blueprint room shell matches the legacy ROOM export', () => {
   assert.deepEqual({ ...ROOM_SHELL }, { W: 17, D: 13.5, H: 3.8 });
 });
 
-test('window-bar geometry matches the legacy builder constants', () => {
+test('Midnight window ledges carry the lounge identity, not the shared bar', () => {
+  // audit S14: each venue's window zone needs its own fingerprint — Midnight
+  // runs two short walnut listening ledges with three stools each
   const blueprint = getBlueprint('midnight');
   const bars = blueprint.tables.filter((t) => t.isBar);
-  const expectedLen = (ROOM_SHELL.W - 1.1) / 2 - 1.3;
+  assert.equal(bars.length, 2);
   for (const bar of bars) {
-    assert.ok(Math.abs(bar.width - expectedLen) < 1e-9);
-    assert.equal(bar.seats.length, Math.floor(expectedLen / 1.1));
+    assert.ok(Math.abs(bar.width - 3.4) < 1e-9);
+    assert.equal(bar.barStyle, 'lounge');
+    assert.equal(bar.seats.length, 3);
     assert.equal(bar.surfaceY, 1.035);
     for (const seat of bar.seats) {
       assert.equal(seat.isBar, true);

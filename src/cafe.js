@@ -804,6 +804,9 @@ function makeDrink(accent, models) {
     const key = drinkKeys[Math.floor(rand(0, drinkKeys.length))];
     const g = cloneModel(models, key);
     if (g) {
+      // café scale: the normalized library drinks measured ~10 cm tall and a
+      // quarter of a bistro tabletop across (audit S17 "soup tureens")
+      g.scale.multiplyScalar(0.78);
       // the library cups are empty shells — pour something into them.
       // A crema/latte-art disc just below the rim reads perfectly from the
       // seated player's top-down view of the table.
@@ -977,12 +980,46 @@ function makePlant(potColor, shared = {}) {
   const pot = cyl(0.16, 0.12, 0.24, potMat);
   pot.position.y = 0.12; g.add(pot);
   for (let i = 0; i < 7; i++) {
+    // broad splayed blades, not narrow upright cones — the old cluster read
+    // as a model-railway spruce loose on the floor (audit, GH lounge)
     const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.05, rand(0.35, 0.6), 5), leafMat);
-    leaf.position.set(rand(-0.07, 0.07), 0.24 + leaf.geometry.parameters.height / 2, rand(-0.07, 0.07));
-    leaf.rotation.set(rand(-0.35, 0.35), 0, rand(-0.35, 0.35));
+    leaf.scale.set(1.7, 1, 0.35);
+    const lean = rand(0.25, 0.6);
+    const around = (i / 7) * Math.PI * 2 + rand(-0.3, 0.3);
+    leaf.position.set(Math.cos(around) * 0.05, 0.24 + leaf.geometry.parameters.height / 2 * 0.9, Math.sin(around) * 0.05);
+    leaf.rotation.set(Math.sin(around) * lean, around, Math.cos(around) * lean);
     leaf.castShadow = true;
     g.add(leaf);
   }
+  return g;
+}
+
+// A packed run of LP sleeves for the jazz lounge's record wall (audit S15:
+// re-tinted book clusters read as a borrowed library, not record storage).
+// Same contract as makeBooks: row along +x, userData.width for right-aligning.
+function makeRecordRow(n) {
+  const g = new THREE.Group();
+  const sleeveCols = [0x4a3b52, 0x2f4a4a, 0x6e3b32, 0xd9cdb4, 0x3a3f5c, 0x7a5a2f];
+  const sleeves = sleeveCols.map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.8 }));
+  let x = 0;
+  for (let i = 0; i < n; i++) {
+    const lean = rand(-0.09, 0.02);
+    const sleeve = box(0.014, 0.3, 0.3, sleeves[i % sleeves.length]);
+    sleeve.position.set(x + 0.007, 0.15, 0);
+    sleeve.rotation.z = lean;
+    g.add(sleeve);
+    x += 0.022 + rand(0, 0.014);
+  }
+  // one face-out sleeve leaning at the row's end sells the record-bin read
+  const face = box(0.3, 0.3, 0.014, sleeves[Math.floor(rand(0, sleeves.length))]);
+  face.position.set(x + 0.02, 0.15, -0.02);
+  face.rotation.y = rand(-0.2, -0.08);
+  g.add(face);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 6, 18),
+    new THREE.MeshStandardMaterial({ color: 0x18181c, roughness: 0.4 }));
+  ring.position.set(x + 0.02, 0.15, -0.01);
+  g.add(ring);
+  g.userData.width = x + 0.05;
   return g;
 }
 
@@ -1489,24 +1526,32 @@ export function buildCafe(theme, models = null) {
   // outside backdrops (emissive planes far past the street)
   const outTex = track(outsideTexture(theme.outside));
   const outMat = new THREE.MeshBasicMaterial({ map: outTex, fog: false });
-  const back1 = new THREE.Mesh(new THREE.PlaneGeometry(W * 3.2, 13), outMat);
-  back1.position.set(0, 4.2, D / 2 + 17);
-  back1.rotation.y = Math.PI;
-  group.add(back1);
-  const back2 = new THREE.Mesh(new THREE.PlaneGeometry(D * 3.2, 13), outMat);
-  back2.position.set(-W / 2 - 14, 4.2, 0);
-  back2.rotation.y = Math.PI / 2;
-  group.add(back2);
+  // colour-matched sky bands continue each plane upward: the bare 13 m
+  // planes topped out in view of the upper deck, exposing their edge and the
+  // corner gaps between them as box seams (audit T6/C7)
+  const skyTopPixel = outTex.image.getContext('2d').getImageData(0, 0, 1, 1).data;
+  const skyBandMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(`rgb(${skyTopPixel[0]},${skyTopPixel[1]},${skyTopPixel[2]})`),
+    fog: false,
+  });
+  const sideLen = W * 3.2 + 14; // long enough to seal the box corners
+  const addBackdrop = (w, x, z, ry) => {
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, 13), outMat);
+    plane.position.set(x, 4.2, z);
+    plane.rotation.y = ry;
+    group.add(plane);
+    const band = new THREE.Mesh(new THREE.PlaneGeometry(w, 16), skyBandMat);
+    band.position.set(x, 4.2 + 6.5 + 8, z);
+    band.rotation.y = ry;
+    group.add(band);
+  };
+  addBackdrop(W * 3.2, 0, D / 2 + 17, Math.PI);
+  addBackdrop(sideLen, -W / 2 - 14, 0, Math.PI / 2);
   if (theme.openAir) {
     // The terrace is open on every side, so close the distant horizon behind
     // the camera and to the right as well as at the two window-facing sides.
-    const back3 = new THREE.Mesh(new THREE.PlaneGeometry(D * 3.2, 13), outMat);
-    back3.position.set(W / 2 + 14, 4.2, 0);
-    back3.rotation.y = -Math.PI / 2;
-    group.add(back3);
-    const back4 = new THREE.Mesh(new THREE.PlaneGeometry(W * 3.2, 13), outMat);
-    back4.position.set(0, 4.2, -D / 2 - 17);
-    group.add(back4);
+    addBackdrop(sideLen, W / 2 + 14, 0, -Math.PI / 2);
+    addBackdrop(W * 3.2, 0, -D / 2 - 17, 0);
   }
 
   // ---------- a real street outside the windows ----------
@@ -1913,11 +1958,13 @@ export function buildCafe(theme, models = null) {
     // lines read as a tufted chesterfield dumped on the sidewalk (audit S18)
     const parkedColors = [0x8a3a30, 0x39505e, 0x9aa0a5];
     const parked = mkCar(parkedColors[Math.floor(rand(0, parkedColors.length))]);
-    parked.position.set(W / 2 - 1, 0, D / 2 + 3.6);
+    // half a metre more curb gap: from seated angles the sidewalk lamp
+    // pole used to overlap the car body and read as piercing it (audit M10)
+    parked.position.set(W / 2 - 1, 0, D / 2 + 4.1);
     parked.rotation.y = -0.035;
     group.add(parked);
     const parkedSecond = mkCar(parkedColors[(Math.floor(rand(0, parkedColors.length)) + 1) % parkedColors.length]);
-    parkedSecond.position.set(-W / 2 + 2.2, 0, D / 2 + 3.55);
+    parkedSecond.position.set(-W / 2 + 2.2, 0, D / 2 + 4.05);
     parkedSecond.rotation.y = 0.025;
     group.add(parkedSecond);
     passingCar = mkCar(night ? 0x2a3340 : [0xa04638, 0x3d6070, 0xb8b4a8][Math.floor(rand(0, 3))]);
@@ -2566,9 +2613,10 @@ export function buildCafe(theme, models = null) {
       const bx = barTable.center.x;
       const barZ = barTable.center.z;
       const modern = barTable.barStyle === 'modern';
+      const lounge = barTable.barStyle === 'lounge';
       const bar = modern
         ? roundedBox(barLen, 0.045, barTable.depth, metalMat, 0.015)
-        : box(barLen, 0.05, barTable.depth, woodMat);
+        : box(barLen, 0.05, barTable.depth, lounge ? woodDarkMat : woodMat);
       bar.position.set(bx, 1.0, barZ);
       group.add(bar);
       for (const [lx] of [[-barLen / 2 + 0.2], [barLen / 2 - 0.2]]) {
@@ -2598,6 +2646,18 @@ export function buildCafe(theme, models = null) {
           brace.position.set(bx + rx, 0.92, barZ);
           group.add(brace);
         }
+      }
+      if (lounge) {
+        // a small shaded lamp anchors each ledge's outer end — the listening
+        // bar reads furnished rather than a bare plank (audit S14)
+        const lampBase = cyl(0.035, 0.05, 0.2, metalMat, 8);
+        lampBase.position.set(bx + Math.sign(bx) * (barLen / 2 - 0.22), 1.13, barZ + 0.06);
+        group.add(lampBase);
+        const lampShade = cyl(0.09, 0.12, 0.11, new THREE.MeshStandardMaterial({
+          color: 0x8a4a3c, roughness: 0.85, emissive: 0xff9a55, emissiveIntensity: 0.28,
+        }), 10);
+        lampShade.position.set(bx + Math.sign(bx) * (barLen / 2 - 0.22), 1.3, barZ + 0.06);
+        group.add(lampShade);
       }
       for (const blueprintSeat of barTable.seats) {
         const sx = blueprintSeat.pos.x;
@@ -2699,7 +2759,23 @@ export function buildCafe(theme, models = null) {
   const greenery = GREENERY[theme.id] ?? GREENERY.goldenhour;
   for (const spec of greenery.floor.slice(0, Math.min(theme.plants, plantSpots.length))) {
     const [px, pz] = plantSpots[spec.spot];
-    const fromLib = cloneModel(models, spec.kind);
+    let fromLib = cloneModel(models, spec.kind);
+    // the fern asset is a bare frond cluster with no pot (audit S9: it read
+    // as foliage sprouting straight out of interior floors) — seat it in a
+    // proper terracotta planter with a soil surface
+    if (fromLib && spec.kind === 'plant_fern') {
+      const potted = new THREE.Group();
+      const pot = cyl(0.17, 0.13, 0.24, plantPotMat, 12);
+      pot.position.y = 0.12;
+      potted.add(pot);
+      const soilTop = cyl(0.145, 0.145, 0.03, new THREE.MeshStandardMaterial({ color: 0x3d2f22, roughness: 1 }), 12);
+      soilTop.position.y = 0.225;
+      potted.add(soilTop);
+      fromLib.scale.setScalar(0.82);
+      fromLib.position.y = 0.22;
+      potted.add(fromLib);
+      fromLib = potted;
+    }
     const p = fromLib ?? makePlant(theme.woodDark, { pot: plantPotMat, leaf: foliageMat });
     p.position.set(px, 0, pz);
     p.rotation.y = rand(0, Math.PI * 2); // no two plants share a facing
@@ -2837,6 +2913,26 @@ export function buildCafe(theme, models = null) {
     for (const item of cluster.items) {
       group.add(item.object);
       registerTableProp(surfaceProps, item.object, item.footprint);
+    }
+    if (tt.type === 'communal') {
+      // a 4 m worktable with one place setting read as an empty slab (audit
+      // R7) — the far end gets its own cluster from the next rotation slot
+      const second = buildTableCluster(theme.id, ti + 2, {
+        table: { x: tt.x + Math.cos(tt.rot ?? 0) * 1.35, z: tt.z - Math.sin(tt.rot ?? 0) * 1.35 },
+        topY,
+        seed: ti + 3,
+        mats: {
+          ceramicMat, paperMat, cushionMat, metalMat, woodDarkMat,
+          glassMat: new THREE.MeshPhysicalMaterial({
+            color: 0xdcecf0, transmission: 0.7, transparent: true, opacity: 0.48,
+            roughness: 0.08, thickness: 0.01, depthWrite: false,
+          }),
+        },
+      });
+      for (const item of second.items) {
+        group.add(item.object);
+        registerTableProp(surfaceProps, item.object, item.footprint);
+      }
     }
     const vignette = ti % 4; // still steers the candle offset below
     if (theme.candles) {
@@ -3383,13 +3479,16 @@ export function buildCafe(theme, models = null) {
       shelfG.add(decor);
     };
     for (const plan of MIDNIGHT_BOOKSHELF_PLAN) {
-      const left = makeBooks(plan.left);
+      // the jazz wall stores records, not a re-tinted book library (audit
+      // S15); a few book runs stay on the upper shelves for the lounge feel
+      const rowOf = plan.y > 1.3 ? makeBooks : makeRecordRow;
+      const left = rowOf(plan.left);
       left.position.set(-SW / 2 + 0.12, plan.y, 0);
       shelfG.add(left);
-      const right = makeBooks(plan.right);
+      const right = rowOf(plan.right);
       right.position.set(SW / 2 - 0.12 - right.userData.width, plan.y, 0);
       shelfG.add(right);
-      addShelfDecor(plan.decor, plan.y);
+      addShelfDecor(plan.decor === 'plant' ? 'vinyl' : plan.decor, plan.y);
     }
     shelfG.position.set(W / 2 - 0.35, 0, 3.2);
     shelfG.rotation.y = -Math.PI / 2;
@@ -3680,21 +3779,38 @@ export function buildCafe(theme, models = null) {
         new THREE.MeshStandardMaterial({ color: 0x6d5334, roughness: 0.75 }),
         8,
       );
+      // hand-jittered spacing breaks the machine-perfect row the audit
+      // flagged (R8); the shared label texture reads as one product line
       const jarMatrix = new THREE.Matrix4();
-      for (let i = 0; i < 8; i += 1) {
-        jarMatrix.makeTranslation(0, shelfYs[2] + 0.115, -0.7 + i * 0.2);
+      const jarQuat = new THREE.Quaternion();
+      const jarScale = new THREE.Vector3(1, 1, 1);
+      const jarJitter = Array.from({ length: 8 }, () => ({
+        z: rand(-0.03, 0.03), ry: rand(-0.5, 0.5), s: rand(0.92, 1.05),
+      }));
+      jarJitter.forEach((jit, i) => {
+        jarQuat.setFromEuler(new THREE.Euler(0, jit.ry, 0));
+        jarScale.setScalar(jit.s);
+        jarMatrix.compose(new THREE.Vector3(0, shelfYs[2] + 0.115 * jit.s, -0.7 + i * 0.2 + jit.z), jarQuat, jarScale);
         jarBodies.setMatrixAt(i, jarMatrix);
-      }
+      });
       unit.add(jarBodies);
+      const labelTex = track(canvasTexture(96, 64, (g, w, h) => {
+        g.fillStyle = '#d9cdb4'; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#3c2f24'; g.textAlign = 'center';
+        g.font = 'bold 15px Georgia'; g.fillText('HOUSE', w / 2, 26);
+        g.font = '11px Georgia'; g.fillText('roast · 250g', w / 2, 44);
+      }));
       const labels = new THREE.InstancedMesh(
         new THREE.CylinderGeometry(0.072, 0.072, 0.07, 10),
-        new THREE.MeshStandardMaterial({ color: 0xd9cdb4, roughness: 0.9 }),
+        new THREE.MeshStandardMaterial({ map: labelTex, roughness: 0.9 }),
         8,
       );
-      for (let i = 0; i < 8; i += 1) {
-        jarMatrix.makeTranslation(0, shelfYs[2] + 0.1, -0.7 + i * 0.2);
+      jarJitter.forEach((jit, i) => {
+        jarQuat.setFromEuler(new THREE.Euler(0, jit.ry, 0));
+        jarScale.setScalar(jit.s);
+        jarMatrix.compose(new THREE.Vector3(0, shelfYs[2] + 0.1 * jit.s, -0.7 + i * 0.2 + jit.z), jarQuat, jarScale);
         labels.setMatrixAt(i, jarMatrix);
-      }
+      });
       unit.add(labels);
       // retail bean bags on the middle shelf, brewers up top, cups below
       for (let i = 0; i < 4; i += 1) {
@@ -3770,7 +3886,20 @@ export function buildCafe(theme, models = null) {
     for (const [sx, sy, sz] of [[-3.3, 1.06, -D / 2 + 1.15], [3.0, 1.06, -D / 2 + 1.15], [-W / 2 + 0.15, sillY - 1.0, -2.5], [-W / 2 + 0.15, sillY - 1.0, 2.5]]) {
       const sm = cloneModel(models, pick(sillKinds))
         ?? cloneModel(models, 'plant_succulent') ?? cloneModel(models, 'plant_cacti');
-      if (sm) { sm.position.set(sx, sy, sz); sm.rotation.y = rand(0, Math.PI * 2); group.add(sm); }
+      if (!sm) continue;
+      sm.position.set(sx, sy, sz);
+      sm.rotation.y = rand(0, Math.PI * 2);
+      group.add(sm);
+      // the wall-mounted pair used to hover in empty air beside the windows
+      // (audit S10) — a small bracket shelf gives each bowl a support plane
+      if (Math.abs(sx) > W / 2 - 0.5) {
+        const shelf = box(0.3, 0.025, 0.32, woodDarkMat);
+        shelf.position.set(sx + 0.1, sy - 0.025, sz);
+        group.add(shelf);
+        const bracket = box(0.02, 0.12, 0.2, metalMat);
+        bracket.position.set(sx + 0.05, sy - 0.1, sz);
+        group.add(bracket);
+      }
     }
     // a round brass mirror above the art row
     const mirror = makeWallMirror();
@@ -3832,6 +3961,21 @@ export function buildCafe(theme, models = null) {
       group.add(shelf);
       contactShadow(-6.5, -D / 2 + 0.5, 1.0);
       extraColliders.push({ x: -6.5, z: -D / 2 + 0.5, r: 0.5 });
+      // the unit read as bare scaffolding (audit G3). Its interior shelf
+      // planes aren't exposed by the asset, so dress only the two exact
+      // surfaces we know: the normalized top (y=1.6) and the floor beside it.
+      const crown = makeBooks(4);
+      crown.position.set(-6.85, 1.6, -D / 2 + 0.42);
+      group.add(crown);
+      const crownPlant = cloneModel(models, 'plant_succulent');
+      if (crownPlant) {
+        crownPlant.position.set(-6.1, 1.6, -D / 2 + 0.5);
+        group.add(crownPlant);
+      }
+      const shelfMags = makeMagazineStack();
+      shelfMags.position.set(-5.95, 0, -D / 2 + 0.62);
+      shelfMags.rotation.y = 0.5;
+      group.add(shelfMags);
     }
     // real pendant lamps hanging over the counter
     const counterPendant = cloneModel(models, 'pendant_lamp');

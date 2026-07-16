@@ -88,6 +88,23 @@ class Cdp {
 
 // Every room contributes its four corners; the camera looks across the room
 // at seated-head height so furniture, walls, and ceiling edges all appear.
+// Corner points that land inside a blueprint collider slide along the room
+// diagonal until clear — the first pass buried four cameras in furniture
+// (a pillar, the roaster drum, deck-edge planters).
+function insideCollider(x, z, levelId) {
+  const margin = 0.45;
+  for (const c of blueprint.colliders ?? []) {
+    if ((c.levelId ?? 'ground') !== (levelId ?? 'ground')) continue;
+    if (c.r) {
+      if (Math.hypot(x - c.x, z - c.z) < c.r + margin) return true;
+    } else if (c.rect) {
+      if (x > c.rect.x0 - margin && x < c.rect.x1 + margin
+        && z > c.rect.z0 - margin && z < c.rect.z1 + margin) return true;
+    }
+  }
+  return false;
+}
+
 function cornerViews() {
   const views = [];
   for (const room of blueprint.rooms ?? []) {
@@ -99,7 +116,16 @@ function cornerViews() {
       ['nw', x0 + INSET, z0 + INSET], ['ne', x1 - INSET, z0 + INSET],
       ['sw', x0 + INSET, z1 - INSET], ['se', x1 - INSET, z1 - INSET],
     ];
-    for (const [tag, x, z] of corners) {
+    for (const [tag, cxr, czr] of corners) {
+      let x = cxr;
+      let z = czr;
+      const toCenter = Math.hypot(cx - x, cz - z) || 1;
+      const stepX = (cx - x) / toCenter * 0.3;
+      const stepZ = (cz - z) / toCenter * 0.3;
+      for (let step = 0; step < 8 && insideCollider(x, z, room.levelId); step += 1) {
+        x += stepX;
+        z += stepZ;
+      }
       const dx = cx - x;
       const dz = cz - z;
       views.push({

@@ -3176,7 +3176,11 @@ class OutsideLife {
   }
 
   streetZ() {
-    return ROOM.D / 2 + 1.7; // just past the front windows
+    // city venues: mid-sidewalk. The open-air terrace pushes its garden path
+    // past the perimeter hedge's sightline from the upper deck — closer in,
+    // the hedge hid walkers' legs and they read as gliding along the planting
+    // (audit T3).
+    return ROOM.D / 2 + (this.cafe?.theme?.openAir ? 2.6 : 1.7);
   }
 
   setQuality(level) { this.qualityLevel = level; }
