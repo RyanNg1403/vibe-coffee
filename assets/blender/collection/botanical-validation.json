@@ -1,0 +1,97 @@
+{
+  "allPassed": true,
+  "packingEstimateOnly": true,
+  "previousTotalBytes": 915128,
+  "estimatedPackedBytes": 1107112,
+  "estimatedDeltaBytes": 191984,
+  "models": {
+    "plant_monstera": {
+      "triangles": 15802,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 46400,
+      "estimatedPackedBytes": 168176,
+      "estimatedDeltaBytes": 121776,
+      "footprintPreserved": true
+    },
+    "plant_fern": {
+      "triangles": 17914,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 448644,
+      "estimatedPackedBytes": 212860,
+      "estimatedDeltaBytes": -235784,
+      "footprintPreserved": true
+    },
+    "plant_pothos": {
+      "triangles": 13328,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 45832,
+      "estimatedPackedBytes": 130908,
+      "estimatedDeltaBytes": 85076,
+      "footprintPreserved": true
+    },
+    "plant_pothos_vine": {
+      "triangles": 17500,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 174880,
+      "estimatedPackedBytes": 142312,
+      "estimatedDeltaBytes": -32568,
+      "footprintPreserved": true
+    },
+    "plant_snake": {
+      "triangles": 7992,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 36024,
+      "estimatedPackedBytes": 97152,
+      "estimatedDeltaBytes": 61128,
+      "footprintPreserved": true
+    },
+    "plant_succulent": {
+      "triangles": 18712,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 58508,
+      "estimatedPackedBytes": 160532,
+      "estimatedDeltaBytes": 102024,
+      "footprintPreserved": true
+    },
+    "plant_small": {
+      "triangles": 6832,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 58492,
+      "estimatedPackedBytes": 91488,
+      "estimatedDeltaBytes": 32996,
+      "footprintPreserved": true
+    },
+    "plant": {
+      "triangles": 8920,
+      "bakedMaps": 2,
+      "doubleSidedFoliage": true,
+      "finiteIndexedGeometry": true,
+      "selfContained": true,
+      "previousPackedBytes": 46348,
+      "estimatedPackedBytes": 103684,
+      "estimatedDeltaBytes": 57336,
+      "footprintPreserved": true
+    }
+  }
+}

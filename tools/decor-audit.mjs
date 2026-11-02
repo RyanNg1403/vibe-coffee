@@ -145,6 +145,10 @@ try {
       const violations = [];
       const groundingViolations = [];
       const seatCount = vibe.cafe.seats.length;
+      const collections = vibe.cafe.group.userData.venueCollections ?? [];
+      const collectionViolations = vibe.venueCollectionAudit();
+      if (collections.length !== 1) collectionViolations.push({ kind: 'missing-venue-collection', count: collections.length });
+      violations.push(...collectionViolations.map(v => ({ ...v, phase: 'collection' })));
       // resting state first
       violations.push(...vibe.decorAudit().violations.map((v) => ({ ...v, phase: 'rest' })));
       // whole-venue world-grounding sweep at rest: no mesh floats or sinks
@@ -172,7 +176,7 @@ try {
       const ground1 = vibe.worldGroundingAudit();
       groundingViolations.push(...ground1.violations.map((v) => ({ ...v, phase: 'laptop@seat0' })));
       if (laptopBtn.classList.contains('on')) laptopBtn.click();
-      return { seatCount, skipped, groundingChecked, violations, groundingViolations };
+      return { seatCount, skipped, groundingChecked, collectionCount: collections.length, violations, groundingViolations };
     })()`);
     report[THEMES[index]] = summary;
     total += summary.violations.length + summary.groundingViolations.length;

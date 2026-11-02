@@ -16,6 +16,8 @@ const images=new Map();const report={};
 // Re-exporting one asset should not recompress every other embedded JPEG.
 const keysArg=process.argv.slice(2).find(arg=>arg.startsWith('--keys='));
 const selected=keysArg?new Set(keysArg.slice(7).split(',')):null;
+const reportPath=process.argv.slice(2).find(arg=>arg.startsWith('--report='))?.slice(9)
+  ?? 'assets/blender/realism/runtime-report.json';
 if(selected)for(const key of selected)if(!MODEL_MANIFEST[key])throw new Error(`Unknown model: ${key}`);
 const packedMaps=new Set();
 for(const key of Object.keys(MODEL_MANIFEST)){
@@ -42,5 +44,5 @@ for(const key of Object.keys(MODEL_MANIFEST)){
   for(const texture of d.getRoot().listTextures())packedMaps.add(createHash('sha256').update(texture.getImage()).digest('hex'));
   report[key]={bytes:result.length,triangles:d.getRoot().listMeshes().reduce((sum,m)=>sum+m.listPrimitives().reduce((n,p)=>n+p.getIndices().getCount()/3,0),0),materials:d.getRoot().listMaterials().length,animations:d.getRoot().listAnimations().map(a=>a.getName())};
 }
-await writeFile('assets/blender/realism/runtime-report.json',JSON.stringify(report,null,2)+'\n');
+await writeFile(reportPath,JSON.stringify(report,null,2)+'\n');
 console.log(`${Object.keys(report).length} Blender assets; ${(Object.values(report).reduce((n,a)=>n+a.bytes,0)/1048576).toFixed(2)} MiB total; ${packedMaps.size} unique packed surface maps.${selected?` Repacked only: ${[...selected].join(', ')}.`:''}`);

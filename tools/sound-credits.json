@@ -133,11 +133,12 @@
     "item_url": "https://archive.org/details/aporee_35167_40408"
   },
   "plant": {
-    "title": "Atelier café rebuild — plant",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — rubber plant",
+    "source_url": "assets/blender/collection/plant.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "espresso_machine": {
     "title": "Atelier café rebuild — espresso machine",
@@ -161,11 +162,12 @@
     "item_url": "assets/blender/README.md"
   },
   "bar_stool": {
-    "title": "Atelier café rebuild — bar stool",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/bar_stool.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — bar stool",
+    "source_url": "assets/blender/collection/bar_stool.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "char_hero_female": {
     "title": "Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
@@ -259,11 +261,12 @@
     "item_url": "assets/blender/README.md"
   },
   "side_table": {
-    "title": "Atelier café rebuild — side table",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/side_table.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — side table",
+    "source_url": "assets/blender/collection/side_table.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "coat_rack": {
     "title": "Atelier café rebuild — coat rack",
@@ -474,39 +477,44 @@
     "edits": "36 s slice from 0:30, mono 32 kHz, 40 Hz high-pass, loop click-guards; retrieved 2026-07-11"
   },
   "plant_monstera": {
-    "title": "Atelier café rebuild — plant monstera",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant_monstera.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — fenestrated monstera",
+    "source_url": "assets/blender/collection/plant_monstera.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "plant_snake": {
-    "title": "Atelier café rebuild — plant snake",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant_snake.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — snake plant",
+    "source_url": "assets/blender/collection/plant_snake.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "plant_pothos": {
-    "title": "Atelier café rebuild — plant pothos",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant_pothos.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — pothos",
+    "source_url": "assets/blender/collection/plant_pothos.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "plant_pothos_vine": {
-    "title": "Atelier café rebuild — plant pothos vine",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant_pothos_vine.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — trailing pothos vine",
+    "source_url": "assets/blender/collection/plant_pothos_vine.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "plant_succulent": {
-    "title": "Atelier café rebuild — plant succulent",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant_succulent.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — succulent",
+    "source_url": "assets/blender/collection/plant_succulent.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "plant_cacti": {
     "title": "Atelier café rebuild — plant cacti",
@@ -516,11 +524,12 @@
     "item_url": "assets/blender/README.md"
   },
   "plant_fern": {
-    "title": "Atelier café rebuild — plant fern",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant_fern.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — curved fern",
+    "source_url": "assets/blender/collection/plant_fern.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "tree_park_a": {
     "title": "Atelier café rebuild — tree park a",
@@ -646,18 +655,20 @@
     "item_url": "assets/blender/README.md"
   },
   "studio_chair": {
-    "title": "Atelier café rebuild — studio chair",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/studio_chair.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — studio chair",
+    "source_url": "assets/blender/collection/studio_chair.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "armchair": {
-    "title": "Atelier café rebuild — armchair",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/armchair.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — armchair",
+    "source_url": "assets/blender/collection/armchair.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "atelier_car": {
     "title": "Atelier café rebuild — atelier car",
@@ -688,32 +699,36 @@
     "item_url": "assets/blender/README.md"
   },
   "atelier_tables_goldenhour": {
-    "title": "Atelier café rebuild — atelier tables goldenhour",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/atelier_tables_goldenhour.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — atelier tables goldenhour",
+    "source_url": "assets/blender/collection/atelier_tables_goldenhour.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "atelier_tables_midnight": {
-    "title": "Atelier café rebuild — atelier tables midnight",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/atelier_tables_midnight.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — atelier tables midnight",
+    "source_url": "assets/blender/collection/atelier_tables_midnight.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "atelier_tables_roastery": {
-    "title": "Atelier café rebuild — atelier tables roastery",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/atelier_tables_roastery.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — atelier tables roastery",
+    "source_url": "assets/blender/collection/atelier_tables_roastery.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "atelier_tables_terrace": {
-    "title": "Atelier café rebuild — atelier tables terrace",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/atelier_tables_terrace.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — atelier tables terrace",
+    "source_url": "assets/blender/collection/atelier_tables_terrace.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "bookcase": {
     "title": "Atelier café rebuild — bookcase",
@@ -836,11 +851,12 @@
     "item_url": "assets/blender/README.md"
   },
   "plant_small": {
-    "title": "Atelier café rebuild — plant small",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/plant_small.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender botanical collection — peperomia",
+    "source_url": "assets/blender/collection/plant_small.blend",
+    "modifications": "Original species-specific curved leaves, stems, modeled planter details and deterministic pigmentation/vein normal atlases generated in Blender. No third-party botanical textures."
   },
   "sandwich": {
     "title": "Atelier café rebuild — sandwich",
@@ -850,11 +866,12 @@
     "item_url": "assets/blender/README.md"
   },
   "sofa": {
-    "title": "Atelier café rebuild — sofa",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/sofa.blend",
-    "item_url": "assets/blender/README.md"
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Blender collection finish — sofa",
+    "source_url": "assets/blender/collection/sofa.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
   },
   "teapot": {
     "title": "Atelier café rebuild — teapot",
@@ -1057,5 +1074,86 @@
     "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
     "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
     "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "atelier_decor_goldenhour": {
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Golden Hour countertop collection — stoneware, botanical art, linen and ceramic service",
+    "source_url": "assets/blender/collection/atelier_decor_goldenhour.blend",
+    "modifications": "Original modeled geometry, graphics and procedural material fields authored in Blender; packed portable PBR maps."
+  },
+  "atelier_decor_roastery": {
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Roastery countertop collection — origin packets, bean canisters and copper filter station",
+    "source_url": "assets/blender/collection/atelier_decor_roastery.blend",
+    "modifications": "Original modeled geometry, graphics and procedural material fields authored in Blender; packed portable PBR maps."
+  },
+  "atelier_decor_terrace": {
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry, graphics and botanical maps; includes CC0 ambientCG Wood067 texture derivative",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Terrace countertop collection — culinary herbs, rattan and propagation glass",
+    "source_url": "assets/blender/collection/atelier_decor_terrace.blend",
+    "modifications": "Original Blender herb geometry, rattan weave, pottery, propagation glass and typography. Walnut tray finish derives from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); botanical maps are original project artwork."
+  },
+  "atelier_decor_midnight": {
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project geometry and graphics; includes CC0 ambientCG Wood067 texture derivative",
+    "item_url": "assets/blender/collection/README.md",
+    "title": "Midnight countertop collection — turntable, original jazz artwork and amber lamp",
+    "source_url": "assets/blender/collection/atelier_decor_midnight.blend",
+    "modifications": "Original Blender turntable, tonearm, geometric jazz artwork, typography and lamp. Walnut finish derives from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067)."
+  },
+  "collection_timber_color.jpg": {
+    "title": "Blender satin timber color derived from ambientCG Wood067",
+    "creator": "ambientCG; Blender finish by Vibe Coffee project",
+    "license": "CC0",
+    "source_url": "assets/blender/collection/furniture-study.blend",
+    "item_url": "https://ambientcg.com/view?id=Wood067"
+  },
+  "collection_timber_normal.jpg": {
+    "title": "Blender satin timber normal derived from ambientCG Wood067",
+    "creator": "ambientCG; Blender finish by Vibe Coffee project",
+    "license": "CC0",
+    "source_url": "assets/blender/collection/furniture-study.blend",
+    "item_url": "https://ambientcg.com/view?id=Wood067"
+  },
+  "collection_timber_roughness.jpg": {
+    "title": "Blender satin timber roughness derived from ambientCG Wood067",
+    "creator": "ambientCG; Blender finish by Vibe Coffee project",
+    "license": "CC0",
+    "source_url": "assets/blender/collection/furniture-study.blend",
+    "item_url": "https://ambientcg.com/view?id=Wood067"
+  },
+  "collection_floor_color.jpg": {
+    "title": "Blender matte floor color derived from ambientCG WoodFloor051",
+    "creator": "ambientCG; Blender finish by Vibe Coffee project",
+    "license": "CC0",
+    "source_url": "assets/blender/collection/ground-materials.blend",
+    "item_url": "https://ambientcg.com/view?id=WoodFloor051"
+  },
+  "collection_floor_roughness.jpg": {
+    "title": "Blender matte floor roughness derived from ambientCG WoodFloor051",
+    "creator": "ambientCG; Blender finish by Vibe Coffee project",
+    "license": "CC0",
+    "source_url": "assets/blender/collection/ground-materials.blend",
+    "item_url": "https://ambientcg.com/view?id=WoodFloor051"
+  },
+  "collection_garden_color.jpg": {
+    "title": "Blender procedural garden ground-cover color",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "source_url": "assets/blender/collection/ground-materials.blend",
+    "item_url": "assets/blender/collection/README.md"
+  },
+  "collection_garden_normal.jpg": {
+    "title": "Blender procedural garden ground-cover normal",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "source_url": "assets/blender/collection/ground-materials.blend",
+    "item_url": "assets/blender/collection/README.md"
   }
 }

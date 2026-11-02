@@ -200,9 +200,10 @@ for (const url of assetUrls) {
     contentType = 'audio/ogg';
   } else if (kind === 'environment') {
     bytes = await readFile(join(root, 'assets/blender/realism/courtyard-compact.hdr'));
-  } else if (kind === 'textures' && /^(studio_|realism_)/.test(filename)) {
+  } else if (kind === 'textures') {
     // Preserve spatial detail in room-sized contact maps; use compact maps
-    // for tiled materials in the standalone edition only.
+    // for every tiled material, including the older floor/plaster scans, in
+    // the standalone edition only. Full application textures stay intact.
     const resolution = filename.startsWith('realism_contact_') ? 512 : 256;
     const compact = join(textureDir, filename);
     await run('ffmpeg', [

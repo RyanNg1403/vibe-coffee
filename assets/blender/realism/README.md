@@ -1,5 +1,9 @@
 # Architectural realism pass
 
+The subsequent [café collection sources](../collection/README.md) add themed
+displays, furniture finishes, and botanicals. This guide retains the source and
+validation record for the earlier realism pass.
+
 These editable Blender scenes supply the current character refits, rebuilt
 pets, furniture materials, and floor contact shading. The reference is warm architectural
 photography: natural daylight, restrained walnut grain, linen, stone, and small

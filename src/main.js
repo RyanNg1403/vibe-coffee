@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { loadDaylightEnvironment } from './rendering/daylightEnvironment.js';
 import { groundingAuditObjects } from './rendering/placementBounds.js';
+import { auditVenueCollections } from './decor/venueCollection.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -1740,6 +1741,7 @@ window.__vibe = {
     }
   },
   get cafe() { return cafe; },
+  venueCollectionAudit() { return auditVenueCollections(cafe.group); },
   get crowd() { return crowd; },
   get pets() { return pets; },
   get interactions() { return interactions; },

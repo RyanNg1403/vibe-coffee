@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { Group, Mesh, BoxGeometry, MeshStandardMaterial, Texture } from 'three';
+import { applyFurnitureFinish, FURNITURE_FINISHES } from '../src/decor/furnitureFinish.js';
+
+test('venue furniture colors preserve timber/metal and keep library textures shared', () => {
+  const map = new Texture();
+  map.userData.vibeShared = true;
+  const linen = new MeshStandardMaterial({ color: 0xffffff, map, roughness: 0.88 });
+  linen.name = 'Collection / linen upholstery';
+  linen.userData.vibeShared = true;
+  const timber = new MeshStandardMaterial({ color: 0x73492c, roughness: 0.63 });
+  timber.name = 'Existing walnut frame'; timber.userData.vibeShared = true;
+  const brass = new MeshStandardMaterial({ color: 0xac894c, metalness: 0.8 });
+  brass.name = 'Brass footrail';
+  const room = new Group(), second = new Group(), cache = new Map();
+  room.add(new Mesh(new BoxGeometry(), [linen, timber, brass]));
+  second.add(new Mesh(new BoxGeometry(), linen));
+  applyFurnitureFinish(room, FURNITURE_FINISHES.midnight, cache);
+  applyFurnitureFinish(second, FURNITURE_FINISHES.midnight, cache);
+  const [tinted, frame, metal] = room.children[0].material;
+  assert.equal(tinted, second.children[0].material, 'one venue-owned upholstery variant');
+  assert.notEqual(tinted, linen);
+  assert.equal(tinted.map, map);
+  assert.equal(tinted.roughness, 0.88);
+  assert.equal(tinted.userData.vibeShared, undefined, 'room teardown can release the clone');
+  assert.equal(map.userData.vibeShared, true);
+  assert.equal(frame, timber, 'upholstery tint never covers the wooden frame');
+  assert.equal(metal, brass);
+  assert.equal(linen.color.getHex(), 0xffffff, 'source stays unchanged for the next venue');
+  for (const object of [room.children[0], second.children[0]]) object.geometry.dispose();
+  for (const material of [tinted, linen, timber, brass]) material.dispose();
+  map.dispose();
+});

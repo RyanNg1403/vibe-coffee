@@ -2,6 +2,13 @@
 // do not hand-edit entries.
 
 export const TEXTURE_MANIFEST = {
+  'collection_floor_color.jpg': '/textures/collection_floor_color.jpg',
+  'collection_floor_roughness.jpg': '/textures/collection_floor_roughness.jpg',
+  'collection_garden_color.jpg': '/textures/collection_garden_color.jpg',
+  'collection_garden_normal.jpg': '/textures/collection_garden_normal.jpg',
+  'collection_timber_color.jpg': '/textures/collection_timber_color.jpg',
+  'collection_timber_normal.jpg': '/textures/collection_timber_normal.jpg',
+  'collection_timber_roughness.jpg': '/textures/collection_timber_roughness.jpg',
   'floor_conc.jpg': '/textures/floor_conc.jpg',
   'floor_conc_n.jpg': '/textures/floor_conc_n.jpg',
   'floor_dark.jpg': '/textures/floor_dark.jpg',

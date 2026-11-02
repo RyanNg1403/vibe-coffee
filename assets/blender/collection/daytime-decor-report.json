@@ -1,0 +1,105 @@
+{
+  "atelier_decor_goldenhour": {
+    "triangles": 18949,
+    "materials": 6,
+    "source_bounds_xyz": [
+      [
+        -0.7648569345474243,
+        -0.18349143862724304,
+        0.0
+      ],
+      [
+        0.7648569345474243,
+        0.18349143862724304,
+        0.7730185985565186
+      ]
+    ],
+    "runtime_support_bounds": [
+      -0.7648569345474243,
+      0.0,
+      -0.18349143862724304,
+      0.7648569345474243,
+      0.7730185985565186,
+      0.18349143862724304
+    ],
+    "width_metres": 1.5297138690948486,
+    "depth_metres": 0.3669828772544861,
+    "height_metres": 0.7730185985565186,
+    "features": [
+      "Thrown ribbed stoneware and dried eucalyptus",
+      "Original framed herbarium and abstract sun prints",
+      "Folded linen, scored artisan bread, ceramic coffee service"
+    ],
+    "original_artwork": true,
+    "packed_maps": [
+      "1024 color",
+      "512 normal"
+    ],
+    "raw_glb_bytes": 1081536
+  },
+  "atelier_decor_roastery": {
+    "triangles": 20844,
+    "materials": 7,
+    "source_bounds_xyz": [
+      [
+        -0.7787500023841858,
+        -0.1484919935464859,
+        0.0
+      ],
+      [
+        0.7787500023841858,
+        0.1484919935464859,
+        0.6399999856948853
+      ]
+    ],
+    "runtime_support_bounds": [
+      -0.7787500023841858,
+      0.0,
+      -0.1484919935464859,
+      0.7787500023841858,
+      0.6399999856948853,
+      0.1484919935464859
+    ],
+    "width_metres": 1.5575000047683716,
+    "depth_metres": 0.2969839870929718,
+    "height_metres": 0.6399999856948853,
+    "features": [
+      "Gusseted kraft coffee packets with branded origin labels and valves",
+      "Glass bean canisters with individual roasted beans",
+      "Copper filter stand, pleated dripper, glass carafe and precision scale",
+      "Original origin contour print and editorial typography"
+    ],
+    "original_artwork": true,
+    "packed_maps": [
+      "1024 color",
+      "512 normal"
+    ],
+    "raw_glb_bytes": 1379488,
+    "canister_surface_checks": [
+      {
+        "height": 0.245,
+        "inner_glass_radius": 0.052000000000000005,
+        "fill_radius": 0.043000000000000003,
+        "fill_top": 0.16835,
+        "top_bean_count": 20,
+        "visible_top_minimum": 0.006107028508186341,
+        "wall_bean_count": 12,
+        "minimum_wall_radius": 0.045996863079918765,
+        "maximum_bean_radius": 0.04838376460073707,
+        "minimum_radial_glass_clearance": 0.0036162353992629376
+      },
+      {
+        "height": 0.205,
+        "inner_glass_radius": 0.052000000000000005,
+        "fill_radius": 0.043000000000000003,
+        "fill_top": 0.14315,
+        "top_bean_count": 20,
+        "visible_top_minimum": 0.0060564148187637334,
+        "wall_bean_count": 12,
+        "minimum_wall_radius": 0.04575452356262938,
+        "maximum_bean_radius": 0.04838369104625727,
+        "minimum_radial_glass_clearance": 0.003616308953742736
+      }
+    ]
+  }
+}

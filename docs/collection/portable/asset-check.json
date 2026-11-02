@@ -1,0 +1,35 @@
+{
+  "models": 83,
+  "photographicEnvironment": true,
+  "diversity": {
+    "limit": 2,
+    "actorCount": 21,
+    "uniqueAssets": 20,
+    "maxCopies": 2,
+    "counts": {
+      "char_atelier_9": 1,
+      "char_atelier_8": 1,
+      "char_atelier_18": 1,
+      "char_atelier_15": 1,
+      "char_atelier_7": 1,
+      "char_atelier_17": 1,
+      "char_atelier_11": 1,
+      "char_atelier_4": 2,
+      "char_atelier_12": 1,
+      "char_atelier_5": 1,
+      "char_atelier_2": 1,
+      "char_atelier_10": 1,
+      "char_atelier_1": 1,
+      "char_atelier_6": 1,
+      "char_atelier_14": 1,
+      "char_atelier_16": 1,
+      "char_atelier_13": 1,
+      "char_atelier_3": 1,
+      "char_atelier_barista": 1,
+      "char_atelier_server": 1
+    },
+    "allocationsMatch": true,
+    "availableSlots": 17
+  },
+  "externalResourceRequests": []
+}

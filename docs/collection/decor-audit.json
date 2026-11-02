@@ -1,0 +1,38 @@
+{
+  "report": {
+    "goldenhour": {
+      "seatCount": 42,
+      "skipped": [],
+      "groundingChecked": 286,
+      "collectionCount": 1,
+      "violations": [],
+      "groundingViolations": []
+    },
+    "roastery": {
+      "seatCount": 32,
+      "skipped": [],
+      "groundingChecked": 227,
+      "collectionCount": 1,
+      "violations": [],
+      "groundingViolations": []
+    },
+    "midnight": {
+      "seatCount": 47,
+      "skipped": [],
+      "groundingChecked": 277,
+      "collectionCount": 1,
+      "violations": [],
+      "groundingViolations": []
+    },
+    "terrace": {
+      "seatCount": 45,
+      "skipped": [],
+      "groundingChecked": 274,
+      "collectionCount": 1,
+      "violations": [],
+      "groundingViolations": []
+    }
+  },
+  "total": 0,
+  "passed": true
+}

@@ -1,0 +1,102 @@
+{
+  "atelier_decor_midnight": {
+    "theme": "midnight",
+    "concept": "A listening corner: walnut turntable, original jazz print, ribbed glass lamp and one glazed bud vessel",
+    "spin_node": "Collection / Midnight record disc",
+    "spin_axis": "y",
+    "front": "glTF +Z",
+    "triangles": 18271,
+    "materials": 8,
+    "objects": 9,
+    "blender_bounds": {
+      "min": [
+        -0.8277999758720398,
+        -0.17800003290176392,
+        -1.161298435192748e-08
+      ],
+      "max": [
+        0.8169999718666077,
+        0.16300001740455627,
+        0.7705000042915344
+      ],
+      "size": [
+        1.6447999477386475,
+        0.3410000503063202,
+        0.7705000159045188
+      ]
+    },
+    "gltf_bounds": {
+      "min": [
+        -0.8277999758720398,
+        -1.161298435192748e-08,
+        -0.16300001740455627
+      ],
+      "max": [
+        0.8169999718666077,
+        0.7705000042915344,
+        0.17800003290176392
+      ],
+      "size": [
+        1.6447999477386475,
+        0.7705000159045188,
+        0.3410000503063202
+      ]
+    },
+    "unpacked_glb_bytes": 602716,
+    "source": "assets/blender/collection/atelier_decor_midnight.blend",
+    "original_graphics": "Original geometric jazz artwork and botanical typography; built-in Blender font",
+    "texture_provenance": "Walnut finish derived from credited ambientCG Wood067; botanical maps authored in Blender"
+  },
+  "atelier_decor_terrace": {
+    "theme": "terrace",
+    "concept": "A propagation station: three named culinary herbs, handmade terracotta, woven tray and rooted glass cuttings",
+    "front": "glTF +Z",
+    "triangles": 23492,
+    "materials": 7,
+    "objects": 7,
+    "blender_bounds": {
+      "min": [
+        -0.8530000448226929,
+        -0.17100000381469727,
+        0.0
+      ],
+      "max": [
+        0.8530001044273376,
+        0.17100003361701965,
+        0.6934999823570251
+      ],
+      "size": [
+        1.7060001492500305,
+        0.3420000374317169,
+        0.6934999823570251
+      ]
+    },
+    "gltf_bounds": {
+      "min": [
+        -0.8530000448226929,
+        0.0,
+        -0.17100003361701965
+      ],
+      "max": [
+        0.8530001044273376,
+        0.6934999823570251,
+        0.17100000381469727
+      ],
+      "size": [
+        1.7060001492500305,
+        0.6934999823570251,
+        0.3420000374317169
+      ]
+    },
+    "unpacked_glb_bytes": 971560,
+    "source": "assets/blender/collection/atelier_decor_terrace.blend",
+    "original_graphics": "Original geometric jazz artwork and botanical typography; built-in Blender font",
+    "texture_provenance": "Walnut finish derived from credited ambientCG Wood067; botanical maps authored in Blender",
+    "glass": {
+      "alpha": 0.12,
+      "roughness": 0.08,
+      "double_sided": false,
+      "transmission": 0
+    }
+  }
+}

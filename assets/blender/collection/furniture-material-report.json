@@ -1,0 +1,135 @@
+{
+  "timberMapMeanLinearRGB": [
+    0.23,
+    0.205,
+    0.175
+  ],
+  "timberContrastLimit": 0.055,
+  "timberRoughnessMean": 0.64,
+  "timberNormalStrength": 0.24,
+  "clearcoat": 0.03,
+  "clearcoatRoughness": 0.6,
+  "linenNormalStrength": 0.38,
+  "linenSheen": 0.35,
+  "linenSheenRoughness": 0.8,
+  "palettesLinearRGB": {
+    "goldenhour": {
+      "timber": [
+        0.76,
+        0.55,
+        0.35
+      ],
+      "linen": [
+        0.84,
+        0.87,
+        0.9
+      ],
+      "roughness": 0.97
+    },
+    "roastery": {
+      "timber": [
+        0.52,
+        0.43,
+        0.34
+      ],
+      "linen": [
+        0.18,
+        0.22,
+        0.24
+      ],
+      "roughness": 0.93
+    },
+    "midnight": {
+      "timber": [
+        0.25,
+        0.19,
+        0.15
+      ],
+      "linen": [
+        0.25,
+        0.055,
+        0.065
+      ],
+      "roughness": 0.9
+    },
+    "terrace": {
+      "timber": [
+        0.82,
+        0.83,
+        0.72
+      ],
+      "linen": [
+        0.48,
+        0.6,
+        0.46
+      ],
+      "roughness": 1.0
+    }
+  },
+  "textureSource": "Derived from retained ambientCG Wood067 (wood_dark.jpg); see CREDITS.md",
+  "models": {
+    "studio_chair": {
+      "palette": "goldenhour",
+      "finishedMeshes": 20,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 1628596
+    },
+    "bar_stool": {
+      "palette": "goldenhour",
+      "finishedMeshes": 20,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 1650212
+    },
+    "armchair": {
+      "palette": "goldenhour",
+      "finishedMeshes": 26,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 1681988
+    },
+    "sofa": {
+      "palette": "goldenhour",
+      "finishedMeshes": 11,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 1744500
+    },
+    "side_table": {
+      "palette": "goldenhour",
+      "finishedMeshes": 6,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 621700
+    },
+    "atelier_tables_goldenhour": {
+      "palette": "goldenhour",
+      "finishedMeshes": 14,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 2777832
+    },
+    "atelier_tables_roastery": {
+      "palette": "roastery",
+      "finishedMeshes": 7,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 965604
+    },
+    "atelier_tables_midnight": {
+      "palette": "midnight",
+      "finishedMeshes": 17,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 1783400
+    },
+    "atelier_tables_terrace": {
+      "palette": "terrace",
+      "finishedMeshes": 16,
+      "geometryUnchanged": true,
+      "curtainsUnchanged": true,
+      "bytesBeforePacking": 1716808
+    }
+  }
+}

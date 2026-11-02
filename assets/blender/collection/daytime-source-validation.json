@@ -1,0 +1,142 @@
+{
+  "blender_version": "4.3.2",
+  "validation": "Read-only source and current GLB snapshots; no source saves, geometry changes or GLB writes.",
+  "statistics_scope": "Source triangle/material/.blend byte counts are distinct from the identified GLB snapshots, which may precede concurrent packing.",
+  "passed": true,
+  "collections": {
+    "atelier_decor_goldenhour": {
+      "source_blend_sha256": "ee61757cc4413e78fb9afa409c78532eba8a753ced752390b2373d3bd0787201",
+      "source_blend_bytes": 739441,
+      "source_triangles": 18949,
+      "source_materials": 6,
+      "matches_source_report": true,
+      "source_bounds_xyz": [
+        [
+          -0.7648569345474243,
+          -0.18349143862724304,
+          0.0
+        ],
+        [
+          0.7648569345474243,
+          0.18349143862724304,
+          0.7730185985565186
+        ]
+      ],
+      "centered_xy": true,
+      "base_z_zero": true,
+      "packed_images": {
+        "color": {
+          "dimensions": [
+            1024,
+            1024
+          ],
+          "packed": true,
+          "color_space": "sRGB"
+        },
+        "normal": {
+          "dimensions": [
+            512,
+            512
+          ],
+          "packed": true,
+          "color_space": "Non-Color"
+        }
+      },
+      "retained_original_shader_graphs": 7,
+      "missing_textures": [],
+      "source_unchanged": true,
+      "observed_glb_snapshot": {
+        "sha256": "c546275763e8a7d06031dc43b116619ecb45df45fc651f252179cafddf2c9eb6",
+        "bytes": 262724,
+        "glass": [],
+        "transmission_extensions": false
+      }
+    },
+    "atelier_decor_roastery": {
+      "source_blend_sha256": "124ee290cb292d0d1753c7c48e7852f591db49e866645b6715386bc0a3d56bb5",
+      "source_blend_bytes": 818690,
+      "source_triangles": 20844,
+      "source_materials": 7,
+      "matches_source_report": true,
+      "source_bounds_xyz": [
+        [
+          -0.7787500023841858,
+          -0.1484919935464859,
+          0.0
+        ],
+        [
+          0.7787500023841858,
+          0.1484919935464859,
+          0.6399999856948853
+        ]
+      ],
+      "centered_xy": true,
+      "base_z_zero": true,
+      "packed_images": {
+        "color": {
+          "dimensions": [
+            1024,
+            1024
+          ],
+          "packed": true,
+          "color_space": "sRGB"
+        },
+        "normal": {
+          "dimensions": [
+            512,
+            512
+          ],
+          "packed": true,
+          "color_space": "Non-Color"
+        }
+      },
+      "retained_original_shader_graphs": 7,
+      "missing_textures": [],
+      "source_unchanged": true,
+      "observed_glb_snapshot": {
+        "sha256": "4093ae56d374be64cd8b6d481c16e5a3a1a666830917b34dd802cd3f3b2d15eb",
+        "bytes": 353292,
+        "glass": [
+          {
+            "name": "Countertop / clear borosilicate",
+            "alpha_mode": "BLEND",
+            "alpha": 0.12,
+            "roughness": 0.08,
+            "double_sided": false,
+            "transmission_extension": false
+          }
+        ],
+        "transmission_extensions": false
+      },
+      "generator_canister_surface_checks": {
+        "scope": "Generator measurements retained from daytime-decor-report.json; this read-only audit checks their thresholds and source hash, rather than re-segmenting the joined mesh.",
+        "canisters": [
+          {
+            "height": 0.245,
+            "inner_glass_radius": 0.052000000000000005,
+            "fill_radius": 0.043000000000000003,
+            "fill_top": 0.16835,
+            "top_bean_count": 20,
+            "visible_top_minimum": 0.006107028508186341,
+            "wall_bean_count": 12,
+            "minimum_wall_radius": 0.045996863079918765,
+            "maximum_bean_radius": 0.04838376460073707,
+            "minimum_radial_glass_clearance": 0.0036162353992629376
+          },
+          {
+            "height": 0.205,
+            "inner_glass_radius": 0.052000000000000005,
+            "fill_radius": 0.043000000000000003,
+            "fill_top": 0.14315,
+            "top_bean_count": 20,
+            "visible_top_minimum": 0.0060564148187637334,
+            "wall_bean_count": 12,
+            "minimum_wall_radius": 0.04575452356262938,
+            "maximum_bean_radius": 0.04838369104625727,
+            "minimum_radial_glass_clearance": 0.003616308953742736
+          }
+        ]
+      }
+    }
+  }
+}

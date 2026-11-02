@@ -1,0 +1,15 @@
+{
+  "resolution": 1024,
+  "floorSource": "ambientCG WoodFloor051 (CC0), retained project scan",
+  "gardenSource": "Original Blender procedural soil and ground-cover field",
+  "floorRoughnessRange": [
+    0.8170891436557597,
+    0.8432060608851131
+  ],
+  "maps": [
+    "collection_floor_color",
+    "collection_floor_roughness",
+    "collection_garden_color",
+    "collection_garden_normal"
+  ]
+}

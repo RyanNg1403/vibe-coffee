@@ -194,8 +194,29 @@ try {
     await client.evaluate(`__vibe.place(${pos[0]},${pos[2]},${yaw},${pitch}); captureCamera.position.set(${pos.join(',')}); captureCamera.lookAt(${lookAt.join(',')}); captureCamera.updateMatrixWorld(true)`);
   }
   const ids={goldenhour:['gh-salon-from-entrance','gh-salon-oval','gh-service-queue'],roastery:['ro-hall-from-entrance'],midnight:['mi-room-from-entrance'],terrace:['te-terrace-from-entrance']};
-  for(const view of blueprint.auditViews.filter(v=>VIEW?v.id===VIEW:ids[VENUE].includes(v.id))) {
+  for(const view of blueprint.auditViews.filter(v=>!args.get('collection-only') && (VIEW?v.id===VIEW:ids[VENUE].includes(v.id)))) {
     await place(view.pos,view.lookAt); await image(view.id);
+  }
+  if(args.get('collection') || args.get('collection-only')) {
+    const collection=await client.evaluate(`(() => {
+      const entries=__vibe.cafe.group.userData.venueCollections??[];
+      return {count:entries.length,violations:__vibe.venueCollectionAudit(),
+        items:entries.map(({key,support,bounds})=>({key,support,min:bounds.min.toArray(),max:bounds.max.toArray()}))};
+    })()`);
+    await writeFile(join(OUT_DIR,'collection-report.json'),JSON.stringify(collection,null,2));
+    if(collection.count!==1 || collection.violations.length)throw Error('Collection placement failed: '+JSON.stringify(collection));
+    const item=collection.items[0], center=item.support.shape.center;
+    // Approach Midnight's wall bay from the room aisle so the window stool
+    // does not obscure the record player in the foreground.
+    const yaw=item.support.shape.rotation, d=VENUE==='midnight'?1.6:2.3;
+    const side=VENUE==='midnight'?-1.65:.48;
+    const aimY=item.support.y+(item.max[1]-item.support.y)*.42;
+    const pos=[center.x+Math.sin(yaw)*d+Math.cos(yaw)*side,aimY+(VENUE==='midnight'?.65:.48),
+      center.z+Math.cos(yaw)*d-Math.sin(yaw)*side];
+    await client.evaluate('captureCamera.fov=44;captureCamera.updateProjectionMatrix()');
+    await place(pos,[center.x,aimY,center.z]);
+    await image('collection-detail');
+    await client.evaluate('captureCamera.fov=62;captureCamera.updateProjectionMatrix()');
   }
   if(VENUE==='goldenhour' && !args.get('views-only')) {
     const chair=await client.evaluate(`(() => {

@@ -1,0 +1,250 @@
+{
+  "plant_monstera": {
+    "species": "monstera",
+    "triangles": 15802,
+    "materials": 4,
+    "before_normalized": {
+      "height": 1.15,
+      "width": 1.3082184545285582,
+      "depth": 1.196664984043869,
+      "radius": 0.8864878184168413
+    },
+    "after_normalized": {
+      "height": 1.15,
+      "width": 1.233431155747973,
+      "depth": 1.1906817419797169,
+      "radius": 0.8571865938425589
+    },
+    "source_bounds": {
+      "min": [
+        -0.457126259803772,
+        -0.4412827491760254,
+        0.0
+      ],
+      "max": [
+        0.457126259803772,
+        0.4412827491760254,
+        0.8524110913276672
+      ]
+    },
+    "bytes_before_runtime_packing": 641740,
+    "original_art": true
+  },
+  "plant_fern": {
+    "species": "fern",
+    "triangles": 17914,
+    "materials": 4,
+    "before_normalized": {
+      "height": 0.5,
+      "width": 0.6797268622259671,
+      "depth": 0.6725421768302715,
+      "radius": 0.47810605174144133
+    },
+    "after_normalized": {
+      "height": 0.5,
+      "width": 0.6763282244597174,
+      "depth": 0.6691794723108146,
+      "radius": 0.47571552249296384
+    },
+    "source_bounds": {
+      "min": [
+        -0.2771010100841522,
+        -0.2741720676422119,
+        0.0
+      ],
+      "max": [
+        0.2771010100841522,
+        0.2741720676422119,
+        0.4097138047218323
+      ]
+    },
+    "bytes_before_runtime_packing": 709172,
+    "original_art": true
+  },
+  "plant_pothos": {
+    "species": "pothos",
+    "triangles": 13328,
+    "materials": 4,
+    "before_normalized": {
+      "height": 0.6,
+      "width": 0.682589071555956,
+      "depth": 0.6243672106253684,
+      "radius": 0.4625370942723744
+    },
+    "after_normalized": {
+      "height": 0.6,
+      "width": 0.6791761245196296,
+      "depth": 0.621245365550053,
+      "radius": 0.4602244051370273
+    },
+    "source_bounds": {
+      "min": [
+        -0.48234644532203674,
+        -0.44120439887046814,
+        0.0
+      ],
+      "max": [
+        0.48234644532203674,
+        0.44120439887046814,
+        0.8522321581840515
+      ]
+    },
+    "bytes_before_runtime_packing": 427356,
+    "original_art": true
+  },
+  "plant_pothos_vine": {
+    "species": "vine",
+    "triangles": 17500,
+    "materials": 2,
+    "before_normalized": {
+      "height": 0.55,
+      "width": 0.5507798236788845,
+      "depth": 0.2029735549946826,
+      "radius": 0.2934947521672757
+    },
+    "after_normalized": {
+      "height": 0.55,
+      "width": 0.4322276954024868,
+      "depth": 0.1869545054385088,
+      "radius": 0.23546378053572398
+    },
+    "source_bounds": {
+      "min": [
+        -0.2055407613515854,
+        -0.0889040008187294,
+        0.0
+      ],
+      "max": [
+        0.2055407613515854,
+        0.0889040008187294,
+        0.5230919718742371
+      ]
+    },
+    "bytes_before_runtime_packing": 492788,
+    "original_art": true
+  },
+  "plant_snake": {
+    "species": "snake",
+    "triangles": 7992,
+    "materials": 4,
+    "before_normalized": {
+      "height": 0.72,
+      "width": 0.2627593564156788,
+      "depth": 0.26230585975582327,
+      "radius": 0.1856386567004724
+    },
+    "after_normalized": {
+      "height": 0.72,
+      "width": 0.22642104106282393,
+      "depth": 0.22642104106282393,
+      "radius": 0.16010385353884055
+    },
+    "source_bounds": {
+      "min": [
+        -0.12126173079013824,
+        -0.12126173079013824,
+        0.0
+      ],
+      "max": [
+        0.12126173079013824,
+        0.12126173079013824,
+        0.7712043523788452
+      ]
+    },
+    "bytes_before_runtime_packing": 288524,
+    "original_art": true
+  },
+  "plant_succulent": {
+    "species": "succulent",
+    "triangles": 18712,
+    "materials": 3,
+    "before_normalized": {
+      "height": 0.3,
+      "width": 0.2666237537336948,
+      "depth": 0.26820198855603755,
+      "radius": 0.18909027785720425
+    },
+    "after_normalized": {
+      "height": 0.3,
+      "width": 0.26529064074324893,
+      "depth": 0.2668609690310383,
+      "radius": 0.18814482510698263
+    },
+    "source_bounds": {
+      "min": [
+        -0.1026216596364975,
+        -0.1032291054725647,
+        0.0
+      ],
+      "max": [
+        0.1026216596364975,
+        0.1032291054725647,
+        0.2320963740348816
+      ]
+    },
+    "bytes_before_runtime_packing": 595344,
+    "original_art": true
+  },
+  "plant_small": {
+    "species": "peperomia",
+    "triangles": 6832,
+    "materials": 4,
+    "before_normalized": {
+      "height": 0.35,
+      "width": 0.31106104602264395,
+      "depth": 0.3129023199820438,
+      "radius": 0.22060532416673828
+    },
+    "after_normalized": {
+      "height": 0.35,
+      "width": 0.3095057475337904,
+      "depth": 0.31133779720287796,
+      "radius": 0.2195022959581464
+    },
+    "source_bounds": {
+      "min": [
+        -0.1026216596364975,
+        -0.1032291054725647,
+        0.0
+      ],
+      "max": [
+        0.1026216596364975,
+        0.1032291054725647,
+        0.2320963740348816
+      ]
+    },
+    "bytes_before_runtime_packing": 254452,
+    "original_art": true
+  },
+  "plant": {
+    "species": "rubber",
+    "triangles": 8920,
+    "materials": 4,
+    "before_normalized": {
+      "height": 1.0,
+      "width": 1.1375812648074417,
+      "depth": 1.0405782469946687,
+      "radius": 0.7708589725363837
+    },
+    "after_normalized": {
+      "height": 1.0,
+      "width": 0.6103061683567247,
+      "depth": 0.5947295191428119,
+      "radius": 0.42608004531839644
+    },
+    "source_bounds": {
+      "min": [
+        -0.2601158916950226,
+        -0.2534770369529724,
+        0.0
+      ],
+      "max": [
+        0.2601158916950226,
+        0.2534770369529724,
+        0.852411150932312
+      ]
+    },
+    "bytes_before_runtime_packing": 312000,
+    "original_art": true
+  }
+}

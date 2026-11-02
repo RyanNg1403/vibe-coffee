@@ -495,6 +495,10 @@ const roastery = makeVenue({
 // toward it, a booth run along the right wall behind a clear service aisle,
 // and the record wall beyond. The stage is patron-forbidden.
 const MI_STAGE = { x0: 4.9, x1: HALF_W, z0: -HALF_D, z1: -4.2 };
+// The record console occupies the solid right-wall bay beyond the bookcase.
+// Its front clears the last window stool and the counter ends at x=7.85.
+const MI_RECORD_CABINET = { x: 8.18, z: 5.65, width: 1.5, depth: 0.5, height: 0.75, rotation: -Math.PI / 2 };
+const MI_RECORD_PLANT = { x: -7.85, z: -4.8 };
 
 const midnight = makeVenue({
   prefix: 'mi', id: 'midnight', style: 'jazz-lounge',
@@ -521,6 +525,13 @@ const midnight = makeVenue({
   extraColliders: [
     { id: 'mi-stage-col', levelId: 'ground', rect: MI_STAGE },
     { id: 'mi-booth-bench-col', levelId: 'ground', rect: { x0: 7.78, x1: HALF_W, z0: -3.3, z1: 0.65 } },
+    { id: 'mi-record-cabinet-col', levelId: 'ground', rect: {
+      x0: MI_RECORD_CABINET.x - MI_RECORD_CABINET.depth / 2 - 0.02,
+      x1: MI_RECORD_CABINET.x + MI_RECORD_CABINET.depth / 2 + 0.02,
+      z0: MI_RECORD_CABINET.z - MI_RECORD_CABINET.width / 2 - 0.02,
+      z1: MI_RECORD_CABINET.z + MI_RECORD_CABINET.width / 2 + 0.02,
+    } },
+    { id: 'mi-record-plant-col', levelId: 'ground', ...MI_RECORD_PLANT, r: 0.22 },
   ],
   extraForbiddenZones: [
     {
@@ -546,13 +557,14 @@ const midnight = makeVenue({
       curtain: { z: -HALF_D + 0.14, x0: 5.1, x1: 8.35, y0: 0.18, y1: 3.0 },
     },
     boothRun: { x: 8.05, z0: -3.15, z1: 0.55 },
+    recordCabinet: MI_RECORD_CABINET,
     rightWall: {
       art: [{ z: -3.8, y: 1.8 }, { z: -0.35, y: 2.05 }],
       clock: { z: 1.2, y: 2.55 },
       mirror: { z: 5.5, y: 2.35 },
     },
     plantSpots: [
-      [-HALF_W + 0.7, -HALF_D + 0.7], [HALF_W - 0.7, HALF_D - 1.3], [-HALF_W + 0.8, 5.6],
+      [-HALF_W + 0.7, -HALF_D + 0.7], [MI_RECORD_PLANT.x, MI_RECORD_PLANT.z], [-HALF_W + 0.8, 5.6],
       [-HALF_W + 0.6, 3.6], [-HALF_W + 0.6, -2.0], [HALF_W - 0.6, 1.25],
       [3.8, -5.0], [-3.6, -5.0], [-0.9, 5.6],
     ],

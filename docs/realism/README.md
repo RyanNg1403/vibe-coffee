@@ -1,5 +1,9 @@
 # Warm architectural material and character pass
 
+The subsequent [four café collection pass](../collection/README.md) adds themed
+displays, furniture finishes, and botanicals. Measurements below describe this
+earlier realism pass.
+
 The café now uses Blender-refined character meshes and textured faces, quieter
 walnut grain, woven linen, stone, and floor contact shading baked from each
 venue's furniture layout. HDR daylight supplies the environment lighting and
