@@ -1,5 +1,5 @@
-// Procedural coffee shop builder: three themed locations, built entirely
-// from Three.js primitives + canvas textures (no external assets).
+// Four blueprint-driven cafés, with Blender assets, procedural architecture,
+// interactive furnishings and canvas signage.
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -17,6 +17,10 @@ import { buildTerraceDeck } from './decor/terraceDeck.js';
 import { ROOM_SHELL } from './cafe/interiorLayouts.js';
 import { tableSupportShape } from './cafe/tableSupport.js';
 import { architectureFor } from './cafe/interiorArchitecture.js';
+import { createThinGlass } from './rendering/thinGlass.js';
+import { studioChairGeometry } from './decor/chairKit.js';
+import { paintSkyBackdrop } from './rendering/skyBackdrop.js';
+import { floatGeometry } from './rendering/floatGeometry.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -37,8 +41,27 @@ function mergeStaticDecor(group, animatedRoots) {
     if (root) root.traverse((o) => skip.add(o));
   }
   group.updateMatrixWorld(true);
+  // Keep placement bounds before material batching separates a cabinet's
+  // shelves from its legs. Grounding audits must inspect placed assemblies,
+  // not the unrelated pieces that happen to share one GPU material batch.
+  const usesCompressedLibrary = (object) => {
+    let found = false;
+    object.traverse((part) => {
+      if (part.geometry?.userData.vibeShared && Object.values(part.geometry.attributes).some((attribute) => attribute.normalized)) found = true;
+    });
+    return found;
+  };
+  group.userData.placedUnits = group.children.filter(usesCompressedLibrary).map((object) => ({
+    uuid: object.uuid,
+    name: object.name || object.userData.surfaceName || object.type,
+    visible: object.visible,
+    isInstancedMesh: object.isInstancedMesh,
+    children: { length: object.children.length },
+    userData: {},
+    bounds: skip.has(object) ? null : new THREE.Box3().setFromObject(object),
+  }));
   const buckets = new Map();
-  group.traverse((o) => {
+  group.traverseVisible((o) => {
     if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
     if (skip.has(o) || o.children.length > 0 || !o.visible) return;
     if (o.userData.tableSurfaceProp) return;
@@ -48,12 +71,6 @@ function mergeStaticDecor(group, animatedRoots) {
     const geometry = o.geometry;
     if (!geometry?.attributes?.position) return;
     if (geometry.morphAttributes && Object.keys(geometry.morphAttributes).length) return;
-    // quantized (normalized-integer) attributes can't survive a baked world
-    // transform — values clamp at the type range; leave those props as-is
-    for (const name of Object.keys(geometry.attributes)) {
-      const attr = geometry.attributes[name];
-      if (attr.normalized || !(attr.array instanceof Float32Array)) return;
-    }
     const flags = (geometry.index ? 'i' : 'n') + (o.castShadow ? 'c' : '')
       + (o.receiveShadow ? 'r' : '') + `l${o.layers.mask}`;
     // Untextured flat-colour standard materials — most of the procedural
@@ -66,9 +83,10 @@ function mergeStaticDecor(group, animatedRoots) {
       && material.side === THREE.FrontSide && !material.flatShading
       && !material.polygonOffset && material.opacity === 1
       && !material.vertexColors && !!geometry.attributes.normal;
-    const sig = bakeable
+    const imported = geometry.userData.vibeShared && Object.values(geometry.attributes).some((attribute) => attribute.normalized);
+    const sig = (bakeable
       ? `bake|${Math.round(material.roughness * 10)}|${Math.round(material.metalness * 10)}|${flags}`
-      : `mat|${material.uuid}|${Object.keys(geometry.attributes).sort().join(',')}|${flags}`;
+      : `mat|${material.uuid}|${Object.keys(geometry.attributes).sort().join(',')}|${flags}`) + (imported ? '|library' : '');
     if (!buckets.has(sig)) buckets.set(sig, []);
     buckets.get(sig).push(o);
   });
@@ -78,7 +96,7 @@ function mergeStaticDecor(group, animatedRoots) {
     if (meshes.length < 2) continue;
     const bake = sig.startsWith('bake|');
     const baked = meshes.map((o) => {
-      const g = o.geometry.clone(); // originals may be shared (library templates)
+      const g = floatGeometry(o.geometry);
       g.applyMatrix4(relative.multiplyMatrices(groupInverse, o.matrixWorld));
       if (bake) {
         // strip unused attributes (no maps ⇒ no uvs) and carry the material
@@ -107,6 +125,7 @@ function mergeStaticDecor(group, animatedRoots) {
       })
       : meshes[0].material;
     const merged = new THREE.Mesh(mergedGeometry, material);
+    merged.userData.decorBatch = sig.endsWith('|library');
     merged.castShadow = meshes[0].castShadow;
     merged.receiveShadow = meshes[0].receiveShadow;
     merged.layers.mask = meshes[0].layers.mask;
@@ -445,119 +464,9 @@ function rugTexture(accent, dark) {
   });
 }
 
-// The world seen through the windows, painted per theme.
+// The distant atmosphere is static; the nearby street and trees are geometry.
 function outsideTexture(kind) {
-  return canvasTexture(1024, 512, (g, w, h) => {
-    if (kind === 'sunset') {
-      const sky = g.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, '#ffb45e'); sky.addColorStop(0.55, '#ff8f4d');
-      sky.addColorStop(0.75, '#d95f38'); sky.addColorStop(1, '#7c3a24');
-      g.fillStyle = sky; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#fff2ce';
-      g.beginPath(); g.arc(w * 0.68, h * 0.42, 46, 0, 7); g.fill();
-      g.fillStyle = 'rgba(255,220,160,0.55)';
-      g.beginPath(); g.arc(w * 0.68, h * 0.42, 80, 0, 7); g.fill();
-      // distant rooftops and trees
-      g.fillStyle = '#5e3822';
-      for (let x = 0; x < w; x += rand(60, 140)) {
-        const bh = rand(40, 110);
-        g.fillRect(x, h * 0.72 - bh, rand(50, 120), bh + 40);
-      }
-      g.fillStyle = '#432616';
-      for (let x = 0; x < w; x += rand(40, 90)) {
-        g.beginPath(); g.arc(x, h * 0.78, rand(18, 42), 0, 7); g.fill();
-      }
-      g.fillStyle = '#33190d'; g.fillRect(0, h * 0.8, w, h * 0.2);
-    } else if (kind === 'city') {
-      const sky = g.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, '#bcd7ee'); sky.addColorStop(1, '#e8f1f7');
-      g.fillStyle = sky; g.fillRect(0, 0, w, h);
-      for (let x = 0; x < w; x += rand(50, 110)) {
-        const bh = rand(120, 330), bw = rand(60, 110);
-        g.fillStyle = `hsl(${rand(200, 220)},12%,${rand(52, 70)}%)`;
-        g.fillRect(x, h * 0.86 - bh, bw, bh);
-        g.fillStyle = 'rgba(255,255,255,0.35)';
-        for (let wy = h * 0.86 - bh + 10; wy < h * 0.82; wy += 18)
-          for (let wx = x + 8; wx < x + bw - 10; wx += 16)
-            if (Math.random() < 0.8) g.fillRect(wx, wy, 8, 10);
-      }
-      g.fillStyle = '#9aa1a6'; g.fillRect(0, h * 0.86, w, h * 0.14); // street
-      g.fillStyle = '#c6ccd1'; g.fillRect(0, h * 0.86, w, 6);
-    } else if (kind === 'morning') {
-      const sky = g.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, '#a8cfe8'); sky.addColorStop(0.7, '#e8ddc8'); sky.addColorStop(1, '#f2e2c4');
-      g.fillStyle = sky; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#fff8e0';
-      g.beginPath(); g.arc(w * 0.22, h * 0.55, 34, 0, 7); g.fill();
-      g.fillStyle = 'rgba(255,244,210,0.5)';
-      g.beginPath(); g.arc(w * 0.22, h * 0.55, 62, 0, 7); g.fill();
-      g.fillStyle = '#8d8574';
-      for (let x = 0; x < w; x += rand(60, 140)) {
-        const bh = rand(50, 130);
-        g.fillRect(x, h * 0.74 - bh, rand(50, 120), bh + 40);
-      }
-      g.fillStyle = '#6f6a5c'; g.fillRect(0, h * 0.8, w, h * 0.2);
-    } else if (kind === 'garden' || kind === 'garden_dusk') {
-      const dusk = kind === 'garden_dusk';
-      const sky = g.createLinearGradient(0, 0, 0, h);
-      if (dusk) {
-        sky.addColorStop(0, '#e8a86a'); sky.addColorStop(0.6, '#f2c88a'); sky.addColorStop(1, '#d9b284');
-      } else {
-        sky.addColorStop(0, '#9ecbf2'); sky.addColorStop(0.6, '#cfe6f5'); sky.addColorStop(1, '#e8f2e0');
-      }
-      g.fillStyle = sky; g.fillRect(0, 0, w, h);
-      if (dusk) {
-        g.fillStyle = '#fff0d0';
-        g.beginPath(); g.arc(w * 0.7, h * 0.5, 40, 0, 7); g.fill();
-      }
-      // puffy clouds
-      for (let i = 0; i < 9; i++) {
-        const cx = rand(0, w), cy = rand(h * 0.08, h * 0.4);
-        g.fillStyle = dusk ? 'rgba(255,224,190,0.8)' : 'rgba(255,255,255,0.85)';
-        for (let j = 0; j < 4; j++) {
-          g.beginPath(); g.arc(cx + rand(-38, 38), cy + rand(-8, 8), rand(12, 30), 0, 7); g.fill();
-        }
-      }
-      // layered tree line
-      g.fillStyle = dusk ? '#4e5636' : '#5d7d4a';
-      for (let x = 0; x < w; x += rand(30, 70)) {
-        g.beginPath(); g.arc(x, h * 0.72, rand(28, 60), 0, 7); g.fill();
-      }
-      g.fillStyle = dusk ? '#3c452c' : '#48663c';
-      for (let x = 0; x < w; x += rand(24, 60)) {
-        g.beginPath(); g.arc(x, h * 0.8, rand(24, 48), 0, 7); g.fill();
-      }
-      g.fillStyle = dusk ? '#5c6640' : '#6f8a52'; g.fillRect(0, h * 0.82, w, h * 0.18);
-    } else { // rainNight
-      const sky = g.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, '#060810'); sky.addColorStop(1, '#101627');
-      g.fillStyle = sky; g.fillRect(0, 0, w, h);
-      for (let x = 0; x < w; x += rand(50, 120)) {
-        const bh = rand(130, 340), bw = rand(60, 110);
-        g.fillStyle = '#0c1120';
-        g.fillRect(x, h * 0.88 - bh, bw, bh);
-        for (let wy = h * 0.88 - bh + 10; wy < h * 0.84; wy += 18)
-          for (let wx = x + 8; wx < x + bw - 10; wx += 16)
-            if (Math.random() < 0.4) {
-              g.fillStyle = `rgba(255,${rand(170, 220) | 0},120,${rand(0.5, 1)})`;
-              g.fillRect(wx, wy, 8, 10);
-            }
-      }
-      // street-light bokeh + wet street reflections
-      for (let i = 0; i < 26; i++) {
-        const x = rand(0, w), y = rand(h * 0.55, h * 0.85), r = rand(4, 16);
-        const hue = Math.random() < 0.3 ? '340' : '35';
-        const glow = g.createRadialGradient(x, y, 0, x, y, r * 3);
-        glow.addColorStop(0, `hsla(${hue},90%,65%,0.8)`);
-        glow.addColorStop(1, 'transparent');
-        g.fillStyle = glow;
-        g.beginPath(); g.arc(x, y, r * 3, 0, 7); g.fill();
-        g.fillStyle = `hsla(${hue},80%,60%,0.25)`;
-        g.fillRect(x - 2, y, 4, h - y);
-      }
-      g.fillStyle = 'rgba(10,14,26,0.6)'; g.fillRect(0, h * 0.88, w, h * 0.12);
-    }
-  });
+  return canvasTexture(1024, 512, (g, w, h) => paintSkyBackdrop(g, w, h, kind));
 }
 
 function artTexture(accentHex) {
@@ -739,27 +648,56 @@ function makeStool(woodMat, cushionMat) {
 let _latteArtTex = null;
 function latteArtTexture() {
   if (_latteArtTex) return _latteArtTex;
-  _latteArtTex = canvasTexture(64, 64, (g, w, h) => {
-    g.fillStyle = '#3a2113'; g.fillRect(0, 0, w, h);
-    // a rosetta-ish leaf in crema foam
-    g.strokeStyle = '#d8c4a0'; g.fillStyle = '#e6d6b8';
-    g.translate(w / 2, h / 2);
-    for (let i = 0; i < 7; i++) {
-      const s = 1 - i * 0.12;
-      g.beginPath();
-      g.ellipse(0, (i - 3) * 4, 12 * s, 5 * s, 0, 0, Math.PI * 2);
-      g.fill();
+  _latteArtTex = canvasTexture(256, 256, (g, w, h) => {
+    const crema = g.createRadialGradient(118, 116, 12, 128, 128, 128);
+    crema.addColorStop(0, '#ba7d43');
+    crema.addColorStop(0.72, '#a56831');
+    crema.addColorStop(0.94, '#c39459');
+    crema.addColorStop(1, '#6e3c1c');
+    g.fillStyle = crema;
+    g.fillRect(0, 0, w, h);
+    // Paired curved lobes with a continuous pour-through stem, rather than
+    // stacked discs. The texture is shared by every drink in every venue.
+    g.fillStyle = '#f2e5c9';
+    for (let i = 0; i < 8; i++) {
+      const y = 177 - i * 14;
+      const width = 49 * (1 - i * 0.105);
+      for (const sign of [-1, 1]) {
+        g.beginPath();
+        g.moveTo(128, y + 9);
+        g.bezierCurveTo(128 + sign * width * 1.5, y + 3, 128 + sign * width, y - 21, 128, y - 5);
+        g.fill();
+      }
     }
-    g.fillRect(-1.5, -26, 3, 52);
+    g.strokeStyle = '#f8efd9';
+    g.lineWidth = 3;
+    g.lineCap = 'round';
+    g.beginPath(); g.moveTo(128, 53); g.quadraticCurveTo(124, 137, 133, 197); g.stroke();
   });
   _latteArtTex.userData.vibeShared = true;
   _latteArtTex.userData.shared = true;
   return _latteArtTex;
 }
 
-// a drink with variety: different downloaded cup/mug/latte models when
-// available, otherwise a procedural cup, and a chance of latte art on top
-function makeDrink(accent, models) {
+// The studio cup and its liquid share GPU resources across café switches and
+// repeat orders. Only their Object3D instances belong to the current table.
+let _studioCoffeeGeometry = null;
+let _studioCoffeeMaterial = null;
+export function makeDrink(accent, models) {
+  const studio = cloneModel(models, 'studio_cup');
+  if (studio) {
+    if (!_studioCoffeeGeometry) {
+      _studioCoffeeGeometry = new THREE.CircleGeometry(0.0415, 32);
+      _studioCoffeeGeometry.userData.vibeShared = true;
+      _studioCoffeeMaterial = new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.3 });
+      _studioCoffeeMaterial.userData.vibeShared = true;
+    }
+    const liquid = new THREE.Mesh(_studioCoffeeGeometry, _studioCoffeeMaterial);
+    liquid.rotation.x = -Math.PI / 2;
+    liquid.position.y = 0.0837;
+    studio.add(liquid);
+    return studio;
+  }
   const drinkKeys = ['cup', 'mug', 'latte'].filter((k) => models?.get?.(k));
   if (drinkKeys.length && Math.random() < 0.7) {
     const key = drinkKeys[Math.floor(rand(0, drinkKeys.length))];
@@ -902,6 +840,9 @@ function makeArmchair(fabricMat, woodDarkMat, models) {
         o.material.map = fabricMat.map;
         o.material.bumpMap = fabricMat.bumpMap;
         o.material.bumpScale = fabricMat.bumpScale;
+        o.material.normalMap = fabricMat.normalMap;
+        o.material.normalScale.copy(fabricMat.normalScale);
+        o.material.roughnessMap = fabricMat.roughnessMap;
       }
     });
     return fromLib;
@@ -1038,7 +979,7 @@ function makeCakeStand(models) {
   if (cake) { cake.position.y = 0.11; cake.scale.setScalar(0.85); g.add(cake); }
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(0.155, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
-    new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, transparent: true, opacity: 0.25, roughness: 0.05, depthWrite: false })
+    createThinGlass({ color: 0xffffff, opacity: 0.25, roughness: 0.05 })
   );
   dome.position.y = 0.11;
   g.add(dome);
@@ -1051,7 +992,7 @@ function makeCakeStand(models) {
 function makeTipJar() {
   const g = new THREE.Group();
   const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.042, 0.11, 12),
-    new THREE.MeshPhysicalMaterial({ color: 0xf4f8f8, transmission: 0.85, transparent: true, opacity: 0.35, roughness: 0.08 }));
+    createThinGlass({ opacity: 0.35 }));
   glass.position.y = 0.055;
   g.add(glass);
   for (let i = 0; i < 7; i++) { // loose change
@@ -1106,7 +1047,7 @@ function makeMagazineStack() {
 const _texLoader = new THREE.TextureLoader();
 const _texCache = new Map();
 function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
-  const key = `${name}|${rx}|${ry}`;
+  const key = `${name}|${srgb}|${rx}|${ry}`;
   if (_texCache.has(key)) return _texCache.get(key);
   const t = _texLoader.load(TEXTURE_MANIFEST[name] ?? '/textures/' + name);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -1144,24 +1085,25 @@ export function buildCafe(theme, models = null) {
   const track = (t) => { disposables.push(t); return t; };
   const extraColliders = []; // decor added before the collider list is built
 
-  const woodMap = surfTex('wood_dark.jpg', { srgb: true });
-  const woodNorm = surfTex('wood_dark_n.jpg');
+  const woodMap = surfTex('studio_oak_color.jpg', { srgb: true });
+  const woodNorm = surfTex('studio_oak_normal.jpg');
+  const woodRough = surfTex('studio_oak_roughness.jpg');
   const woodMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(theme.wood).lerp(new THREE.Color(0xffffff), 0.5),
-    roughness: 0.62, map: woodMap, normalMap: woodNorm,
-    normalScale: new THREE.Vector2(0.32, 0.32),
+    color: new THREE.Color(theme.wood).lerp(new THREE.Color(0xffffff), 0.78),
+    roughness: 1, map: woodMap, normalMap: woodNorm, roughnessMap: woodRough,
+    normalScale: new THREE.Vector2(0.7, 0.7),
   });
   const woodDarkMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(theme.woodDark).lerp(new THREE.Color(0xffffff), 0.28),
-    roughness: 0.72, map: woodMap, normalMap: woodNorm,
-    normalScale: new THREE.Vector2(0.26, 0.26),
+    color: new THREE.Color(theme.woodDark).lerp(new THREE.Color(0xffffff), 0.36),
+    roughness: 1, map: woodMap, normalMap: woodNorm, roughnessMap: woodRough,
+    normalScale: new THREE.Vector2(0.5, 0.5),
   });
-  const clothTex = track(fabricTexture());
-  clothTex.wrapS = clothTex.wrapT = THREE.RepeatWrapping;
-  clothTex.repeat.set(5, 5);
+  const clothTex = surfTex('studio_linen_color.jpg', { srgb: true, rx: 3, ry: 3 });
+  const clothNormal = surfTex('studio_linen_normal.jpg', { rx: 3, ry: 3 });
   const cushionMat = new THREE.MeshStandardMaterial({
-    color: theme.cushion, roughness: 0.92,
-    map: clothTex, bumpMap: clothTex, bumpScale: 0.006,
+    color: ({ goldenhour: 0x9b987c, roastery: 0x817e72, midnight: 0x76695e, terrace: 0x89947a })[theme.id], roughness: 1,
+    map: clothTex, normalMap: clothNormal, normalScale: new THREE.Vector2(0.45, 0.45),
+    roughnessMap: surfTex('studio_linen_roughness.jpg', { rx: 3, ry: 3 }),
   });
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x73767a, roughness: 0.32, metalness: 0.88 });
   // A compact material library keeps repeated table dressing visually related
@@ -1292,11 +1234,7 @@ export function buildCafe(theme, models = null) {
     // glass
     const glass = new THREE.Mesh(
       new THREE.PlaneGeometry(len - m * 2, winH),
-      new THREE.MeshPhysicalMaterial({
-        color: 0xf4f8f8, transmission: 0.94, transparent: true, opacity: 0.24,
-        roughness: 0.1, metalness: 0, ior: 1.5, thickness: 0.012,
-        side: THREE.DoubleSide, depthWrite: false,
-      })
+      createThinGlass({ side: THREE.DoubleSide })
     );
     glass.position.set(0, sillY + winH / 2, 0);
     g2.add(glass);
@@ -1331,7 +1269,7 @@ export function buildCafe(theme, models = null) {
     doorPivot.position.set(-doorWidth / 2, 0, D / 2 + 0.02);
     const door = new THREE.Mesh(
       new THREE.PlaneGeometry(doorWidth, doorH - 0.1),
-      new THREE.MeshPhysicalMaterial({ color: 0xe2edf0, transmission: 0.9, transparent: true, opacity: 0.28, roughness: 0.12, ior: 1.5, thickness: 0.015, side: THREE.DoubleSide, depthWrite: false })
+      createThinGlass({ color: 0xe2edf0, opacity: 0.28, roughness: 0.12, side: THREE.DoubleSide })
     );
     door.position.set(doorWidth / 2, doorH / 2, 0);
     doorPivot.add(door);
@@ -1438,7 +1376,7 @@ export function buildCafe(theme, models = null) {
 
   // outside backdrops (emissive planes far past the street)
   const outTex = track(outsideTexture(theme.outside));
-  const outMat = new THREE.MeshBasicMaterial({ map: outTex, fog: false });
+  const outMat = new THREE.MeshBasicMaterial({ map: outTex, fog: false, toneMapped: false });
   const back1 = new THREE.Mesh(new THREE.PlaneGeometry(W * 3.2, 13), outMat);
   back1.position.set(0, 4.2, D / 2 + 17);
   back1.rotation.y = Math.PI;
@@ -1715,6 +1653,11 @@ export function buildCafe(theme, models = null) {
       faceRow.add(windowMesh, sillMesh);
     }
     group.add(faceRow);
+    const authoredStreet = cloneModel(models, 'atelier_streetscape');
+    if (authoredStreet) {
+      faceRow.visible = false;
+      group.add(authoredStreet);
+    }
 
     // Five visible pavement fixtures are two instanced draws. Warm pool cards
     // make their spacing legible, while only two actual point lights affect
@@ -1820,6 +1763,8 @@ export function buildCafe(theme, models = null) {
       return car;
     };
     const mkCar = (color) => {
+      const authored = cloneModel(models, 'atelier_car');
+      if (authored) return authored;
       const car = new THREE.Group();
       const bodyMat2 = new THREE.MeshStandardMaterial({ color, roughness: 0.28, metalness: 0.55 });
       const addPart = (geometry, material, x, y, z) => {
@@ -1887,12 +1832,17 @@ export function buildCafe(theme, models = null) {
     ...(counterIsWood ? {
       map: woodMap,
       normalMap: woodNorm,
+      roughnessMap: woodRough,
       normalScale: new THREE.Vector2(0.22, 0.22),
     } : {}),
   });
   const counterTopMat = new THREE.MeshStandardMaterial({
-    color: theme.counterTop,
-    roughness: theme.id === 'roastery' ? 0.42 : theme.id === 'midnight' ? 0.48 : 0.4,
+    color: new THREE.Color(theme.counterTop).lerp(new THREE.Color(0xffffff), 0.72),
+    map: surfTex('studio_limestone_color.jpg', { srgb: true, rx: 6, ry: 2 }),
+    normalMap: surfTex('studio_limestone_normal.jpg', { rx: 6, ry: 2 }),
+    roughnessMap: surfTex('studio_limestone_roughness.jpg', { rx: 6, ry: 2 }),
+    normalScale: new THREE.Vector2(0.55, 0.55),
+    roughness: 1,
     metalness: 0,
   });
   const counter = roundedBox(8.2, 1.0, 0.75, counterMat, 0.045);
@@ -1909,7 +1859,7 @@ export function buildCafe(theme, models = null) {
   }
 
   // espresso machine (downloaded model if available, else procedural)
-  const machineModel = cloneModel(models, 'espresso_machine');
+  const machineModel = cloneModel(models, 'studio_espresso') ?? cloneModel(models, 'espresso_machine');
   if (machineModel) {
     machineModel.position.set(-2.2, 1.06, -D / 2 + 1.15);
     group.add(machineModel);
@@ -1991,7 +1941,7 @@ export function buildCafe(theme, models = null) {
     group.add(tips);
     // pastry case
     const caseGlass = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 0.6),
-      new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.92, transparent: true, opacity: 0.3, roughness: 0.05, depthWrite: false }));
+      createThinGlass({ color: 0xffffff, opacity: 0.3, roughness: 0.05 }));
     caseGlass.position.set(-3.9, 1.31, -D / 2 + 1.15);
     group.add(caseGlass);
     const caseBase = box(1.55, 0.5, 0.65, counterMat);
@@ -2069,7 +2019,7 @@ export function buildCafe(theme, models = null) {
         group.add(counterCake);
         const dome = new THREE.Mesh(
           new THREE.SphereGeometry(0.17, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
-          new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, transparent: true, opacity: 0.25, roughness: 0.05, depthWrite: false })
+          createThinGlass({ color: 0xffffff, opacity: 0.25, roughness: 0.05 })
         );
         dome.position.set(-2.9, 1.06, -D / 2 + 1.15);
         group.add(dome);
@@ -2183,6 +2133,8 @@ export function buildCafe(theme, models = null) {
   }
 
   // ---------- tables + seats ----------
+  const authoredTables = cloneModel(models, `atelier_tables_${theme.id}`);
+  if (authoredTables) group.add(authoredTables);
   const seats = [];      // {pos, look, tableCenter}
   const seatMeshes = []; // raycast targets
   const cups = [];       // for steam
@@ -2202,15 +2154,14 @@ export function buildCafe(theme, models = null) {
   // into four. Lounge chairs and authored bar stools stay individual because
   // their models and materials vary.
   const maxStandardChairs = 64;
-  const chairSeatGeometry = new RoundedBoxGeometry(0.42, 0.05, 0.42, 2, 0.011);
-  const chairCushionGeometry = new RoundedBoxGeometry(0.38, 0.045, 0.38, 2, 0.01);
-  const chairBackBatchGeometry = chairBackGeometry().clone();
-  const chairLegGeometry = new THREE.BoxGeometry(0.04, 0.45, 0.04);
+  const studioChair = studioChairGeometry(models);
+  const chairSeatGeometry = studioChair?.wood ?? new RoundedBoxGeometry(0.42, 0.05, 0.42, 2, 0.011);
+  const chairCushionGeometry = studioChair?.cushion ?? new RoundedBoxGeometry(0.38, 0.045, 0.38, 2, 0.01);
   const chairSeatBatch = new THREE.InstancedMesh(chairSeatGeometry, woodMat, maxStandardChairs);
   const chairCushionBatch = new THREE.InstancedMesh(chairCushionGeometry, cushionMat, maxStandardChairs);
-  const chairBackBatch = new THREE.InstancedMesh(chairBackBatchGeometry, woodMat, maxStandardChairs);
-  const chairLegBatch = new THREE.InstancedMesh(chairLegGeometry, woodMat, maxStandardChairs * 4);
-  const chairBatches = [chairSeatBatch, chairCushionBatch, chairBackBatch, chairLegBatch];
+  const chairBackBatch = studioChair ? null : new THREE.InstancedMesh(chairBackGeometry().clone(), woodMat, maxStandardChairs);
+  const chairLegBatch = studioChair ? null : new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, 0.45, 0.04), woodMat, maxStandardChairs * 4);
+  const chairBatches = [chairSeatBatch, chairCushionBatch, chairBackBatch, chairLegBatch].filter(Boolean);
   chairBatches.forEach((batch) => {
     batch.count = 0;
     batch.castShadow = true;
@@ -2236,12 +2187,17 @@ export function buildCafe(theme, models = null) {
     const index = standardChairCount++;
     chairQuaternion.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, yaw);
     chairRootMatrix.compose(position, chairQuaternion, chairScale);
-    setChairPart(chairSeatBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.45, 0));
-    setChairPart(chairCushionBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.49, 0));
-    setChairPart(chairBackBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.72, -0.19));
-    [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]].forEach(([x, z], leg) => {
-      setChairPart(chairLegBatch, index * 4 + leg, chairRootMatrix, new THREE.Vector3(x, 0.225, z));
-    });
+    if (studioChair) {
+      setChairPart(chairSeatBatch, index, chairRootMatrix, new THREE.Vector3());
+      setChairPart(chairCushionBatch, index, chairRootMatrix, new THREE.Vector3());
+    } else {
+      setChairPart(chairSeatBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.45, 0));
+      setChairPart(chairCushionBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.49, 0));
+      setChairPart(chairBackBatch, index, chairRootMatrix, new THREE.Vector3(0, 0.72, -0.19));
+      [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]].forEach(([x, z], leg) => {
+        setChairPart(chairLegBatch, index * 4 + leg, chairRootMatrix, new THREE.Vector3(x, 0.225, z));
+      });
+    }
     return { isInstancedSeat: true, batch: chairSeatBatch, instanceId: index, visible: true };
   }
 
@@ -2370,6 +2326,7 @@ export function buildCafe(theme, models = null) {
     // subtle authored rotations (plan §5: don't mirror every table perfectly);
     // same yaw convention as the blueprint's support footprints
     tGroup.rotation.y = blueprintTable.rotation ?? 0;
+    if (authoredTables) tGroup.visible = false;
     group.add(tGroup);
 
     // seating comes from the blueprint's per-archetype seat plan (armchairs
@@ -2478,7 +2435,9 @@ export function buildCafe(theme, models = null) {
     if (theme.id === 'goldenhour') {
       // this morning's paper, abandoned on the left window counter
       const paper = makeNewspaper();
-      paper.position.set(-2.85, 1.035, D / 2 - 0.42);
+      // Between the two workstations: cups can jitter ±10 cm around either
+      // seat, so keeping the paper in the middle avoids rest-state overlaps.
+      paper.position.set(-2.2, 1.035, D / 2 - 0.42);
       paper.rotation.y = rand(0, Math.PI * 2);
       group.add(paper);
       registerTableProp(looseBarProps, paper);
@@ -2740,10 +2699,7 @@ export function buildCafe(theme, models = null) {
       seed: ti,
       mats: {
         ceramicMat, paperMat, cushionMat, metalMat, woodDarkMat,
-        glassMat: new THREE.MeshPhysicalMaterial({
-          color: 0xdcecf0, transmission: 0.7, transparent: true, opacity: 0.48,
-          roughness: 0.08, thickness: 0.01, depthWrite: false,
-        }),
+        glassMat: createThinGlass({ color: 0xdcecf0, opacity: 0.48 }),
       },
     });
     for (const item of cluster.items) {
@@ -3090,6 +3046,11 @@ export function buildCafe(theme, models = null) {
     }
     // On a venue with an authored stage the piano is a performance anchor on
     // the platform; otherwise it keeps its old back-wall spot.
+    const authoredPiano = cloneModel(models, 'atelier_piano');
+    if (authoredPiano) {
+      piano.children.forEach((child) => { child.visible = false; });
+      piano.add(authoredPiano);
+    }
     const pianoAnchor = blueprint.decor.stage?.anchors?.piano;
     if (pianoAnchor) {
       piano.position.set(pianoAnchor.x, blueprint.decor.stage.height, pianoAnchor.z);
@@ -3431,6 +3392,7 @@ export function buildCafe(theme, models = null) {
   if (blueprint.decor.production) {
     const productionBuilt = buildRoasteryProduction({
       group,
+      models,
       spec: blueprint.decor.production,
       roomHeight: H,
       helpers: { box, roundedBox, cyl },
@@ -3501,7 +3463,12 @@ export function buildCafe(theme, models = null) {
           o.material = o.material.clone();
           o.material.color.lerp(cushionMat.color, 0.88);
           o.material.roughness = 0.92;
-          if (!o.material.map) { o.material.map = clothTex; o.material.bumpMap = clothTex; o.material.bumpScale = 0.006; }
+          if (!o.material.map) {
+            o.material.map = clothTex;
+            o.material.normalMap = clothNormal;
+            o.material.normalScale.set(0.45, 0.45);
+            o.material.roughnessMap = cushionMat.roughnessMap;
+          }
         });
         sofa.position.set(W / 2 - 0.85, 0, -4.9);
         sofa.rotation.y = -Math.PI / 2;
@@ -3845,40 +3812,51 @@ export function buildCafe(theme, models = null) {
     // upper-deck tables sit above the pendant plane; their light comes from
     // the canopy, rail LEDs and planter pools instead of a cord through the slab
     if (t.baseY > 0) return;
-    const cord = cyl(0.008, 0.008, H - theme.lampY, woodDarkMat, 6);
-    cord.position.set(t.x, theme.lampY + (H - theme.lampY) / 2, t.z);
-    group.add(cord);
-    if (theme.pendant === 'bulb') {
+    const fixture = new THREE.Group();
+    fixture.name = 'Suspended Blender pendant';
+    const pendantModel = cloneModel(models, theme.pendant === 'drum' ? 'pendant_lamp' : 'studio_pendant');
+    const cordBottom = theme.lampY + (pendantModel ? (theme.pendant === 'drum' ? 0.32 : 0.12) : 0.08);
+    const cord = cyl(0.005, 0.005, H - cordBottom, woodDarkMat, 6);
+    cord.position.set(t.x, cordBottom + (H - cordBottom) / 2, t.z);
+    fixture.add(cord);
+    if (pendantModel) {
+      pendantModel.position.set(t.x, theme.lampY - 0.08, t.z);
+      fixture.add(pendantModel);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
+      bulb.position.set(t.x, theme.lampY - 0.05, t.z);
+      fixture.add(bulb);
+    } else if (theme.pendant === 'bulb') {
       // industrial: bare Edison bulb under a small metal disc
       const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.04, 14), metalMat);
       disc.position.set(t.x, theme.lampY + 0.06, t.z);
-      group.add(disc);
+      fixture.add(disc);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), bulbMat);
       bulb.scale.y = 1.35;
       bulb.position.set(t.x, theme.lampY - 0.03, t.z);
-      group.add(bulb);
+      fixture.add(bulb);
     } else if (theme.pendant === 'drum') {
       // fabric drum shade, glowing softly
       const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.18, 16, 1, true), shadeMat);
       drum.position.set(t.x, theme.lampY, t.z);
-      group.add(drum);
+      fixture.add(drum);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
       bulb.position.set(t.x, theme.lampY - 0.04, t.z);
-      group.add(bulb);
+      fixture.add(bulb);
     } else {
       const shade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.16, 16, 1, true), shadeMat);
       shade.position.set(t.x, theme.lampY, t.z);
-      group.add(shade);
+      fixture.add(shade);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), bulbMat);
       bulb.position.set(t.x, theme.lampY - 0.05, t.z);
-      group.add(bulb);
+      fixture.add(bulb);
     }
     if (litPendantIndices.has(i)) { // distribute practical pools across the room
       const pl = new THREE.PointLight(theme.lampColor, theme.lampIntensity, theme.rain ? 5 : 4.6, 2);
       pl.position.set(t.x, theme.lampY - 0.12, t.z);
-      group.add(pl);
+      fixture.add(pl);
       lampLights.push(pl);
     }
+    group.add(fixture);
   });
 
   // ---------- atmosphere particles ----------

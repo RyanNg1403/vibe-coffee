@@ -1,0 +1,50 @@
+{
+  "char_atelier_1": {
+    "triangles": 20948,
+    "bytes": 1002856,
+    "materials": 10,
+    "rigged": true
+  },
+  "char_atelier_2": {
+    "triangles": 21062,
+    "bytes": 1027520,
+    "materials": 10,
+    "rigged": true
+  },
+  "char_atelier_3": {
+    "triangles": 20432,
+    "bytes": 984316,
+    "materials": 10,
+    "rigged": true
+  },
+  "char_atelier_4": {
+    "triangles": 23824,
+    "bytes": 1153400,
+    "materials": 10,
+    "rigged": true
+  },
+  "char_atelier_5": {
+    "triangles": 21034,
+    "bytes": 1022200,
+    "materials": 10,
+    "rigged": true
+  },
+  "char_atelier_6": {
+    "triangles": 20604,
+    "bytes": 999848,
+    "materials": 10,
+    "rigged": true
+  },
+  "char_atelier_barista": {
+    "triangles": 21606,
+    "bytes": 1074748,
+    "materials": 12,
+    "rigged": true
+  },
+  "char_atelier_server": {
+    "triangles": 21164,
+    "bytes": 1046336,
+    "materials": 12,
+    "rigged": true
+  }
+}

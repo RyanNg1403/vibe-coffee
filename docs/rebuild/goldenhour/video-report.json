@@ -1,0 +1,13 @@
+{
+  "subject": {
+    "key": "char_atelier_2",
+    "x": 2.1,
+    "z": 0.55,
+    "cameraX": -0.3,
+    "cameraZ": 2.13
+  },
+  "frames": 192,
+  "fps": 24,
+  "finalState": "sitting",
+  "errors": []
+}

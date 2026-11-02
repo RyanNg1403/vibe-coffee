@@ -1,0 +1,151 @@
+{
+  "simulationHz": 30,
+  "environment": "Chromium / SwiftShader in the cloud workspace",
+  "units": {
+    "walkStep": "metres per simulation tick",
+    "waiterStep": "metres per simulation tick",
+    "seatStep": "metres per simulation tick",
+    "baristaTurn": "radians per simulation tick",
+    "seatedTurn": "radians per simulation tick",
+    "seatTurn": "radians per simulation tick",
+    "renderRestoreError": "maximum position distance or quaternion angle"
+  },
+  "venues": {
+    "goldenhour": {
+      "simulationSeconds": 180,
+      "max": {
+        "walkStep": 0.04286090474039897,
+        "baristaTurn": 0.14000000000000012,
+        "waiterStep": 0.024000000000000386,
+        "seatedTurn": 0.08000000000000008,
+        "seatStep": 0.026608224139907113,
+        "seatTurn": 0.0883444268976654,
+        "renderRestoreError": 4.2146848510894035e-08
+      },
+      "interpolatedSamples": 2111,
+      "states": [
+        "sitting",
+        "approachingDoorIn",
+        "waitingDoorIn",
+        "crossingDoorIn",
+        "queueing",
+        "standingSeat",
+        "toBrowse",
+        "holdingDoorIn",
+        "ordering",
+        "toSeat",
+        "browsing",
+        "approachingDoorOut",
+        "holdingDoorOut",
+        "waitingDoorOut",
+        "crossingDoorOut",
+        "aligningSeat",
+        "joiningSidewalk",
+        "waitingPickup"
+      ],
+      "errors": []
+    },
+    "roastery": {
+      "simulationSeconds": 180,
+      "max": {
+        "walkStep": 0.04642611644757354,
+        "baristaTurn": 0.14000000000000057,
+        "waiterStep": 0.02400000000000042,
+        "seatedTurn": 0.08000000000000008,
+        "seatStep": 0.03993248686828786,
+        "seatTurn": 0.10659177834332789,
+        "renderRestoreError": 4.2146848510894035e-08
+      },
+      "interpolatedSamples": 2102,
+      "states": [
+        "sitting",
+        "approachingDoorIn",
+        "holdingDoorIn",
+        "waitingDoorIn",
+        "crossingDoorIn",
+        "queueing",
+        "standingSeat",
+        "holdingDoorOut",
+        "ordering",
+        "approachingDoorOut",
+        "waitingDoorOut",
+        "crossingDoorOut",
+        "toSeat",
+        "joiningSidewalk",
+        "aligningSeat",
+        "waitingPickup"
+      ],
+      "errors": []
+    },
+    "midnight": {
+      "simulationSeconds": 180,
+      "max": {
+        "walkStep": 0.04448170175343322,
+        "baristaTurn": 0.14000000000000057,
+        "waiterStep": 0.02400000000000009,
+        "seatedTurn": 0.08000000000000008,
+        "seatStep": 0.026653387128066353,
+        "seatTurn": 0.0891717356077022,
+        "renderRestoreError": 4.2146848510894035e-08
+      },
+      "interpolatedSamples": 2036,
+      "states": [
+        "sitting",
+        "performing",
+        "approachingDoorIn",
+        "holdingDoorIn",
+        "waitingDoorIn",
+        "crossingDoorIn",
+        "standingSeat",
+        "queueing",
+        "holdingDoorOut",
+        "approachingDoorOut",
+        "waitingDoorOut",
+        "ordering",
+        "crossingDoorOut",
+        "openingUmbrella",
+        "joiningSidewalk",
+        "toSeat",
+        "aligningSeat",
+        "toRest",
+        "waitingPickup",
+        "resting",
+        "toStage"
+      ],
+      "errors": []
+    },
+    "terrace": {
+      "simulationSeconds": 180,
+      "max": {
+        "walkStep": 0.046022839151031954,
+        "baristaTurn": 0.14000000000000057,
+        "waiterStep": 0.02400000000000009,
+        "seatedTurn": 0.08000000000000008,
+        "seatStep": 0.02680296735102597,
+        "seatTurn": 0.09055815472026296,
+        "renderRestoreError": 4.2146848510894035e-08
+      },
+      "interpolatedSamples": 1674,
+      "states": [
+        "sitting",
+        "approachingDoorIn",
+        "waitingDoorIn",
+        "crossingDoorIn",
+        "queueing",
+        "ordering",
+        "toSeat",
+        "standingSeat",
+        "aligningSeat",
+        "approachingDoorOut",
+        "waitingDoorOut",
+        "crossingDoorOut",
+        "joiningSidewalk",
+        "waitingPickup",
+        "toStairTop",
+        "traversingStair",
+        "toStairBottom"
+      ],
+      "errors": []
+    }
+  }
+}

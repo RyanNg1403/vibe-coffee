@@ -1,0 +1,479 @@
+{
+  "apple": {
+    "bytes": 28980,
+    "triangles": 874,
+    "materials": 4,
+    "animations": []
+  },
+  "armchair": {
+    "bytes": 46072,
+    "triangles": 1308,
+    "materials": 2,
+    "animations": []
+  },
+  "atelier_car": {
+    "bytes": 109060,
+    "triangles": 5918,
+    "materials": 7,
+    "animations": []
+  },
+  "atelier_piano": {
+    "bytes": 292596,
+    "triangles": 13392,
+    "materials": 7,
+    "animations": []
+  },
+  "atelier_roaster": {
+    "bytes": 81416,
+    "triangles": 4904,
+    "materials": 5,
+    "animations": []
+  },
+  "atelier_streetscape": {
+    "bytes": 628840,
+    "triangles": 29260,
+    "materials": 7,
+    "animations": []
+  },
+  "atelier_tables_goldenhour": {
+    "bytes": 203232,
+    "triangles": 13816,
+    "materials": 4,
+    "animations": []
+  },
+  "atelier_tables_midnight": {
+    "bytes": 243080,
+    "triangles": 16764,
+    "materials": 3,
+    "animations": []
+  },
+  "atelier_tables_roastery": {
+    "bytes": 97904,
+    "triangles": 4860,
+    "materials": 4,
+    "animations": []
+  },
+  "atelier_tables_terrace": {
+    "bytes": 229744,
+    "triangles": 15768,
+    "materials": 4,
+    "animations": []
+  },
+  "bar_stool": {
+    "bytes": 44136,
+    "triangles": 1368,
+    "materials": 3,
+    "animations": []
+  },
+  "bookcase": {
+    "bytes": 372020,
+    "triangles": 18424,
+    "materials": 7,
+    "animations": []
+  },
+  "cactus_pot": {
+    "bytes": 37996,
+    "triangles": 2176,
+    "materials": 4,
+    "animations": []
+  },
+  "cake": {
+    "bytes": 34728,
+    "triangles": 2300,
+    "materials": 3,
+    "animations": []
+  },
+  "cakeSlice": {
+    "bytes": 35592,
+    "triangles": 2300,
+    "materials": 3,
+    "animations": []
+  },
+  "cat": {
+    "bytes": 89740,
+    "triangles": 5044,
+    "materials": 4,
+    "animations": [
+      "death",
+      "eating",
+      "headbutt",
+      "idle",
+      "idle_2",
+      "idle_2_headlow",
+      "idle_eating",
+      "walk"
+    ]
+  },
+  "char_atelier_1": {
+    "bytes": 287500,
+    "triangles": 20948,
+    "materials": 10,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "char_atelier_2": {
+    "bytes": 293024,
+    "triangles": 21062,
+    "materials": 10,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "char_atelier_3": {
+    "bytes": 283660,
+    "triangles": 20432,
+    "materials": 10,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "char_atelier_4": {
+    "bytes": 321980,
+    "triangles": 23824,
+    "materials": 10,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "char_atelier_5": {
+    "bytes": 292060,
+    "triangles": 21034,
+    "materials": 10,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "char_atelier_6": {
+    "bytes": 287040,
+    "triangles": 20604,
+    "materials": 10,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "char_atelier_barista": {
+    "bytes": 307560,
+    "triangles": 21606,
+    "materials": 12,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "char_atelier_server": {
+    "bytes": 301508,
+    "triangles": 21164,
+    "materials": 12,
+    "animations": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ]
+  },
+  "coat_rack": {
+    "bytes": 23600,
+    "triangles": 408,
+    "materials": 2,
+    "animations": []
+  },
+  "cookie": {
+    "bytes": 18236,
+    "triangles": 1200,
+    "materials": 2,
+    "animations": []
+  },
+  "crate": {
+    "bytes": 85500,
+    "triangles": 3760,
+    "materials": 2,
+    "animations": []
+  },
+  "croissant": {
+    "bytes": 24928,
+    "triangles": 1478,
+    "materials": 2,
+    "animations": []
+  },
+  "cup": {
+    "bytes": 21844,
+    "triangles": 1560,
+    "materials": 2,
+    "animations": []
+  },
+  "cupcake": {
+    "bytes": 55520,
+    "triangles": 3520,
+    "materials": 4,
+    "animations": []
+  },
+  "donut": {
+    "bytes": 28452,
+    "triangles": 1384,
+    "materials": 3,
+    "animations": []
+  },
+  "espresso_machine": {
+    "bytes": 123980,
+    "triangles": 5892,
+    "materials": 4,
+    "animations": []
+  },
+  "floor_lamp": {
+    "bytes": 35636,
+    "triangles": 1836,
+    "materials": 4,
+    "animations": []
+  },
+  "iceCream": {
+    "bytes": 11132,
+    "triangles": 624,
+    "materials": 2,
+    "animations": []
+  },
+  "lantern": {
+    "bytes": 18552,
+    "triangles": 744,
+    "materials": 3,
+    "animations": []
+  },
+  "latte": {
+    "bytes": 24364,
+    "triangles": 1624,
+    "materials": 3,
+    "animations": []
+  },
+  "muffin": {
+    "bytes": 30568,
+    "triangles": 1760,
+    "materials": 3,
+    "animations": []
+  },
+  "mug": {
+    "bytes": 15640,
+    "triangles": 908,
+    "materials": 2,
+    "animations": []
+  },
+  "painting": {
+    "bytes": 43848,
+    "triangles": 2488,
+    "materials": 5,
+    "animations": []
+  },
+  "pancakes": {
+    "bytes": 19092,
+    "triangles": 956,
+    "materials": 2,
+    "animations": []
+  },
+  "pendant_lamp": {
+    "bytes": 28348,
+    "triangles": 1536,
+    "materials": 2,
+    "animations": []
+  },
+  "pet_cat": {
+    "bytes": 89740,
+    "triangles": 5044,
+    "materials": 4,
+    "animations": [
+      "death",
+      "eating",
+      "headbutt",
+      "idle",
+      "idle_2",
+      "idle_2_headlow",
+      "idle_eating",
+      "walk"
+    ]
+  },
+  "pet_dog": {
+    "bytes": 90124,
+    "triangles": 5100,
+    "materials": 4,
+    "animations": [
+      "death",
+      "eating",
+      "headbutt",
+      "idle",
+      "idle_2",
+      "idle_2_headlow",
+      "idle_eating",
+      "walk"
+    ]
+  },
+  "plant": {
+    "bytes": 42184,
+    "triangles": 2078,
+    "materials": 4,
+    "animations": []
+  },
+  "plant_cacti": {
+    "bytes": 37964,
+    "triangles": 2176,
+    "materials": 4,
+    "animations": []
+  },
+  "plant_fern": {
+    "bytes": 419328,
+    "triangles": 27164,
+    "materials": 4,
+    "animations": []
+  },
+  "plant_monstera": {
+    "bytes": 42236,
+    "triangles": 2078,
+    "materials": 4,
+    "animations": []
+  },
+  "plant_pothos": {
+    "bytes": 41768,
+    "triangles": 2078,
+    "materials": 4,
+    "animations": []
+  },
+  "plant_pothos_vine": {
+    "bytes": 120928,
+    "triangles": 6132,
+    "materials": 3,
+    "animations": []
+  },
+  "plant_small": {
+    "bytes": 53764,
+    "triangles": 2904,
+    "materials": 3,
+    "animations": []
+  },
+  "plant_snake": {
+    "bytes": 32556,
+    "triangles": 1644,
+    "materials": 4,
+    "animations": []
+  },
+  "plant_succulent": {
+    "bytes": 53780,
+    "triangles": 2904,
+    "materials": 3,
+    "animations": []
+  },
+  "radio": {
+    "bytes": 40640,
+    "triangles": 1124,
+    "materials": 4,
+    "animations": []
+  },
+  "sandwich": {
+    "bytes": 6712,
+    "triangles": 40,
+    "materials": 4,
+    "animations": []
+  },
+  "side_table": {
+    "bytes": 21072,
+    "triangles": 340,
+    "materials": 2,
+    "animations": []
+  },
+  "sofa": {
+    "bytes": 62368,
+    "triangles": 1936,
+    "materials": 3,
+    "animations": []
+  },
+  "studio_chair": {
+    "bytes": 36016,
+    "triangles": 844,
+    "materials": 2,
+    "animations": []
+  },
+  "studio_cup": {
+    "bytes": 21844,
+    "triangles": 1560,
+    "materials": 2,
+    "animations": []
+  },
+  "studio_espresso": {
+    "bytes": 124012,
+    "triangles": 5892,
+    "materials": 4,
+    "animations": []
+  },
+  "studio_pendant": {
+    "bytes": 27176,
+    "triangles": 1732,
+    "materials": 3,
+    "animations": []
+  },
+  "table_lamp": {
+    "bytes": 36044,
+    "triangles": 1836,
+    "materials": 4,
+    "animations": []
+  },
+  "teapot": {
+    "bytes": 32140,
+    "triangles": 1584,
+    "materials": 2,
+    "animations": []
+  },
+  "trashcan": {
+    "bytes": 19976,
+    "triangles": 1000,
+    "materials": 1,
+    "animations": []
+  },
+  "tree_park_a": {
+    "bytes": 506376,
+    "triangles": 32212,
+    "materials": 3,
+    "animations": []
+  },
+  "tree_park_b": {
+    "bytes": 506052,
+    "triangles": 32212,
+    "materials": 3,
+    "animations": []
+  },
+  "typewriter": {
+    "bytes": 75700,
+    "triangles": 4564,
+    "materials": 4,
+    "animations": []
+  },
+  "wall_shelf": {
+    "bytes": 372036,
+    "triangles": 18424,
+    "materials": 7,
+    "animations": []
+  }
+}

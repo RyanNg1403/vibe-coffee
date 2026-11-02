@@ -1,0 +1,72 @@
+{
+  "generator": "tools/blender/build_cafe_assets.py",
+  "models": {
+    "studio_cup": {
+      "triangles": 2172,
+      "materials": 2,
+      "bytes": 57080
+    },
+    "studio_espresso": {
+      "triangles": 3564,
+      "materials": 7,
+      "bytes": 174908
+    },
+    "studio_pendant": {
+      "triangles": 1056,
+      "materials": 3,
+      "bytes": 24296
+    },
+    "studio_chair": {
+      "triangles": 924,
+      "materials": 2,
+      "bytes": 32368
+    }
+  },
+  "textures": {
+    "studio_oak_color.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "sRGB"
+    },
+    "studio_oak_normal.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "linear"
+    },
+    "studio_oak_roughness.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "linear"
+    },
+    "studio_limestone_color.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "sRGB"
+    },
+    "studio_limestone_normal.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "linear"
+    },
+    "studio_limestone_roughness.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "linear"
+    },
+    "studio_linen_color.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "sRGB"
+    },
+    "studio_linen_normal.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "linear"
+    },
+    "studio_linen_roughness.jpg": {
+      "width": 512,
+      "height": 512,
+      "colorSpace": "linear"
+    }
+  }
+}

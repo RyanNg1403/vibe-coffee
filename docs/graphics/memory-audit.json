@@ -1,0 +1,40 @@
+{
+  "start": {
+    "theme": "goldenhour",
+    "heapMB": 120.99,
+    "decodedAudioMB": 40.06,
+    "geometries": 330,
+    "textures": 71,
+    "activeGeometries": 467,
+    "activeTextures": 46,
+    "rain": false,
+    "umbrellas": "0/8",
+    "umbrellaHands": 8,
+    "calls": 779
+  },
+  "end": {
+    "theme": "goldenhour",
+    "heapMB": 121.42,
+    "decodedAudioMB": 40.06,
+    "geometries": 330,
+    "textures": 71,
+    "activeGeometries": 467,
+    "activeTextures": 46,
+    "rain": false,
+    "umbrellas": "0/8",
+    "umbrellaHands": 8,
+    "calls": 779
+  },
+  "delta": {
+    "heapMB": 0.42,
+    "geometries": 0,
+    "textures": 0
+  },
+  "checks": {
+    "stableResources": true,
+    "stableHeap": true,
+    "rainyUmbrellaMix": true,
+    "clearScenesHaveNoUmbrellas": true
+  },
+  "passed": true
+}

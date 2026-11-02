@@ -14,6 +14,7 @@ import {
 } from './cafe/tableSupport.js';
 import { ServiceCoordinator } from './npc/serviceCoordinator.js';
 import { BehaviorPlanner, seedTraits } from './npc/behaviorPlanner.js';
+import { angleDelta, turnToward, walkingTimeScale, MotionInterpolator } from './npc/motion.js';
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -420,6 +421,7 @@ class SkinnedAvatar {
     const { mesh, animations } = cloneCharacter(models, key);
     this.key = key;
     this.isHero = key.startsWith('char_hero_');
+    this.isAtelier = key.startsWith('char_atelier_');
     this.root = new THREE.Group();
     this.root.add(mesh);
     this.inner = mesh;
@@ -453,6 +455,9 @@ class SkinnedAvatar {
         const materials = source.map((sourceMaterial, materialIndex) => {
           const material = sourceMaterial.clone();
           this._ownedMaterials.add(material);
+          // The Blender cast has authored skin, eyes, cloth and leather.
+          // Preserve those materials instead of recoloring every submesh.
+          if (this.isAtelier) return material;
           material.metalness = Math.min(material.metalness ?? 0, 0.04);
           const name = (material.name || '').toLowerCase();
           const isSkin = name.includes('skin') || name.includes('face');
@@ -620,6 +625,14 @@ class SkinnedAvatar {
     this.gazeOverride = null; // planner intent: wins over ambient head sway
     this.headPitch = 0;
     this._headYaw = 0;
+    this._headPitch = 0;
+    this.sitAmount = 0;
+    this._legPose = [
+      ['LeftUpLeg', -1.45, 0.1], ['RightUpLeg', -1.45, -0.1],
+      ['LeftLeg', 1.35, null], ['RightLeg', 1.35, null],
+    ].filter(([name]) => this.bones[name]).map(([name, x, y]) => ({
+      bone: this.bones[name], x, y, rotation: new THREE.Quaternion(), applied: false,
+    }));
 
     // grounding blob
     const blob = new THREE.Mesh(
@@ -694,6 +707,12 @@ class SkinnedAvatar {
       lookBone.rotation.y -= this._appliedLook.y;
       lookBone.rotation.x -= this._appliedLook.x;
     }
+    // Restore the underlying clip pose before applying a partial seated pose.
+    // This also works for idle clips that do not key every leg bone.
+    for (const pose of this._legPose) {
+      if (pose.applied) pose.bone.quaternion.copy(pose.rotation);
+      pose.applied = false;
+    }
     this.mixer.update(animationDt);
     // one-time compensation for armature scale so the cup is world-sized
     if (!this._cupScaled && this.cup.visible && this.bones.RightHand) {
@@ -707,20 +726,24 @@ class SkinnedAvatar {
     }
     // sit: use the pack's sit clip when it has one, else pose the legs
     // manually after the mixer (overriding whatever idle did)
-    if (this.sitting && !this.hasSitClip) {
-      const { LeftUpLeg, RightUpLeg, LeftLeg, RightLeg } = this.bones;
-      if (LeftUpLeg) { LeftUpLeg.rotation.x = -1.45; LeftUpLeg.rotation.y = 0.1; }
-      if (RightUpLeg) { RightUpLeg.rotation.x = -1.45; RightUpLeg.rotation.y = -0.1; }
-      if (LeftLeg) LeftLeg.rotation.x = 1.35;
-      if (RightLeg) RightLeg.rotation.x = 1.35;
+    if (this.sitAmount > 0 && !this.hasSitClip) {
+      for (const pose of this._legPose) {
+        const { bone, x, y } = pose;
+        pose.rotation.copy(bone.quaternion);
+        pose.applied = true;
+        bone.rotation.x = THREE.MathUtils.lerp(bone.rotation.x, x, this.sitAmount);
+        if (y !== null) bone.rotation.y = THREE.MathUtils.lerp(bone.rotation.y, y, this.sitAmount);
+      }
     }
     // head look, applied post-mixer so it composes with the idle sway
     const lookTarget = this.gazeOverride ?? this.headYawTarget;
-    this._headYaw += (lookTarget - this._headYaw) * Math.min(1, animationDt * 3);
+    const lookBlend = 1 - Math.exp(-3 * animationDt);
+    this._headYaw += (lookTarget - this._headYaw) * lookBlend;
+    this._headPitch += (THREE.MathUtils.clamp(this.headPitch, -0.6, 0.6) - this._headPitch) * lookBlend;
     const head = this.bones.Head ?? this.bones.Neck;
     if (head) {
       // keep the look natural even if a state feeds a runaway target
-      const pitch = THREE.MathUtils.clamp(this.headPitch, -0.6, 0.6);
+      const pitch = this._headPitch;
       const yaw = THREE.MathUtils.clamp(this._headYaw, -1.1, 1.1);
       head.rotation.y += yaw;
       head.rotation.x += pitch;
@@ -1195,10 +1218,11 @@ class NPC {
     const dz = target.z - this.mesh.position.z;
     const dist = Math.hypot(dx, dz);
     const speed = Math.max(0.45, this.speed * 0.7) * (this.hasCup ? 0.88 : 1);
-    if (dist < 0.09) {
+    if (dist <= speed * dt) {
       this.mesh.position.x = target.x;
       this.mesh.position.z = target.z;
       this.baseY = target.y;
+      this._setRootY(0);
       this.stairI += 1;
       if (this.stairI >= this.stairPath.length) {
         this.sim.stairs.release(this);
@@ -1215,16 +1239,14 @@ class NPC {
     this.mesh.position.z += (dz / dist) * step;
     // tread height follows the run — blended, never snapped
     const yGap = target.y - this.baseY;
-    this.baseY += yGap * Math.min(1, (step / Math.max(dist, 0.001)) * 1.6);
+    this.baseY += yGap * (step / dist);
     const desired = Math.atan2(dx, dz);
-    let dy = desired - this.mesh.rotation.y;
-    while (dy > Math.PI) dy -= Math.PI * 2;
-    while (dy < -Math.PI) dy += Math.PI * 2;
-    this.mesh.rotation.y += dy * Math.min(1, dt * 6);
+    this.mesh.rotation.y = turnToward(this.mesh.rotation.y, desired, dt);
     this.walkPhase += dt * 6.7 * speed;
     if (this.avatar) {
       this.avatar.sitting = false;
-      this.avatar.setMode('walk', Math.max(0.5, speed * 1.2));
+      this.avatar.sitAmount = 0;
+      this.avatar.setMode('walk', walkingTimeScale(speed));
       this._setRootY(0);
     } else {
       const p = this.mesh.userData.parts;
@@ -1329,6 +1351,7 @@ class NPC {
   _setPose(sitting) {
     if (this.avatar) {
       this.avatar.sitting = sitting;
+      this.avatar.sitAmount = sitting ? 1 : 0;
       this._setRootY(sitting ? this.sitY : 0);
       if (sitting) {
         if (this.avatar.hasSitClip) this.avatar.setMode('sit');
@@ -1354,6 +1377,7 @@ class NPC {
     this.state = 'standingSeat';
     this.stateT = 0;
     this.transitionFrom = this.mesh.position.clone();
+    this.transitionYaw = this.mesh.rotation.y;
     this._clearProps();
     if (this.sim.audio?.started && Math.random() < 0.7) this.sim.audio.playChairScrape(seat.pos);
   }
@@ -1361,28 +1385,35 @@ class NPC {
   _updateSeatTransition(seat) {
     if (!seat) return;
     const entering = this.state === 'aligningSeat';
-    const duration = entering ? 0.72 : 0.62;
-    const raw = THREE.MathUtils.clamp(this.stateT / duration, 0, 1);
-    const eased = raw * raw * (3 - 2 * raw);
     const from = this.transitionFrom ?? this.mesh.position;
     const target = entering ? seat.pos : (seat.approach ?? seat.pos);
-    this.mesh.position.x = THREE.MathUtils.lerp(from.x, target.x, eased);
-    this.mesh.position.z = THREE.MathUtils.lerp(from.z, target.z, eased);
-
     const desiredYaw = seat.facingYaw ?? Math.atan2(
       seat.tableCenter.x - seat.pos.x,
       seat.tableCenter.z - seat.pos.z,
     );
-    let yawDelta = desiredYaw - this.mesh.rotation.y;
-    while (yawDelta > Math.PI) yawDelta -= Math.PI * 2;
-    while (yawDelta < -Math.PI) yawDelta += Math.PI * 2;
-    this.mesh.rotation.y += yawDelta * Math.min(1, 0.18 + eased * 0.42);
+    const sitOffset = entering && this.avatar?.hasSitClip ? 0.02 : 0;
+    const targetX = target.x - Math.sin(desiredYaw) * sitOffset;
+    const targetZ = target.z - Math.cos(desiredYaw) * sitOffset;
+    const fromYaw = this.transitionYaw ?? this.mesh.rotation.y;
+    const yawDelta = angleDelta(fromYaw, desiredYaw);
+    // Give a long approach or a half-turn enough time to settle into the chair.
+    // Smoothstep's peak rate is 1.5, so these bounds keep turns below 3.2 rad/s
+    // and seat alignment below 1.2 m/s, independent of simulation frequency.
+    const duration = Math.max(entering ? 0.85 : 0.75,
+      Math.abs(yawDelta) * 1.5 / 3.2,
+      Math.hypot(targetX - from.x, targetZ - from.z) * 1.5 / 1.2);
+    const raw = THREE.MathUtils.clamp(this.stateT / duration, 0, 1);
+    const eased = raw * raw * (3 - 2 * raw);
+    this.mesh.position.x = THREE.MathUtils.lerp(from.x, targetX, eased);
+    this.mesh.position.z = THREE.MathUtils.lerp(from.z, targetZ, eased);
+    this.mesh.rotation.y = fromYaw + yawDelta * eased;
 
     const sitAmount = entering
       ? THREE.MathUtils.smoothstep(raw, 0.18, 1)
       : 1 - THREE.MathUtils.smoothstep(raw, 0, 0.82);
     if (this.avatar) {
       this.avatar.sitting = sitAmount > 0.18;
+      this.avatar.sitAmount = sitAmount;
       if (this.avatar.sitting) {
         this.avatar.setMode(this.avatar.hasSitClip ? 'sit' : 'idle', 0.8);
       } else {
@@ -1737,7 +1768,7 @@ class NPC {
       // Stall rescue: steering equilibria (a crowded pickup counter, a
       // waypoint grazing a planter's avoidance margin) can hold a walker at
       // a fixed distance forever. When no progress is made for a while,
-      // accept a generous arrival instead of walking in place.
+      // accept a nearby waypoint without teleporting onto its exact position.
       if (dist < (this._bestDist ?? Infinity) - 0.015) {
         this._bestDist = dist;
         this._stallT = 0;
@@ -1761,8 +1792,6 @@ class NPC {
         return;
       }
       if (dist < 0.07 || stalled) {
-        pos.x = target.x;
-        pos.z = target.z;
         this.pathI++;
         this._bestDist = Infinity;
         this._stallT = 0;
@@ -1844,8 +1873,9 @@ class NPC {
           }
         }
       }
-      const speedRatio = THREE.MathUtils.clamp(this.currentSpeed / Math.max(0.01, this.speed), 0, 1);
-      this.walkPhase += dt * 6.7 * this.currentSpeed * this.strideScale;
+      const travelSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      const speedRatio = THREE.MathUtils.clamp(travelSpeed / Math.max(0.01, this.speed), 0, 1);
+      this.walkPhase += dt * 6.7 * travelSpeed * this.strideScale;
       // passing greeting: when two people cross paths, one waves hello
       this.greetT -= dt;
       if (this.greeting > 0) this.greeting -= dt;
@@ -1853,10 +1883,11 @@ class NPC {
       const greetingNow = this.greeting > 0;
       if (this.avatar) {
         this.avatar.sitting = false;
+        this.avatar.sitAmount = 0;
         this.avatar.headPitch = 0;
         this.avatar.setMode(
-          greetingNow && this.avatar.hasWave && this.currentSpeed < 0.2 ? 'wave' : 'walk',
-          Math.max(0.45, this.currentSpeed * 1.25)
+          greetingNow && this.avatar.hasWave && travelSpeed < 0.2 ? 'wave' : 'walk',
+          greetingNow && this.avatar.hasWave && travelSpeed < 0.2 ? 1 : walkingTimeScale(travelSpeed)
         );
         this._setRootY(0);
       } else {
@@ -1899,7 +1930,7 @@ class NPC {
         this.glanceT = rand(2, 6);
       }
       if (this.avatar) {
-        this.avatar.headYawTarget = this.headTarget;
+        if (travelSpeed <= 0.12) this.avatar.headYawTarget = this.headTarget;
         this.avatar.update(dt, this._distanceToListener(), this.sim.qualityLevel);
       }
       else p.head.rotation.y += (this.headTarget - p.head.rotation.y) * dt * 3;
@@ -2041,7 +2072,7 @@ class NPC {
         // face your friend
         const pp = this.partner.mesh.position;
         const yaw = Math.atan2(pp.x - seat.pos.x, pp.z - seat.pos.z);
-        this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, yaw, dt, 2, 2.4);
         this._pairCheers(dt, seat);
         if (this.cheers > 0) {
           // both raise their cups for a toast
@@ -2066,7 +2097,7 @@ class NPC {
       } else {
         const look = seat.tableCenter;
         const yaw = Math.atan2(look.x - seat.pos.x, look.z - seat.pos.z);
-        this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, yaw, dt, 2, 2.4);
         p.torso.scale.y = 1 + Math.sin(t * 1.8 + this.walkPhase) * 0.012;
         if (this.activity === 'laptop') {
           // hands forward, small typing jitter
@@ -2129,18 +2160,12 @@ class NPC {
   // read as customers spinning in place at the register and pickup counter.
   _faceCounter(dt) {
     if (this.path) return;
-    let dy = Math.PI - this.mesh.rotation.y;
-    while (dy > Math.PI) dy -= Math.PI * 2;
-    while (dy < -Math.PI) dy += Math.PI * 2;
-    this.mesh.rotation.y += dy * Math.min(1, dt * 5);
+    this.mesh.rotation.y = turnToward(this.mesh.rotation.y, Math.PI, dt, 5);
   }
 
   _faceBrowseShelves(dt) {
     if (this.path) return;
-    let dy = (this.browseFaceYaw ?? Math.PI / 2) - this.mesh.rotation.y;
-    while (dy > Math.PI) dy -= Math.PI * 2;
-    while (dy < -Math.PI) dy += Math.PI * 2;
-    this.mesh.rotation.y += dy * Math.min(1, dt * 4);
+    this.mesh.rotation.y = turnToward(this.mesh.rotation.y, this.browseFaceYaw ?? Math.PI / 2, dt, 4);
   }
 
   _updateSkinnedStationary(dt, t, seat) {
@@ -2233,7 +2258,7 @@ class NPC {
       if (isChat) {
         const pp = this.partner.mesh.position;
         const yaw = Math.atan2(pp.x - seat.pos.x, pp.z - seat.pos.z);
-        this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, yaw, dt, 2, 2.4);
         this._pairCheers(dt, seat);
         const turn = Math.sin(t * 0.13 + (this.pairLead ? 0 : Math.PI));
         av.headPitch = this.cheers > 0
@@ -2245,7 +2270,7 @@ class NPC {
       } else {
         const look = seat.tableCenter;
         const yaw = Math.atan2(look.x - seat.pos.x, look.z - seat.pos.z);
-        this.mesh.rotation.y += (yaw - this.mesh.rotation.y) * dt * 2;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, yaw, dt, 2, 2.4);
         if (this.activity === 'laptop' || this.activity === 'book' || this.activity === 'phone' || this.activity === 'sketch') {
           av.headPitch = 0.28;
           av.headYawTarget = Math.sin(t * 0.2 + this.walkPhase) * 0.08;
@@ -2287,6 +2312,7 @@ class NPC {
       const seat = this.sim.cafe.seats[this.seatIndex];
       this.sitY = sitYFor(this, seat);
       this.transitionFrom = this.mesh.position.clone();
+      this.transitionYaw = this.mesh.rotation.y;
     } else if (this.state === 'toStairBottom' || this.state === 'toStairTop') {
       this.stairPending = this.state === 'toStairBottom' ? 'up' : 'down';
       this.stateT = 0;
@@ -2393,14 +2419,14 @@ class Barista {
   constructor(sim) {
     this.sim = sim;
     if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, sim.pickStandardCharacter(), {
+      this.avatar = new SkinnedAvatar(sim.models, sim.models?.has('char_atelier_barista') ? 'char_atelier_barista' : sim.pickStandardCharacter(), {
         appearanceIndex: sim.nextAppearanceIndex(),
       });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
     }
-    addStaffUniform(this.mesh, 'barista');
+    if (!this.avatar?.isAtelier) addStaffUniform(this.mesh, 'barista');
     this.home = sim.cafe.nav.baristaHome.clone();
     this.registerSpot = sim.cafe.nav.baristaRegister.clone();
     this.machineSpot = sim.cafe.nav.baristaMachine.clone();
@@ -2439,7 +2465,7 @@ class Barista {
       const motion = Math.abs(this.velocityX);
       this.phase += dt * 6.2 * motion;
       if (this.avatar) {
-        this.avatar.setMode('walk', Math.max(0.5, motion * 1.1));
+        this.avatar.setMode('walk', walkingTimeScale(motion));
       } else {
         const s = Math.sin(this.phase);
         p.legL.rotation.x = s * 0.4 * motion;
@@ -2451,15 +2477,12 @@ class Barista {
         setGroundedY(this.mesh, bob, p.blob);
       }
       const targetYaw = this.velocityX >= 0 ? Math.PI / 2 : -Math.PI / 2;
-      let turn = targetYaw - this.mesh.rotation.y;
-      while (turn > Math.PI) turn -= Math.PI * 2;
-      while (turn < -Math.PI) turn += Math.PI * 2;
-      this.mesh.rotation.y += turn * (1 - Math.exp(-8 * dt));
+      this.mesh.rotation.y = turnToward(this.mesh.rotation.y, targetYaw, dt);
       this.espressoPlayed = false;
     } else if (this.avatar) {
       if (this.sim.brewFor) {
         // working the machine, back turned — the pack's Working clip is perfect
-        this.mesh.rotation.y = Math.PI;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, Math.PI, dt);
         this.avatar.setMode('work');
         if (!this.espressoPlayed) {
           this.espressoPlayed = true;
@@ -2471,12 +2494,12 @@ class Barista {
           }
         }
       } else if (this.sim.ordering) {
-        this.mesh.rotation.y = 0;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, 0, dt);
         this.avatar.setMode('idle');
         this.avatar.headPitch = 0.05;
         this.espressoPlayed = false;
       } else {
-        this.mesh.rotation.y = 0;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, 0, dt);
         this.avatar.setMode('work', 0.7); // wiping, tidying
         this.avatar.headYawTarget = Math.sin(t * 0.4 + this.phase) * 0.3;
         this.espressoPlayed = false;
@@ -2488,7 +2511,7 @@ class Barista {
       setGroundedY(this.mesh, 0, p.blob);
       if (this.sim.brewFor) {
         // working the machine, back half-turned
-        this.mesh.rotation.y = Math.PI;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, Math.PI, dt);
         p.armL.rotation.x = -0.9 + Math.sin(t * 3.2) * 0.2;
         p.armR.rotation.x = -0.7 + Math.cos(t * 2.7) * 0.25;
         if (!this.espressoPlayed) {
@@ -2502,13 +2525,13 @@ class Barista {
         }
       } else if (this.sim.ordering) {
         // face the customer, take the order
-        this.mesh.rotation.y = 0;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, 0, dt);
         p.armL.rotation.x = -0.3 + Math.sin(t * 1.8) * 0.1;
         p.armR.rotation.x = Math.sin(t * 1.4) * 0.15;
         p.head.rotation.x = 0.05;
         this.espressoPlayed = false;
       } else {
-        this.mesh.rotation.y = 0;
+        this.mesh.rotation.y = turnToward(this.mesh.rotation.y, 0, dt);
         p.armL.rotation.x = -0.7 + Math.sin(t * 2.6 + this.phase) * 0.25;
         p.armR.rotation.x = -0.7 + Math.sin(t * 2.2 + this.phase + 1) * 0.25;
         p.head.rotation.y = Math.sin(t * 0.4 + this.phase) * 0.3;
@@ -2572,26 +2595,23 @@ class Performer {
     const dx = target.x - this.mesh.position.x;
     const dz = target.z - this.mesh.position.z;
     const dist = Math.hypot(dx, dz);
-    if (dist < 0.08) {
+    const speed = 0.75;
+    if (dist <= speed * dt) {
       this.mesh.position.x = target.x;
       this.mesh.position.z = target.z;
       this.mesh.position.y = target.y;
       this.pathI += 1;
       return this.pathI >= this.path.length;
     }
-    const speed = 0.75;
     const step = Math.min(dist, speed * dt);
     this.mesh.position.x += (dx / dist) * step;
     this.mesh.position.z += (dz / dist) * step;
     // platform height blends over the step down/up, never a vertical snap
     const yGap = target.y - this.mesh.position.y;
-    this.mesh.position.y += yGap * Math.min(1, (step / Math.max(dist, 0.001)) * 2);
+    this.mesh.position.y += yGap * (step / dist);
     const desired = Math.atan2(dx, dz);
-    let dy = desired - this.mesh.rotation.y;
-    while (dy > Math.PI) dy -= Math.PI * 2;
-    while (dy < -Math.PI) dy += Math.PI * 2;
-    this.mesh.rotation.y += dy * Math.min(1, dt * 6);
-    this.avatar?.setMode('walk', Math.max(0.5, speed * 1.2));
+    this.mesh.rotation.y = turnToward(this.mesh.rotation.y, desired, dt);
+    this.avatar?.setMode('walk', walkingTimeScale(speed));
     return false;
   }
 
@@ -2600,7 +2620,7 @@ class Performer {
     if (this.state === 'performing') {
       // instrument-aware pose at the stand mic: gentle sway, eyes over the
       // audience, never a frozen mannequin
-      this.mesh.rotation.y = this.faceYaw + Math.sin(t * 0.55 + this.phase) * 0.07;
+      this.mesh.rotation.y = turnToward(this.mesh.rotation.y, this.faceYaw + Math.sin(t * 0.55 + this.phase) * 0.07, dt);
       if (this.avatar) {
         this.avatar.setMode('idle', 0.9);
         this.avatar.headYawTarget = Math.sin(t * 0.33 + this.phase) * 0.35;
@@ -2622,9 +2642,9 @@ class Performer {
         this.state = 'resting';
         this.stateT = 0;
         this.breakLength = rand(18, 30);
-        this.mesh.rotation.y = Math.atan2(-this.restPos.x, -this.restPos.z);
       }
     } else if (this.state === 'resting') {
+      this.mesh.rotation.y = turnToward(this.mesh.rotation.y, Math.atan2(-this.restPos.x, -this.restPos.z), dt);
       if (this.avatar) {
         this.avatar.setMode('idle', 0.6);
         this.avatar.headYawTarget = Math.sin(t * 0.25 + this.phase) * 0.4;
@@ -2646,7 +2666,6 @@ class Performer {
         this.stateT = 0;
         this.setLength = rand(50, 80);
         this.mesh.position.copy(this.micPos);
-        this.mesh.rotation.y = this.faceYaw;
       }
     }
     if (this.avatar) this.avatar.update(dt, 0, this.sim.qualityLevel);
@@ -2669,14 +2688,14 @@ class Waiter {
     this.sim = sim;
     this.id = 'waiter';
     if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, sim.pickStandardCharacter(), {
+      this.avatar = new SkinnedAvatar(sim.models, sim.models?.has('char_atelier_server') ? 'char_atelier_server' : sim.pickStandardCharacter(), {
         appearanceIndex: sim.nextAppearanceIndex(),
       });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
     }
-    addStaffUniform(this.mesh, 'waiter');
+    if (!this.avatar?.isAtelier) addStaffUniform(this.mesh, 'waiter');
     this.anchors = sim.cafe.serviceAnchors;
     this.standby = this.anchors.waiterStandby.clone();
     this.mesh.position.copy(this.standby);
@@ -2692,6 +2711,7 @@ class Waiter {
     this.idleDuration = rand(3.2, 5.8);
     this.path = null;
     this.pathI = 1;
+    this.velocity = new THREE.Vector3();
     this.walkSpeed = 0.72;
     this.carrySpeed = 0.52; // tray in hand: slower, wider turns
     this.microPhase = rand(0, 10);
@@ -2764,7 +2784,11 @@ class Waiter {
       this.pathI += 1;
       this._stallT = 0;
       this._bestDist = Infinity;
-      if (this.pathI >= this.path.length) { this.path = null; return true; }
+      if (this.pathI >= this.path.length) {
+        this.path = null;
+        this.velocity.set(0, 0, 0);
+        return true;
+      }
       return false;
     }
     if (this._stallT > 5) {
@@ -2791,20 +2815,25 @@ class Waiter {
       }
     }
     const l = Math.hypot(dirX, dirZ) || 1;
-    pos.x += (dirX / l) * speed * dt;
-    pos.z += (dirZ / l) * speed * dt;
-    const targetYaw = Math.atan2(dirX, dirZ);
-    let dy = targetYaw - this.mesh.rotation.y;
-    while (dy > Math.PI) dy -= Math.PI * 2;
-    while (dy < -Math.PI) dy += Math.PI * 2;
-    this.mesh.rotation.y += THREE.MathUtils.clamp(dy * Math.min(1, dt * 5.5), -turnCap * dt, turnCap * dt);
-    this.avatar?.setMode('walk', Math.max(0.45, speed * 1.15));
-    this.microPhase += dt * 5.5 * speed;
+    const arrival = this.pathI === this.path.length - 1
+      ? Math.max(0.16, THREE.MathUtils.smoothstep(d, 0.07, 0.6)) : 1;
+    const blend = 1 - Math.exp(-5.5 * dt);
+    this.velocity.x += ((dirX / l) * speed * arrival - this.velocity.x) * blend;
+    this.velocity.z += ((dirZ / l) * speed * arrival - this.velocity.z) * blend;
+    pos.addScaledVector(this.velocity, dt);
+    const travelSpeed = this.velocity.length();
+    if (travelSpeed > 0.06) {
+      const targetYaw = Math.atan2(this.velocity.x, this.velocity.z);
+      this.mesh.rotation.y = turnToward(this.mesh.rotation.y, targetYaw, dt, 5.5, turnCap);
+    }
+    this.avatar?.setMode('walk', walkingTimeScale(travelSpeed));
+    this.microPhase += dt * 5.5 * travelSpeed;
     if (!this.avatar) {
       const parts = this.mesh.userData.parts;
       const sSin = Math.sin(this.microPhase);
-      parts.legL.rotation.x = sSin * 0.4;
-      parts.legR.rotation.x = -sSin * 0.4;
+      const stride = Math.min(1, travelSpeed / this.walkSpeed);
+      parts.legL.rotation.x = sSin * 0.4 * stride;
+      parts.legR.rotation.x = -sSin * 0.4 * stride;
       setGroundedY(this.mesh, (0.5 - 0.5 * Math.cos(this.microPhase * 2)) * 0.012, parts.blob);
     }
     return false;
@@ -3181,7 +3210,6 @@ class OutsideLife {
     cafe.group.add(this.group);
     this.walkers = [];
     this.qualityLevel = 2;
-    this.updateDebt = 0;
     const rainy = !!cafe.theme.rain;
     const n = 8;
     for (let i = 0; i < n; i++) {
@@ -3302,10 +3330,6 @@ class OutsideLife {
   }
 
   update(dt) {
-    this.updateDebt += dt;
-    if (this.qualityLevel === 0 && this.updateDebt < 1 / 15) return;
-    dt = this.updateDebt;
-    this.updateDebt = 0;
     for (const w of this.walkers) {
       w.x += w.dir * w.speed * dt;
       if (w.x > 15) { w.x = -15; this.reroll(w); }
@@ -3313,6 +3337,7 @@ class OutsideLife {
       w.phase += dt * 7 * w.speed;
       if (w.avatar) {
         w.mesh.position.set(w.x, 0, w.z);
+        w.avatar.setMode('walk', walkingTimeScale(w.speed));
         w.avatar.update(dt, 16, this.qualityLevel);
         poseUmbrellaArm(w.umbrella, w.avatar, w.mesh);
         alignHeldUmbrella(w.umbrella);
@@ -3381,6 +3406,7 @@ export class CrowdSim {
     this._lastCharacter = null;
     this._appearanceSerial = Math.floor(rand(0, IMPORTED_OUTFITS.length));
     this.npcs = [];
+    this.motion = new MotionInterpolator();
     this.queue = [];
     this.ordering = null;   // NPC currently at the register
     this.brewFor = null;    // NPC whose drink is being made
@@ -3417,7 +3443,7 @@ export class CrowdSim {
     // through the doorway without creating and destroying character clones.
     this.outside = new OutsideLife(cafe, models, this.standardCharKeys);
     this.staticPatrons = [];
-    this._placeStaticPatron();
+    // Every guest now belongs to the same animated Blender cast.
     this.spawnCooldown = rand(3, 7);
     this.spotSyncT = 0;
 
@@ -3839,7 +3865,24 @@ export class CrowdSim {
     return [table[0], table[1]];
   }
 
+  _eachMovingRoot(visit) {
+    visit(this.barista.mesh);
+    if (this.waiter) visit(this.waiter.mesh);
+    if (this.performer) visit(this.performer.mesh);
+    for (const npc of this.npcs) visit(npc.mesh);
+    for (const walker of this.outside.walkers) visit(walker.mesh);
+  }
+
+  interpolate(alpha) {
+    this._eachMovingRoot((root) => this.motion.apply(root, alpha));
+  }
+
+  restoreSimulationPose() {
+    this._eachMovingRoot((root) => this.motion.restore(root));
+  }
+
   update(dt, t, listenerPos = null) {
+    this._eachMovingRoot((root) => this.motion.capture(root));
     this.listenerPos = listenerPos;
     this.doorFlow.update();
     this.barista.update(dt, t);
@@ -3928,6 +3971,7 @@ export class CrowdSim {
       }
     }
 
+    this._eachMovingRoot((root) => this.motion.commit(root));
     this._trackDwell();
 
     // let the audio engine know where people actually are
@@ -4010,6 +4054,7 @@ export class CrowdSim {
     this.staticPatrons.forEach(({ model }) => model.parent?.remove(model));
     this.staticPatrons = [];
     this.npcs = [];
+    this.motion = new MotionInterpolator();
     this.queue = [];
   }
 }

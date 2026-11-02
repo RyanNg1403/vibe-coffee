@@ -15,10 +15,14 @@ import { MODEL_MANIFEST } from './modelManifest.js';
 // This asset's exaggerated head/hair proportions and seated silhouette clash
 // with the established café cast. Keep the source in the repository for
 // provenance, but do not download or instantiate it in the live experience.
-const CAST_EXCLUSIONS = new Set(['char_matt', 'char_wcasual']);
+const CAST_EXCLUSIONS = new Set(['char_matt', 'char_wcasual', 'char_j', 'char_l', 'char_wdress', 'char_hero_female', 'char_hero_male', 'patron_seated_female']);
 
 // target height per prop, meters
 const NORMALIZE = {
+  studio_cup: { height: 0.09 },
+  studio_espresso: { height: 0.52 },
+  studio_pendant: { height: 0.2 },
+  studio_chair: { height: 0.89 },
   cup: { height: 0.1 },
   armchair: { height: 0.78 },
   croissant: { height: 0.07 },
@@ -75,6 +79,7 @@ const NORMALIZE = {
 };
 // any key starting char_ is a rigged character
 function specFor(key) {
+  if (key.startsWith('atelier_')) return { worldSpace: true };
   if (key.startsWith('char_')) return { height: 1.7, character: true };
   return NORMALIZE[key] ?? { height: 0.5 };
 }
@@ -92,15 +97,17 @@ function normalize(scene, key) {
   const spec = specFor(key);
   const box = new THREE.Box3().setFromObject(scene);
   const size = box.getSize(new THREE.Vector3());
-  const s = spec.height / Math.max(0.0001, size.y);
+  const s = spec.worldSpace ? 1 : spec.height / Math.max(0.0001, size.y);
   const wrapper = new THREE.Group();
   wrapper.add(scene);
   scene.scale.setScalar(s);
   const box2 = new THREE.Box3().setFromObject(scene);
   const center = box2.getCenter(new THREE.Vector3());
-  scene.position.x -= center.x;
-  scene.position.z -= center.z;
-  scene.position.y -= box2.min.y;
+  if (!spec.worldSpace) {
+    scene.position.x -= center.x;
+    scene.position.z -= center.z;
+    scene.position.y -= box2.min.y;
+  }
   wrapper.traverse((o) => {
     if (o.isMesh) {
       if (o.geometry) o.geometry.userData.vibeShared = true;
@@ -220,7 +227,7 @@ export function cloneCharacter(models, key) {
 
 export function characterKeys(models) {
   const out = [];
-  for (const [k, v] of models ?? []) if (v.character) out.push(k);
+  for (const [k, v] of models ?? []) if (v.character && !k.endsWith('_barista') && !k.endsWith('_server')) out.push(k);
   return out;
 }
 
@@ -228,6 +235,6 @@ export function characterKeys(models) {
 // ever walks through or queues, so their rig never has to fold into a chair
 export function sitCharacterKeys(models) {
   const out = [];
-  for (const [k, v] of models ?? []) if (v.character && v.hasSit) out.push(k);
+  for (const [k, v] of models ?? []) if (v.character && v.hasSit && !k.endsWith('_barista') && !k.endsWith('_server')) out.push(k);
   return out;
 }

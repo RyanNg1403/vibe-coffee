@@ -3,7 +3,7 @@
 // EVERY usable seat (laptop on), so close-range placement issues can be
 // reviewed by a human instead of inferred from pass flags.
 //
-//   node tools/venue-shots.mjs --venue=goldenhour [--views-only] [--out=DIR]
+//   node tools/venue-shots.mjs --venue=goldenhour [--views-only] [--view=ID] [--out=DIR]
 //
 // Requires a dev server (VIBE_URL or http://127.0.0.1:5173) and CHROME_PATH.
 import { spawn } from 'node:child_process';
@@ -28,10 +28,14 @@ const args = new Map(process.argv.slice(2)
   .map((a) => { const [k, v] = a.slice(2).split('='); return [k, v ?? true]; }));
 const VENUE = args.get('venue') ?? 'goldenhour';
 const VIEWS_ONLY = !!args.get('views-only');
+const VIEW = args.get('view');
 const OUT_DIR = args.get('out') ?? `.venue-shots/${VENUE}`;
 const DEFAULT_EYE_Y = 1.6;
 
 const blueprint = getBlueprint(VENUE);
+if (VIEW && !blueprint.auditViews.some((view) => view.id === VIEW)) {
+  throw new Error(`Unknown audit view: ${VIEW}`);
+}
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function freePort() {
@@ -51,7 +55,7 @@ async function retry(task, label, attempts = 300 * RETRY_SCALE) {
 }
 
 class Cdp {
-  constructor(url) { this.nextId = 1; this.pending = new Map(); this.socket = new WebSocket(url); }
+  constructor(url) { this.nextId = 1; this.pending = new Map(); this.errors = []; this.socket = new WebSocket(url); }
   async open() {
     await new Promise((resolve, reject) => {
       this.socket.addEventListener('open', resolve, { once: true });
@@ -59,6 +63,17 @@ class Cdp {
     });
     this.socket.addEventListener('message', ({ data }) => {
       const message = JSON.parse(data);
+      if (message.method === 'Runtime.exceptionThrown') {
+        const details = message.params.exceptionDetails;
+        this.errors.push(details.exception?.description ?? details.text);
+      }
+      if (message.method === 'Runtime.consoleAPICalled') {
+        const entry = message.params;
+        const text = entry.args.map((arg) => arg.value ?? arg.description ?? '').join(' ');
+        if (entry.type === 'error' || (entry.type === 'warning' && text.includes('[models]'))) {
+          this.errors.push(text);
+        }
+      }
       if (!message.id) return;
       const pending = this.pending.get(message.id);
       if (!pending) return;
@@ -161,13 +176,14 @@ try {
   }
 
   for (const view of blueprint.auditViews) {
+    if (VIEW && view.id !== VIEW) continue;
     const { yaw, pitch } = lookAngles(view.pos, view.lookAt);
     const level = view.level ? `'${view.level}'` : 'null';
     await client.evaluate(`window.__vibe.place(${view.pos[0]}, ${view.pos[2]}, ${yaw}, ${pitch}, ${level})`);
     await capture(view.id);
   }
 
-  if (!VIEWS_ONLY) {
+  if (!VIEWS_ONLY && !VIEW) {
     const seatCount = await client.evaluate('window.__vibe.cafe.seats.length');
     for (let i = 0; i < seatCount; i += 1) {
       const info = await client.evaluate(`JSON.stringify({
@@ -179,7 +195,12 @@ try {
       await capture(`seat-${String(i).padStart(2, '0')}-${id}`);
     }
   }
-  console.log(`done: ${OUT_DIR}`);
+  const { writeFile } = await import('node:fs/promises');
+  await writeFile(join(OUT_DIR, 'runtime-report.json'), JSON.stringify({
+    venue: VENUE, metrics: await client.evaluate('window.__vibe.metrics()'), errors: client.errors,
+  }, null, 2) + '\n');
+  if (client.errors.length) throw new Error(`Browser errors: ${client.errors.join('\n')}`);
+  console.log(`done: ${OUT_DIR} (no runtime, shader or model-loading errors)`);
 } finally {
   client?.close();
   chrome.kill('SIGTERM');

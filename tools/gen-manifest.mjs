@@ -77,7 +77,7 @@ const MODELS_DIR = REPO + 'public/models';
 // Source files remain available for provenance, but these stylized/prop-bearing
 // characters do not meet the café cast convention and must never be emitted
 // into runtime or self-contained artifact manifests.
-const MODEL_EXCLUSIONS = new Set(['char_matt', 'char_wcasual']);
+const MODEL_EXCLUSIONS = new Set(['char_matt', 'char_wcasual', 'char_j', 'char_l', 'char_wdress', 'char_hero_female', 'char_hero_male', 'patron_seated_female']);
 const modelEntries = [];
 if (existsSync(MODELS_DIR)) {
   for (const f of readdirSync(MODELS_DIR).sort()) {
@@ -127,6 +127,12 @@ const musicLines = musicEntries.map((e) => {
   const c = musicCredits[e.key];
   return `- **${e.title}** by ${e.artist} — ${c.license} — [source](${c.item_url})`;
 });
+const archivedModelLines = [...MODEL_EXCLUSIONS]
+  .filter((key) => existsSync(`${MODELS_DIR}/${key}.glb`) && credits[key])
+  .map((key) => {
+    const c = credits[key];
+    return `- **${key}** — "${c.title ?? key}" by ${c.creator ?? 'Unknown creator'} — ${c.license ?? 'license unrecorded'} — [source](${c.item_url ?? c.source_url ?? '#'})`;
+  });
 const creditsMd = `# Asset credits
 
 ## Sound effects, 3D models, and surface textures
@@ -143,6 +149,13 @@ The local playlist files are loudness-normalized transcodes of the credited
 source recordings. They stream on demand rather than being decoded into memory.
 
 ${musicLines.join('\n')}
+
+## Archived models
+
+These earlier files remain in the repository for provenance and are excluded
+from runtime and standalone-export manifests.
+
+${archivedModelLines.join('\n')}
 `;
 writeFileSync(REPO + 'CREDITS.md', creditsMd);
 

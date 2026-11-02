@@ -1,0 +1,26 @@
+{
+  "atelier_car": {
+    "triangles": 5918,
+    "bytes": 295444,
+    "materials": 7,
+    "rigged": false
+  },
+  "atelier_piano": {
+    "triangles": 13392,
+    "bytes": 1058588,
+    "materials": 7,
+    "rigged": false
+  },
+  "atelier_roaster": {
+    "triangles": 4904,
+    "bytes": 346744,
+    "materials": 5,
+    "rigged": false
+  },
+  "atelier_streetscape": {
+    "triangles": 29260,
+    "bytes": 2190684,
+    "materials": 7,
+    "rigged": false
+  }
+}

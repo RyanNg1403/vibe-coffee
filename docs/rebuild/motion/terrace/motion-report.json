@@ -1,0 +1,188 @@
+{
+  "seconds": 180,
+  "max": {
+    "walkStep": 0.04482984765498411,
+    "baristaTurn": 0.14000000000000012,
+    "waiterStep": 0.02400000000000029,
+    "seatedTurn": 0.08000000000000008,
+    "seatStep": 0.03533571841925372,
+    "seatTurn": 0.08986920944182585,
+    "renderRestoreError": 4.2146848510894035e-8
+  },
+  "interpolatedFrames": 1873,
+  "baristaTurns": 1223,
+  "states": [
+    "sitting",
+    "approachingDoorIn",
+    "waitingDoorIn",
+    "crossingDoorIn",
+    "queueing",
+    "ordering",
+    "toSeat",
+    "standingSeat",
+    "approachingDoorOut",
+    "aligningSeat",
+    "waitingPickup",
+    "waitingDoorOut",
+    "crossingDoorOut",
+    "joiningSidewalk",
+    "toStairBottom"
+  ],
+  "worst": [],
+  "dwell": {
+    "npcs": [
+      {
+        "serial": 7,
+        "state": "sitting",
+        "seconds": 200.4,
+        "x": 2.1,
+        "y": 0.05,
+        "z": -1.27,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 8,
+        "state": "sitting",
+        "seconds": 200.4,
+        "x": 2.1,
+        "y": 0.05,
+        "z": 0.47,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 11,
+        "state": "sitting",
+        "seconds": 139,
+        "x": 2.4,
+        "y": 0.05,
+        "z": -4.17,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 12,
+        "state": "sitting",
+        "seconds": 101.7,
+        "x": 2.4,
+        "y": 0.05,
+        "z": -2.43,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 14,
+        "state": "sitting",
+        "seconds": 81,
+        "x": -1.9,
+        "y": 0.05,
+        "z": 3.43,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 15,
+        "state": "approachingDoorOut",
+        "seconds": 4.3,
+        "x": 1.1,
+        "y": 0,
+        "z": -2.1,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 16,
+        "state": "sitting",
+        "seconds": 33.2,
+        "x": 1.23,
+        "y": 0.05,
+        "z": -0.4,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 17,
+        "state": "sitting",
+        "seconds": 29.3,
+        "x": 1.53,
+        "y": 0.05,
+        "z": -3.3,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 18,
+        "state": "sitting",
+        "seconds": 9.1,
+        "x": -2.35,
+        "y": 0.05,
+        "z": -2.83,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 19,
+        "state": "toStairBottom",
+        "seconds": 8,
+        "x": -2.69,
+        "y": 0,
+        "z": -2.36,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 20,
+        "state": "toSeat",
+        "seconds": 8,
+        "x": 0.03,
+        "y": 0,
+        "z": -4.22,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 21,
+        "state": "queueing",
+        "seconds": 30.8,
+        "x": 2.19,
+        "y": 0,
+        "z": -4.63,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 22,
+        "state": "queueing",
+        "seconds": 28.7,
+        "x": 0.16,
+        "y": 0,
+        "z": -3.77,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 23,
+        "state": "queueing",
+        "seconds": 8,
+        "x": 0,
+        "y": 0,
+        "z": 0.26,
+        "level": "ground",
+        "seated": true
+      }
+    ],
+    "maxServiceDwell": {
+      "state": "queueing",
+      "seconds": 28.7
+    },
+    "seatedHandCups": 0,
+    "waiter": {
+      "phase": "toDishes",
+      "seconds": 5.1,
+      "hasTask": true,
+      "x": -3.62,
+      "z": 0.43
+    }
+  }
+}

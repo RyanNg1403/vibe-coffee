@@ -6,9 +6,11 @@
 // materials so the static-decor merge folds it into few draw calls; only the
 // two glass panes stay separate.
 import * as THREE from 'three';
+import { createThinGlass } from '../rendering/thinGlass.js';
+import { cloneModel } from '../modelLoader.js';
 
 export function buildRoasteryProduction({
-  group, spec, roomHeight, helpers, mats, track, rand,
+  group, models, spec, roomHeight, helpers, mats, track, rand,
 }) {
   const { box, roundedBox, cyl } = helpers;
   const { metalMat, woodDarkMat, counterTopMat } = mats;
@@ -17,10 +19,7 @@ export function buildRoasteryProduction({
   const steelFrame = new THREE.MeshStandardMaterial({ color: 0x3c4046, roughness: 0.5, metalness: 0.6 });
   const burlap = new THREE.MeshStandardMaterial({ color: 0x9b8459, roughness: 1 });
   const brass = new THREE.MeshStandardMaterial({ color: 0xb08d4f, roughness: 0.35, metalness: 0.85 });
-  const glass = new THREE.MeshPhysicalMaterial({
-    color: 0xdfe9ee, transmission: 0.92, transparent: true, opacity: 0.22,
-    roughness: 0.05, depthWrite: false,
-  });
+  const glass = createThinGlass({ color: 0xdfe9ee, opacity: 0.22, roughness: 0.05 });
 
   const production = new THREE.Group();
 
@@ -114,6 +113,11 @@ export function buildRoasteryProduction({
   const flueBracket = box(0.05, 0.05, 0.5, steelFrame);
   flueBracket.position.set(-0.15, roomHeight - 0.5, -0.25);
   roaster.add(flueBracket);
+  const authoredRoaster = cloneModel(models, 'atelier_roaster');
+  if (authoredRoaster) {
+    roaster.children.forEach((child) => { child.visible = false; });
+    roaster.add(authoredRoaster);
+  }
   roaster.position.set(spec.roaster.x, 0, spec.roaster.z);
   roaster.rotation.y = 0.15;
   production.add(roaster);

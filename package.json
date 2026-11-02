@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "artifact": "node tools/make-artifact.mjs",
+    "audit:motion": "node tools/motion-audit.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
     "perf:baseline": "node tools/perf-baseline.mjs",

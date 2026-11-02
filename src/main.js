@@ -7,7 +7,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-import { THEMES, ROOM, buildCafe, resolveEnvironment } from './cafe.js';
+import { THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink } from './cafe.js';
 import { createNavigator, pointInPolygon, surfaceHeightAt } from './cafe/levelNavigation.js';
 import {
   placeFootprintForSeat, pullInsideShape, footprintSupported,
@@ -824,7 +824,7 @@ document.getElementById('order-btn')?.addEventListener('click', () => {
     orderPending = false;
     if (seatIndex < 0 || !cafe) return; // stood up meanwhile
     const seat = cafe.seats[seatIndex];
-    const cup = cloneModel(lastModels, Math.random() < 0.5 ? 'latte' : 'mug');
+    const cup = makeDrink(activeTheme().accent, lastModels);
     if (!cup) return;
     // set it down between you and the middle of the table
     cafe.group.add(cup);
@@ -1656,8 +1656,13 @@ function frame(now = performance.now()) {
 
   renderer.info.reset();
   const renderStartedAt = performance.now();
-  if (effectLevel === 0) renderer.render(scene, camera);
-  else composer.render(dt);
+  crowd?.interpolate(simAcc / SIM_STEP);
+  try {
+    if (effectLevel === 0) renderer.render(scene, camera);
+    else composer.render(dt);
+  } finally {
+    crowd?.restoreSimulationPose();
+  }
   lastRenderMs = performance.now() - renderStartedAt;
   lastRenderStats.calls = renderer.info.render.calls;
   lastRenderStats.triangles = renderer.info.render.triangles;
@@ -1980,11 +1985,20 @@ window.__vibe = {
     // child of the venue group — its full bbox spans base-to-top — not each
     // constituent mesh. Instanced batches (chairs, books) span the room and
     // are validated by the layout/decor audits instead.
-    for (const object of cafe.group.children) {
+    const placedUnits = cafe.group.userData.placedUnits ?? [];
+    const placedIds = new Set(placedUnits.filter((unit) => unit.bounds).map((unit) => unit.uuid));
+    const groundingObjects = [
+      ...placedUnits.filter((unit) => unit.bounds),
+      ...cafe.group.children.filter((object) => !placedIds.has(object.uuid) && !object.userData.decorBatch),
+    ];
+    for (const object of groundingObjects) {
       if (object.isInstancedMesh) continue;
       if (!object.visible) continue;
-      object.updateWorldMatrix(true, true);
-      box.setFromObject(object);
+      if (object.bounds) box.copy(object.bounds);
+      else {
+        object.updateWorldMatrix(true, true);
+        box.setFromObject(object);
+      }
       if (box.isEmpty()) continue;
       const sx = box.max.x - box.min.x;
       const sy = box.max.y - box.min.y;

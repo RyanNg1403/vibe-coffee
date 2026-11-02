@@ -1,0 +1,199 @@
+{
+  "seconds": 180,
+  "max": {
+    "walkStep": 0.04385768636880354,
+    "baristaTurn": 0.14000000000000057,
+    "waiterStep": 0.024000000000000115,
+    "seatedTurn": 0.08000000000000008,
+    "seatStep": 0.0399342627085989,
+    "seatTurn": 0.10655010650672203,
+    "renderRestoreError": 4.2146848510894035e-8
+  },
+  "interpolatedFrames": 2243,
+  "baristaTurns": 1111,
+  "states": [
+    "sitting",
+    "approachingDoorIn",
+    "waitingDoorIn",
+    "crossingDoorIn",
+    "queueing",
+    "ordering",
+    "standingSeat",
+    "holdingDoorOut",
+    "waitingPickup",
+    "holdingDoorIn",
+    "approachingDoorOut",
+    "waitingDoorOut",
+    "crossingDoorOut",
+    "joiningSidewalk",
+    "toSeat",
+    "aligningSeat"
+  ],
+  "worst": [],
+  "dwell": {
+    "npcs": [
+      {
+        "serial": 13,
+        "state": "joiningSidewalk",
+        "seconds": 2.7,
+        "x": 0.39,
+        "y": 0,
+        "z": 8.01,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 16,
+        "state": "sitting",
+        "seconds": 81.4,
+        "x": -2.97,
+        "y": 0.05,
+        "z": 1.46,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 17,
+        "state": "sitting",
+        "seconds": 70.4,
+        "x": -2.96,
+        "y": 0.05,
+        "z": 2.37,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 18,
+        "state": "sitting",
+        "seconds": 43.5,
+        "x": -0.84,
+        "y": 0.05,
+        "z": -0.37,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 19,
+        "state": "sitting",
+        "seconds": 25.8,
+        "x": -0.83,
+        "y": 0.05,
+        "z": 1.46,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 21,
+        "state": "toSeat",
+        "seconds": 9.3,
+        "x": -1.94,
+        "y": 0,
+        "z": -3.42,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 22,
+        "state": "toSeat",
+        "seconds": 6.8,
+        "x": 0.39,
+        "y": 0,
+        "z": -3.94,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 23,
+        "state": "queueing",
+        "seconds": 41.7,
+        "x": 0.21,
+        "y": 0,
+        "z": -4.62,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 24,
+        "state": "queueing",
+        "seconds": 33.5,
+        "x": 1.53,
+        "y": 0,
+        "z": -3.79,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 25,
+        "state": "queueing",
+        "seconds": 29.8,
+        "x": 0.16,
+        "y": 0,
+        "z": -3.05,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 26,
+        "state": "queueing",
+        "seconds": 22.5,
+        "x": 2.13,
+        "y": 0,
+        "z": -2.54,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 27,
+        "state": "approachingDoorIn",
+        "seconds": 17.9,
+        "x": 0,
+        "y": 0,
+        "z": 7.87,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 28,
+        "state": "holdingDoorIn",
+        "seconds": 17.9,
+        "x": 0.35,
+        "y": 0,
+        "z": 8.04,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 29,
+        "state": "holdingDoorIn",
+        "seconds": 3.6,
+        "x": 0.05,
+        "y": 0,
+        "z": 8.9,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 30,
+        "state": "holdingDoorIn",
+        "seconds": 3.6,
+        "x": 0.05,
+        "y": 0,
+        "z": 8.46,
+        "level": "ground",
+        "seated": true
+      }
+    ],
+    "maxServiceDwell": {
+      "state": "queueing",
+      "seconds": 58.1
+    },
+    "seatedHandCups": 0,
+    "waiter": {
+      "phase": "toDishes",
+      "seconds": 25.9,
+      "hasTask": true,
+      "x": 0,
+      "z": -2.21
+    }
+  }
+}

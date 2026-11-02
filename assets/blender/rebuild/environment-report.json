@@ -1,0 +1,26 @@
+{
+  "atelier_tables_goldenhour": {
+    "triangles": 13816,
+    "bytes": 743312,
+    "materials": 4,
+    "rigged": false
+  },
+  "atelier_tables_roastery": {
+    "triangles": 4860,
+    "bytes": 400816,
+    "materials": 4,
+    "rigged": false
+  },
+  "atelier_tables_midnight": {
+    "triangles": 16764,
+    "bytes": 865132,
+    "materials": 3,
+    "rigged": false
+  },
+  "atelier_tables_terrace": {
+    "triangles": 15768,
+    "bytes": 828716,
+    "materials": 4,
+    "rigged": false
+  }
+}

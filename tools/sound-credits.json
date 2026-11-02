@@ -1,6 +1,6 @@
 {
   "chatter": {
-    "title": "AMBRest_Cafe ambience; good walla (SSE Library: AMBIENCE \u2014 Restaurant & Bar)",
+    "title": "AMBRest_Cafe ambience; good walla (SSE Library: AMBIENCE — Restaurant & Bar)",
     "creator": "USC Cinema / Sunset Editorial Collection (SSE Library)",
     "license": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)",
     "source_url": "https://archive.org/download/SSE_Library_AMBIENCE/RESTAURANT%20%26%20BAR%2FAMBRest_Cafe%20ambience%3B%20good%20walla_CS_USC.mp3",
@@ -8,7 +8,7 @@
   },
   "chatter2": {
     "title": "Hiroshima, Japan - Nagataya restaurant ambience (kitchen sound, voices)",
-    "creator": "Flavien Gilli\u00e9 (radio aporee)",
+    "creator": "Flavien Gillié (radio aporee)",
     "license": "Public Domain Mark 1.0 (https://creativecommons.org/publicdomain/mark/1.0/)",
     "source_url": "https://archive.org/download/aporee_71438_83347/20251008HiroshimarestaurantNagatayaDPA4060.mp3",
     "item_url": "https://archive.org/details/aporee_71438_83347"
@@ -21,7 +21,7 @@
     "item_url": "https://archive.org/details/Designers-Choice-Collection-Ambiences"
   },
   "traffic_night": {
-    "title": "rain gutter, tyr\u0161eva - night rain traffic (radio aporee field recording)",
+    "title": "rain gutter, tyrševa - night rain traffic (radio aporee field recording)",
     "creator": "OR poiesis",
     "license": "CC BY-SA 3.0 (http://creativecommons.org/licenses/by-sa/3.0/)",
     "source_url": "https://archive.org/download/aporee_23403_27199/maj312014zlebTyrseva2145.mp3",
@@ -30,7 +30,7 @@
   "carpass": {
     "title": "VEHBy_Car by (single car pass-by, from SSE Library: VEHICLES)",
     "creator": "USC Cinema / Sunset Editorial Collection (SSE Library)",
-    "license": "CC0 1.0 (public domain dedication) \u2014 https://creativecommons.org/publicdomain/zero/1.0/",
+    "license": "CC0 1.0 (public domain dedication) — https://creativecommons.org/publicdomain/zero/1.0/",
     "source_url": "https://archive.org/download/SSE_Library_VEHICLES/GENERIC%20BY/VEHBy_Car%20by_CS_USC.mp3",
     "item_url": "https://archive.org/details/SSE_Library_VEHICLES"
   },
@@ -114,7 +114,7 @@
   "chair_scrape": {
     "title": "R21-40a - Bed or Chair Movement (Red Library: Foley Props 2)",
     "creator": "Red Library (foley sound effects collection, archive.org)",
-    "license": "CC0 1.0 (public domain) \u2014 https://creativecommons.org/publicdomain/zero/1.0/",
+    "license": "CC0 1.0 (public domain) — https://creativecommons.org/publicdomain/zero/1.0/",
     "source_url": "https://archive.org/download/Red_Library_Foley_Props_2/R21-40a-Bed%20or%20Chair%20Movement.mp3",
     "item_url": "https://archive.org/details/Red_Library_Foley_Props_2"
   },
@@ -133,39 +133,39 @@
     "item_url": "https://archive.org/details/aporee_35167_40408"
   },
   "plant": {
-    "title": "Potted Plant (Kenney Furniture Kit 2.0)",
-    "creator": "Kenney (www.kenney.nl)",
-    "license": "CC0 1.0 (Creative Commons Zero, public domain) \u2014 confirmed via the kit's License.txt in the same repo folder: \"Furniture Kit (2.0) License ... Creative Commons Zero (CC0), http://creativecommons.org/publicdomain/zero/1.0/\"",
-    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/Models/GLTF%20format/pottedPlant.glb",
-    "item_url": "https://kenney.nl/assets/furniture-kit"
+    "title": "Atelier café rebuild — plant",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant.blend",
+    "item_url": "assets/blender/README.md"
   },
   "espresso_machine": {
-    "title": "Kitchen Coffee Machine (Kenney Furniture Kit 2.0)",
-    "creator": "Kenney (www.kenney.nl)",
-    "license": "CC0 1.0 (Creative Commons Zero, public domain) - verified via Kenney Furniture Kit 2.0 License.txt shipped in the same repo folder",
-    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/dfa19a5602a31f64bd890d15279a61f43b127328/assets/kenney_furniture-kit/Models/GLTF%20format/kitchenCoffeeMachine.glb",
-    "item_url": "https://kenney.nl/assets/furniture-kit"
+    "title": "Atelier café rebuild — espresso machine",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/espresso_machine.blend",
+    "item_url": "assets/blender/README.md"
   },
   "radio": {
-    "title": "Radio (Kenney Furniture Kit 2.0)",
-    "creator": "Kenney (kenney.nl)",
-    "license": "CC0 1.0 (Creative Commons Zero, public domain) \u2014 confirmed via License.txt in the kit folder: https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/License.txt",
-    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/Models/GLTF%20format/radio.glb",
-    "item_url": "https://kenney.nl/assets/furniture-kit"
+    "title": "Atelier café rebuild — radio",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/radio.blend",
+    "item_url": "assets/blender/README.md"
   },
   "muffin": {
-    "title": "Muffin",
-    "creator": "Kenney",
-    "license": "CC0 (Public Domain)",
-    "source_url": "https://static.poly.pizza/920e6336-6a29-4291-8d00-356d423c1230.glb",
-    "item_url": "https://poly.pizza/m/YZWplO0tzB"
+    "title": "Atelier café rebuild — muffin",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/muffin.blend",
+    "item_url": "assets/blender/README.md"
   },
   "bar_stool": {
-    "title": "Bar Stool (stoolBar) \u2014 Kenney Furniture Kit 2.0",
-    "creator": "Kenney (www.kenney.nl)",
-    "license": "CC0 1.0 (Creative Commons Zero, public domain) \u2014 confirmed by License.txt in the kenney_furniture-kit folder",
-    "source_url": "https://raw.githubusercontent.com/RetroDECK/RetroQUEST/main/assets/kenney_furniture-kit/Models/GLTF%20format/stoolBar.glb",
-    "item_url": "https://github.com/RetroDECK/RetroQUEST/tree/main/assets/kenney_furniture-kit"
+    "title": "Atelier café rebuild — bar stool",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/bar_stool.blend",
+    "item_url": "assets/blender/README.md"
   },
   "char_hero_female": {
     "title": "Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
@@ -196,81 +196,81 @@
     "item_url": "https://poly.pizza/m/mQnGoME1ez"
   },
   "mug": {
-    "title": "Mug (Kenney Food Kit)",
-    "creator": "Kenney",
-    "license": "CC0 1.0",
-    "source_url": "https://poly.pizza/m/fis2ugeLbn",
-    "item_url": "https://poly.pizza/m/fis2ugeLbn"
+    "title": "Atelier café rebuild — mug",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/mug.blend",
+    "item_url": "assets/blender/README.md"
   },
   "latte": {
-    "title": "Coffee cup",
-    "creator": "Poly by Google",
-    "license": "CC-BY 3.0",
-    "source_url": "https://poly.pizza/m/2zk0pGhndM4",
-    "item_url": "https://poly.pizza/m/2zk0pGhndM4"
+    "title": "Atelier café rebuild — latte",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/latte.blend",
+    "item_url": "assets/blender/README.md"
   },
   "cookie": {
-    "title": "Chocolate Chip Cookie",
-    "creator": "Jarlan Perez",
-    "license": "CC-BY",
-    "source_url": "https://poly.pizza/m/evU5g-OJDdr",
-    "item_url": "https://poly.pizza/m/evU5g-OJDdr"
+    "title": "Atelier café rebuild — cookie",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/cookie.blend",
+    "item_url": "assets/blender/README.md"
   },
   "cupcake": {
-    "title": "Cupcake",
-    "creator": "Quaternius",
-    "license": "CC0",
-    "source_url": "https://poly.pizza/m/XL70IUDIrZ",
-    "item_url": "https://poly.pizza/m/XL70IUDIrZ"
+    "title": "Atelier café rebuild — cupcake",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/cupcake.blend",
+    "item_url": "assets/blender/README.md"
   },
   "pancakes": {
-    "title": "Pancakes Stack",
-    "creator": "Quaternius",
-    "license": "CC0",
-    "source_url": "https://poly.pizza/m/rNr63sFa69",
-    "item_url": "https://poly.pizza/m/rNr63sFa69"
+    "title": "Atelier café rebuild — pancakes",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/pancakes.blend",
+    "item_url": "assets/blender/README.md"
   },
   "cakeSlice": {
-    "title": "Cake Birthday Slice",
-    "creator": "Isa Lousberg",
-    "license": "CC0 1.0",
-    "source_url": "https://poly.pizza/m/YxYKsrZnwd",
-    "item_url": "https://poly.pizza/m/YxYKsrZnwd"
+    "title": "Atelier café rebuild — cakeSlice",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/cakeSlice.blend",
+    "item_url": "assets/blender/README.md"
   },
   "apple": {
-    "title": "Apple",
-    "creator": "Junior IT",
-    "license": "CC-BY",
-    "source_url": "https://poly.pizza/m/b3vW8VveSIJ",
-    "item_url": "https://poly.pizza/m/b3vW8VveSIJ"
+    "title": "Atelier café rebuild — apple",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/apple.blend",
+    "item_url": "assets/blender/README.md"
   },
   "iceCream": {
-    "title": "Ice Cream Sundae (Kenney Food Kit)",
-    "creator": "Kenney",
-    "license": "CC0 1.0",
-    "source_url": "https://kenney.nl/assets/food-kit",
-    "item_url": "https://kenney.nl/assets/food-kit"
+    "title": "Atelier café rebuild — iceCream",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/iceCream.blend",
+    "item_url": "assets/blender/README.md"
   },
   "pendant_lamp": {
-    "title": "Ceiling Lamp (Kenney Furniture Kit)",
-    "creator": "Kenney",
-    "license": "CC0 1.0",
-    "source_url": "https://kenney.nl/assets/furniture-kit",
-    "item_url": "https://kenney.nl/assets/furniture-kit"
+    "title": "Atelier café rebuild — pendant lamp",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/pendant_lamp.blend",
+    "item_url": "assets/blender/README.md"
   },
   "side_table": {
-    "title": "Coffee Table (Kenney Furniture Kit)",
-    "creator": "Kenney",
-    "license": "CC0 1.0",
-    "source_url": "https://kenney.nl/assets/furniture-kit",
-    "item_url": "https://kenney.nl/assets/furniture-kit"
+    "title": "Atelier café rebuild — side table",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/side_table.blend",
+    "item_url": "assets/blender/README.md"
   },
   "coat_rack": {
-    "title": "Coat Rack (Kenney Furniture Kit)",
-    "creator": "Kenney",
-    "license": "CC0 1.0",
-    "source_url": "https://kenney.nl/assets/furniture-kit",
-    "item_url": "https://kenney.nl/assets/furniture-kit"
+    "title": "Atelier café rebuild — coat rack",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/coat_rack.blend",
+    "item_url": "assets/blender/README.md"
   },
   "floor_wood.jpg": {
     "title": "WoodFloor051",
@@ -345,34 +345,39 @@
     "source_url": "https://poly.pizza/m/HMnuH5geEG"
   },
   "cat": {
-    "title": "Dingus the cat (a.k.a. Maxwell)",
-    "creator": "alwayshasbean",
-    "license": "CC BY 3.0",
-    "item_url": "https://poly.pizza/m/4dXgbKLHD9"
+    "title": "Atelier café rebuild — cat",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/pet_cat.blend",
+    "item_url": "assets/blender/README.md"
   },
   "cactus_pot": {
-    "title": "Potted Plant",
-    "creator": "Kenney",
-    "license": "CC0",
-    "item_url": "https://poly.pizza/m/23Dx9CC95C"
+    "title": "Atelier café rebuild — cactus pot",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/cactus_pot.blend",
+    "item_url": "assets/blender/README.md"
   },
   "crate": {
-    "title": "Pickup Crate",
-    "creator": "Quaternius",
-    "license": "CC0",
-    "item_url": "https://poly.pizza/m/1dh0EFL5gl"
+    "title": "Atelier café rebuild — crate",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/crate.blend",
+    "item_url": "assets/blender/README.md"
   },
   "table_lamp": {
-    "title": "Lamp With Shade",
-    "creator": "CreativeTrio",
-    "license": "CC0",
-    "item_url": "https://poly.pizza/m/1nKtMmYxLT"
+    "title": "Atelier café rebuild — table lamp",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/table_lamp.blend",
+    "item_url": "assets/blender/README.md"
   },
   "typewriter": {
-    "title": "Typewriter",
-    "creator": "jeremy",
-    "license": "CC BY 3.0",
-    "item_url": "https://poly.pizza/m/0lfEqzVkp8a"
+    "title": "Atelier café rebuild — typewriter",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/typewriter.blend",
+    "item_url": "assets/blender/README.md"
   },
   "grinder": {
     "title": "Coffee grinder",
@@ -468,70 +473,81 @@
     "edits": "36 s slice from 0:30, mono 32 kHz, 40 Hz high-pass, loop click-guards; retrieved 2026-07-11"
   },
   "plant_monstera": {
-    "title": "Large Monstera Plant",
-    "creator": "Isa Lousberg",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/kZQ2WmnJFI"
+    "title": "Atelier café rebuild — plant monstera",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_monstera.blend",
+    "item_url": "assets/blender/README.md"
   },
   "plant_snake": {
-    "title": "Sansevieria Plant",
-    "creator": "Isa Lousberg",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/pdSNJNVbO9"
+    "title": "Atelier café rebuild — plant snake",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_snake.blend",
+    "item_url": "assets/blender/README.md"
   },
   "plant_pothos": {
-    "title": "Pothos Plant Large",
-    "creator": "Isa Lousberg",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/i7CfuCzaoo"
+    "title": "Atelier café rebuild — plant pothos",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_pothos.blend",
+    "item_url": "assets/blender/README.md"
   },
   "plant_pothos_vine": {
-    "title": "Pothos Vine Large",
-    "creator": "Isa Lousberg",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/HG1d091bLo"
+    "title": "Atelier café rebuild — plant pothos vine",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_pothos_vine.blend",
+    "item_url": "assets/blender/README.md"
   },
   "plant_succulent": {
-    "title": "Succulent Pot",
-    "creator": "Isa Lousberg",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/y3zjCa6BeR"
+    "title": "Atelier café rebuild — plant succulent",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_succulent.blend",
+    "item_url": "assets/blender/README.md"
   },
   "plant_cacti": {
-    "title": "Small Cacti Pot",
-    "creator": "Isa Lousberg",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/vCLyYaeXZp"
+    "title": "Atelier café rebuild — plant cacti",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_cacti.blend",
+    "item_url": "assets/blender/README.md"
   },
   "plant_fern": {
-    "title": "Fern",
-    "creator": "Danni Bittman",
-    "license": "CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/) - credit Danni Bittman",
-    "item_url": "https://poly.pizza/m/6ttropQuVzQ"
+    "title": "Atelier café rebuild — plant fern",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_fern.blend",
+    "item_url": "assets/blender/README.md"
   },
   "tree_park_a": {
-    "title": "Tree",
-    "creator": "Quaternius",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/2paAm1ja4w"
+    "title": "Atelier café rebuild — tree park a",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/tree_park_a.blend",
+    "item_url": "assets/blender/README.md"
   },
   "tree_park_b": {
-    "title": "Tree",
-    "creator": "Quaternius",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/9nvGuZlbpE"
+    "title": "Atelier café rebuild — tree park b",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/tree_park_b.blend",
+    "item_url": "assets/blender/README.md"
   },
   "pet_cat": {
-    "title": "Cat (rigged; Idle/Walk/Headbutt/Idle_Eating/Death clips)",
-    "creator": "Quaternius",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/qKICY6xla2"
+    "title": "Atelier café rebuild — pet cat",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/pet_cat.blend",
+    "item_url": "assets/blender/README.md"
   },
   "pet_dog": {
-    "title": "Shiba Dog (rigged; Idle/Walk/Eating/Death clips)",
-    "creator": "Quaternius",
-    "license": "CC0 1.0 (Public Domain)",
-    "item_url": "https://poly.pizza/m/wpkGeoyfIP"
+    "title": "Atelier café rebuild — pet dog",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/pet_dog.blend",
+    "item_url": "assets/blender/README.md"
   },
   "char_wcasual": {
     "title": "Woman Casual (rigged; Idle/Walk/Run/Sitting/Clapping clips)",
@@ -550,5 +566,304 @@
     "creator": "Quaternius",
     "license": "CC0 1.0 (Public Domain)",
     "item_url": "https://poly.pizza/m/66kQ4dBBC7"
+  },
+  "studio_cup": {
+    "title": "Atelier café rebuild — studio cup",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/studio_cup.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_espresso": {
+    "title": "Atelier café rebuild — studio espresso",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/studio_espresso.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_pendant": {
+    "title": "Atelier café rebuild — studio pendant",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/studio_pendant.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_oak_color.jpg": {
+    "title": "oak color.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_oak_normal.jpg": {
+    "title": "oak normal.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_oak_roughness.jpg": {
+    "title": "oak roughness.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_limestone_color.jpg": {
+    "title": "limestone color.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_limestone_normal.jpg": {
+    "title": "limestone normal.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_limestone_roughness.jpg": {
+    "title": "limestone roughness.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_linen_color.jpg": {
+    "title": "linen color.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_linen_normal.jpg": {
+    "title": "linen normal.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_linen_roughness.jpg": {
+    "title": "linen roughness.jpg",
+    "creator": "Vibe Coffee contributors",
+    "license": "Original procedural project asset; no third-party inputs",
+    "item_url": "assets/blender/README.md"
+  },
+  "studio_chair": {
+    "title": "Atelier café rebuild — studio chair",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/studio_chair.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "armchair": {
+    "title": "Atelier café rebuild — armchair",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/armchair.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_car": {
+    "title": "Atelier café rebuild — atelier car",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_car.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_piano": {
+    "title": "Atelier café rebuild — atelier piano",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_piano.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_roaster": {
+    "title": "Atelier café rebuild — atelier roaster",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_roaster.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_streetscape": {
+    "title": "Atelier café rebuild — atelier streetscape",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_streetscape.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_tables_goldenhour": {
+    "title": "Atelier café rebuild — atelier tables goldenhour",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_tables_goldenhour.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_tables_midnight": {
+    "title": "Atelier café rebuild — atelier tables midnight",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_tables_midnight.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_tables_roastery": {
+    "title": "Atelier café rebuild — atelier tables roastery",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_tables_roastery.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "atelier_tables_terrace": {
+    "title": "Atelier café rebuild — atelier tables terrace",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/atelier_tables_terrace.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "bookcase": {
+    "title": "Atelier café rebuild — bookcase",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/bookcase.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "cake": {
+    "title": "Atelier café rebuild — cake",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/cake.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_1": {
+    "title": "Atelier café rebuild — char atelier 1",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_1.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_2": {
+    "title": "Atelier café rebuild — char atelier 2",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_2.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_3": {
+    "title": "Atelier café rebuild — char atelier 3",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_3.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_4": {
+    "title": "Atelier café rebuild — char atelier 4",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_4.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_5": {
+    "title": "Atelier café rebuild — char atelier 5",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_5.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_6": {
+    "title": "Atelier café rebuild — char atelier 6",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_6.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_barista": {
+    "title": "Atelier café rebuild — char atelier barista",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_barista.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "char_atelier_server": {
+    "title": "Atelier café rebuild — char atelier server",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/char_atelier_server.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "croissant": {
+    "title": "Atelier café rebuild — croissant",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/croissant.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "cup": {
+    "title": "Atelier café rebuild — cup",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/cup.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "donut": {
+    "title": "Atelier café rebuild — donut",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/donut.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "floor_lamp": {
+    "title": "Atelier café rebuild — floor lamp",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/floor_lamp.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "lantern": {
+    "title": "Atelier café rebuild — lantern",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/lantern.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "painting": {
+    "title": "Atelier café rebuild — painting",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/painting.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "plant_small": {
+    "title": "Atelier café rebuild — plant small",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/plant_small.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "sandwich": {
+    "title": "Atelier café rebuild — sandwich",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/sandwich.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "sofa": {
+    "title": "Atelier café rebuild — sofa",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/sofa.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "teapot": {
+    "title": "Atelier café rebuild — teapot",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/teapot.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "trashcan": {
+    "title": "Atelier café rebuild — trashcan",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/trashcan.blend",
+    "item_url": "assets/blender/README.md"
+  },
+  "wall_shelf": {
+    "title": "Atelier café rebuild — wall shelf",
+    "creator": "Original project artwork, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model inputs",
+    "source_url": "assets/blender/rebuild/wall_shelf.blend",
+    "item_url": "assets/blender/README.md"
   }
 }

@@ -1,0 +1,14 @@
+{
+  "pet_cat": {
+    "triangles": 5044,
+    "bytes": 285260,
+    "materials": 4,
+    "rigged": true
+  },
+  "pet_dog": {
+    "triangles": 5100,
+    "bytes": 286236,
+    "materials": 4,
+    "rigged": true
+  }
+}

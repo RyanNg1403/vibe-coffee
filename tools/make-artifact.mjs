@@ -6,9 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { meshopt } from '@gltf-transform/functions';
+import { meshopt, weld, simplify, resample } from '@gltf-transform/functions';
 import draco3d from 'draco3dgltf';
-import { MeshoptEncoder } from 'meshoptimizer';
+import { MeshoptEncoder, MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
+import { MODEL_MANIFEST } from '../src/modelManifest.js';
 
 const run = promisify(execFile);
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -16,6 +17,7 @@ const cache = join(root, '.artifact-cache');
 const buildDir = join(cache, 'dist');
 const modelDir = join(cache, 'models');
 const musicDir = join(cache, 'music');
+const textureDir = join(cache, 'textures');
 const output = join(root, 'artifact', 'vibe-coffee.html');
 const MAX_BYTES = 15.5 * 1024 * 1024;
 
@@ -38,9 +40,9 @@ const tracks = {
   ],
 };
 
+const artifactModels = Object.keys(MODEL_MANIFEST);
 const artifactModelManifest = `export const MODEL_MANIFEST = {
-  char_hero_female: { url: '/models/char_hero_female.glb' },
-  char_hero_male: { url: '/models/char_hero_male.glb' },
+${artifactModels.map((name) => `  ${name}: { url: '/models/${name}.glb' },`).join('\n')}
 };`;
 
 const artifactSoundManifest = `export const SOUND_MANIFEST = {
@@ -66,21 +68,31 @@ const artifactMusicManifest = `export const MUSIC_MANIFEST = ${JSON.stringify(
 await rm(cache, { recursive: true, force: true });
 await mkdir(modelDir, { recursive: true });
 await mkdir(musicDir, { recursive: true });
+await mkdir(textureDir, { recursive: true });
 
 await MeshoptEncoder.ready;
+await MeshoptDecoder.ready;
+await MeshoptSimplifier.ready;
 const io = new NodeIO()
   .registerExtensions(ALL_EXTENSIONS)
   .registerDependencies({
     'draco3d.decoder': await draco3d.createDecoderModule(),
     'meshopt.encoder': MeshoptEncoder,
+    'meshopt.decoder': MeshoptDecoder,
   });
 
-for (const name of ['char_hero_female', 'char_hero_male']) {
+for (const name of artifactModels) {
   const document = await io.read(join(root, 'public', 'models', `${name}.glb`));
   for (const extension of document.getRoot().listExtensionsUsed()) {
     if (extension.extensionName === 'KHR_draco_mesh_compression') extension.dispose();
   }
   await document.transform(
+    // The standalone edition keeps every model, with a small silhouette error
+    // budget and redundant animation keys removed. Editable/full app assets
+    // are unchanged by this export-only optimization.
+    weld(),
+    simplify({ simplifier: MeshoptSimplifier, ratio: 0.55, error: 0.002, lockBorder: true }),
+    resample({ tolerance: 0.0001 }),
     meshopt({
       encoder: MeshoptEncoder,
       level: 'high',
@@ -140,7 +152,20 @@ for (const url of assetUrls) {
     : kind === 'music'
       ? join(musicDir, filename)
       : join(root, 'public', kind, filename);
-  const bytes = await readFile(source);
+  let bytes;
+  if (kind === 'textures' && filename.startsWith('studio_')) {
+    // The self-contained export has a strict transfer budget. Keep all four
+    // Blender models, using 256px variants of their supporting surface maps.
+    // Full-quality development/production maps remain 512px and untouched.
+    const compact = join(textureDir, filename);
+    await run('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-y', '-i', source,
+      '-vf', 'scale=256:256:flags=lanczos', '-frames:v', '1', '-q:v', '3', compact,
+    ]);
+    bytes = await readFile(compact);
+  } else {
+    bytes = await readFile(source);
+  }
   const dataUri = `data:${mime[extname(filename)]};base64,${bytes.toString('base64')}`;
   js = js.replaceAll(url, dataUri);
 }
@@ -160,4 +185,4 @@ if (size > MAX_BYTES) {
 }
 console.log(`Artifact: ${output}`);
 console.log(`Size: ${(size / 1024 / 1024).toFixed(2)} MB`);
-console.log(`Inlined assets: ${assetUrls.length}; hero geometry uses Meshopt (no Draco fetch).`);
+console.log(`Inlined assets: ${assetUrls.length}; all 67 Blender models included with Meshopt.`);

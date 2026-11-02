@@ -1,0 +1,24 @@
+{
+  "models": 67,
+  "modelBytes": 8471244,
+  "tests": {
+    "passed": 161,
+    "failed": 0
+  },
+  "build": "passed",
+  "artifactBytes": 15449121,
+  "decorViolations": 0,
+  "motionSeconds": 720,
+  "maxWalkStep": 0.04527232160695914,
+  "memory": {
+    "stableResources": true,
+    "stableHeap": true,
+    "rainyUmbrellaMix": true,
+    "clearScenesHaveNoUmbrellas": true
+  },
+  "memoryDelta": {
+    "heapMB": 1.13,
+    "geometries": 0,
+    "textures": 0
+  }
+}

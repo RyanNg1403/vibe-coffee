@@ -6,3 +6,8 @@ artifact/
 *.log
 tools/.artifact-cache/
 .visual-audit/
+.motion-audit/
+
+# Blender Python caches and reproducible capture frames
+__pycache__/
+docs/rebuild/*/frames/

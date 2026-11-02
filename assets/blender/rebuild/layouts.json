@@ -1,0 +1,7870 @@
+{
+  "goldenhour": {
+    "id": "goldenhour",
+    "style": "classic-salon",
+    "prefix": "gh",
+    "levels": [
+      {
+        "id": "ground",
+        "y": 0
+      }
+    ],
+    "rooms": [
+      {
+        "id": "gh-main",
+        "levelId": "ground",
+        "bounds": {
+          "x0": -8.5,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": 6.75
+        }
+      }
+    ],
+    "walkSurfaces": [
+      {
+        "id": "gh-ground-floor",
+        "levelId": "ground",
+        "y": 0,
+        "polygon": [
+          {
+            "x": -8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": 6.75
+          },
+          {
+            "x": -8.5,
+            "z": 6.75
+          }
+        ]
+      }
+    ],
+    "verticalLinks": [],
+    "entranceSurfaceId": "gh-ground-floor",
+    "tables": [
+      {
+        "id": "gh-t01",
+        "levelId": "ground",
+        "archetype": "lounge",
+        "shape": "circle",
+        "center": {
+          "x": -5,
+          "z": 2.6
+        },
+        "rotation": 0,
+        "surfaceY": 0.58,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.46,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": true,
+        "seats": [
+          {
+            "id": "gh-t01-s1",
+            "tableId": "gh-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -5,
+              "y": 0,
+              "z": 1.3800000000000001
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t01-s2",
+            "tableId": "gh-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -5,
+              "y": 0,
+              "z": 3.8200000000000003
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.46
+      },
+      {
+        "id": "gh-t02",
+        "levelId": "ground",
+        "archetype": "oval",
+        "shape": "ellipse",
+        "center": {
+          "x": -4.6,
+          "z": -0.9
+        },
+        "rotation": 0.35,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.6,
+        "vignette": null,
+        "legacyType": "oval",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t02-s1",
+            "tableId": "gh-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -5.793003345316171,
+              "y": 0,
+              "z": -0.46451978453157683
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t02-s2",
+            "tableId": "gh-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -3.4069966546838284,
+              "y": 0,
+              "z": -1.335480215468423
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t02-s3",
+            "tableId": "gh-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -5.348470637863999,
+              "y": 0,
+              "z": -1.638100063850057
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t02-s4",
+            "tableId": "gh-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.503035196301358,
+              "y": 0,
+              "z": -1.9467080905599632
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t02-s5",
+            "tableId": "gh-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.696964803698641,
+              "y": 0,
+              "z": 0.14670809055996303
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t02-s6",
+            "tableId": "gh-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -3.8515293621360005,
+              "y": 0,
+              "z": -0.16189993614994325
+            },
+            "isBar": false
+          }
+        ],
+        "rx": 0.92,
+        "rz": 0.62
+      },
+      {
+        "id": "gh-t03",
+        "levelId": "ground",
+        "archetype": "writing",
+        "shape": "rect",
+        "center": {
+          "x": -6.6,
+          "z": -3.6
+        },
+        "rotation": -0.15,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.34,
+        "vignette": "typewriter",
+        "legacyType": "writing",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t03-s1",
+            "tableId": "gh-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.727022412602559,
+              "y": 0,
+              "z": -2.759544583754364
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t03-s2",
+            "tableId": "gh-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -5.630779849466039,
+              "y": 0,
+              "z": -3.655787989737289
+            },
+            "isBar": false
+          }
+        ],
+        "width": 1.15,
+        "depth": 0.7
+      },
+      {
+        "id": "gh-t04",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -2.3,
+          "z": 1.2
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t04-s1",
+            "tableId": "gh-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.3,
+              "y": 0,
+              "z": 0.35
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t04-s2",
+            "tableId": "gh-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.3,
+              "y": 0,
+              "z": 2.05
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t04-s3",
+            "tableId": "gh-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -3.15,
+              "y": 0,
+              "z": 1.2
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-t05",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -2.5,
+          "z": -2.3
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t05-s1",
+            "tableId": "gh-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.5,
+              "y": 0,
+              "z": -3.15
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t05-s2",
+            "tableId": "gh-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.5,
+              "y": 0,
+              "z": -1.4499999999999997
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t05-s3",
+            "tableId": "gh-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -3.35,
+              "y": 0,
+              "z": -2.3
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-t06",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -2,
+          "z": 4.15
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t06-s1",
+            "tableId": "gh-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -2,
+              "y": 0,
+              "z": 3.3000000000000003
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t06-s2",
+            "tableId": "gh-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -2,
+              "y": 0,
+              "z": 5
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t06-s3",
+            "tableId": "gh-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.85,
+              "y": 0,
+              "z": 4.15
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-t07",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 2.3,
+          "z": 3
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t07-s1",
+            "tableId": "gh-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.3,
+              "y": 0,
+              "z": 2.15
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t07-s2",
+            "tableId": "gh-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.3,
+              "y": 0,
+              "z": 3.85
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t07-s3",
+            "tableId": "gh-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.4499999999999997,
+              "y": 0,
+              "z": 3
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-t08",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 2.1,
+          "z": -0.3
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t08-s1",
+            "tableId": "gh-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.1,
+              "y": 0,
+              "z": -1.15
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t08-s2",
+            "tableId": "gh-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.1,
+              "y": 0,
+              "z": 0.55
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t08-s3",
+            "tableId": "gh-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.25,
+              "y": 0,
+              "z": -0.3
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-t09",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 2.5,
+          "z": -3.1
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t09-s1",
+            "tableId": "gh-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.5,
+              "y": 0,
+              "z": -3.95
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t09-s2",
+            "tableId": "gh-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.5,
+              "y": 0,
+              "z": -2.25
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t09-s3",
+            "tableId": "gh-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.65,
+              "y": 0,
+              "z": -3.1
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-t10",
+        "levelId": "ground",
+        "archetype": "square",
+        "shape": "rect",
+        "center": {
+          "x": 5,
+          "z": 1.4
+        },
+        "rotation": 0.28,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.475,
+        "vignette": null,
+        "legacyType": "square",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t10-s1",
+            "tableId": "gh-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.765097698720504,
+              "y": 0,
+              "z": 0.5831028774358447
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t10-s2",
+            "tableId": "gh-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.234902301279496,
+              "y": 0,
+              "z": 2.216897122564155
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t10-s3",
+            "tableId": "gh-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.183102877435845,
+              "y": 0,
+              "z": 1.6349023012794965
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t10-s4",
+            "tableId": "gh-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.816897122564155,
+              "y": 0,
+              "z": 1.1650976987205033
+            },
+            "isBar": false
+          }
+        ],
+        "width": 0.95,
+        "depth": 0.95
+      },
+      {
+        "id": "gh-t11",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 5.3,
+          "z": -1.8
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t11-s1",
+            "tableId": "gh-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.3,
+              "y": 0,
+              "z": -2.65
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t11-s2",
+            "tableId": "gh-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.3,
+              "y": 0,
+              "z": -0.9500000000000001
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t11-s3",
+            "tableId": "gh-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.45,
+              "y": 0,
+              "z": -1.8
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-t12",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 5.6,
+          "z": 3.6
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "gh-t12-s1",
+            "tableId": "gh-t12",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.6,
+              "y": 0,
+              "z": 2.75
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t12-s2",
+            "tableId": "gh-t12",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.6,
+              "y": 0,
+              "z": 4.45
+            },
+            "isBar": false
+          },
+          {
+            "id": "gh-t12-s3",
+            "tableId": "gh-t12",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.75,
+              "y": 0,
+              "z": 3.6
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "gh-bar-l",
+        "levelId": "ground",
+        "archetype": "bar",
+        "shape": "rect",
+        "center": {
+          "x": -2.2,
+          "z": 6.3
+        },
+        "rotation": 0,
+        "width": 2,
+        "depth": 0.45,
+        "surfaceY": 1.035,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": true,
+        "barStyle": "classic",
+        "seats": [
+          {
+            "id": "gh-bar-l-s1",
+            "tableId": "gh-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.7,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "gh-bar-l-s2",
+            "tableId": "gh-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.7000000000000002,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          }
+        ]
+      },
+      {
+        "id": "gh-bar-r",
+        "levelId": "ground",
+        "archetype": "bar",
+        "shape": "rect",
+        "center": {
+          "x": 2.2,
+          "z": 6.3
+        },
+        "rotation": 0,
+        "width": 2,
+        "depth": 0.45,
+        "surfaceY": 1.035,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": true,
+        "barStyle": "classic",
+        "seats": [
+          {
+            "id": "gh-bar-r-s1",
+            "tableId": "gh-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.7000000000000002,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "gh-bar-r-s2",
+            "tableId": "gh-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.7,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          }
+        ]
+      }
+    ],
+    "seats": [
+      {
+        "id": "gh-t01-s1",
+        "tableId": "gh-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -5,
+          "y": 0,
+          "z": 1.3800000000000001
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t01-s2",
+        "tableId": "gh-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -5,
+          "y": 0,
+          "z": 3.8200000000000003
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t02-s1",
+        "tableId": "gh-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -5.793003345316171,
+          "y": 0,
+          "z": -0.46451978453157683
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t02-s2",
+        "tableId": "gh-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -3.4069966546838284,
+          "y": 0,
+          "z": -1.335480215468423
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t02-s3",
+        "tableId": "gh-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -5.348470637863999,
+          "y": 0,
+          "z": -1.638100063850057
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t02-s4",
+        "tableId": "gh-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.503035196301358,
+          "y": 0,
+          "z": -1.9467080905599632
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t02-s5",
+        "tableId": "gh-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.696964803698641,
+          "y": 0,
+          "z": 0.14670809055996303
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t02-s6",
+        "tableId": "gh-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -3.8515293621360005,
+          "y": 0,
+          "z": -0.16189993614994325
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t03-s1",
+        "tableId": "gh-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.727022412602559,
+          "y": 0,
+          "z": -2.759544583754364
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t03-s2",
+        "tableId": "gh-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -5.630779849466039,
+          "y": 0,
+          "z": -3.655787989737289
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t04-s1",
+        "tableId": "gh-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.3,
+          "y": 0,
+          "z": 0.35
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t04-s2",
+        "tableId": "gh-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.3,
+          "y": 0,
+          "z": 2.05
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t04-s3",
+        "tableId": "gh-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -3.15,
+          "y": 0,
+          "z": 1.2
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t05-s1",
+        "tableId": "gh-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.5,
+          "y": 0,
+          "z": -3.15
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t05-s2",
+        "tableId": "gh-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.5,
+          "y": 0,
+          "z": -1.4499999999999997
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t05-s3",
+        "tableId": "gh-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -3.35,
+          "y": 0,
+          "z": -2.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t06-s1",
+        "tableId": "gh-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -2,
+          "y": 0,
+          "z": 3.3000000000000003
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t06-s2",
+        "tableId": "gh-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -2,
+          "y": 0,
+          "z": 5
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t06-s3",
+        "tableId": "gh-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.85,
+          "y": 0,
+          "z": 4.15
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t07-s1",
+        "tableId": "gh-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.3,
+          "y": 0,
+          "z": 2.15
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t07-s2",
+        "tableId": "gh-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.3,
+          "y": 0,
+          "z": 3.85
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t07-s3",
+        "tableId": "gh-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.4499999999999997,
+          "y": 0,
+          "z": 3
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t08-s1",
+        "tableId": "gh-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.1,
+          "y": 0,
+          "z": -1.15
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t08-s2",
+        "tableId": "gh-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.1,
+          "y": 0,
+          "z": 0.55
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t08-s3",
+        "tableId": "gh-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.25,
+          "y": 0,
+          "z": -0.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t09-s1",
+        "tableId": "gh-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.5,
+          "y": 0,
+          "z": -3.95
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t09-s2",
+        "tableId": "gh-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.5,
+          "y": 0,
+          "z": -2.25
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t09-s3",
+        "tableId": "gh-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.65,
+          "y": 0,
+          "z": -3.1
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t10-s1",
+        "tableId": "gh-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.765097698720504,
+          "y": 0,
+          "z": 0.5831028774358447
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t10-s2",
+        "tableId": "gh-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.234902301279496,
+          "y": 0,
+          "z": 2.216897122564155
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t10-s3",
+        "tableId": "gh-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.183102877435845,
+          "y": 0,
+          "z": 1.6349023012794965
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t10-s4",
+        "tableId": "gh-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.816897122564155,
+          "y": 0,
+          "z": 1.1650976987205033
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t11-s1",
+        "tableId": "gh-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.3,
+          "y": 0,
+          "z": -2.65
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t11-s2",
+        "tableId": "gh-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.3,
+          "y": 0,
+          "z": -0.9500000000000001
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t11-s3",
+        "tableId": "gh-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.45,
+          "y": 0,
+          "z": -1.8
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t12-s1",
+        "tableId": "gh-t12",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.6,
+          "y": 0,
+          "z": 2.75
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t12-s2",
+        "tableId": "gh-t12",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.6,
+          "y": 0,
+          "z": 4.45
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-t12-s3",
+        "tableId": "gh-t12",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.75,
+          "y": 0,
+          "z": 3.6
+        },
+        "isBar": false
+      },
+      {
+        "id": "gh-bar-l-s1",
+        "tableId": "gh-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.7,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "gh-bar-l-s2",
+        "tableId": "gh-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.7000000000000002,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "gh-bar-r-s1",
+        "tableId": "gh-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.7000000000000002,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "gh-bar-r-s2",
+        "tableId": "gh-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.7,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      }
+    ],
+    "serviceZones": [
+      {
+        "id": "gh-counter",
+        "levelId": "ground",
+        "kind": "serviceCounter",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "anchors": {
+          "register": {
+            "x": 2.2,
+            "z": -6.15
+          },
+          "espresso": {
+            "x": -2.2,
+            "z": -6.15
+          },
+          "pastryCase": {
+            "x": -3.9,
+            "z": -6.15
+          },
+          "restock": {
+            "x": 0.4,
+            "z": -6.15
+          },
+          "queue": {
+            "x": 2.2,
+            "z": -4.55
+          },
+          "pickup": {
+            "x": -0.7,
+            "z": -4.55
+          },
+          "dirtyDish": {
+            "x": 4,
+            "z": -4.15
+          },
+          "waiterStandby": {
+            "x": -4.6,
+            "z": -4.25
+          }
+        }
+      }
+    ],
+    "npcDestinations": [
+      {
+        "id": "gh-door",
+        "levelId": "ground",
+        "x": 0,
+        "z": 6.35,
+        "role": "any",
+        "purpose": "entrance"
+      },
+      {
+        "id": "gh-queue",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "order"
+      },
+      {
+        "id": "gh-pickup",
+        "levelId": "ground",
+        "x": -0.7,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "pickup"
+      },
+      {
+        "id": "gh-barista-home",
+        "levelId": "ground",
+        "x": -1,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "gh-barista-register",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "gh-barista-machine",
+        "levelId": "ground",
+        "x": -2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "gh-dirty-dish",
+        "levelId": "ground",
+        "x": 4,
+        "z": -4.15,
+        "role": "waiter",
+        "purpose": "staff"
+      },
+      {
+        "id": "gh-waiter-standby",
+        "levelId": "ground",
+        "x": -4.6,
+        "z": -4.25,
+        "role": "waiter",
+        "purpose": "staff"
+      },
+      {
+        "id": "gh-library-browse",
+        "levelId": "ground",
+        "x": 7.1,
+        "z": -0.75,
+        "role": "patron",
+        "purpose": "browse",
+        "faceYaw": 1.5707963267948966
+      }
+    ],
+    "npcForbiddenZones": [
+      {
+        "id": "gh-staff-counter",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "appliesTo": "patron",
+        "exceptRoles": [
+          "barista",
+          "waiter"
+        ]
+      }
+    ],
+    "colliders": [
+      {
+        "id": "gh-t01-col",
+        "levelId": "ground",
+        "x": -5,
+        "z": 2.6,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t02-col",
+        "levelId": "ground",
+        "x": -4.6,
+        "z": -0.9,
+        "r": 1.6
+      },
+      {
+        "id": "gh-t03-col",
+        "levelId": "ground",
+        "x": -6.6,
+        "z": -3.6,
+        "r": 1
+      },
+      {
+        "id": "gh-t04-col",
+        "levelId": "ground",
+        "x": -2.3,
+        "z": 1.2,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t05-col",
+        "levelId": "ground",
+        "x": -2.5,
+        "z": -2.3,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t06-col",
+        "levelId": "ground",
+        "x": -2,
+        "z": 4.15,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t07-col",
+        "levelId": "ground",
+        "x": 2.3,
+        "z": 3,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t08-col",
+        "levelId": "ground",
+        "x": 2.1,
+        "z": -0.3,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t09-col",
+        "levelId": "ground",
+        "x": 2.5,
+        "z": -3.1,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t10-col",
+        "levelId": "ground",
+        "x": 5,
+        "z": 1.4,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t11-col",
+        "levelId": "ground",
+        "x": 5.3,
+        "z": -1.8,
+        "r": 1.05
+      },
+      {
+        "id": "gh-t12-col",
+        "levelId": "ground",
+        "x": 5.6,
+        "z": 3.6,
+        "r": 1.05
+      },
+      {
+        "id": "gh-counter-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        }
+      },
+      {
+        "id": "gh-bar-l-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -3.3000000000000003,
+          "x1": -1.1,
+          "z0": 5.7250000000000005,
+          "z1": 6.75
+        }
+      },
+      {
+        "id": "gh-bar-r-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": 1.1,
+          "x1": 3.3000000000000003,
+          "z0": 5.7250000000000005,
+          "z1": 6.75
+        }
+      }
+    ],
+    "decor": {
+      "plantSpots": [
+        [
+          -7.8,
+          -6.05
+        ],
+        [
+          7.8,
+          5.45
+        ],
+        [
+          7.9,
+          -3.75
+        ],
+        [
+          -7.9,
+          3.6
+        ],
+        [
+          -7.9,
+          -2
+        ],
+        [
+          7.9,
+          2.62
+        ],
+        [
+          3.8,
+          -5
+        ],
+        [
+          -3.6,
+          -5
+        ],
+        [
+          -4.2,
+          5.75
+        ]
+      ],
+      "rightWall": {
+        "library": {
+          "z0": -2.8,
+          "z1": 1.3,
+          "bays": 5,
+          "height": 2.16
+        },
+        "art": [
+          {
+            "z": -4.6,
+            "y": 2
+          },
+          {
+            "z": 4,
+            "y": 1.9
+          }
+        ],
+        "clock": {
+          "z": 2.1,
+          "y": 2.55
+        },
+        "mirror": {
+          "z": 3.1,
+          "y": 2.6
+        },
+        "pegboard": {
+          "z": 4.9
+        },
+        "sconces": [
+          -5.2,
+          5.4
+        ]
+      },
+      "sideTable": {
+        "x": -6.25,
+        "z": 3.2
+      },
+      "chalkboard": {
+        "x": 4.15,
+        "z": 5.5,
+        "rot": -0.85
+      }
+    },
+    "lighting": {
+      "pendant": "cone",
+      "lampY": 2.3
+    },
+    "auditViews": [
+      {
+        "id": "gh-salon-from-entrance",
+        "pos": [
+          0,
+          1.7,
+          5.9
+        ],
+        "lookAt": [
+          0,
+          1,
+          -2.5
+        ]
+      },
+      {
+        "id": "gh-window-counters-wide",
+        "pos": [
+          0,
+          1.6,
+          2.5
+        ],
+        "lookAt": [
+          0,
+          1.1,
+          6.4
+        ]
+      },
+      {
+        "id": "gh-window-counter-left",
+        "pos": [
+          -2.2,
+          1.5,
+          4
+        ],
+        "lookAt": [
+          -2.2,
+          1.05,
+          6.3
+        ]
+      },
+      {
+        "id": "gh-window-counter-right",
+        "pos": [
+          2.2,
+          1.5,
+          4
+        ],
+        "lookAt": [
+          2.2,
+          1.05,
+          6.3
+        ]
+      },
+      {
+        "id": "gh-library-straight",
+        "pos": [
+          5.8,
+          1.4,
+          -0.75
+        ],
+        "lookAt": [
+          8.3,
+          1.2,
+          -0.75
+        ]
+      },
+      {
+        "id": "gh-library-oblique",
+        "pos": [
+          6.3,
+          1.6,
+          1.8
+        ],
+        "lookAt": [
+          8.3,
+          1.1,
+          -1.2
+        ]
+      },
+      {
+        "id": "gh-library-top-shelf",
+        "pos": [
+          7,
+          1.9,
+          -0.75
+        ],
+        "lookAt": [
+          8.3,
+          1.85,
+          -0.75
+        ]
+      },
+      {
+        "id": "gh-library-lower-shelf",
+        "pos": [
+          7.1,
+          0.7,
+          -0.75
+        ],
+        "lookAt": [
+          8.3,
+          0.5,
+          -0.75
+        ]
+      },
+      {
+        "id": "gh-wall-decor-boundary",
+        "pos": [
+          5.6,
+          1.9,
+          3.4
+        ],
+        "lookAt": [
+          8.4,
+          2.3,
+          2.4
+        ]
+      },
+      {
+        "id": "gh-salon-oval",
+        "pos": [
+          -2.6,
+          1.5,
+          -0.9
+        ],
+        "lookAt": [
+          -4.6,
+          0.9,
+          -0.9
+        ]
+      },
+      {
+        "id": "gh-writing-desk",
+        "pos": [
+          -5,
+          1.4,
+          -2.6
+        ],
+        "lookAt": [
+          -6.6,
+          0.9,
+          -3.6
+        ]
+      },
+      {
+        "id": "gh-service-queue",
+        "pos": [
+          2.2,
+          1.7,
+          -1.6
+        ],
+        "lookAt": [
+          1.2,
+          1,
+          -5.4
+        ]
+      }
+    ],
+    "contract": {
+      "windowCounters": {
+        "count": 2,
+        "minLength": 1.8,
+        "maxLength": 2.2,
+        "minDepth": 0.42,
+        "maxDepth": 0.48,
+        "minSeats": 2,
+        "doorClearance": 0.75,
+        "stoolCirculation": 0.9
+      },
+      "arrivalLane": {
+        "rect": {
+          "x0": -0.7,
+          "x1": 0.7,
+          "z0": -4.5,
+          "z1": 6.75
+        }
+      },
+      "rightWallBays": true
+    }
+  },
+  "roastery": {
+    "id": "roastery",
+    "style": "modern-roastery",
+    "prefix": "ro",
+    "levels": [
+      {
+        "id": "ground",
+        "y": 0
+      }
+    ],
+    "rooms": [
+      {
+        "id": "ro-main",
+        "levelId": "ground",
+        "bounds": {
+          "x0": -8.5,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": 6.75
+        }
+      }
+    ],
+    "walkSurfaces": [
+      {
+        "id": "ro-ground-floor",
+        "levelId": "ground",
+        "y": 0,
+        "polygon": [
+          {
+            "x": -8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": 6.75
+          },
+          {
+            "x": -8.5,
+            "z": 6.75
+          }
+        ]
+      }
+    ],
+    "verticalLinks": [],
+    "entranceSurfaceId": "ro-ground-floor",
+    "tables": [
+      {
+        "id": "ro-t01",
+        "levelId": "ground",
+        "archetype": "communal",
+        "shape": "rect",
+        "center": {
+          "x": -1.9,
+          "z": 1
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.65,
+        "vignette": null,
+        "legacyType": "communal",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "ro-t01-s1",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.95,
+              "y": 0,
+              "z": -0.3500000000000001
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t01-s2",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.95,
+              "y": 0,
+              "z": 0.55
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t01-s3",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.95,
+              "y": 0,
+              "z": 1.45
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t01-s4",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.95,
+              "y": 0,
+              "z": 2.35
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t01-s5",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -0.8499999999999999,
+              "y": 0,
+              "z": -0.3500000000000001
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t01-s6",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -0.8499999999999999,
+              "y": 0,
+              "z": 0.55
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t01-s7",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -0.8499999999999999,
+              "y": 0,
+              "z": 1.45
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t01-s8",
+            "tableId": "ro-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -0.8499999999999999,
+              "y": 0,
+              "z": 2.35
+            },
+            "isBar": false
+          }
+        ],
+        "width": 1.4,
+        "depth": 3.6
+      },
+      {
+        "id": "ro-t02",
+        "levelId": "ground",
+        "archetype": "communal",
+        "shape": "rect",
+        "center": {
+          "x": 2.7,
+          "z": -0.7
+        },
+        "rotation": 0.1,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.65,
+        "vignette": null,
+        "legacyType": "communal",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "ro-t02-s1",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.520470513984855,
+              "y": 0,
+              "z": -1.938430535646165
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t02-s2",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.6103205889670005,
+              "y": 0,
+              "z": -1.042926786895942
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t02-s3",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.7001706639491458,
+              "y": 0,
+              "z": -0.14742303814571878
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t02-s4",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.790020738931291,
+              "y": 0,
+              "z": 0.7480807106045044
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t02-s5",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.6099792610687094,
+              "y": 0,
+              "z": -2.1480807106045043
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t02-s6",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.6998293360508545,
+              "y": 0,
+              "z": -1.252576961854281
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t02-s7",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.789679411033,
+              "y": 0,
+              "z": -0.35707321310405793
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t02-s8",
+            "tableId": "ro-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.8795294860151452,
+              "y": 0,
+              "z": 0.5384305356461652
+            },
+            "isBar": false
+          }
+        ],
+        "width": 1.4,
+        "depth": 3.6
+      },
+      {
+        "id": "ro-t03",
+        "levelId": "ground",
+        "archetype": "lounge",
+        "shape": "circle",
+        "center": {
+          "x": 5.9,
+          "z": 1.4
+        },
+        "rotation": 0,
+        "surfaceY": 0.58,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.46,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": true,
+        "seats": [
+          {
+            "id": "ro-t03-s1",
+            "tableId": "ro-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.9,
+              "y": 0,
+              "z": 0.17999999999999994
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t03-s2",
+            "tableId": "ro-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.9,
+              "y": 0,
+              "z": 2.62
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.46
+      },
+      {
+        "id": "ro-t04",
+        "levelId": "ground",
+        "archetype": "writing",
+        "shape": "rect",
+        "center": {
+          "x": 5.6,
+          "z": 4.3
+        },
+        "rotation": -0.2,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.34,
+        "vignette": null,
+        "legacyType": "writing",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "ro-t04-s1",
+            "tableId": "ro-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.431131068824198,
+              "y": 0,
+              "z": 5.133056591165055
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t04-s2",
+            "tableId": "ro-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": 6.570797115108191,
+              "y": 0,
+              "z": 4.29272254868706
+            },
+            "isBar": false
+          }
+        ],
+        "width": 1.15,
+        "depth": 0.7
+      },
+      {
+        "id": "ro-t05",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -6.2,
+          "z": 3.4
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "ro-t05-s1",
+            "tableId": "ro-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.2,
+              "y": 0,
+              "z": 2.55
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t05-s2",
+            "tableId": "ro-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.2,
+              "y": 0,
+              "z": 4.25
+            },
+            "isBar": false
+          },
+          {
+            "id": "ro-t05-s3",
+            "tableId": "ro-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -7.05,
+              "y": 0,
+              "z": 3.4
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "ro-tasting-rail",
+        "levelId": "ground",
+        "archetype": "rail",
+        "shape": "rect",
+        "center": {
+          "x": -4.6,
+          "z": -2.6
+        },
+        "rotation": 0,
+        "width": 0.4,
+        "depth": 2.6,
+        "surfaceY": 1.035,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": true,
+        "railAxis": "z",
+        "seats": [
+          {
+            "id": "ro-tasting-rail-s1",
+            "tableId": "ro-tasting-rail",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.05,
+              "y": 0.15,
+              "z": -3.4
+            },
+            "isBar": true
+          },
+          {
+            "id": "ro-tasting-rail-s2",
+            "tableId": "ro-tasting-rail",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.05,
+              "y": 0.15,
+              "z": -2.6
+            },
+            "isBar": true
+          },
+          {
+            "id": "ro-tasting-rail-s3",
+            "tableId": "ro-tasting-rail",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.05,
+              "y": 0.15,
+              "z": -1.8
+            },
+            "isBar": true
+          }
+        ]
+      },
+      {
+        "id": "ro-bar-l",
+        "levelId": "ground",
+        "archetype": "bar",
+        "shape": "rect",
+        "center": {
+          "x": -2.95,
+          "z": 6.3
+        },
+        "rotation": 0,
+        "width": 4.5,
+        "depth": 0.38,
+        "surfaceY": 1.035,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": false,
+        "barStyle": "modern",
+        "seats": [
+          {
+            "id": "ro-bar-l-s1",
+            "tableId": "ro-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.45,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "ro-bar-l-s2",
+            "tableId": "ro-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.95,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "ro-bar-l-s3",
+            "tableId": "ro-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.4500000000000002,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          }
+        ]
+      },
+      {
+        "id": "ro-bar-r",
+        "levelId": "ground",
+        "archetype": "bar",
+        "shape": "rect",
+        "center": {
+          "x": 2.95,
+          "z": 6.3
+        },
+        "rotation": 0,
+        "width": 4.5,
+        "depth": 0.38,
+        "surfaceY": 1.035,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": false,
+        "barStyle": "modern",
+        "seats": [
+          {
+            "id": "ro-bar-r-s1",
+            "tableId": "ro-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.4500000000000002,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "ro-bar-r-s2",
+            "tableId": "ro-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.95,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "ro-bar-r-s3",
+            "tableId": "ro-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.45,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          }
+        ]
+      }
+    ],
+    "seats": [
+      {
+        "id": "ro-t01-s1",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.95,
+          "y": 0,
+          "z": -0.3500000000000001
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t01-s2",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.95,
+          "y": 0,
+          "z": 0.55
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t01-s3",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.95,
+          "y": 0,
+          "z": 1.45
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t01-s4",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.95,
+          "y": 0,
+          "z": 2.35
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t01-s5",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -0.8499999999999999,
+          "y": 0,
+          "z": -0.3500000000000001
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t01-s6",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -0.8499999999999999,
+          "y": 0,
+          "z": 0.55
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t01-s7",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -0.8499999999999999,
+          "y": 0,
+          "z": 1.45
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t01-s8",
+        "tableId": "ro-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -0.8499999999999999,
+          "y": 0,
+          "z": 2.35
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s1",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.520470513984855,
+          "y": 0,
+          "z": -1.938430535646165
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s2",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.6103205889670005,
+          "y": 0,
+          "z": -1.042926786895942
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s3",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.7001706639491458,
+          "y": 0,
+          "z": -0.14742303814571878
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s4",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.790020738931291,
+          "y": 0,
+          "z": 0.7480807106045044
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s5",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.6099792610687094,
+          "y": 0,
+          "z": -2.1480807106045043
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s6",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.6998293360508545,
+          "y": 0,
+          "z": -1.252576961854281
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s7",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.789679411033,
+          "y": 0,
+          "z": -0.35707321310405793
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t02-s8",
+        "tableId": "ro-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.8795294860151452,
+          "y": 0,
+          "z": 0.5384305356461652
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t03-s1",
+        "tableId": "ro-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.9,
+          "y": 0,
+          "z": 0.17999999999999994
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t03-s2",
+        "tableId": "ro-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.9,
+          "y": 0,
+          "z": 2.62
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t04-s1",
+        "tableId": "ro-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.431131068824198,
+          "y": 0,
+          "z": 5.133056591165055
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t04-s2",
+        "tableId": "ro-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": 6.570797115108191,
+          "y": 0,
+          "z": 4.29272254868706
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t05-s1",
+        "tableId": "ro-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.2,
+          "y": 0,
+          "z": 2.55
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t05-s2",
+        "tableId": "ro-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.2,
+          "y": 0,
+          "z": 4.25
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-t05-s3",
+        "tableId": "ro-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -7.05,
+          "y": 0,
+          "z": 3.4
+        },
+        "isBar": false
+      },
+      {
+        "id": "ro-tasting-rail-s1",
+        "tableId": "ro-tasting-rail",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.05,
+          "y": 0.15,
+          "z": -3.4
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-tasting-rail-s2",
+        "tableId": "ro-tasting-rail",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.05,
+          "y": 0.15,
+          "z": -2.6
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-tasting-rail-s3",
+        "tableId": "ro-tasting-rail",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.05,
+          "y": 0.15,
+          "z": -1.8
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-bar-l-s1",
+        "tableId": "ro-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.45,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-bar-l-s2",
+        "tableId": "ro-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.95,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-bar-l-s3",
+        "tableId": "ro-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.4500000000000002,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-bar-r-s1",
+        "tableId": "ro-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.4500000000000002,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-bar-r-s2",
+        "tableId": "ro-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.95,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "ro-bar-r-s3",
+        "tableId": "ro-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.45,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      }
+    ],
+    "serviceZones": [
+      {
+        "id": "ro-counter",
+        "levelId": "ground",
+        "kind": "serviceCounter",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "anchors": {
+          "register": {
+            "x": 2.2,
+            "z": -6.15
+          },
+          "espresso": {
+            "x": -2.2,
+            "z": -6.15
+          },
+          "pastryCase": {
+            "x": -3.9,
+            "z": -6.15
+          },
+          "restock": {
+            "x": 0.4,
+            "z": -6.15
+          },
+          "queue": {
+            "x": 2.2,
+            "z": -4.55
+          },
+          "pickup": {
+            "x": -0.7,
+            "z": -4.55
+          },
+          "dirtyDish": {
+            "x": 4,
+            "z": -4.15
+          },
+          "waiterStandby": {
+            "x": -4.6,
+            "z": -4.25
+          }
+        }
+      }
+    ],
+    "npcDestinations": [
+      {
+        "id": "ro-door",
+        "levelId": "ground",
+        "x": 0,
+        "z": 6.35,
+        "role": "any",
+        "purpose": "entrance"
+      },
+      {
+        "id": "ro-queue",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "order"
+      },
+      {
+        "id": "ro-pickup",
+        "levelId": "ground",
+        "x": -0.7,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "pickup"
+      },
+      {
+        "id": "ro-barista-home",
+        "levelId": "ground",
+        "x": -1,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "ro-barista-register",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "ro-barista-machine",
+        "levelId": "ground",
+        "x": -2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "ro-dirty-dish",
+        "levelId": "ground",
+        "x": 4,
+        "z": -4.15,
+        "role": "waiter",
+        "purpose": "staff"
+      },
+      {
+        "id": "ro-waiter-standby",
+        "levelId": "ground",
+        "x": -4.6,
+        "z": -4.25,
+        "role": "waiter",
+        "purpose": "staff"
+      }
+    ],
+    "npcForbiddenZones": [
+      {
+        "id": "ro-staff-counter",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "appliesTo": "patron",
+        "exceptRoles": [
+          "barista",
+          "waiter"
+        ]
+      },
+      {
+        "id": "ro-production-zone",
+        "levelId": "ground",
+        "rect": {
+          "x0": -8.5,
+          "x1": -5.2,
+          "z0": -6.75,
+          "z1": -1
+        },
+        "appliesTo": "patron",
+        "exceptRoles": [
+          "barista",
+          "waiter",
+          "roaster"
+        ]
+      }
+    ],
+    "colliders": [
+      {
+        "id": "ro-t01-col",
+        "levelId": "ground",
+        "x": -1.9,
+        "z": 1,
+        "r": 2
+      },
+      {
+        "id": "ro-t02-col",
+        "levelId": "ground",
+        "x": 2.7,
+        "z": -0.7,
+        "r": 2
+      },
+      {
+        "id": "ro-t03-col",
+        "levelId": "ground",
+        "x": 5.9,
+        "z": 1.4,
+        "r": 1.05
+      },
+      {
+        "id": "ro-t04-col",
+        "levelId": "ground",
+        "x": 5.6,
+        "z": 4.3,
+        "r": 1
+      },
+      {
+        "id": "ro-t05-col",
+        "levelId": "ground",
+        "x": -6.2,
+        "z": 3.4,
+        "r": 1.05
+      },
+      {
+        "id": "ro-counter-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        }
+      },
+      {
+        "id": "ro-bar-l-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.3,
+          "x1": -0.6000000000000002,
+          "z0": 5.76,
+          "z1": 6.75
+        }
+      },
+      {
+        "id": "ro-bar-r-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": 0.6000000000000002,
+          "x1": 5.3,
+          "z0": 5.76,
+          "z1": 6.75
+        }
+      },
+      {
+        "id": "ro-partition-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.32,
+          "x1": -5.12,
+          "z0": -6.75,
+          "z1": -1
+        }
+      },
+      {
+        "id": "ro-partition-return-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -8.5,
+          "x1": -5.12,
+          "z0": -1.1,
+          "z1": -0.9
+        }
+      },
+      {
+        "id": "ro-tasting-rail-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -4.85,
+          "x1": -4.35,
+          "z0": -3.95,
+          "z1": -1.25
+        }
+      }
+    ],
+    "decor": {
+      "plantSpots": [
+        [
+          -7.8,
+          -6.05
+        ],
+        [
+          7.8,
+          5.45
+        ],
+        [
+          7.9,
+          -3.75
+        ],
+        [
+          -7.9,
+          3.6
+        ],
+        [
+          -6.9,
+          -0.2
+        ],
+        [
+          7.9,
+          2
+        ],
+        [
+          3.8,
+          -5
+        ],
+        [
+          -3.6,
+          -5
+        ],
+        [
+          -0.9,
+          5.6
+        ]
+      ],
+      "production": {
+        "rect": {
+          "x0": -8.5,
+          "x1": -5.2,
+          "z0": -6.75,
+          "z1": -1
+        },
+        "partitionX": -5.2,
+        "returnZ": -1,
+        "roaster": {
+          "x": -6.9,
+          "z": -3.3
+        },
+        "coolingTray": {
+          "x": -6.5,
+          "z": -1.9
+        },
+        "bench": {
+          "x": -8.05,
+          "z": -4.2,
+          "length": 2
+        },
+        "sacks": [
+          {
+            "x": -5.9,
+            "z": -5.3
+          },
+          {
+            "x": -6.35,
+            "z": -5.55
+          },
+          {
+            "x": -6.05,
+            "z": -4.9
+          }
+        ]
+      },
+      "rightWallShelf": "process",
+      "rightWall": {
+        "art": [
+          {
+            "z": -3.6,
+            "y": 1.85
+          },
+          {
+            "z": 2.35,
+            "y": 1.85
+          }
+        ],
+        "clock": {
+          "z": 3.5,
+          "y": 2.55
+        },
+        "mirror": {
+          "z": -4.7,
+          "y": 2.6
+        }
+      },
+      "chalkboard": {
+        "x": 5.9,
+        "z": 5.6,
+        "rot": -0.9
+      }
+    },
+    "lighting": {
+      "pendant": "bulb",
+      "lampY": 2.4
+    },
+    "auditViews": [
+      {
+        "id": "ro-hall-from-entrance",
+        "pos": [
+          0,
+          1.7,
+          5.9
+        ],
+        "lookAt": [
+          0,
+          1,
+          -2.5
+        ]
+      },
+      {
+        "id": "ro-process-wall",
+        "pos": [
+          -3.1,
+          1.5,
+          -2.4
+        ],
+        "lookAt": [
+          -7.6,
+          1.2,
+          -3.6
+        ]
+      },
+      {
+        "id": "ro-partition-mullions",
+        "pos": [
+          -3.9,
+          1.6,
+          0.8
+        ],
+        "lookAt": [
+          -6.6,
+          1.3,
+          -2
+        ]
+      },
+      {
+        "id": "ro-roaster-closeup",
+        "pos": [
+          -4.4,
+          1.5,
+          -3
+        ],
+        "lookAt": [
+          -7,
+          1.1,
+          -3.35
+        ]
+      },
+      {
+        "id": "ro-communal-a",
+        "pos": [
+          -1.9,
+          1.6,
+          3.8
+        ],
+        "lookAt": [
+          -1.9,
+          0.85,
+          -0.8
+        ]
+      },
+      {
+        "id": "ro-communal-b",
+        "pos": [
+          2.5,
+          1.6,
+          -3.5
+        ],
+        "lookAt": [
+          2.85,
+          0.85,
+          1.1
+        ]
+      },
+      {
+        "id": "ro-tasting-rail-view",
+        "pos": [
+          -2.9,
+          1.5,
+          -1.9
+        ],
+        "lookAt": [
+          -4.75,
+          1.05,
+          -2.7
+        ]
+      },
+      {
+        "id": "ro-project-table",
+        "pos": [
+          4.1,
+          1.5,
+          3.5
+        ],
+        "lookAt": [
+          5.7,
+          0.85,
+          4.4
+        ]
+      },
+      {
+        "id": "ro-process-shelf",
+        "pos": [
+          6,
+          1.5,
+          -0.3
+        ],
+        "lookAt": [
+          8.2,
+          1.2,
+          -0.35
+        ]
+      },
+      {
+        "id": "ro-service-queue",
+        "pos": [
+          2.2,
+          1.7,
+          -1.6
+        ],
+        "lookAt": [
+          1.2,
+          1,
+          -5.4
+        ]
+      },
+      {
+        "id": "ro-window-rail",
+        "pos": [
+          0,
+          1.6,
+          2.5
+        ],
+        "lookAt": [
+          0,
+          1.05,
+          6.35
+        ]
+      },
+      {
+        "id": "ro-ceiling-services",
+        "pos": [
+          0.5,
+          1.2,
+          0.5
+        ],
+        "lookAt": [
+          -2,
+          3.5,
+          -2
+        ]
+      }
+    ],
+    "contract": {
+      "productionZone": {
+        "rect": {
+          "x0": -8.5,
+          "x1": -5.2,
+          "z0": -6.75,
+          "z1": -1
+        },
+        "minBoundaryColliders": 2
+      },
+      "communalTables": {
+        "min": 1,
+        "max": 2
+      },
+      "windowBarStyle": "modern"
+    }
+  },
+  "midnight": {
+    "id": "midnight",
+    "style": "jazz-lounge",
+    "prefix": "mi",
+    "levels": [
+      {
+        "id": "ground",
+        "y": 0
+      }
+    ],
+    "rooms": [
+      {
+        "id": "mi-main",
+        "levelId": "ground",
+        "bounds": {
+          "x0": -8.5,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": 6.75
+        }
+      }
+    ],
+    "walkSurfaces": [
+      {
+        "id": "mi-ground-floor",
+        "levelId": "ground",
+        "y": 0,
+        "polygon": [
+          {
+            "x": -8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": 6.75
+          },
+          {
+            "x": -8.5,
+            "z": 6.75
+          }
+        ]
+      }
+    ],
+    "verticalLinks": [],
+    "entranceSurfaceId": "mi-ground-floor",
+    "tables": [
+      {
+        "id": "mi-t01",
+        "levelId": "ground",
+        "archetype": "lounge",
+        "shape": "circle",
+        "center": {
+          "x": -5,
+          "z": 2.4
+        },
+        "rotation": 0,
+        "surfaceY": 0.58,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.46,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": true,
+        "seats": [
+          {
+            "id": "mi-t01-s1",
+            "tableId": "mi-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -5,
+              "y": 0,
+              "z": 1.18
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t01-s2",
+            "tableId": "mi-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -5,
+              "y": 0,
+              "z": 3.62
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.46
+      },
+      {
+        "id": "mi-t02",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -5.2,
+          "z": -0.7
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t02-s1",
+            "tableId": "mi-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -5.2,
+              "y": 0,
+              "z": -1.5499999999999998
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t02-s2",
+            "tableId": "mi-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -5.2,
+              "y": 0,
+              "z": 0.15000000000000002
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t02-s3",
+            "tableId": "mi-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.05,
+              "y": 0,
+              "z": -0.7
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "mi-t03",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -4.8,
+          "z": -3.5
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t03-s1",
+            "tableId": "mi-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.8,
+              "y": 0,
+              "z": -4.35
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t03-s2",
+            "tableId": "mi-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -4.8,
+              "y": 0,
+              "z": -2.65
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t03-s3",
+            "tableId": "mi-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -5.6499999999999995,
+              "y": 0,
+              "z": -3.5
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "mi-t04",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -2.4,
+          "z": 0.9
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t04-s1",
+            "tableId": "mi-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.4,
+              "y": 0,
+              "z": 0.050000000000000044
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t04-s2",
+            "tableId": "mi-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.4,
+              "y": 0,
+              "z": 1.75
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t04-s3",
+            "tableId": "mi-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -3.25,
+              "y": 0,
+              "z": 0.9
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "mi-t05",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -2.6,
+          "z": -2.2
+        },
+        "rotation": 0.2,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t05-s1",
+            "tableId": "mi-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.768868931175802,
+              "y": 0,
+              "z": -3.0330565911650558
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t05-s2",
+            "tableId": "mi-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.431131068824198,
+              "y": 0,
+              "z": -1.3669434088349448
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t05-s3",
+            "tableId": "mi-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -3.4330565911650552,
+              "y": 0,
+              "z": -2.031131068824198
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "mi-t06",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -2,
+          "z": 4.2
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t06-s1",
+            "tableId": "mi-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -2,
+              "y": 0,
+              "z": 3.35
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t06-s2",
+            "tableId": "mi-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -2,
+              "y": 0,
+              "z": 5.05
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t06-s3",
+            "tableId": "mi-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.85,
+              "y": 0,
+              "z": 4.2
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "mi-t07",
+        "levelId": "ground",
+        "archetype": "cabaret",
+        "shape": "circle",
+        "center": {
+          "x": 5,
+          "z": -2.6
+        },
+        "rotation": 0.15,
+        "surfaceY": 0.79,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.4,
+        "vignette": null,
+        "legacyType": "cabaret",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t07-s1",
+            "tableId": "mi-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.116561743329408,
+              "y": 0,
+              "z": -1.8287585592098872
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t07-s2",
+            "tableId": "mi-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.228758559209887,
+              "y": 0,
+              "z": -2.483438256670593
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.4
+      },
+      {
+        "id": "mi-t08",
+        "levelId": "ground",
+        "archetype": "cabaret",
+        "shape": "circle",
+        "center": {
+          "x": 6.6,
+          "z": -2.45
+        },
+        "rotation": -0.12,
+        "surfaceY": 0.79,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.4,
+        "vignette": null,
+        "legacyType": "cabaret",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t08-s1",
+            "tableId": "mi-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 6.5066244783146425,
+              "y": 0,
+              "z": -1.6756092640339846
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t08-s2",
+            "tableId": "mi-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.825609264033984,
+              "y": 0,
+              "z": -2.5433755216853573
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.4
+      },
+      {
+        "id": "mi-t09",
+        "levelId": "ground",
+        "archetype": "cabaret",
+        "shape": "circle",
+        "center": {
+          "x": 3.4,
+          "z": -1.8
+        },
+        "rotation": 0.3,
+        "surfaceY": 0.79,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.4,
+        "vignette": null,
+        "legacyType": "cabaret",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t09-s1",
+            "tableId": "mi-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.630505761195845,
+              "y": 0,
+              "z": -1.0548375384820274
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t09-s2",
+            "tableId": "mi-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.654837538482027,
+              "y": 0,
+              "z": -1.5694942388041553
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.4
+      },
+      {
+        "id": "mi-t10",
+        "levelId": "ground",
+        "archetype": "cabaret",
+        "shape": "circle",
+        "center": {
+          "x": 5.4,
+          "z": -0.8
+        },
+        "rotation": 0.05,
+        "surfaceY": 0.79,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.4,
+        "vignette": null,
+        "legacyType": "cabaret",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t10-s1",
+            "tableId": "mi-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.438983752031129,
+              "y": 0,
+              "z": -0.020974796891926273
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t10-s2",
+            "tableId": "mi-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.620974796891927,
+              "y": 0,
+              "z": -0.7610162479688709
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.4
+      },
+      {
+        "id": "mi-t11",
+        "levelId": "ground",
+        "archetype": "cabaret",
+        "shape": "circle",
+        "center": {
+          "x": 2.2,
+          "z": -0.2
+        },
+        "rotation": 0.42,
+        "surfaceY": 0.79,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.4,
+        "vignette": null,
+        "legacyType": "cabaret",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t11-s1",
+            "tableId": "mi-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.518053153386465,
+              "y": 0,
+              "z": 0.5122093734436004
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t11-s2",
+            "tableId": "mi-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.4877906265563996,
+              "y": 0,
+              "z": 0.11805315338646472
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.4
+      },
+      {
+        "id": "mi-t12",
+        "levelId": "ground",
+        "archetype": "cabaret",
+        "shape": "circle",
+        "center": {
+          "x": 4.2,
+          "z": 0.7
+        },
+        "rotation": 0.18,
+        "surfaceY": 0.79,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.4,
+        "vignette": null,
+        "legacyType": "cabaret",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t12-s1",
+            "tableId": "mi-t12",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.339643067272143,
+              "y": 0,
+              "z": 1.4673980803747346
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t12-s2",
+            "tableId": "mi-t12",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.4326019196252653,
+              "y": 0,
+              "z": 0.8396430672721429
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.4
+      },
+      {
+        "id": "mi-t13",
+        "levelId": "ground",
+        "archetype": "booth",
+        "shape": "rect",
+        "center": {
+          "x": 7.5,
+          "z": -2.6
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.36,
+        "vignette": null,
+        "legacyType": "booth",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t13-s1",
+            "tableId": "mi-t13",
+            "levelId": "ground",
+            "pos": {
+              "x": 8.02,
+              "y": 0,
+              "z": -2.6
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t13-s2",
+            "tableId": "mi-t13",
+            "levelId": "ground",
+            "pos": {
+              "x": 6.95,
+              "y": 0,
+              "z": -2.6
+            },
+            "isBar": false
+          }
+        ],
+        "width": 0.75,
+        "depth": 0.75
+      },
+      {
+        "id": "mi-t14",
+        "levelId": "ground",
+        "archetype": "booth",
+        "shape": "rect",
+        "center": {
+          "x": 7.5,
+          "z": -1.3
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.36,
+        "vignette": null,
+        "legacyType": "booth",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t14-s1",
+            "tableId": "mi-t14",
+            "levelId": "ground",
+            "pos": {
+              "x": 8.02,
+              "y": 0,
+              "z": -1.3
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t14-s2",
+            "tableId": "mi-t14",
+            "levelId": "ground",
+            "pos": {
+              "x": 6.95,
+              "y": 0,
+              "z": -1.3
+            },
+            "isBar": false
+          }
+        ],
+        "width": 0.75,
+        "depth": 0.75
+      },
+      {
+        "id": "mi-t15",
+        "levelId": "ground",
+        "archetype": "booth",
+        "shape": "rect",
+        "center": {
+          "x": 7.5,
+          "z": 0
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.36,
+        "vignette": null,
+        "legacyType": "booth",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "mi-t15-s1",
+            "tableId": "mi-t15",
+            "levelId": "ground",
+            "pos": {
+              "x": 8.02,
+              "y": 0,
+              "z": 0
+            },
+            "isBar": false
+          },
+          {
+            "id": "mi-t15-s2",
+            "tableId": "mi-t15",
+            "levelId": "ground",
+            "pos": {
+              "x": 6.95,
+              "y": 0,
+              "z": 0
+            },
+            "isBar": false
+          }
+        ],
+        "width": 0.75,
+        "depth": 0.75
+      },
+      {
+        "id": "mi-bar-l",
+        "levelId": "ground",
+        "archetype": "bar",
+        "shape": "rect",
+        "center": {
+          "x": -4.525,
+          "z": 6.3
+        },
+        "rotation": 0,
+        "width": 6.65,
+        "depth": 0.42,
+        "surfaceY": 1.035,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": false,
+        "barStyle": "classic",
+        "seats": [
+          {
+            "id": "mi-bar-l-s1",
+            "tableId": "mi-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -7.295833333333334,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-l-s2",
+            "tableId": "mi-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.1875,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-l-s3",
+            "tableId": "mi-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -5.0791666666666675,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-l-s4",
+            "tableId": "mi-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -3.9708333333333337,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-l-s5",
+            "tableId": "mi-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.8625,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-l-s6",
+            "tableId": "mi-bar-l",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.7541666666666673,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          }
+        ]
+      },
+      {
+        "id": "mi-bar-r",
+        "levelId": "ground",
+        "archetype": "bar",
+        "shape": "rect",
+        "center": {
+          "x": 4.525,
+          "z": 6.3
+        },
+        "rotation": 0,
+        "width": 6.65,
+        "depth": 0.42,
+        "surfaceY": 1.035,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": false,
+        "barStyle": "classic",
+        "seats": [
+          {
+            "id": "mi-bar-r-s1",
+            "tableId": "mi-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.7541666666666669,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-r-s2",
+            "tableId": "mi-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.8625000000000003,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-r-s3",
+            "tableId": "mi-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.9708333333333337,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-r-s4",
+            "tableId": "mi-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.0791666666666675,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-r-s5",
+            "tableId": "mi-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 6.187500000000001,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "mi-bar-r-s6",
+            "tableId": "mi-bar-r",
+            "levelId": "ground",
+            "pos": {
+              "x": 7.295833333333333,
+              "y": 0.15,
+              "z": 5.7
+            },
+            "isBar": true
+          }
+        ]
+      }
+    ],
+    "seats": [
+      {
+        "id": "mi-t01-s1",
+        "tableId": "mi-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -5,
+          "y": 0,
+          "z": 1.18
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t01-s2",
+        "tableId": "mi-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -5,
+          "y": 0,
+          "z": 3.62
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t02-s1",
+        "tableId": "mi-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -5.2,
+          "y": 0,
+          "z": -1.5499999999999998
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t02-s2",
+        "tableId": "mi-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -5.2,
+          "y": 0,
+          "z": 0.15000000000000002
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t02-s3",
+        "tableId": "mi-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.05,
+          "y": 0,
+          "z": -0.7
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t03-s1",
+        "tableId": "mi-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.8,
+          "y": 0,
+          "z": -4.35
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t03-s2",
+        "tableId": "mi-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -4.8,
+          "y": 0,
+          "z": -2.65
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t03-s3",
+        "tableId": "mi-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -5.6499999999999995,
+          "y": 0,
+          "z": -3.5
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t04-s1",
+        "tableId": "mi-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.4,
+          "y": 0,
+          "z": 0.050000000000000044
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t04-s2",
+        "tableId": "mi-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.4,
+          "y": 0,
+          "z": 1.75
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t04-s3",
+        "tableId": "mi-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -3.25,
+          "y": 0,
+          "z": 0.9
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t05-s1",
+        "tableId": "mi-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.768868931175802,
+          "y": 0,
+          "z": -3.0330565911650558
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t05-s2",
+        "tableId": "mi-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.431131068824198,
+          "y": 0,
+          "z": -1.3669434088349448
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t05-s3",
+        "tableId": "mi-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -3.4330565911650552,
+          "y": 0,
+          "z": -2.031131068824198
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t06-s1",
+        "tableId": "mi-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -2,
+          "y": 0,
+          "z": 3.35
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t06-s2",
+        "tableId": "mi-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -2,
+          "y": 0,
+          "z": 5.05
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t06-s3",
+        "tableId": "mi-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.85,
+          "y": 0,
+          "z": 4.2
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t07-s1",
+        "tableId": "mi-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.116561743329408,
+          "y": 0,
+          "z": -1.8287585592098872
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t07-s2",
+        "tableId": "mi-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.228758559209887,
+          "y": 0,
+          "z": -2.483438256670593
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t08-s1",
+        "tableId": "mi-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 6.5066244783146425,
+          "y": 0,
+          "z": -1.6756092640339846
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t08-s2",
+        "tableId": "mi-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.825609264033984,
+          "y": 0,
+          "z": -2.5433755216853573
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t09-s1",
+        "tableId": "mi-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.630505761195845,
+          "y": 0,
+          "z": -1.0548375384820274
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t09-s2",
+        "tableId": "mi-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.654837538482027,
+          "y": 0,
+          "z": -1.5694942388041553
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t10-s1",
+        "tableId": "mi-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.438983752031129,
+          "y": 0,
+          "z": -0.020974796891926273
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t10-s2",
+        "tableId": "mi-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.620974796891927,
+          "y": 0,
+          "z": -0.7610162479688709
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t11-s1",
+        "tableId": "mi-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.518053153386465,
+          "y": 0,
+          "z": 0.5122093734436004
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t11-s2",
+        "tableId": "mi-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.4877906265563996,
+          "y": 0,
+          "z": 0.11805315338646472
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t12-s1",
+        "tableId": "mi-t12",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.339643067272143,
+          "y": 0,
+          "z": 1.4673980803747346
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t12-s2",
+        "tableId": "mi-t12",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.4326019196252653,
+          "y": 0,
+          "z": 0.8396430672721429
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t13-s1",
+        "tableId": "mi-t13",
+        "levelId": "ground",
+        "pos": {
+          "x": 8.02,
+          "y": 0,
+          "z": -2.6
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t13-s2",
+        "tableId": "mi-t13",
+        "levelId": "ground",
+        "pos": {
+          "x": 6.95,
+          "y": 0,
+          "z": -2.6
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t14-s1",
+        "tableId": "mi-t14",
+        "levelId": "ground",
+        "pos": {
+          "x": 8.02,
+          "y": 0,
+          "z": -1.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t14-s2",
+        "tableId": "mi-t14",
+        "levelId": "ground",
+        "pos": {
+          "x": 6.95,
+          "y": 0,
+          "z": -1.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t15-s1",
+        "tableId": "mi-t15",
+        "levelId": "ground",
+        "pos": {
+          "x": 8.02,
+          "y": 0,
+          "z": 0
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-t15-s2",
+        "tableId": "mi-t15",
+        "levelId": "ground",
+        "pos": {
+          "x": 6.95,
+          "y": 0,
+          "z": 0
+        },
+        "isBar": false
+      },
+      {
+        "id": "mi-bar-l-s1",
+        "tableId": "mi-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -7.295833333333334,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-l-s2",
+        "tableId": "mi-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.1875,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-l-s3",
+        "tableId": "mi-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -5.0791666666666675,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-l-s4",
+        "tableId": "mi-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -3.9708333333333337,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-l-s5",
+        "tableId": "mi-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.8625,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-l-s6",
+        "tableId": "mi-bar-l",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.7541666666666673,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-r-s1",
+        "tableId": "mi-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.7541666666666669,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-r-s2",
+        "tableId": "mi-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.8625000000000003,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-r-s3",
+        "tableId": "mi-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.9708333333333337,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-r-s4",
+        "tableId": "mi-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.0791666666666675,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-r-s5",
+        "tableId": "mi-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 6.187500000000001,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "mi-bar-r-s6",
+        "tableId": "mi-bar-r",
+        "levelId": "ground",
+        "pos": {
+          "x": 7.295833333333333,
+          "y": 0.15,
+          "z": 5.7
+        },
+        "isBar": true
+      }
+    ],
+    "serviceZones": [
+      {
+        "id": "mi-counter",
+        "levelId": "ground",
+        "kind": "serviceCounter",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "anchors": {
+          "register": {
+            "x": 2.2,
+            "z": -6.15
+          },
+          "espresso": {
+            "x": -2.2,
+            "z": -6.15
+          },
+          "pastryCase": {
+            "x": -3.9,
+            "z": -6.15
+          },
+          "restock": {
+            "x": 0.4,
+            "z": -6.15
+          },
+          "queue": {
+            "x": 2.2,
+            "z": -4.55
+          },
+          "pickup": {
+            "x": -0.7,
+            "z": -4.55
+          },
+          "dirtyDish": {
+            "x": 4,
+            "z": -4.15
+          },
+          "waiterStandby": {
+            "x": -4.6,
+            "z": -4.25
+          }
+        }
+      }
+    ],
+    "npcDestinations": [
+      {
+        "id": "mi-door",
+        "levelId": "ground",
+        "x": 0,
+        "z": 6.35,
+        "role": "any",
+        "purpose": "entrance"
+      },
+      {
+        "id": "mi-queue",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "order"
+      },
+      {
+        "id": "mi-pickup",
+        "levelId": "ground",
+        "x": -0.7,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "pickup"
+      },
+      {
+        "id": "mi-barista-home",
+        "levelId": "ground",
+        "x": -1,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "mi-barista-register",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "mi-barista-machine",
+        "levelId": "ground",
+        "x": -2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "mi-dirty-dish",
+        "levelId": "ground",
+        "x": 4,
+        "z": -4.15,
+        "role": "waiter",
+        "purpose": "staff"
+      },
+      {
+        "id": "mi-waiter-standby",
+        "levelId": "ground",
+        "x": -4.6,
+        "z": -4.25,
+        "role": "waiter",
+        "purpose": "staff"
+      },
+      {
+        "id": "mi-stage-mic",
+        "levelId": "ground",
+        "x": 5.75,
+        "z": -4.85,
+        "role": "performer",
+        "purpose": "perform"
+      },
+      {
+        "id": "mi-stage-rest",
+        "levelId": "ground",
+        "x": 8,
+        "z": -3.62,
+        "role": "performer",
+        "purpose": "rest"
+      }
+    ],
+    "npcForbiddenZones": [
+      {
+        "id": "mi-staff-counter",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "appliesTo": "patron",
+        "exceptRoles": [
+          "barista",
+          "waiter"
+        ]
+      },
+      {
+        "id": "mi-stage-zone",
+        "levelId": "ground",
+        "rect": {
+          "x0": 4.9,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": -4.2
+        },
+        "appliesTo": "patron",
+        "exceptRoles": [
+          "performer"
+        ]
+      }
+    ],
+    "colliders": [
+      {
+        "id": "mi-t01-col",
+        "levelId": "ground",
+        "x": -5,
+        "z": 2.4,
+        "r": 1.05
+      },
+      {
+        "id": "mi-t02-col",
+        "levelId": "ground",
+        "x": -5.2,
+        "z": -0.7,
+        "r": 1.05
+      },
+      {
+        "id": "mi-t03-col",
+        "levelId": "ground",
+        "x": -4.8,
+        "z": -3.5,
+        "r": 1.05
+      },
+      {
+        "id": "mi-t04-col",
+        "levelId": "ground",
+        "x": -2.4,
+        "z": 0.9,
+        "r": 1.05
+      },
+      {
+        "id": "mi-t05-col",
+        "levelId": "ground",
+        "x": -2.6,
+        "z": -2.2,
+        "r": 1.05
+      },
+      {
+        "id": "mi-t06-col",
+        "levelId": "ground",
+        "x": -2,
+        "z": 4.2,
+        "r": 1.05
+      },
+      {
+        "id": "mi-t07-col",
+        "levelId": "ground",
+        "x": 5,
+        "z": -2.6,
+        "r": 0.85
+      },
+      {
+        "id": "mi-t08-col",
+        "levelId": "ground",
+        "x": 6.6,
+        "z": -2.45,
+        "r": 0.85
+      },
+      {
+        "id": "mi-t09-col",
+        "levelId": "ground",
+        "x": 3.4,
+        "z": -1.8,
+        "r": 0.85
+      },
+      {
+        "id": "mi-t10-col",
+        "levelId": "ground",
+        "x": 5.4,
+        "z": -0.8,
+        "r": 0.85
+      },
+      {
+        "id": "mi-t11-col",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -0.2,
+        "r": 0.85
+      },
+      {
+        "id": "mi-t12-col",
+        "levelId": "ground",
+        "x": 4.2,
+        "z": 0.7,
+        "r": 0.85
+      },
+      {
+        "id": "mi-t13-col",
+        "levelId": "ground",
+        "x": 7.5,
+        "z": -2.6,
+        "r": 0.95
+      },
+      {
+        "id": "mi-t14-col",
+        "levelId": "ground",
+        "x": 7.5,
+        "z": -1.3,
+        "r": 0.95
+      },
+      {
+        "id": "mi-t15-col",
+        "levelId": "ground",
+        "x": 7.5,
+        "z": 0,
+        "r": 0.95
+      },
+      {
+        "id": "mi-counter-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        }
+      },
+      {
+        "id": "mi-bar-l-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -8.5,
+          "x1": -0.8500000000000001,
+          "z0": 5.85,
+          "z1": 6.75
+        }
+      },
+      {
+        "id": "mi-bar-r-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": 0.8500000000000001,
+          "x1": 8.5,
+          "z0": 5.85,
+          "z1": 6.75
+        }
+      },
+      {
+        "id": "mi-stage-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": 4.9,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": -4.2
+        }
+      },
+      {
+        "id": "mi-booth-bench-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": 7.78,
+          "x1": 8.5,
+          "z0": -3.3,
+          "z1": 0.65
+        }
+      }
+    ],
+    "decor": {
+      "plantSpots": [
+        [
+          -7.8,
+          -6.05
+        ],
+        [
+          7.8,
+          5.45
+        ],
+        [
+          -7.7,
+          5.6
+        ],
+        [
+          -7.9,
+          3.6
+        ],
+        [
+          -7.9,
+          -2
+        ],
+        [
+          7.9,
+          1.25
+        ],
+        [
+          3.8,
+          -5
+        ],
+        [
+          -3.6,
+          -5
+        ],
+        [
+          -0.9,
+          5.6
+        ]
+      ],
+      "stage": {
+        "rect": {
+          "x0": 4.9,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": -4.2
+        },
+        "height": 0.18,
+        "anchors": {
+          "piano": {
+            "x": 7.45,
+            "z": -5.55,
+            "rot": -2.35
+          },
+          "mic": {
+            "x": 5.75,
+            "z": -4.85,
+            "rot": 0.35
+          },
+          "bass": {
+            "x": 6.6,
+            "z": -6.05,
+            "rot": 0.5
+          }
+        },
+        "restSpot": {
+          "x": 8,
+          "z": -3.62
+        },
+        "speakers": [
+          {
+            "x": 5.15,
+            "z": -4.55
+          },
+          {
+            "x": 8.25,
+            "z": -4.5
+          }
+        ],
+        "curtain": {
+          "z": -6.61,
+          "x0": 5.1,
+          "x1": 8.35,
+          "y0": 0.18,
+          "y1": 3
+        }
+      },
+      "boothRun": {
+        "x": 8.05,
+        "z0": -3.15,
+        "z1": 0.55
+      },
+      "rightWall": {
+        "art": [
+          {
+            "z": -3.8,
+            "y": 1.8
+          },
+          {
+            "z": -0.35,
+            "y": 2.05
+          }
+        ],
+        "clock": {
+          "z": 1.2,
+          "y": 2.55
+        },
+        "mirror": {
+          "z": 5.5,
+          "y": 2.35
+        }
+      }
+    },
+    "lighting": {
+      "pendant": "drum",
+      "lampY": 2.25
+    },
+    "auditViews": [
+      {
+        "id": "mi-room-from-entrance",
+        "pos": [
+          0,
+          1.7,
+          5.9
+        ],
+        "lookAt": [
+          3.5,
+          0.9,
+          -5
+        ]
+      },
+      {
+        "id": "mi-stage-from-center",
+        "pos": [
+          4.2,
+          1.5,
+          -1
+        ],
+        "lookAt": [
+          6.6,
+          0.8,
+          -5.4
+        ]
+      },
+      {
+        "id": "mi-stage-from-left",
+        "pos": [
+          2.6,
+          1.5,
+          -3.4
+        ],
+        "lookAt": [
+          6.8,
+          0.7,
+          -5.6
+        ]
+      },
+      {
+        "id": "mi-stage-from-right",
+        "pos": [
+          7.15,
+          1.5,
+          -1.9
+        ],
+        "lookAt": [
+          6.2,
+          0.7,
+          -5.4
+        ]
+      },
+      {
+        "id": "mi-stage-edge-closeup",
+        "pos": [
+          5.4,
+          1.1,
+          -3.4
+        ],
+        "lookAt": [
+          6.4,
+          0.4,
+          -5
+        ]
+      },
+      {
+        "id": "mi-cabaret-arcs",
+        "pos": [
+          1.4,
+          1.7,
+          1.6
+        ],
+        "lookAt": [
+          5.4,
+          0.8,
+          -2.4
+        ]
+      },
+      {
+        "id": "mi-booth-run",
+        "pos": [
+          5.6,
+          1.5,
+          1.4
+        ],
+        "lookAt": [
+          7.9,
+          0.9,
+          -1.4
+        ]
+      },
+      {
+        "id": "mi-record-wall",
+        "pos": [
+          5.4,
+          1.5,
+          3
+        ],
+        "lookAt": [
+          8.2,
+          1.2,
+          3.2
+        ]
+      },
+      {
+        "id": "mi-service-aisle",
+        "pos": [
+          6.9,
+          1.6,
+          1.8
+        ],
+        "lookAt": [
+          7.1,
+          0.9,
+          -3.6
+        ]
+      },
+      {
+        "id": "mi-service-queue",
+        "pos": [
+          2.2,
+          1.7,
+          -1.6
+        ],
+        "lookAt": [
+          1.2,
+          1,
+          -5.4
+        ]
+      },
+      {
+        "id": "mi-window-bar-night",
+        "pos": [
+          0,
+          1.8,
+          1.2
+        ],
+        "lookAt": [
+          0,
+          1,
+          6.3
+        ]
+      }
+    ],
+    "contract": {
+      "stage": {
+        "rect": {
+          "x0": 4.9,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": -4.2
+        },
+        "minHeight": 0.16,
+        "maxHeight": 0.22,
+        "anchors": [
+          "piano",
+          "mic",
+          "bass"
+        ],
+        "cabaretDistance": {
+          "min": 1.4,
+          "max": 1.9
+        },
+        "minCabaretTables": 4
+      },
+      "boothRun": {
+        "minSeats": 4
+      }
+    }
+  },
+  "terrace": {
+    "id": "terrace",
+    "style": "garden-terrace",
+    "prefix": "te",
+    "levels": [
+      {
+        "id": "ground",
+        "y": 0
+      },
+      {
+        "id": "stairs",
+        "y": 0
+      },
+      {
+        "id": "upper",
+        "y": 3.25
+      }
+    ],
+    "rooms": [
+      {
+        "id": "te-main",
+        "levelId": "ground",
+        "bounds": {
+          "x0": -8.5,
+          "x1": 8.5,
+          "z0": -6.75,
+          "z1": 6.75
+        }
+      },
+      {
+        "id": "te-upper-room",
+        "levelId": "upper",
+        "bounds": {
+          "x0": -8.5,
+          "x1": -3.42,
+          "z0": -6.75,
+          "z1": 3
+        }
+      },
+      {
+        "id": "te-stair-room",
+        "levelId": "stairs",
+        "bounds": {
+          "x0": -4.55,
+          "x1": -2.3,
+          "z0": -2,
+          "z1": 2
+        }
+      }
+    ],
+    "walkSurfaces": [
+      {
+        "id": "te-ground-floor",
+        "levelId": "ground",
+        "y": 0,
+        "polygon": [
+          {
+            "x": -8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": -6.75
+          },
+          {
+            "x": 8.5,
+            "z": 6.75
+          },
+          {
+            "x": -8.5,
+            "z": 6.75
+          }
+        ]
+      },
+      {
+        "id": "te-stair-a",
+        "levelId": "stairs",
+        "polygon": [
+          {
+            "x": -3.35,
+            "z": -2
+          },
+          {
+            "x": -2.3,
+            "z": -2
+          },
+          {
+            "x": -2.3,
+            "z": 0.85
+          },
+          {
+            "x": -3.35,
+            "z": 0.85
+          }
+        ],
+        "ramp": {
+          "axis": "z",
+          "from": -2,
+          "to": 0.85,
+          "y0": 0,
+          "y1": 1.625
+        }
+      },
+      {
+        "id": "te-stair-landing",
+        "levelId": "stairs",
+        "y": 1.625,
+        "polygon": [
+          {
+            "x": -4.55,
+            "z": 0.85
+          },
+          {
+            "x": -2.3,
+            "z": 0.85
+          },
+          {
+            "x": -2.3,
+            "z": 2
+          },
+          {
+            "x": -4.55,
+            "z": 2
+          }
+        ]
+      },
+      {
+        "id": "te-stair-b",
+        "levelId": "stairs",
+        "polygon": [
+          {
+            "x": -4.55,
+            "z": -2
+          },
+          {
+            "x": -3.5,
+            "z": -2
+          },
+          {
+            "x": -3.5,
+            "z": 0.85
+          },
+          {
+            "x": -4.55,
+            "z": 0.85
+          }
+        ],
+        "ramp": {
+          "axis": "z",
+          "from": 0.85,
+          "to": -2,
+          "y0": 1.625,
+          "y1": 3.25
+        }
+      },
+      {
+        "id": "te-upper-deck",
+        "levelId": "upper",
+        "y": 3.25,
+        "polygon": [
+          {
+            "x": -8.5,
+            "z": -6.75
+          },
+          {
+            "x": -4.55,
+            "z": -6.75
+          },
+          {
+            "x": -4.55,
+            "z": -3.3
+          },
+          {
+            "x": -3.42,
+            "z": -3.3
+          },
+          {
+            "x": -3.42,
+            "z": -1.95
+          },
+          {
+            "x": -4.55,
+            "z": -1.95
+          },
+          {
+            "x": -4.55,
+            "z": 3
+          },
+          {
+            "x": -8.5,
+            "z": 3
+          }
+        ]
+      }
+    ],
+    "verticalLinks": [
+      {
+        "id": "te-stair-bottom",
+        "kind": "stair",
+        "a": {
+          "surfaceId": "te-ground-floor",
+          "portal": {
+            "x": -2.82,
+            "z": -2.45,
+            "r": 0.6
+          }
+        },
+        "b": {
+          "surfaceId": "te-stair-a",
+          "portal": {
+            "x": -2.82,
+            "z": -1.95,
+            "r": 0.3
+          }
+        },
+        "path": [
+          {
+            "x": -2.82,
+            "y": 0,
+            "z": -2.55
+          },
+          {
+            "x": -2.82,
+            "y": 0.24,
+            "z": -1.55
+          }
+        ]
+      },
+      {
+        "id": "te-seam-a-landing",
+        "kind": "seam",
+        "a": {
+          "surfaceId": "te-stair-a",
+          "portal": {
+            "x": -2.82,
+            "z": 0.65,
+            "r": 0.45
+          }
+        },
+        "b": {
+          "surfaceId": "te-stair-landing",
+          "portal": {
+            "x": -2.82,
+            "z": 1.1,
+            "r": 0.45
+          }
+        },
+        "path": [
+          {
+            "x": -2.82,
+            "y": 1.51,
+            "z": 0.65
+          },
+          {
+            "x": -2.82,
+            "y": 1.625,
+            "z": 1.15
+          }
+        ]
+      },
+      {
+        "id": "te-seam-landing-b",
+        "kind": "seam",
+        "a": {
+          "surfaceId": "te-stair-landing",
+          "portal": {
+            "x": -4.02,
+            "z": 1.1,
+            "r": 0.45
+          }
+        },
+        "b": {
+          "surfaceId": "te-stair-b",
+          "portal": {
+            "x": -4.02,
+            "z": 0.65,
+            "r": 0.45
+          }
+        },
+        "path": [
+          {
+            "x": -4.02,
+            "y": 1.625,
+            "z": 1.15
+          },
+          {
+            "x": -4.02,
+            "y": 1.74,
+            "z": 0.65
+          }
+        ]
+      },
+      {
+        "id": "te-stair-top",
+        "kind": "stair",
+        "a": {
+          "surfaceId": "te-stair-b",
+          "portal": {
+            "x": -4.02,
+            "z": -1.65,
+            "r": 0.5
+          }
+        },
+        "b": {
+          "surfaceId": "te-upper-deck",
+          "portal": {
+            "x": -4,
+            "z": -2.5,
+            "r": 0.55
+          }
+        },
+        "path": [
+          {
+            "x": -4.02,
+            "y": 3.05,
+            "z": -1.6
+          },
+          {
+            "x": -4,
+            "y": 3.25,
+            "z": -2.55
+          }
+        ]
+      }
+    ],
+    "entranceSurfaceId": "te-ground-floor",
+    "tables": [
+      {
+        "id": "te-t01",
+        "levelId": "ground",
+        "archetype": "lounge",
+        "shape": "circle",
+        "center": {
+          "x": -6.6,
+          "z": 2.2
+        },
+        "rotation": 0,
+        "surfaceY": 0.58,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.46,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": true,
+        "seats": [
+          {
+            "id": "te-t01-s1",
+            "tableId": "te-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.6,
+              "y": 0,
+              "z": 0.9800000000000002
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t01-s2",
+            "tableId": "te-t01",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.6,
+              "y": 0,
+              "z": 3.42
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.46
+      },
+      {
+        "id": "te-t02",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -6.3,
+          "z": -0.8
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t02-s1",
+            "tableId": "te-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.3,
+              "y": 0,
+              "z": -1.65
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t02-s2",
+            "tableId": "te-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.3,
+              "y": 0,
+              "z": 0.04999999999999993
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t02-s3",
+            "tableId": "te-t02",
+            "levelId": "ground",
+            "pos": {
+              "x": -7.1499999999999995,
+              "y": 0,
+              "z": -0.8
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t03",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -6,
+          "z": -3.9
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t03-s1",
+            "tableId": "te-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -6,
+              "y": 0,
+              "z": -4.75
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t03-s2",
+            "tableId": "te-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -6,
+              "y": 0,
+              "z": -3.05
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t03-s3",
+            "tableId": "te-t03",
+            "levelId": "ground",
+            "pos": {
+              "x": -6.85,
+              "y": 0,
+              "z": -3.9
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t04",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -1.6,
+          "z": 1.4
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t04-s1",
+            "tableId": "te-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.6,
+              "y": 0,
+              "z": 0.5499999999999999
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t04-s2",
+            "tableId": "te-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.6,
+              "y": 0,
+              "z": 2.25
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t04-s3",
+            "tableId": "te-t04",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.45,
+              "y": 0,
+              "z": 1.4
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t05",
+        "levelId": "ground",
+        "archetype": "square",
+        "shape": "rect",
+        "center": {
+          "x": -1.5,
+          "z": -3
+        },
+        "rotation": 0.2,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.475,
+        "vignette": null,
+        "legacyType": "square",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t05-s1",
+            "tableId": "te-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.668868931175802,
+              "y": 0,
+              "z": -3.8330565911650556
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t05-s2",
+            "tableId": "te-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.331131068824198,
+              "y": 0,
+              "z": -2.1669434088349444
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t05-s3",
+            "tableId": "te-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.3330565911650556,
+              "y": 0,
+              "z": -2.831131068824198
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t05-s4",
+            "tableId": "te-t05",
+            "levelId": "ground",
+            "pos": {
+              "x": -0.6669434088349446,
+              "y": 0,
+              "z": -3.168868931175802
+            },
+            "isBar": false
+          }
+        ],
+        "width": 0.95,
+        "depth": 0.95
+      },
+      {
+        "id": "te-t06",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -1.9,
+          "z": 4.3
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t06-s1",
+            "tableId": "te-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.9,
+              "y": 0,
+              "z": 3.4499999999999997
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t06-s2",
+            "tableId": "te-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -1.9,
+              "y": 0,
+              "z": 5.1499999999999995
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t06-s3",
+            "tableId": "te-t06",
+            "levelId": "ground",
+            "pos": {
+              "x": -2.75,
+              "y": 0,
+              "z": 4.3
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t07",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 2.2,
+          "z": 2.7
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t07-s1",
+            "tableId": "te-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.2,
+              "y": 0,
+              "z": 1.85
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t07-s2",
+            "tableId": "te-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.2,
+              "y": 0,
+              "z": 3.5500000000000003
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t07-s3",
+            "tableId": "te-t07",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.35,
+              "y": 0,
+              "z": 2.7
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t08",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 2.1,
+          "z": -0.4
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t08-s1",
+            "tableId": "te-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.1,
+              "y": 0,
+              "z": -1.25
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t08-s2",
+            "tableId": "te-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.1,
+              "y": 0,
+              "z": 0.44999999999999996
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t08-s3",
+            "tableId": "te-t08",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.25,
+              "y": 0,
+              "z": -0.4
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t09",
+        "levelId": "ground",
+        "archetype": "square",
+        "shape": "rect",
+        "center": {
+          "x": 2.4,
+          "z": -3.3
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.475,
+        "vignette": null,
+        "legacyType": "square",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t09-s1",
+            "tableId": "te-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.4,
+              "y": 0,
+              "z": -4.1499999999999995
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t09-s2",
+            "tableId": "te-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 2.4,
+              "y": 0,
+              "z": -2.4499999999999997
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t09-s3",
+            "tableId": "te-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 1.5499999999999998,
+              "y": 0,
+              "z": -3.3
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t09-s4",
+            "tableId": "te-t09",
+            "levelId": "ground",
+            "pos": {
+              "x": 3.25,
+              "y": 0,
+              "z": -3.3
+            },
+            "isBar": false
+          }
+        ],
+        "width": 0.95,
+        "depth": 0.95
+      },
+      {
+        "id": "te-t10",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 5.1,
+          "z": 1.2
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t10-s1",
+            "tableId": "te-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.1,
+              "y": 0,
+              "z": 0.35
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t10-s2",
+            "tableId": "te-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.1,
+              "y": 0,
+              "z": 2.05
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t10-s3",
+            "tableId": "te-t10",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.25,
+              "y": 0,
+              "z": 1.2
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t11",
+        "levelId": "ground",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": 5.2,
+          "z": -2.1
+        },
+        "rotation": 0,
+        "surfaceY": 0.81,
+        "baseY": 0,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t11-s1",
+            "tableId": "te-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.2,
+              "y": 0,
+              "z": -2.95
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t11-s2",
+            "tableId": "te-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 5.2,
+              "y": 0,
+              "z": -1.25
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t11-s3",
+            "tableId": "te-t11",
+            "levelId": "ground",
+            "pos": {
+              "x": 4.3500000000000005,
+              "y": 0,
+              "z": -2.1
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t12",
+        "levelId": "upper",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -7.2,
+          "z": -4.9
+        },
+        "rotation": 0,
+        "surfaceY": 4.0600000000000005,
+        "baseY": 3.25,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t12-s1",
+            "tableId": "te-t12",
+            "levelId": "upper",
+            "pos": {
+              "x": -7.2,
+              "y": 3.25,
+              "z": -5.75
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t12-s2",
+            "tableId": "te-t12",
+            "levelId": "upper",
+            "pos": {
+              "x": -7.2,
+              "y": 3.25,
+              "z": -4.050000000000001
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t12-s3",
+            "tableId": "te-t12",
+            "levelId": "upper",
+            "pos": {
+              "x": -8.05,
+              "y": 3.25,
+              "z": -4.9
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t13",
+        "levelId": "upper",
+        "archetype": "round",
+        "shape": "circle",
+        "center": {
+          "x": -7.3,
+          "z": -0.3
+        },
+        "rotation": 0,
+        "surfaceY": 4.0600000000000005,
+        "baseY": 3.25,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.52,
+        "vignette": null,
+        "legacyType": "round",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t13-s1",
+            "tableId": "te-t13",
+            "levelId": "upper",
+            "pos": {
+              "x": -7.3,
+              "y": 3.25,
+              "z": -1.15
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t13-s2",
+            "tableId": "te-t13",
+            "levelId": "upper",
+            "pos": {
+              "x": -7.3,
+              "y": 3.25,
+              "z": 0.55
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t13-s3",
+            "tableId": "te-t13",
+            "levelId": "upper",
+            "pos": {
+              "x": -8.15,
+              "y": 3.25,
+              "z": -0.3
+            },
+            "isBar": false
+          }
+        ],
+        "radius": 0.52
+      },
+      {
+        "id": "te-t14",
+        "levelId": "upper",
+        "archetype": "writing",
+        "shape": "rect",
+        "center": {
+          "x": -6.1,
+          "z": 1.9
+        },
+        "rotation": 0.5,
+        "surfaceY": 4.0600000000000005,
+        "baseY": 3.25,
+        "supportMargin": 0.02,
+        "isBar": false,
+        "clampRadius": 0.34,
+        "vignette": null,
+        "legacyType": "writing",
+        "lounge": false,
+        "seats": [
+          {
+            "id": "te-t14-s1",
+            "tableId": "te-t14",
+            "levelId": "upper",
+            "pos": {
+              "x": -5.692488292186427,
+              "y": 3.25,
+              "z": 2.6459451776068166
+            },
+            "isBar": false
+          },
+          {
+            "id": "te-t14-s2",
+            "tableId": "te-t14",
+            "levelId": "upper",
+            "pos": {
+              "x": -5.362181673924987,
+              "y": 3.25,
+              "z": 1.2690292259479325
+            },
+            "isBar": false
+          }
+        ],
+        "width": 1.15,
+        "depth": 0.7
+      },
+      {
+        "id": "te-overlook-rail",
+        "levelId": "upper",
+        "archetype": "rail",
+        "shape": "rect",
+        "center": {
+          "x": -4.85,
+          "z": -4.7
+        },
+        "rotation": 0,
+        "width": 0.4,
+        "depth": 2,
+        "surfaceY": 4.285,
+        "baseY": 3.25,
+        "supportMargin": 0.02,
+        "isBar": true,
+        "footRail": true,
+        "railAxis": "z",
+        "seats": [
+          {
+            "id": "te-overlook-rail-s1",
+            "tableId": "te-overlook-rail",
+            "levelId": "upper",
+            "pos": {
+              "x": -5.3999999999999995,
+              "y": 3.4,
+              "z": -5.35
+            },
+            "isBar": true
+          },
+          {
+            "id": "te-overlook-rail-s2",
+            "tableId": "te-overlook-rail",
+            "levelId": "upper",
+            "pos": {
+              "x": -5.3999999999999995,
+              "y": 3.4,
+              "z": -4.7
+            },
+            "isBar": true
+          },
+          {
+            "id": "te-overlook-rail-s3",
+            "tableId": "te-overlook-rail",
+            "levelId": "upper",
+            "pos": {
+              "x": -5.3999999999999995,
+              "y": 3.4,
+              "z": -4.05
+            },
+            "isBar": true
+          }
+        ]
+      }
+    ],
+    "seats": [
+      {
+        "id": "te-t01-s1",
+        "tableId": "te-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.6,
+          "y": 0,
+          "z": 0.9800000000000002
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t01-s2",
+        "tableId": "te-t01",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.6,
+          "y": 0,
+          "z": 3.42
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t02-s1",
+        "tableId": "te-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.3,
+          "y": 0,
+          "z": -1.65
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t02-s2",
+        "tableId": "te-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.3,
+          "y": 0,
+          "z": 0.04999999999999993
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t02-s3",
+        "tableId": "te-t02",
+        "levelId": "ground",
+        "pos": {
+          "x": -7.1499999999999995,
+          "y": 0,
+          "z": -0.8
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t03-s1",
+        "tableId": "te-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -6,
+          "y": 0,
+          "z": -4.75
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t03-s2",
+        "tableId": "te-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -6,
+          "y": 0,
+          "z": -3.05
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t03-s3",
+        "tableId": "te-t03",
+        "levelId": "ground",
+        "pos": {
+          "x": -6.85,
+          "y": 0,
+          "z": -3.9
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t04-s1",
+        "tableId": "te-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.6,
+          "y": 0,
+          "z": 0.5499999999999999
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t04-s2",
+        "tableId": "te-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.6,
+          "y": 0,
+          "z": 2.25
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t04-s3",
+        "tableId": "te-t04",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.45,
+          "y": 0,
+          "z": 1.4
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t05-s1",
+        "tableId": "te-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.668868931175802,
+          "y": 0,
+          "z": -3.8330565911650556
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t05-s2",
+        "tableId": "te-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.331131068824198,
+          "y": 0,
+          "z": -2.1669434088349444
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t05-s3",
+        "tableId": "te-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.3330565911650556,
+          "y": 0,
+          "z": -2.831131068824198
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t05-s4",
+        "tableId": "te-t05",
+        "levelId": "ground",
+        "pos": {
+          "x": -0.6669434088349446,
+          "y": 0,
+          "z": -3.168868931175802
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t06-s1",
+        "tableId": "te-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.9,
+          "y": 0,
+          "z": 3.4499999999999997
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t06-s2",
+        "tableId": "te-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -1.9,
+          "y": 0,
+          "z": 5.1499999999999995
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t06-s3",
+        "tableId": "te-t06",
+        "levelId": "ground",
+        "pos": {
+          "x": -2.75,
+          "y": 0,
+          "z": 4.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t07-s1",
+        "tableId": "te-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.2,
+          "y": 0,
+          "z": 1.85
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t07-s2",
+        "tableId": "te-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.2,
+          "y": 0,
+          "z": 3.5500000000000003
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t07-s3",
+        "tableId": "te-t07",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.35,
+          "y": 0,
+          "z": 2.7
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t08-s1",
+        "tableId": "te-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.1,
+          "y": 0,
+          "z": -1.25
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t08-s2",
+        "tableId": "te-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.1,
+          "y": 0,
+          "z": 0.44999999999999996
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t08-s3",
+        "tableId": "te-t08",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.25,
+          "y": 0,
+          "z": -0.4
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t09-s1",
+        "tableId": "te-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.4,
+          "y": 0,
+          "z": -4.1499999999999995
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t09-s2",
+        "tableId": "te-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 2.4,
+          "y": 0,
+          "z": -2.4499999999999997
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t09-s3",
+        "tableId": "te-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 1.5499999999999998,
+          "y": 0,
+          "z": -3.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t09-s4",
+        "tableId": "te-t09",
+        "levelId": "ground",
+        "pos": {
+          "x": 3.25,
+          "y": 0,
+          "z": -3.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t10-s1",
+        "tableId": "te-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.1,
+          "y": 0,
+          "z": 0.35
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t10-s2",
+        "tableId": "te-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.1,
+          "y": 0,
+          "z": 2.05
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t10-s3",
+        "tableId": "te-t10",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.25,
+          "y": 0,
+          "z": 1.2
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t11-s1",
+        "tableId": "te-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.2,
+          "y": 0,
+          "z": -2.95
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t11-s2",
+        "tableId": "te-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 5.2,
+          "y": 0,
+          "z": -1.25
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t11-s3",
+        "tableId": "te-t11",
+        "levelId": "ground",
+        "pos": {
+          "x": 4.3500000000000005,
+          "y": 0,
+          "z": -2.1
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t12-s1",
+        "tableId": "te-t12",
+        "levelId": "upper",
+        "pos": {
+          "x": -7.2,
+          "y": 3.25,
+          "z": -5.75
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t12-s2",
+        "tableId": "te-t12",
+        "levelId": "upper",
+        "pos": {
+          "x": -7.2,
+          "y": 3.25,
+          "z": -4.050000000000001
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t12-s3",
+        "tableId": "te-t12",
+        "levelId": "upper",
+        "pos": {
+          "x": -8.05,
+          "y": 3.25,
+          "z": -4.9
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t13-s1",
+        "tableId": "te-t13",
+        "levelId": "upper",
+        "pos": {
+          "x": -7.3,
+          "y": 3.25,
+          "z": -1.15
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t13-s2",
+        "tableId": "te-t13",
+        "levelId": "upper",
+        "pos": {
+          "x": -7.3,
+          "y": 3.25,
+          "z": 0.55
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t13-s3",
+        "tableId": "te-t13",
+        "levelId": "upper",
+        "pos": {
+          "x": -8.15,
+          "y": 3.25,
+          "z": -0.3
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t14-s1",
+        "tableId": "te-t14",
+        "levelId": "upper",
+        "pos": {
+          "x": -5.692488292186427,
+          "y": 3.25,
+          "z": 2.6459451776068166
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-t14-s2",
+        "tableId": "te-t14",
+        "levelId": "upper",
+        "pos": {
+          "x": -5.362181673924987,
+          "y": 3.25,
+          "z": 1.2690292259479325
+        },
+        "isBar": false
+      },
+      {
+        "id": "te-overlook-rail-s1",
+        "tableId": "te-overlook-rail",
+        "levelId": "upper",
+        "pos": {
+          "x": -5.3999999999999995,
+          "y": 3.4,
+          "z": -5.35
+        },
+        "isBar": true
+      },
+      {
+        "id": "te-overlook-rail-s2",
+        "tableId": "te-overlook-rail",
+        "levelId": "upper",
+        "pos": {
+          "x": -5.3999999999999995,
+          "y": 3.4,
+          "z": -4.7
+        },
+        "isBar": true
+      },
+      {
+        "id": "te-overlook-rail-s3",
+        "tableId": "te-overlook-rail",
+        "levelId": "upper",
+        "pos": {
+          "x": -5.3999999999999995,
+          "y": 3.4,
+          "z": -4.05
+        },
+        "isBar": true
+      }
+    ],
+    "serviceZones": [
+      {
+        "id": "te-counter",
+        "levelId": "ground",
+        "kind": "serviceCounter",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "anchors": {
+          "register": {
+            "x": 2.2,
+            "z": -6.15
+          },
+          "espresso": {
+            "x": -2.2,
+            "z": -6.15
+          },
+          "pastryCase": {
+            "x": -3.9,
+            "z": -6.15
+          },
+          "restock": {
+            "x": 0.4,
+            "z": -6.15
+          },
+          "queue": {
+            "x": 2.2,
+            "z": -4.55
+          },
+          "pickup": {
+            "x": -0.7,
+            "z": -4.55
+          },
+          "dirtyDish": {
+            "x": 4,
+            "z": -4.15
+          },
+          "waiterStandby": {
+            "x": -4.6,
+            "z": -4.25
+          }
+        }
+      }
+    ],
+    "npcDestinations": [
+      {
+        "id": "te-door",
+        "levelId": "ground",
+        "x": 0,
+        "z": 6.35,
+        "role": "any",
+        "purpose": "entrance"
+      },
+      {
+        "id": "te-queue",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "order"
+      },
+      {
+        "id": "te-pickup",
+        "levelId": "ground",
+        "x": -0.7,
+        "z": -4.55,
+        "role": "patron",
+        "purpose": "pickup"
+      },
+      {
+        "id": "te-barista-home",
+        "levelId": "ground",
+        "x": -1,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "te-barista-register",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "te-barista-machine",
+        "levelId": "ground",
+        "x": -2.2,
+        "z": -6.15,
+        "role": "barista",
+        "purpose": "staff"
+      },
+      {
+        "id": "te-dirty-dish",
+        "levelId": "ground",
+        "x": 4,
+        "z": -4.15,
+        "role": "waiter",
+        "purpose": "staff"
+      },
+      {
+        "id": "te-waiter-standby",
+        "levelId": "ground",
+        "x": -4.6,
+        "z": -4.25,
+        "role": "waiter",
+        "purpose": "staff"
+      },
+      {
+        "id": "te-stair-bottom-hold",
+        "levelId": "ground",
+        "x": -2.82,
+        "z": -2.6,
+        "role": "patron",
+        "purpose": "stair-hold"
+      },
+      {
+        "id": "te-stair-top-hold",
+        "levelId": "upper",
+        "x": -4,
+        "z": -2.65,
+        "role": "patron",
+        "purpose": "stair-hold"
+      }
+    ],
+    "npcForbiddenZones": [
+      {
+        "id": "te-staff-counter",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        },
+        "appliesTo": "patron",
+        "exceptRoles": [
+          "barista",
+          "waiter"
+        ]
+      }
+    ],
+    "colliders": [
+      {
+        "id": "te-t01-col",
+        "levelId": "ground",
+        "x": -6.6,
+        "z": 2.2,
+        "r": 1.05
+      },
+      {
+        "id": "te-t02-col",
+        "levelId": "ground",
+        "x": -6.3,
+        "z": -0.8,
+        "r": 1.05
+      },
+      {
+        "id": "te-t03-col",
+        "levelId": "ground",
+        "x": -6,
+        "z": -3.9,
+        "r": 1.05
+      },
+      {
+        "id": "te-t04-col",
+        "levelId": "ground",
+        "x": -1.6,
+        "z": 1.4,
+        "r": 1.05
+      },
+      {
+        "id": "te-t05-col",
+        "levelId": "ground",
+        "x": -1.5,
+        "z": -3,
+        "r": 1.05
+      },
+      {
+        "id": "te-t06-col",
+        "levelId": "ground",
+        "x": -1.9,
+        "z": 4.3,
+        "r": 1.05
+      },
+      {
+        "id": "te-t07-col",
+        "levelId": "ground",
+        "x": 2.2,
+        "z": 2.7,
+        "r": 1.05
+      },
+      {
+        "id": "te-t08-col",
+        "levelId": "ground",
+        "x": 2.1,
+        "z": -0.4,
+        "r": 1.05
+      },
+      {
+        "id": "te-t09-col",
+        "levelId": "ground",
+        "x": 2.4,
+        "z": -3.3,
+        "r": 1.05
+      },
+      {
+        "id": "te-t10-col",
+        "levelId": "ground",
+        "x": 5.1,
+        "z": 1.2,
+        "r": 1.05
+      },
+      {
+        "id": "te-t11-col",
+        "levelId": "ground",
+        "x": 5.2,
+        "z": -2.1,
+        "r": 1.05
+      },
+      {
+        "id": "te-t12-col",
+        "levelId": "upper",
+        "x": -7.2,
+        "z": -4.9,
+        "r": 1.05
+      },
+      {
+        "id": "te-t13-col",
+        "levelId": "upper",
+        "x": -7.3,
+        "z": -0.3,
+        "r": 1.05
+      },
+      {
+        "id": "te-t14-col",
+        "levelId": "upper",
+        "x": -6.1,
+        "z": 1.9,
+        "r": 1
+      },
+      {
+        "id": "te-counter-col",
+        "levelId": "ground",
+        "rect": {
+          "x0": -5.2,
+          "x1": 4,
+          "z0": -6.75,
+          "z1": -4.95
+        }
+      },
+      {
+        "id": "te-stair-mass-w",
+        "levelId": "ground",
+        "rect": {
+          "x0": -4.55,
+          "x1": -3.42,
+          "z0": -2,
+          "z1": 2
+        }
+      },
+      {
+        "id": "te-stair-mass-landing",
+        "levelId": "ground",
+        "rect": {
+          "x0": -4.55,
+          "x1": -2.3,
+          "z0": 0.85,
+          "z1": 2
+        }
+      },
+      {
+        "id": "te-stair-mass-a",
+        "levelId": "ground",
+        "rect": {
+          "x0": -3.42,
+          "x1": -2.3,
+          "z0": -1.7,
+          "z1": 0.85
+        }
+      },
+      {
+        "id": "te-stringer-a-e",
+        "levelId": "stairs",
+        "guard": true,
+        "minY": 0,
+        "maxY": 4.4,
+        "rect": {
+          "x0": -2.36,
+          "x1": -2.24,
+          "z0": -2,
+          "z1": 2
+        }
+      },
+      {
+        "id": "te-stringer-mid",
+        "levelId": "stairs",
+        "guard": true,
+        "minY": 0,
+        "maxY": 4.4,
+        "rect": {
+          "x0": -3.48,
+          "x1": -3.37,
+          "z0": -2,
+          "z1": 0.85
+        }
+      },
+      {
+        "id": "te-stringer-b-w",
+        "levelId": "stairs",
+        "guard": true,
+        "minY": 0,
+        "maxY": 4.4,
+        "rect": {
+          "x0": -4.61,
+          "x1": -4.49,
+          "z0": -2,
+          "z1": 2
+        }
+      },
+      {
+        "id": "te-stair-back",
+        "levelId": "stairs",
+        "guard": true,
+        "minY": 0,
+        "maxY": 4.4,
+        "rect": {
+          "x0": -4.55,
+          "x1": -2.3,
+          "z0": 2,
+          "z1": 2.12
+        }
+      },
+      {
+        "id": "te-col-1",
+        "levelId": "ground",
+        "x": -4.75,
+        "z": -6,
+        "r": 0.16
+      },
+      {
+        "id": "te-col-2",
+        "levelId": "ground",
+        "x": -4.75,
+        "z": -3.5,
+        "r": 0.16
+      },
+      {
+        "id": "te-col-3",
+        "levelId": "ground",
+        "x": -4.75,
+        "z": 2.7,
+        "r": 0.16
+      },
+      {
+        "id": "te-guard-east-s",
+        "levelId": "upper",
+        "guard": true,
+        "minY": 3.25,
+        "maxY": 4.35,
+        "rect": {
+          "x0": -4.62,
+          "x1": -4.45,
+          "z0": -6.75,
+          "z1": -3.3
+        }
+      },
+      {
+        "id": "te-guard-notch-s",
+        "levelId": "upper",
+        "guard": true,
+        "minY": 3.25,
+        "maxY": 4.35,
+        "rect": {
+          "x0": -4.55,
+          "x1": -3.35,
+          "z0": -3.42,
+          "z1": -3.25
+        }
+      },
+      {
+        "id": "te-guard-notch-e",
+        "levelId": "upper",
+        "guard": true,
+        "minY": 3.25,
+        "maxY": 4.35,
+        "rect": {
+          "x0": -3.5,
+          "x1": -3.34,
+          "z0": -3.42,
+          "z1": -1.95
+        }
+      },
+      {
+        "id": "te-guard-east-n",
+        "levelId": "upper",
+        "guard": true,
+        "minY": 3.25,
+        "maxY": 4.35,
+        "rect": {
+          "x0": -4.62,
+          "x1": -4.45,
+          "z0": -1.95,
+          "z1": 3
+        }
+      },
+      {
+        "id": "te-guard-north",
+        "levelId": "upper",
+        "guard": true,
+        "minY": 3.25,
+        "maxY": 4.35,
+        "rect": {
+          "x0": -8.5,
+          "x1": -4.45,
+          "z0": 2.92,
+          "z1": 3.08
+        }
+      },
+      {
+        "id": "te-guard-west",
+        "levelId": "upper",
+        "guard": true,
+        "minY": 3.25,
+        "maxY": 4.35,
+        "rect": {
+          "x0": -8.5,
+          "x1": -8.34,
+          "z0": -6.75,
+          "z1": 3
+        }
+      },
+      {
+        "id": "te-guard-south",
+        "levelId": "upper",
+        "guard": true,
+        "minY": 3.25,
+        "maxY": 4.35,
+        "rect": {
+          "x0": -8.5,
+          "x1": -4.45,
+          "z0": -6.75,
+          "z1": -6.59
+        }
+      }
+    ],
+    "decor": {
+      "plantSpots": [
+        [
+          -7.8,
+          -6.05
+        ],
+        [
+          7.8,
+          5.45
+        ],
+        [
+          7.9,
+          -3.75
+        ],
+        [
+          -1,
+          2.9
+        ],
+        [
+          -6.6,
+          4.4
+        ],
+        [
+          7.9,
+          0.4
+        ],
+        [
+          3.8,
+          -5
+        ],
+        [
+          -3.6,
+          -5
+        ],
+        [
+          -0.9,
+          5.6
+        ]
+      ],
+      "deck": {
+        "polygon": [
+          {
+            "x": -8.5,
+            "z": -6.75
+          },
+          {
+            "x": -4.55,
+            "z": -6.75
+          },
+          {
+            "x": -4.55,
+            "z": -3.3
+          },
+          {
+            "x": -3.42,
+            "z": -3.3
+          },
+          {
+            "x": -3.42,
+            "z": -1.95
+          },
+          {
+            "x": -4.55,
+            "z": -1.95
+          },
+          {
+            "x": -4.55,
+            "z": 3
+          },
+          {
+            "x": -8.5,
+            "z": 3
+          }
+        ],
+        "y": 3.25,
+        "stair": {
+          "envelope": {
+            "x0": -4.55,
+            "x1": -2.3,
+            "z0": -2,
+            "z1": 2
+          },
+          "rise": 3.25,
+          "risers": 20,
+          "riserHeight": 0.1625,
+          "treadDepth": 0.285,
+          "flightWidth": 1.05,
+          "landingDepth": 1.15,
+          "flightA": {
+            "x0": -3.35,
+            "x1": -2.3,
+            "z0": -2,
+            "z1": 0.85,
+            "y0": 0,
+            "y1": 1.625
+          },
+          "landing": {
+            "x0": -4.55,
+            "x1": -2.3,
+            "z0": 0.85,
+            "z1": 2,
+            "y": 1.625
+          },
+          "flightB": {
+            "x0": -4.55,
+            "x1": -3.5,
+            "z0": -2,
+            "z1": 0.85,
+            "y0": 3.25,
+            "y1": 1.625
+          },
+          "bottomHold": {
+            "x": -2.82,
+            "z": -2.6
+          },
+          "topHold": {
+            "x": -4,
+            "z": -2.65
+          }
+        },
+        "guards": [
+          {
+            "x0": -4.62,
+            "x1": -4.45,
+            "z0": -6.75,
+            "z1": -3.3
+          },
+          {
+            "x0": -4.55,
+            "x1": -3.35,
+            "z0": -3.42,
+            "z1": -3.25
+          },
+          {
+            "x0": -3.5,
+            "x1": -3.34,
+            "z0": -3.42,
+            "z1": -1.95
+          },
+          {
+            "x0": -4.62,
+            "x1": -4.45,
+            "z0": -1.95,
+            "z1": 3
+          },
+          {
+            "x0": -8.5,
+            "x1": -4.45,
+            "z0": 2.92,
+            "z1": 3.08
+          },
+          {
+            "x0": -8.5,
+            "x1": -8.34,
+            "z0": -6.75,
+            "z1": 3
+          },
+          {
+            "x0": -8.5,
+            "x1": -4.45,
+            "z0": -6.75,
+            "z1": -6.59
+          }
+        ],
+        "opening": {
+          "x0": -4.55,
+          "x1": -3.42,
+          "z": -1.95
+        },
+        "columns": [
+          {
+            "x": -4.75,
+            "z": -6
+          },
+          {
+            "x": -4.75,
+            "z": -3.5
+          },
+          {
+            "x": -4.75,
+            "z": 2.7
+          }
+        ],
+        "planters": [
+          {
+            "x": -8.1,
+            "z": -5.9
+          },
+          {
+            "x": -8.1,
+            "z": -1.35
+          },
+          {
+            "x": -8.1,
+            "z": 2.5
+          },
+          {
+            "x": -5.2,
+            "z": 0.5
+          },
+          {
+            "x": -5.1,
+            "z": -6.05
+          }
+        ],
+        "canopy": {
+          "x0": -8.4,
+          "x1": -4.7,
+          "z0": -5.9,
+          "z1": -0.2,
+          "y": 5.75
+        }
+      }
+    },
+    "lighting": {
+      "pendant": "cone",
+      "lampY": 2.45
+    },
+    "auditViews": [
+      {
+        "id": "te-terrace-from-entrance",
+        "pos": [
+          0,
+          1.7,
+          5.9
+        ],
+        "lookAt": [
+          -1.5,
+          1.4,
+          -2.5
+        ]
+      },
+      {
+        "id": "te-stair-from-courtyard",
+        "pos": [
+          -0.6,
+          1.6,
+          -3.2
+        ],
+        "lookAt": [
+          -3.6,
+          1.8,
+          0.2
+        ]
+      },
+      {
+        "id": "te-stair-bottom-portal",
+        "pos": [
+          -2.82,
+          1.5,
+          -3.6
+        ],
+        "lookAt": [
+          -2.82,
+          1.6,
+          0.5
+        ]
+      },
+      {
+        "id": "te-stair-landing-turn",
+        "level": "stairs",
+        "pos": [
+          -2.9,
+          3.125,
+          0.2
+        ],
+        "lookAt": [
+          -4.2,
+          3.025,
+          1.6
+        ]
+      },
+      {
+        "id": "te-stair-top-view",
+        "level": "upper",
+        "pos": [
+          -4,
+          4.75,
+          -2.9
+        ],
+        "lookAt": [
+          -4.02,
+          4.45,
+          0.5
+        ]
+      },
+      {
+        "id": "te-deck-from-stair-top",
+        "level": "upper",
+        "pos": [
+          -4,
+          4.8,
+          -2.6
+        ],
+        "lookAt": [
+          -7.5,
+          4.15,
+          -2
+        ]
+      },
+      {
+        "id": "te-deck-overlook",
+        "level": "upper",
+        "pos": [
+          -6.5,
+          4.8,
+          -4.6
+        ],
+        "lookAt": [
+          -4.5,
+          4.05,
+          -4.7
+        ]
+      },
+      {
+        "id": "te-deck-study",
+        "level": "upper",
+        "pos": [
+          -7.6,
+          4.75,
+          0.9
+        ],
+        "lookAt": [
+          -6,
+          4.15,
+          1.9
+        ]
+      },
+      {
+        "id": "te-deck-guards-east",
+        "level": "upper",
+        "pos": [
+          -6,
+          4.8,
+          -1
+        ],
+        "lookAt": [
+          -4.5,
+          3.95,
+          -1
+        ]
+      },
+      {
+        "id": "te-under-deck",
+        "pos": [
+          -3.2,
+          1.5,
+          -5.4
+        ],
+        "lookAt": [
+          -7,
+          1.6,
+          -3.5
+        ]
+      },
+      {
+        "id": "te-deck-from-courtyard",
+        "pos": [
+          2.4,
+          1.6,
+          4.6
+        ],
+        "lookAt": [
+          -6,
+          3.6,
+          -1.5
+        ]
+      },
+      {
+        "id": "te-pergola-wide",
+        "pos": [
+          3.8,
+          1.8,
+          4.8
+        ],
+        "lookAt": [
+          -2,
+          1.2,
+          -3
+        ]
+      },
+      {
+        "id": "te-service-queue",
+        "pos": [
+          2.2,
+          1.7,
+          -1.6
+        ],
+        "lookAt": [
+          1.2,
+          1,
+          -5.4
+        ]
+      },
+      {
+        "id": "te-garden-edge",
+        "pos": [
+          5.6,
+          1.6,
+          4.4
+        ],
+        "lookAt": [
+          0,
+          1,
+          -1
+        ]
+      }
+    ],
+    "contract": {
+      "twoLevels": {
+        "stair": {
+          "envelope": {
+            "x0": -4.55,
+            "x1": -2.3,
+            "z0": -2,
+            "z1": 2
+          },
+          "maxEnvelope": {
+            "w": 2.3,
+            "d": 4.05
+          },
+          "riserRange": [
+            0.155,
+            0.17
+          ],
+          "flightWidthMin": 1,
+          "landingDepthMin": 1.1
+        },
+        "deckSurfaceId": "te-upper-deck",
+        "openings": [
+          {
+            "x0": -4.6,
+            "x1": -3.38,
+            "z0": -2.1,
+            "z1": -1.8
+          }
+        ],
+        "minUpperSeats": 8
+      }
+    }
+  }
+}
