@@ -345,11 +345,12 @@
     "source_url": "https://poly.pizza/m/HMnuH5geEG"
   },
   "cat": {
-    "title": "Atelier café rebuild — cat",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/pet_cat.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender tabby cat — legacy asset alias",
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party pet geometry or textures",
+    "source_url": "assets/blender/realism/pet_cat.blend",
+    "item_url": "assets/blender/realism/README.md",
+    "modifications": "Continuous body mesh, original procedural coat with baked albedo and normal maps, modeled facial and paw details, a 22-joint rig, and eight editable café actions. Shares the pet_cat model."
   },
   "cactus_pot": {
     "title": "Atelier café rebuild — cactus pot",
@@ -536,18 +537,20 @@
     "item_url": "assets/blender/README.md"
   },
   "pet_cat": {
-    "title": "Atelier café rebuild — pet cat",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/pet_cat.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender tabby café cat",
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party pet geometry or textures",
+    "source_url": "assets/blender/realism/pet_cat.blend",
+    "item_url": "assets/blender/realism/README.md",
+    "modifications": "Continuous body mesh, original procedural coat with baked albedo and normal maps, modeled facial and paw details, a 22-joint rig, and eight editable café actions."
   },
   "pet_dog": {
-    "title": "Atelier café rebuild — pet dog",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/pet_dog.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender short-coated café dog",
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party pet geometry or textures",
+    "source_url": "assets/blender/realism/pet_dog.blend",
+    "item_url": "assets/blender/realism/README.md",
+    "modifications": "Continuous body mesh, original procedural coat with baked albedo and normal maps, modeled facial and paw details, a 22-joint rig, and eight editable café actions."
   },
   "char_wcasual": {
     "title": "Woman Casual (rigged; Idle/Walk/Run/Sitting/Clapping clips)",
@@ -727,60 +730,68 @@
     "item_url": "assets/blender/README.md"
   },
   "char_atelier_1": {
-    "title": "Atelier café rebuild — char atelier 1",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_1.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café portrait 1 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
   },
   "char_atelier_2": {
-    "title": "Atelier café rebuild — char atelier 2",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_2.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café portrait 2 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
   },
   "char_atelier_3": {
-    "title": "Atelier café rebuild — char atelier 3",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_3.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café portrait 3 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
   },
   "char_atelier_4": {
-    "title": "Atelier café rebuild — char atelier 4",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_4.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café portrait 4 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
   },
   "char_atelier_5": {
-    "title": "Atelier café rebuild — char atelier 5",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_5.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café portrait 5 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
   },
   "char_atelier_6": {
-    "title": "Atelier café rebuild — char atelier 6",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_6.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café portrait 6 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
   },
   "char_atelier_barista": {
-    "title": "Atelier café rebuild — char atelier barista",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_barista.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café refit: char_atelier_barista — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender mesh reduction, facial variants, garment dyes, staff aprons and five looping café actions; source UV atlas and walk motion retained."
   },
   "char_atelier_server": {
-    "title": "Atelier café rebuild — char atelier server",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/char_atelier_server.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Blender café refit: char_atelier_server — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender mesh reduction, facial variants, garment dyes, staff aprons and five looping café actions; source UV atlas and walk motion retained."
   },
   "croissant": {
     "title": "Atelier café rebuild — croissant",
@@ -865,5 +876,186 @@
     "license": "Original project artwork; no third-party model inputs",
     "source_url": "assets/blender/rebuild/wall_shelf.blend",
     "item_url": "assets/blender/README.md"
+  },
+  "realism_walnut_color.jpg": {
+    "title": "Blender walnut finish, derived from ambientCG Wood067",
+    "creator": "ambientCG",
+    "license": "CC0",
+    "item_url": "https://ambientcg.com/view?id=Wood067"
+  },
+  "realism_linen_color.jpg": {
+    "title": "Blender architectural linen color",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/architectural-materials.blend"
+  },
+  "realism_stone_color.jpg": {
+    "title": "Blender architectural stone color",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/architectural-materials.blend"
+  },
+  "realism_walnut_normal.jpg": {
+    "title": "Blender walnut finish, derived from ambientCG Wood067",
+    "creator": "ambientCG",
+    "license": "CC0",
+    "item_url": "https://ambientcg.com/view?id=Wood067"
+  },
+  "realism_linen_normal.jpg": {
+    "title": "Blender architectural linen normal",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/architectural-materials.blend"
+  },
+  "realism_stone_normal.jpg": {
+    "title": "Blender architectural stone normal",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/architectural-materials.blend"
+  },
+  "realism_walnut_roughness.jpg": {
+    "title": "Blender walnut finish, derived from ambientCG Wood067",
+    "creator": "ambientCG",
+    "license": "CC0",
+    "item_url": "https://ambientcg.com/view?id=Wood067"
+  },
+  "realism_linen_roughness.jpg": {
+    "title": "Blender architectural linen roughness",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/architectural-materials.blend"
+  },
+  "realism_stone_roughness.jpg": {
+    "title": "Blender architectural stone roughness",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/architectural-materials.blend"
+  },
+  "realism_contact_goldenhour.jpg": {
+    "title": "Blender Cycles floor contact bake — goldenhour",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/contact-goldenhour.blend"
+  },
+  "realism_contact_roastery.jpg": {
+    "title": "Blender Cycles floor contact bake — roastery",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/contact-roastery.blend"
+  },
+  "realism_contact_midnight.jpg": {
+    "title": "Blender Cycles floor contact bake — midnight",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/contact-midnight.blend"
+  },
+  "realism_contact_terrace.jpg": {
+    "title": "Blender Cycles floor contact bake — terrace",
+    "creator": "Vibe Coffee project",
+    "license": "Original project artwork",
+    "item_url": "assets/blender/realism/contact-terrace.blend"
+  },
+  "courtyard.hdr": {
+    "title": "Venice Sunset HDRI",
+    "creator": "Poly Haven / HDRI Haven",
+    "license": "CC0 1.0 (https://polyhaven.com/license)",
+    "item_url": "https://polyhaven.com/a/venice_sunset",
+    "source_url": "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/equirectangular/venice_sunset_1k.hdr"
+  },
+  "char_atelier_7": {
+    "title": "Blender café portrait 7 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_8": {
+    "title": "Blender café portrait 8 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_9": {
+    "title": "Blender café portrait 9 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_10": {
+    "title": "Blender café portrait 10 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_11": {
+    "title": "Blender café portrait 11 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_12": {
+    "title": "Blender café portrait 12 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_13": {
+    "title": "Blender café portrait 13 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_14": {
+    "title": "Blender café portrait 14 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_15": {
+    "title": "Blender café portrait 15 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_16": {
+    "title": "Blender café portrait 16 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_17": {
+    "title": "Blender café portrait 17 — source anatomy and atlas from Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-female-character-denim-and-black-tshirt-Tpose-v2-0196b10d-fef7-70da-99f9-e8da4c62a2bb",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
+  },
+  "char_atelier_18": {
+    "title": "Blender café portrait 18 — source anatomy and atlas from Casually dressed male character (rigged; web-optimized with grounded idle and walk clips)",
+    "creator": "suhakiylioglu / Meshy",
+    "license": "CC0 1.0 (Public Domain)",
+    "source_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "item_url": "https://www.meshy.ai/3d-models/GTA-6-style-casual-dressed-male-characterTpose-v2-0196ac24-6577-734c-b415-1ba4c3f5fa91",
+    "modifications": "Blender facial and hair variants, region-painted clothing atlas, modeled eyewear/headwear where present, mesh reduction and five looping café actions. Source skin weights and walk motion retained."
   }
 }

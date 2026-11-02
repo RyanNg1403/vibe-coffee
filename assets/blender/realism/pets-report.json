@@ -1,0 +1,44 @@
+{
+  "pet_cat": {
+    "triangles": 19704,
+    "materials": 6,
+    "bones": 22,
+    "clips": [
+      "death",
+      "eating",
+      "headbutt",
+      "idle",
+      "idle_2",
+      "idle_2_headlow",
+      "idle_eating",
+      "walk"
+    ],
+    "source_height_metres": 0.41198849049396813,
+    "runtime_height_metres": 0.34,
+    "walk_duration_seconds": 0.6,
+    "runtime_walk_speed_metres_per_second": 0.5,
+    "bytes": 1379972,
+    "provenance": "Original Blender geometry and procedural coat; no third-party pet assets"
+  },
+  "pet_dog": {
+    "triangles": 22210,
+    "materials": 7,
+    "bones": 22,
+    "clips": [
+      "death",
+      "eating",
+      "headbutt",
+      "idle",
+      "idle_2",
+      "idle_2_headlow",
+      "idle_eating",
+      "walk"
+    ],
+    "source_height_metres": 0.6269564656540751,
+    "runtime_height_metres": 0.55,
+    "walk_duration_seconds": 0.7333333333333333,
+    "runtime_walk_speed_metres_per_second": 0.62,
+    "bytes": 1504160,
+    "provenance": "Original Blender geometry and procedural coat; no third-party pet assets"
+  }
+}

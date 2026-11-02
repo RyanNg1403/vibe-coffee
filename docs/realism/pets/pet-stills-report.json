@@ -1,0 +1,147 @@
+{
+  "venue": "goldenhour",
+  "quality": "detail",
+  "frames": 0,
+  "fps": 24,
+  "staging": "Actual pet positions; only a clear walking destination and close-up camera are staged.",
+  "pets": [
+    {
+      "kind": "cat",
+      "key": "pet_cat",
+      "originalState": "walking",
+      "start": [
+        1.5832864344015243,
+        0,
+        4.133158330561193
+      ],
+      "target": {
+        "x": 3.2556876721440964,
+        "z": 4.798796445453297
+      },
+      "bones": 22,
+      "end": {
+        "position": [
+          1.7866669597077534,
+          0,
+          4.136082777656617
+        ],
+        "state": "walking",
+        "mode": "walk"
+      },
+      "maxRestoreError": 0
+    },
+    {
+      "kind": "dog",
+      "key": "pet_dog",
+      "originalState": "walking",
+      "start": [
+        -0.08818623855722768,
+        0,
+        5.6963982172058385
+      ],
+      "target": {
+        "x": 0.21751471950765056,
+        "z": 3.9225473429105344
+      },
+      "bones": 22,
+      "end": {
+        "position": [
+          -0.07954510312943737,
+          0,
+          5.3968690048290044
+        ],
+        "state": "walking",
+        "mode": "walk"
+      },
+      "maxRestoreError": 0
+    }
+  ],
+  "errors": [],
+  "motion": {
+    "cat": {
+      "ticks": 563,
+      "maxStep": 0.016666666666666986,
+      "maxYaw": 0.12000000000000009
+    },
+    "dog": {
+      "ticks": 239,
+      "maxStep": 0.020666666664555876,
+      "maxYaw": 0.12000000000000009
+    }
+  },
+  "metrics": {
+    "theme": "goldenhour",
+    "rain": false,
+    "qualityMode": "detail",
+    "pixelRatio": 1,
+    "effects": 2,
+    "targetFps": 24,
+    "observedFps": 0.7,
+    "renderedFrames": 19,
+    "skippedFrames": 2,
+    "lastRenderMs": 37.2,
+    "shadowFps": 20,
+    "gtaoScale": 0.5,
+    "bloomScale": 0.5,
+    "heapBytes": 117687241,
+    "decodedAudioBytes": 36599336,
+    "outsidePedestrians": 7,
+    "indoorPatrons": 13,
+    "mobileActors": 20,
+    "characterDiversity": {
+      "limit": 2,
+      "actorCount": 22,
+      "uniqueAssets": 20,
+      "maxCopies": 2,
+      "counts": {
+        "char_atelier_7": 1,
+        "char_atelier_5": 1,
+        "char_atelier_1": 1,
+        "char_atelier_14": 1,
+        "char_atelier_10": 1,
+        "char_atelier_17": 1,
+        "char_atelier_2": 1,
+        "char_atelier_8": 1,
+        "char_atelier_11": 2,
+        "char_atelier_13": 2,
+        "char_atelier_6": 1,
+        "char_atelier_18": 1,
+        "char_atelier_4": 1,
+        "char_atelier_3": 1,
+        "char_atelier_16": 1,
+        "char_atelier_9": 1,
+        "char_atelier_12": 1,
+        "char_atelier_15": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 16
+    },
+    "outsideUmbrellas": 0,
+    "outsideUmbrellaHands": 7,
+    "outsideUmbrellaGripError": 0,
+    "doorOpenness": 0.0010917209222795104,
+    "doorQueue": 0,
+    "playerTypingBursts": 0,
+    "playerTypingActive": false,
+    "activeOneShotSources": 8,
+    "activePetVoices": 0,
+    "plannerEvalsPerSecond": 8,
+    "serviceTasks": 0,
+    "serviceReservations": 0,
+    "steamEmitters": 6,
+    "interactionTargets": 2,
+    "instancedMeshes": 10,
+    "instancedInstances": 505,
+    "geometries": 475,
+    "textures": 104,
+    "activeGeometries": 750,
+    "activeTextures": 65,
+    "activeSharedTextures": 51,
+    "calls": 973,
+    "triangles": 3047117,
+    "points": 258,
+    "lines": 0
+  }
+}

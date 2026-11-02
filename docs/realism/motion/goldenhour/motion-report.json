@@ -1,0 +1,315 @@
+{
+  "seconds": 180,
+  "max": {
+    "walkStep": 0.0414060933711665,
+    "baristaTurn": 0.14000000000000012,
+    "waiterStep": 0.024000000000000393,
+    "seatedTurn": 0.08000000000000008,
+    "seatStep": 0.03335713621925893,
+    "seatTurn": 0.09294653187237678,
+    "renderRestoreError": 4.2146848510894035e-8
+  },
+  "diversity": {
+    "initial": {
+      "limit": 2,
+      "actorCount": 22,
+      "uniqueAssets": 20,
+      "maxCopies": 2,
+      "counts": {
+        "char_atelier_8": 1,
+        "char_atelier_1": 1,
+        "char_atelier_3": 1,
+        "char_atelier_17": 1,
+        "char_atelier_4": 1,
+        "char_atelier_2": 1,
+        "char_atelier_7": 2,
+        "char_atelier_18": 2,
+        "char_atelier_12": 1,
+        "char_atelier_6": 1,
+        "char_atelier_5": 1,
+        "char_atelier_14": 1,
+        "char_atelier_16": 1,
+        "char_atelier_9": 1,
+        "char_atelier_13": 1,
+        "char_atelier_11": 1,
+        "char_atelier_10": 1,
+        "char_atelier_15": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 16
+    },
+    "maxCopies": 2,
+    "minUniqueAssets": 20,
+    "allocationMismatches": 0,
+    "violations": [],
+    "peakCounts": {
+      "char_atelier_8": 1,
+      "char_atelier_1": 1,
+      "char_atelier_3": 1,
+      "char_atelier_17": 1,
+      "char_atelier_4": 1,
+      "char_atelier_2": 1,
+      "char_atelier_7": 2,
+      "char_atelier_18": 2,
+      "char_atelier_12": 1,
+      "char_atelier_6": 1,
+      "char_atelier_5": 1,
+      "char_atelier_14": 1,
+      "char_atelier_16": 1,
+      "char_atelier_9": 1,
+      "char_atelier_13": 1,
+      "char_atelier_11": 1,
+      "char_atelier_10": 1,
+      "char_atelier_15": 1,
+      "char_atelier_barista": 1,
+      "char_atelier_server": 1
+    },
+    "final": {
+      "limit": 2,
+      "actorCount": 22,
+      "uniqueAssets": 20,
+      "maxCopies": 2,
+      "counts": {
+        "char_atelier_6": 1,
+        "char_atelier_18": 2,
+        "char_atelier_11": 1,
+        "char_atelier_10": 1,
+        "char_atelier_9": 1,
+        "char_atelier_13": 1,
+        "char_atelier_16": 1,
+        "char_atelier_8": 1,
+        "char_atelier_15": 1,
+        "char_atelier_2": 1,
+        "char_atelier_14": 1,
+        "char_atelier_7": 2,
+        "char_atelier_4": 1,
+        "char_atelier_17": 1,
+        "char_atelier_5": 1,
+        "char_atelier_3": 1,
+        "char_atelier_1": 1,
+        "char_atelier_12": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 16
+    }
+  },
+  "petMotion": {
+    "maxStep": 0.02066666666666705,
+    "maxTurn": 0.12000000000000009,
+    "maxDoorSeconds": 3.899999999999996,
+    "dogArrivals": 2,
+    "dogDepartures": 1,
+    "states": [
+      "cat:idle",
+      "cat:walking",
+      "dog:walking",
+      "cat:nap",
+      "dog:settle",
+      "dog:rest",
+      "dog:leaving"
+    ]
+  },
+  "interpolatedFrames": 2114,
+  "baristaTurns": 1199,
+  "states": [
+    "sitting",
+    "approachingDoorIn",
+    "waitingDoorIn",
+    "crossingDoorIn",
+    "queueing",
+    "ordering",
+    "standingSeat",
+    "holdingDoorOut",
+    "toSeat",
+    "holdingDoorIn",
+    "approachingDoorOut",
+    "waitingDoorOut",
+    "crossingDoorOut",
+    "joiningSidewalk",
+    "aligningSeat",
+    "toBrowse",
+    "waitingPickup",
+    "browsing"
+  ],
+  "worst": [],
+  "dwell": {
+    "npcs": [
+      {
+        "serial": 10,
+        "state": "holdingDoorOut",
+        "seconds": 7.9,
+        "x": -0.04,
+        "y": 0,
+        "z": -0.35,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 12,
+        "state": "joiningSidewalk",
+        "seconds": 1.9,
+        "x": -0.08,
+        "y": 0,
+        "z": 8.13,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 13,
+        "state": "sitting",
+        "seconds": 126.2,
+        "x": -2.3,
+        "y": 0.02,
+        "z": 0.35,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 14,
+        "state": "sitting",
+        "seconds": 82.9,
+        "x": 5.3,
+        "y": 0.04,
+        "z": -1.01,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 15,
+        "state": "sitting",
+        "seconds": 83.1,
+        "x": -2,
+        "y": 0.02,
+        "z": 5,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 16,
+        "state": "sitting",
+        "seconds": 65.4,
+        "x": -2.85,
+        "y": 0.02,
+        "z": 4.15,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 17,
+        "state": "sitting",
+        "seconds": 43.6,
+        "x": 5.6,
+        "y": 0.04,
+        "z": 4.39,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 18,
+        "state": "sitting",
+        "seconds": 20.3,
+        "x": -2,
+        "y": 0.04,
+        "z": 3.36,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 19,
+        "state": "sitting",
+        "seconds": 17.2,
+        "x": -3.09,
+        "y": 0.04,
+        "z": 1.2,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 20,
+        "state": "sitting",
+        "seconds": 10.4,
+        "x": -5,
+        "y": 0.02,
+        "z": 3.82,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 21,
+        "state": "toSeat",
+        "seconds": 14.2,
+        "x": 2.16,
+        "y": 0,
+        "z": 1.63,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 22,
+        "state": "ordering",
+        "seconds": 8.7,
+        "x": 2.14,
+        "y": 0,
+        "z": -4.55,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 23,
+        "state": "queueing",
+        "seconds": 35.4,
+        "x": 1.82,
+        "y": 0,
+        "z": -4.23,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 24,
+        "state": "queueing",
+        "seconds": 29.8,
+        "x": 1.17,
+        "y": 0,
+        "z": -2.89,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 25,
+        "state": "approachingDoorIn",
+        "seconds": 15,
+        "x": 0.05,
+        "y": 0,
+        "z": 7.34,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 26,
+        "state": "holdingDoorIn",
+        "seconds": 3.2,
+        "x": 0.5,
+        "y": 0,
+        "z": 8.23,
+        "level": "ground",
+        "seated": true
+      }
+    ],
+    "maxServiceDwell": {
+      "state": "holdingDoorOut",
+      "seconds": 7
+    },
+    "seatedHandCups": 0,
+    "waiter": {
+      "phase": "toPickup",
+      "seconds": 12,
+      "hasTask": true,
+      "x": 0.01,
+      "z": -1.18
+    }
+  }
+}

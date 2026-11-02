@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { loadDaylightEnvironment } from './rendering/daylightEnvironment.js';
+import { groundingAuditObjects } from './rendering/placementBounds.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -72,7 +74,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // re-renders the same poses. The main loop requests a shadow update at 30 Hz.
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 // EffectComposer issues several renderer calls per frame. Disable Three's
 // per-call reset so diagnostics capture the complete frame instead of only the
@@ -85,7 +87,35 @@ const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerH
 // image-based environment lighting: gives every PBR material soft reflected
 // room light instead of the flat "primitive" look of pure analytic lights
 const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const fallbackRoom = new RoomEnvironment();
+let environmentTarget = pmrem.fromScene(fallbackRoom, 0.04);
+fallbackRoom.dispose();
+scene.environment = environmentTarget.texture;
+let photographicEnvironment = null;
+function applyPhotographicEnvironment(theme) {
+  if (!photographicEnvironment) return;
+  const night = theme.timeOfDay === 'night' || theme.outside.includes('Night') || theme.outside.includes('night');
+  scene.background = photographicEnvironment;
+  scene.backgroundBlurriness = theme.rain ? 0.2 : 0.06;
+  const daylight = { morning: 0.78, noon: 0.9, sunset: 0.72 }[theme.timeOfDay] ?? 0.72;
+  scene.backgroundIntensity = night ? 0.018 : daylight * (theme.rain ? 0.45 : 1);
+  scene.backgroundRotation.y = Math.PI * 0.6;
+  scene.environmentRotation.y = Math.PI * 0.6;
+  cafe?.group.traverse((object) => {
+    if (object.userData.illustratedBackdrop) object.visible = false;
+  });
+}
+loadDaylightEnvironment().then((texture) => {
+  let target;
+  try { target = pmrem.fromEquirectangular(texture); }
+  catch (error) { texture.dispose(); throw error; }
+  const previousTarget = environmentTarget;
+  environmentTarget = target;
+  scene.environment = target.texture;
+  previousTarget.dispose();
+  photographicEnvironment = texture;
+  applyPhotographicEnvironment(currentTheme);
+}).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message));
 
 // Post-processing chain. FXAA at the end replaces a persistent multisampled
 // half-float buffer, preserving clean edges at a fraction of its memory cost.
@@ -94,7 +124,7 @@ const W0 = window.innerWidth, H0 = window.innerHeight;
 const rt = new THREE.WebGLRenderTarget(1, 1, {
   samples: 0,
   type: THREE.HalfFloatType,
-  colorSpace: THREE.SRGBColorSpace,
+  colorSpace: THREE.LinearSRGBColorSpace,
 });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
@@ -343,11 +373,10 @@ async function loadTheme(index) {
   // random draws a build consumes, and without this every decor PR would
   // reshuffle the seeded audit crowd and make renderer counts incomparable.
   resetMemoryAuditRandom(index + 16);
-  // A 1024px soft sun shadow is visually comparable in this compact room and
-  // quarters the shadow-map fill/memory cost of the original 2048px map.
+  // Furniture contacts need centimetre-scale detail across the room.
   cafe.group.traverse((object) => {
     if (object.isDirectionalLight && object.castShadow) {
-      object.shadow.mapSize.set(1024, 1024);
+      object.shadow.mapSize.set(2048, 2048);
       object.shadow.needsUpdate = true;
     }
   });
@@ -358,6 +387,7 @@ async function loadTheme(index) {
   scene.background = new THREE.Color(theme.fog.color);
   renderer.toneMappingExposure = theme.exposure;
   scene.environmentIntensity = theme.envIntensity ?? 0.35;
+  applyPhotographicEnvironment(theme);
   bloomPass.strength = theme.bloom ?? 0.25;
 
   crowd = new CrowdSim(cafe, audio, models);
@@ -1657,11 +1687,13 @@ function frame(now = performance.now()) {
   renderer.info.reset();
   const renderStartedAt = performance.now();
   crowd?.interpolate(simAcc / SIM_STEP);
+  pets?.interpolate(simAcc / SIM_STEP);
   try {
     if (effectLevel === 0) renderer.render(scene, camera);
     else composer.render(dt);
   } finally {
     crowd?.restoreSimulationPose();
+    pets?.restoreSimulationPose();
   }
   lastRenderMs = performance.now() - renderStartedAt;
   lastRenderStats.calls = renderer.info.render.calls;
@@ -1688,6 +1720,25 @@ frame();
 // tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
   audio,
+  // Capture the same rendering path used by the app, including its current
+  // quality settings. The simulation is advanced by the audit harness.
+  captureFrame(alpha = 1, format = 'image/png') {
+    crowd?.interpolate(alpha);
+    pets?.interpolate(alpha);
+    try {
+      renderer.shadowMap.needsUpdate = true;
+      renderer.info.reset();
+      if (effectLevel === 0) renderer.render(scene, camera);
+      else composer.render(1 / 30);
+      for (const key of ['calls', 'triangles', 'points', 'lines']) {
+        lastRenderStats[key] = renderer.info.render[key];
+      }
+      return renderer.domElement.toDataURL(format, 0.92);
+    } finally {
+      crowd?.restoreSimulationPose();
+      pets?.restoreSimulationPose();
+    }
+  },
   get cafe() { return cafe; },
   get crowd() { return crowd; },
   get pets() { return pets; },
@@ -1737,6 +1788,7 @@ window.__vibe = {
       outsidePedestrians: crowd?.outside?.walkers?.length ?? 0,
       indoorPatrons: crowd?.npcs?.length ?? 0,
       mobileActors: (crowd?.outside?.walkers?.length ?? 0) + (crowd?.npcs?.length ?? 0),
+      characterDiversity: crowd?.characterDiversityReport() ?? null,
       outsideUmbrellas: crowd?.outside?.walkers?.filter((walker) => walker.umbrella).length ?? 0,
       outsideUmbrellaHands: crowd?.outside?.walkers?.filter((walker) => walker.avatar?.bones?.RightHand).length ?? 0,
       outsideUmbrellaGripError: Math.max(
@@ -1944,6 +1996,7 @@ window.__vibe = {
       tablePlanes.push({
         x: seat.tableCenter.x, z: seat.tableCenter.z,
         r: (seat.tableRadius ?? 0.6) + 0.25, y: seat.tableTopY ?? 0.81,
+        shape: seat.supportShape,
       });
     }
     // support planes declared by counter/shelf dressing
@@ -1985,12 +2038,8 @@ window.__vibe = {
     // child of the venue group — its full bbox spans base-to-top — not each
     // constituent mesh. Instanced batches (chairs, books) span the room and
     // are validated by the layout/decor audits instead.
-    const placedUnits = cafe.group.userData.placedUnits ?? [];
-    const placedIds = new Set(placedUnits.filter((unit) => unit.bounds).map((unit) => unit.uuid));
-    const groundingObjects = [
-      ...placedUnits.filter((unit) => unit.bounds),
-      ...cafe.group.children.filter((object) => !placedIds.has(object.uuid) && !object.userData.decorBatch),
-    ];
+    // The hovering selection ring is UI; the physical chair is audited below.
+    const groundingObjects = groundingAuditObjects(cafe.group, [ring]);
     for (const object of groundingObjects) {
       if (object.isInstancedMesh) continue;
       if (!object.visible) continue;
@@ -2025,7 +2074,11 @@ window.__vibe = {
       // the best support plane at-or-below the object's base
       let bestPlane = floorLevelYs.filter((y) => y <= box.min.y + 0.1).reduce((m, y) => Math.max(m, y), 0);
       for (const p of tablePlanes) {
-        if (Math.hypot(centre.x - p.x, centre.z - p.z) <= p.r && p.y <= box.min.y + 0.1) {
+        // Communal and oval tables extend beyond a circular approximation.
+        // Use the same authored footprint as the tabletop placement audit.
+        const onTable = p.shape ? pointSupported(p.shape, centre.x, centre.z)
+          : Math.hypot(centre.x - p.x, centre.z - p.z) <= p.r;
+        if (onTable && p.y <= box.min.y + 0.1) {
           bestPlane = Math.max(bestPlane, p.y);
         }
       }

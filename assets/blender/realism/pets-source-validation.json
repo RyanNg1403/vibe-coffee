@@ -1,0 +1,190 @@
+{
+  "blender_version": "4.3.2",
+  "validation": "read-only; no source saves or GLB writes",
+  "passed": true,
+  "pets": {
+    "pet_cat": {
+      "bones": 22,
+      "matches_source_report": true,
+      "actions": {
+        "death": {
+          "first_frame": 0.0,
+          "last_frame": 54.0,
+          "seconds": 1.8,
+          "looping": false,
+          "endpoint_max_delta": 0.71851658
+        },
+        "eating": {
+          "first_frame": 0.0,
+          "last_frame": 60.0,
+          "seconds": 2.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "headbutt": {
+          "first_frame": 0.0,
+          "last_frame": 60.0,
+          "seconds": 2.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle": {
+          "first_frame": 0.0,
+          "last_frame": 120.0,
+          "seconds": 4.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle_2": {
+          "first_frame": 0.0,
+          "last_frame": 120.0,
+          "seconds": 4.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle_2_headlow": {
+          "first_frame": 0.0,
+          "last_frame": 120.0,
+          "seconds": 4.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle_eating": {
+          "first_frame": 0.0,
+          "last_frame": 60.0,
+          "seconds": 2.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "walk": {
+          "first_frame": 0.0,
+          "last_frame": 18.0,
+          "seconds": 0.6,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        }
+      },
+      "images": {
+        "color": {
+          "name": "realism_pet_cat_color",
+          "dimensions": [
+            1024,
+            1024
+          ],
+          "packed": true,
+          "color_space": "sRGB"
+        },
+        "normal": {
+          "name": "realism_pet_cat_normal",
+          "dimensions": [
+            512,
+            512
+          ],
+          "packed": true,
+          "color_space": "Non-Color"
+        }
+      },
+      "procedural_material": {
+        "name": "Realism / procedural cat fur",
+        "nodes": 37,
+        "fake_user": true
+      },
+      "source_unchanged": true,
+      "source_triangles": 19704,
+      "source_blend_bytes": 1852193,
+      "source_blend_sha256": "aa2a1bbd2324f98b0a095ff39bb25d47b54d3abb0c12b1d131ab35b532657a19"
+    },
+    "pet_dog": {
+      "bones": 22,
+      "matches_source_report": true,
+      "actions": {
+        "death": {
+          "first_frame": 0.0,
+          "last_frame": 54.0,
+          "seconds": 1.8,
+          "looping": false,
+          "endpoint_max_delta": 0.79839965
+        },
+        "eating": {
+          "first_frame": 0.0,
+          "last_frame": 60.0,
+          "seconds": 2.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "headbutt": {
+          "first_frame": 0.0,
+          "last_frame": 60.0,
+          "seconds": 2.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle": {
+          "first_frame": 0.0,
+          "last_frame": 120.0,
+          "seconds": 4.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle_2": {
+          "first_frame": 0.0,
+          "last_frame": 120.0,
+          "seconds": 4.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle_2_headlow": {
+          "first_frame": 0.0,
+          "last_frame": 120.0,
+          "seconds": 4.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "idle_eating": {
+          "first_frame": 0.0,
+          "last_frame": 60.0,
+          "seconds": 2.0,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        },
+        "walk": {
+          "first_frame": 0.0,
+          "last_frame": 22.0,
+          "seconds": 0.733333,
+          "looping": true,
+          "endpoint_max_delta": 0.0
+        }
+      },
+      "images": {
+        "color": {
+          "name": "realism_pet_dog_color",
+          "dimensions": [
+            1024,
+            1024
+          ],
+          "packed": true,
+          "color_space": "sRGB"
+        },
+        "normal": {
+          "name": "realism_pet_dog_normal",
+          "dimensions": [
+            512,
+            512
+          ],
+          "packed": true,
+          "color_space": "Non-Color"
+        }
+      },
+      "procedural_material": {
+        "name": "Realism / procedural dog fur",
+        "nodes": 36,
+        "fake_user": true
+      },
+      "source_unchanged": true,
+      "source_triangles": 22210,
+      "source_blend_bytes": 1931951,
+      "source_blend_sha256": "8bd3091b8d7b20393c6485fcb859c488fef755969f66a76fb014000ed138f962"
+    }
+  },
+  "statistics_scope": "Editable Blender source meshes and .blend files; packed runtime GLB sizes are not measured here."
+}

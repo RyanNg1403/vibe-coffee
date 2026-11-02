@@ -24,7 +24,7 @@ const NORMALIZE = {
   studio_pendant: { height: 0.2 },
   studio_chair: { height: 0.89 },
   cup: { height: 0.1 },
-  armchair: { height: 0.78 },
+  armchair: { height: 0.89 },
   croissant: { height: 0.07 },
   plant: { height: 1.0 },
   espresso_machine: { height: 0.52 },
@@ -37,7 +37,9 @@ const NORMALIZE = {
   muffin: { height: 0.09 },
   teapot: { height: 0.2 },
   sandwich: { height: 0.09 },
-  bar_stool: { height: 0.65 },
+  // The Blender stool includes a backrest: 0.65 m was the old backless
+  // model's total height and incorrectly lowered its cushion below the actor.
+  bar_stool: { height: 1.10 },
   // drinks & food (new)
   mug: { height: 0.1 },
   latte: { height: 0.12 },
@@ -93,15 +95,30 @@ function dataUriToArrayBuffer(uri) {
 }
 
 // scale + center the template so `clone()` drops in at world scale, base at y=0
-function normalize(scene, key) {
+export function normalizeModel(scene, key) {
   const spec = specFor(key);
-  const box = new THREE.Box3().setFromObject(scene);
+  let box = new THREE.Box3().setFromObject(scene);
+  // Use the authored body bounds: hats must not shrink patrons, and a raised
+  // tail must not shrink or offset an animal away from its planted paws.
+  const anatomicalBounds = spec.character ? 'portrait_bounds'
+    : (spec.pet || key === 'cat') ? 'pet_bounds' : null;
+  if (anatomicalBounds) {
+    scene.traverse((object) => {
+      const bounds = object.userData[anatomicalBounds];
+      if (Array.isArray(bounds) && bounds.length === 6 && bounds.every(Number.isFinite)
+          && bounds[4] > bounds[1]) {
+        box = new THREE.Box3(new THREE.Vector3(...bounds.slice(0, 3)), new THREE.Vector3(...bounds.slice(3)));
+      }
+    });
+  }
   const size = box.getSize(new THREE.Vector3());
   const s = spec.worldSpace ? 1 : spec.height / Math.max(0.0001, size.y);
   const wrapper = new THREE.Group();
   wrapper.add(scene);
   scene.scale.setScalar(s);
-  const box2 = new THREE.Box3().setFromObject(scene);
+  const box2 = box.clone();
+  box2.min.multiplyScalar(s);
+  box2.max.multiplyScalar(s);
   const center = box2.getCenter(new THREE.Vector3());
   if (!spec.worldSpace) {
     scene.position.x -= center.x;
@@ -142,6 +159,7 @@ export function loadModelLibrary() {
   dracoLoader.setDecoderPath('/draco/');
   loader.setDRACOLoader(dracoLoader);
   const models = new Map();
+  const sharedTextures = new Map();
   libraryPromise = Promise.all(Object.entries(MODEL_MANIFEST).map(async ([key, def]) => {
     if (CAST_EXCLUSIONS.has(key)) return;
     try {
@@ -153,10 +171,26 @@ export function loadModelLibrary() {
         if (!res.ok) throw new Error(`http ${res.status}`);
         gltf = await loader.parseAsync(await res.arrayBuffer(), '');
       }
+      // Packed exports name identical embedded images by content hash. Reuse
+      // one GPU texture across models while retaining distinct UV transforms.
+      gltf.scene.traverse((object) => {
+        if (!object.material) return;
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          for (const [slot, texture] of Object.entries(material)) {
+            if (!texture?.isTexture || !texture.name.startsWith('asset-texture-')) continue;
+            const id = [texture.name, texture.colorSpace, texture.channel, texture.flipY,
+              texture.minFilter, texture.magFilter, texture.anisotropy, texture.generateMipmaps,
+              texture.wrapS, texture.wrapT, ...texture.repeat.toArray(), ...texture.offset.toArray(),
+              ...texture.center.toArray(), texture.rotation].join('|');
+            if (sharedTextures.has(id)) material[slot] = sharedTextures.get(id);
+            else sharedTextures.set(id, texture);
+          }
+        }
+      });
       const spec = specFor(key);
       const isChar = spec.character;
       models.set(key, {
-        template: normalize(gltf.scene, key),
+        template: normalizeModel(gltf.scene, key),
         animations: (isChar || spec.pet) ? gltf.animations : null,
         character: !!isChar,
         pet: !!spec.pet,

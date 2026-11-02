@@ -1,0 +1,111 @@
+{
+  "method": "Packed GLBs loaded through GLTFLoader and runtime normalizeModel; 37 sampled poses per clip; nose-and-pupil material vertices measured independently from floor-contact paws.",
+  "models": {
+    "pet_cat": {
+      "sha256": "88a2dc1b30c11c0cc7d0bcf04717f03ea6d138c9a5e5eca43e526d3d8b26957e",
+      "clips": {
+        "death": {
+          "durationSeconds": 1.7999999523162842,
+          "lowestSurfaceMetres": -0.000216652483842672,
+          "highestFloorContactMetres": 0.00014386458827558846,
+          "lowestNoseMetres": 0.1630541972868606
+        },
+        "eating": {
+          "durationSeconds": 2,
+          "lowestSurfaceMetres": -0.0001908657620686982,
+          "highestFloorContactMetres": 0.0001240438466252325,
+          "lowestNoseMetres": 0.14625056315967422
+        },
+        "headbutt": {
+          "durationSeconds": 2,
+          "lowestSurfaceMetres": -0.0002166361585072829,
+          "highestFloorContactMetres": 0.00015941791166704244,
+          "lowestNoseMetres": 0.26692614265435816
+        },
+        "idle": {
+          "durationSeconds": 4,
+          "lowestSurfaceMetres": -0.00021755446552942925,
+          "highestFloorContactMetres": 0.00016007980521659526,
+          "lowestNoseMetres": 0.26687851678259916
+        },
+        "idle_2": {
+          "durationSeconds": 4,
+          "lowestSurfaceMetres": -0.00021755446552942925,
+          "highestFloorContactMetres": 0.00016007980521659526,
+          "lowestNoseMetres": 0.26652166136979444
+        },
+        "idle_2_headlow": {
+          "durationSeconds": 4,
+          "lowestSurfaceMetres": -0.00021755446552942925,
+          "highestFloorContactMetres": 0.00016007980521659526,
+          "lowestNoseMetres": 0.23165323940659338
+        },
+        "idle_eating": {
+          "durationSeconds": 2,
+          "lowestSurfaceMetres": -0.0001908657620686982,
+          "highestFloorContactMetres": 0.0001240438466252325,
+          "lowestNoseMetres": 0.14625056315967422
+        },
+        "walk": {
+          "durationSeconds": 0.6000000238418579,
+          "lowestSurfaceMetres": -0.0008579713325747029,
+          "highestFloorContactMetres": 0.00017606147285895157,
+          "lowestNoseMetres": 0.2278189707307877
+        }
+      }
+    },
+    "pet_dog": {
+      "sha256": "ecfb67f573caf882c65ed74f0df8d5a7bb4c5060fa955fa1bd61892b48d509cc",
+      "clips": {
+        "death": {
+          "durationSeconds": 1.7999999523162842,
+          "lowestSurfaceMetres": -0.00009218121522525059,
+          "highestFloorContactMetres": 0.0003174329580479256,
+          "lowestNoseMetres": 0.23162774245433831
+        },
+        "eating": {
+          "durationSeconds": 2,
+          "lowestSurfaceMetres": -0.00010015890863918032,
+          "highestFloorContactMetres": 0.00023314362963139422,
+          "lowestNoseMetres": 0.13735959269808606
+        },
+        "headbutt": {
+          "durationSeconds": 2,
+          "lowestSurfaceMetres": -0.00008837678436079922,
+          "highestFloorContactMetres": 0.00030900767445529763,
+          "lowestNoseMetres": 0.4282521010896493
+        },
+        "idle": {
+          "durationSeconds": 4,
+          "lowestSurfaceMetres": -0.00008807269224814186,
+          "highestFloorContactMetres": 0.0003101636362272124,
+          "lowestNoseMetres": 0.42658787282768995
+        },
+        "idle_2": {
+          "durationSeconds": 4,
+          "lowestSurfaceMetres": -0.00008807269224814186,
+          "highestFloorContactMetres": 0.0003101636362272124,
+          "lowestNoseMetres": 0.4282296009785215
+        },
+        "idle_2_headlow": {
+          "durationSeconds": 4,
+          "lowestSurfaceMetres": -0.00008807269224814186,
+          "highestFloorContactMetres": 0.0003101636362272124,
+          "lowestNoseMetres": 0.32805840818849197
+        },
+        "idle_eating": {
+          "durationSeconds": 2,
+          "lowestSurfaceMetres": -0.00010015890863918032,
+          "highestFloorContactMetres": 0.00023314362963139422,
+          "lowestNoseMetres": 0.13735959269808606
+        },
+        "walk": {
+          "durationSeconds": 0.7333333492279053,
+          "lowestSurfaceMetres": -0.00045053772587705333,
+          "highestFloorContactMetres": 0.00015973704917493546,
+          "lowestNoseMetres": 0.3862388230545204
+        }
+      }
+    }
+  }
+}

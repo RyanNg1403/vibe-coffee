@@ -1,0 +1,32 @@
+{
+  "scope": "Clothing atlas colors and material regions. Modeling/deformation code and animation authoring were retained.",
+  "characters": 20,
+  "animation_curves_unchanged": {
+    "char_atelier_1": true,
+    "char_atelier_10": true,
+    "char_atelier_11": true,
+    "char_atelier_12": true,
+    "char_atelier_13": true,
+    "char_atelier_14": true,
+    "char_atelier_15": true,
+    "char_atelier_16": true,
+    "char_atelier_17": true,
+    "char_atelier_18": true,
+    "char_atelier_2": true,
+    "char_atelier_3": true,
+    "char_atelier_4": true,
+    "char_atelier_5": true,
+    "char_atelier_6": true,
+    "char_atelier_7": true,
+    "char_atelier_8": true,
+    "char_atelier_9": true,
+    "char_atelier_barista": true,
+    "char_atelier_server": true
+  },
+  "geometry_check": {
+    "byte_identical": false,
+    "note": "Blender decimation regenerates slightly different edge choices. Reconstructed old/new female-base source surfaces were compared bidirectionally; this is a representative geometric check, not a byte-identity guarantee for the entire cast.",
+    "max_sampled_surface_difference_metres": 0.0002551186189521104,
+    "percentile_99_surface_difference_metres": 0.0
+  }
+}

@@ -16,6 +16,8 @@ import { ServiceCoordinator } from './npc/serviceCoordinator.js';
 import { BehaviorPlanner, seedTraits } from './npc/behaviorPlanner.js';
 import { angleDelta, turnToward, walkingTimeScale, MotionInterpolator } from './npc/motion.js';
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
+import { CharacterAllocator, MAX_CHARACTER_COPIES, PROCEDURAL_CHARACTER_ASSET, countCharacterAssets } from './sim/characterAllocator.js';
+import { isFemalePortrait, seatForwardOffset } from './npc/seatFit.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -411,10 +413,9 @@ function setGroundedY(root, y, blob) {
   if (blob) blob.position.y = (0.015 - y) / Math.max(0.001, root.scale.y);
 }
 
-// ---------- skinned avatar: downloaded rigged character ----------
-// Wraps the bundled rigged characters and exposes the small control surface the
-// NPC brain needs. Three rigs use authored seated idles; the manual bone pose is
-// retained for future compatible assets that only provide standing clips.
+// ---------- skinned avatar ----------
+// Wrap the Blender cast with the animation controls used by the crowd. The
+// manual seated fallback remains for compatible assets without a sitting clip.
 
 class SkinnedAvatar {
   constructor(models, key, options = {}) {
@@ -431,9 +432,8 @@ class SkinnedAvatar {
     this._animationDebt = 0;
     this._forcePose = true;
 
-    // Each clone gets a restrained wardrobe/complexion variation.  The source
-    // files mostly use named flat-colour materials, so this costs no additional
-    // textures and makes a balanced rotation of four meshes read as a crowd.
+    // Legacy imports can receive a palette variation. The current Blender
+    // portraits retain their individually authored atlases and accessories.
     const appearanceIndex = options.appearanceIndex ?? Math.floor(rand(0, IMPORTED_OUTFITS.length));
     const keySalt = Math.max(0, key.charCodeAt(key.length - 1) - 97);
     const outfit = new THREE.Color(IMPORTED_OUTFITS[(appearanceIndex + keySalt * 2) % IMPORTED_OUTFITS.length]);
@@ -951,30 +951,30 @@ function makeDog() {
 function sitYFor(npc, seat) {
   const elevated = !!seat.isBar;
   if (!npc.avatar) return elevated ? 0.17 : -0.10;
+  if (npc.avatar.isAtelier && npc.avatar.hasSitClip) {
+    // Blender portrait poses preserve each source body's leg lengths. Measured
+    // shoe soles need 2 cm / 4 cm lift after runtime height normalization.
+    const female = isFemalePortrait(npc.avatar.key);
+    return (elevated ? 0.19 : 0) + (female ? 0.02 : 0.04);
+  }
   // measured: authored sit poses put the hip bone ~0.10 below these offsets
   // plus the cushion top, which reads as sinking through the chair
   return npc.avatar.hasSitClip ? (elevated ? 0.24 : 0.05) : (elevated ? -0.24 : -0.38);
 }
 
-// authored sit poses centre the hips on the rig origin; slide the body a
-// palm's width back toward the chair so nobody perches off the front edge
+// Use the same fitted position for initial seating and the eased transition.
 function applySitOffset(npc, seat) {
   const yaw = seat.facingYaw ?? Math.atan2(
     seat.tableCenter.x - seat.pos.x, seat.tableCenter.z - seat.pos.z);
-  if (npc.avatar?.hasSitClip) {
-    // the re-centred sit pose puts the hips ~6cm behind the rig origin, so
-    // only a small nudge back is needed to settle them mid-pan; the old 0.14
-    // (tuned for the un-centred pose) parked hips on the pan's rear edge
-    npc.mesh.position.x -= Math.sin(yaw) * 0.02;
-    npc.mesh.position.z -= Math.cos(yaw) * 0.02;
-  }
+  const forward = seatForwardOffset(npc.avatar);
+  npc.mesh.position.x += Math.sin(yaw) * forward;
+  npc.mesh.position.z += Math.cos(yaw) * forward;
 }
 
 class NPC {
   constructor(sim, opts = {}) {
     this.sim = sim;
     const sourceWalker = opts.sourceWalker ?? null;
-    const willSit = (opts.seatIndex ?? -1) >= 0;
     // Imported, skinned people are the default. The procedural actor remains a
     // true resilience fallback for failed/missing assets; seated models use an
     // authored clip when present and the compatible leg-bone pose otherwise.
@@ -984,7 +984,9 @@ class NPC {
       this.umbrella = sourceWalker.umbrella ?? sourceWalker.stowedUmbrella ?? null;
       this.sourceWalker = sourceWalker;
     } else {
-      const charKey = sim.pickCharacter(willSit);
+      const lease = opts.characterLease;
+      if (!lease) throw new Error('A new patron needs a reserved character asset');
+      const charKey = lease.key === PROCEDURAL_CHARACTER_ASSET ? null : lease.key;
       if (charKey) {
         this.avatar = new SkinnedAvatar(sim.models, charKey, {
           appearanceIndex: sim.nextAppearanceIndex(),
@@ -993,6 +995,7 @@ class NPC {
       } else {
         this.mesh = makePerson();
       }
+      this.mesh.userData.characterLease = lease;
       if (this.avatar) {
         // 1.60–1.82 m with independent shoulder/depth variation. The modest
         // range retains believable anatomy while breaking repeated silhouettes.
@@ -1391,9 +1394,9 @@ class NPC {
       seat.tableCenter.x - seat.pos.x,
       seat.tableCenter.z - seat.pos.z,
     );
-    const sitOffset = entering && this.avatar?.hasSitClip ? 0.02 : 0;
-    const targetX = target.x - Math.sin(desiredYaw) * sitOffset;
-    const targetZ = target.z - Math.cos(desiredYaw) * sitOffset;
+    const sitOffset = entering ? seatForwardOffset(this.avatar) : 0;
+    const targetX = target.x + Math.sin(desiredYaw) * sitOffset;
+    const targetZ = target.z + Math.cos(desiredYaw) * sitOffset;
     const fromYaw = this.transitionYaw ?? this.mesh.rotation.y;
     const yawDelta = angleDelta(fromYaw, desiredYaw);
     // Give a long approach or a half-turn enough time to settle into the chair.
@@ -2339,6 +2342,7 @@ class NPC {
   dispose() {
     this.sim.doorFlow?.cancel(this);
     this._clearProps();
+    this.sim.releaseCharacter(this.mesh);
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
     disposeOwnedObject(this.mesh);
@@ -2416,16 +2420,17 @@ function addStaffUniform(root, role) {
 }
 
 class Barista {
-  constructor(sim) {
+  constructor(sim, lease) {
     this.sim = sim;
-    if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, sim.models?.has('char_atelier_barista') ? 'char_atelier_barista' : sim.pickStandardCharacter(), {
+    if (lease.key !== PROCEDURAL_CHARACTER_ASSET) {
+      this.avatar = new SkinnedAvatar(sim.models, lease.key, {
         appearanceIndex: sim.nextAppearanceIndex(),
       });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
     }
+    this.mesh.userData.characterLease = lease;
     if (!this.avatar?.isAtelier) addStaffUniform(this.mesh, 'barista');
     this.home = sim.cafe.nav.baristaHome.clone();
     this.registerSpot = sim.cafe.nav.baristaRegister.clone();
@@ -2542,6 +2547,7 @@ class Barista {
   }
 
   dispose() {
+    this.sim.releaseCharacter(this.mesh);
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
     disposeOwnedObject(this.mesh);
@@ -2554,18 +2560,19 @@ class Barista {
 // stage zone forbids those. States are all bounded: perform (50-80 s) ->
 // walk to the rest spot beside the stage -> rest (18-30 s) -> walk back.
 class Performer {
-  constructor(sim) {
+  constructor(sim, lease) {
     this.sim = sim;
     const stage = sim.cafe.blueprint.decor.stage;
     this.stage = stage;
-    if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, sim.pickStandardCharacter(), {
+    if (lease.key !== PROCEDURAL_CHARACTER_ASSET) {
+      this.avatar = new SkinnedAvatar(sim.models, lease.key, {
         appearanceIndex: sim.nextAppearanceIndex(),
       });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
     }
+    this.mesh.userData.characterLease = lease;
     const mic = stage.anchors.mic;
     // stand just behind the microphone, facing the audience across the room
     this.micPos = new THREE.Vector3(mic.x - 0.14, stage.height, mic.z - 0.14);
@@ -2672,6 +2679,7 @@ class Performer {
   }
 
   dispose() {
+    this.sim.releaseCharacter(this.mesh);
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
     disposeOwnedObject(this.mesh);
@@ -2684,17 +2692,18 @@ class Performer {
 // barista it walks the floor, so it uses real waypoint paths with furniture
 // avoidance. Carrying a tray slows it down and restricts its turn rate.
 class Waiter {
-  constructor(sim) {
+  constructor(sim, lease) {
     this.sim = sim;
     this.id = 'waiter';
-    if (sim.charKeys?.length) {
-      this.avatar = new SkinnedAvatar(sim.models, sim.models?.has('char_atelier_server') ? 'char_atelier_server' : sim.pickStandardCharacter(), {
+    if (lease.key !== PROCEDURAL_CHARACTER_ASSET) {
+      this.avatar = new SkinnedAvatar(sim.models, lease.key, {
         appearanceIndex: sim.nextAppearanceIndex(),
       });
       this.mesh = this.avatar.root;
     } else {
       this.mesh = makePerson();
     }
+    this.mesh.userData.characterLease = lease;
     if (!this.avatar?.isAtelier) addStaffUniform(this.mesh, 'waiter');
     this.anchors = sim.cafe.serviceAnchors;
     this.standby = this.anchors.waiterStandby.clone();
@@ -2940,6 +2949,7 @@ class Waiter {
   }
 
   dispose() {
+    this.sim.releaseCharacter(this.mesh);
     this._carriedCup?.parent?.remove(this._carriedCup);
     if (this.avatar) { this.avatar.dispose(); return; }
     this.mesh.parent?.remove(this.mesh);
@@ -3204,7 +3214,9 @@ function setRainExteriorTint(root, dimmed) {
 }
 
 class OutsideLife {
-  constructor(cafe, models = null, charKeys = []) {
+  constructor(sim) {
+    this.sim = sim;
+    const { cafe, models } = sim;
     this.cafe = cafe;
     this.group = new THREE.Group();
     cafe.group.add(this.group);
@@ -3213,10 +3225,11 @@ class OutsideLife {
     const rainy = !!cafe.theme.rain;
     const n = 8;
     for (let i = 0; i < n; i++) {
-      // downloaded animated characters when available, procedural otherwise
+      const lease = sim.reserveCharacter();
+      if (!lease) break;
       let person, avatar = null;
-      if (charKeys.length) {
-        avatar = new SkinnedAvatar(models, charKeys[i % charKeys.length], {
+      if (lease.key !== PROCEDURAL_CHARACTER_ASSET) {
+        avatar = new SkinnedAvatar(models, lease.key, {
           castShadow: false,
           receiveShadow: false,
           appearanceIndex: i,
@@ -3227,16 +3240,17 @@ class OutsideLife {
         avatar.setMode('walk', rand(0.9, 1.2));
         person = avatar.root;
         person.userData.avatar = avatar;
-        this._buildWalker(person, rainy, avatar);
+        this._buildWalker(person, rainy, avatar, lease);
         continue;
       }
       person = makePerson(rainy ? 0.35 : 0.75);
       person.userData.parts.blob.visible = false;
-      this._buildWalker(person, rainy, null);
+      this._buildWalker(person, rainy, null, lease);
     }
   }
 
-  _buildWalker(person, rainy, avatar) {
+  _buildWalker(person, rainy, avatar, lease) {
+    person.userData.characterLease = lease;
     const s = rand(0.85, 1.0);
     person.scale.setScalar(s);
     let heldUmbrella = null;
@@ -3376,6 +3390,7 @@ class OutsideLife {
   dispose() {
     this.group.parent?.remove(this.group);
     for (const walker of this.walkers) {
+      this.sim.releaseCharacter(walker.mesh);
       if (walker.avatar) {
         walker.avatar.dispose();
       } else {
@@ -3394,7 +3409,9 @@ export class CrowdSim {
     this.charKeys = characterKeys(models);
     this.heroKeys = this.charKeys.filter((key) => key.startsWith('char_hero_'));
     this.standardCharKeys = this.charKeys.filter((key) => !key.startsWith('char_hero_'));
-    this._usedHeroKeys = new Set();
+    const loadedCharacters = [...(models ?? [])].filter(([, entry]) => entry.character).map(([key]) => key);
+    this.fallbackKeys = loadedCharacters.length ? [] : [PROCEDURAL_CHARACTER_ASSET];
+    this.characters = new CharacterAllocator([...loadedCharacters, ...this.fallbackKeys]);
     this.authoredSitKeys = sitCharacterKeys(models);
     // Manual leg folding cannot reproduce hip translation, spine balance and
     // chair clearance reliably across rigs. Only use authored seated clips when
@@ -3402,8 +3419,6 @@ export class CrowdSim {
     this.sitKeys = this.authoredSitKeys.length
       ? [...this.authoredSitKeys]
       : [...this.charKeys];
-    this._characterBags = { standing: [], sitting: [] };
-    this._lastCharacter = null;
     this._appearanceSerial = Math.floor(rand(0, IMPORTED_OUTFITS.length));
     this.npcs = [];
     this.motion = new MotionInterpolator();
@@ -3420,7 +3435,7 @@ export class CrowdSim {
     this.doorFlow = new DoorCoordinator(cafe.entrance, () => {
       if (this.audio?.started) this.audio.playChime();
     });
-    this.barista = new Barista(this);
+    this.barista = this.createStaff(Barista, 'char_atelier_barista');
     // task queue + station reservations; a floor waiter joins busier rooms
     this.service = new ServiceCoordinator(0);
     // low-frequency context planner: fixed evaluations per tick, so planning
@@ -3432,16 +3447,16 @@ export class CrowdSim {
     this.browseDestination = cafe.blueprint?.npcDestinations
       ?.find((destination) => destination.purpose === 'browse') ?? null;
     this.browsingNpc = null;
-    this.waiter = this.cafe.serviceAnchors && this.maxCrowd >= 9 ? new Waiter(this) : null;
+    this.waiter = this.cafe.serviceAnchors && this.maxCrowd >= 9 ? this.createStaff(Waiter, 'char_atelier_server') : null;
     // dedicated stage performer wherever the blueprint authors a stage
-    this.performer = cafe.blueprint?.decor?.stage ? new Performer(this) : null;
+    this.performer = cafe.blueprint?.decor?.stage ? this.createStaff(Performer) : null;
     // two-level venues: stair reservations + the deck spec the script follows
     this.deckSpec = cafe.blueprint?.decor?.deck ?? null;
     this.stairs = this.deckSpec ? new StairCoordinator() : null;
     // Exterior walkers are a real actor pool: arrivals are claimed from it and
     // departing indoor patrons are returned to it, so identity continues
     // through the doorway without creating and destroying character clones.
-    this.outside = new OutsideLife(cafe, models, this.standardCharKeys);
+    this.outside = new OutsideLife(this);
     this.staticPatrons = [];
     // Every guest now belongs to the same animated Blender cast.
     this.spawnCooldown = rand(3, 7);
@@ -3455,47 +3470,41 @@ export class CrowdSim {
     if (this.maxCrowd >= 14) this._preseatPair();
   }
 
-  // Shuffle-bag selection guarantees all suitable designs appear before one is
-  // repeated.  Moving the previous pick away from the front also prevents the
-  // conspicuous same-model twins produced by independent random selection.
-  pickCharacter(willSit = false) {
-    // Lead with each close-up-quality patron instead of burying them behind a
-    // random shuffle. Every hero appears once per café visit, then the lighter
-    // animated cast resumes for later arrivals.
-    const unusedHero = willSit
-      ? null
-      : this.heroKeys.find((key) => !this._usedHeroKeys.has(key));
-    if (unusedHero) {
-      const key = unusedHero;
-      this._usedHeroKeys.add(key);
-      this._lastCharacter = key;
-      return key;
-    }
-    const pool = willSit
-      ? this.sitKeys
-      : this.standardCharKeys;
-    if (!pool.length) return null;
-    const bagName = willSit ? 'sitting' : 'standing';
-    let bag = this._characterBags[bagName];
-    if (!bag.length) {
-      bag = [...pool];
-      for (let i = bag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [bag[i], bag[j]] = [bag[j], bag[i]];
-      }
-      if (bag.length > 1 && bag[bag.length - 1] === this._lastCharacter) {
-        [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
-      }
-      this._characterBags[bagName] = bag;
-    }
-    const key = bag.pop();
-    this._lastCharacter = key;
-    return key;
+  characterPool(willSit = false) {
+    const pool = willSit ? this.sitKeys : this.standardCharKeys;
+    return pool.length ? pool : this.fallbackKeys;
   }
 
-  pickStandardCharacter() {
-    const pool = this.standardCharKeys.length ? this.standardCharKeys : this.charKeys;
-    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  reserveCharacter(willSit = false) {
+    return this.characters.reserve(this.characterPool(willSit));
+  }
+
+  createStaff(Actor, preferredKey = null) {
+    const lease = (preferredKey && this.characters.reserve([preferredKey]))
+      || this.reserveCharacter();
+    return lease ? new Actor(this, lease) : null;
+  }
+
+  releaseCharacter(root) {
+    this.characters.release(root?.userData.characterLease);
+    if (root) delete root.userData.characterLease;
+  }
+
+  characterDiversityReport() {
+    const counts = countCharacterAssets([
+      ...this.npcs, ...this.outside.walkers, this.barista, this.waiter, this.performer,
+    ]);
+    const allocated = this.characters.snapshot();
+    const keys = new Set([...Object.keys(counts), ...Object.keys(allocated)]);
+    return {
+      limit: MAX_CHARACTER_COPIES,
+      actorCount: Object.values(counts).reduce((sum, count) => sum + count, 0),
+      uniqueAssets: Object.keys(counts).length,
+      maxCopies: Math.max(0, ...Object.values(counts)),
+      counts,
+      allocationsMatch: [...keys].every(key => (counts[key] ?? 0) === (allocated[key] ?? 0)),
+      availableSlots: this.characters.available(this.characterPool()),
+    };
   }
 
   _placeStaticPatron() {
@@ -3566,8 +3575,10 @@ export class CrowdSim {
   _preseat() {
     const seat = this._freeSeat({ allowUpper: true });
     if (seat < 0) return;
+    const characterLease = this.reserveCharacter(true);
+    if (!characterLease) return;
     this.takenSeats.add(seat);
-    const npc = new NPC(this, { seatIndex: seat, silent: true });
+    const npc = new NPC(this, { seatIndex: seat, silent: true, characterLease });
     this.dequeue(npc);
     npc.state = 'sitting';
     npc.stateT = rand(0, 40);
@@ -3592,10 +3603,12 @@ export class CrowdSim {
   _preseatPair() {
     const pair = this._freePairSeats();
     if (!pair) return;
+    const leases = this.characters.reserveMany(this.characterPool(true), 2);
+    if (!leases) return;
     const members = [];
-    for (const seat of pair) {
+    for (const [index, seat] of pair.entries()) {
       this.takenSeats.add(seat);
-      const npc = new NPC(this, { seatIndex: seat, silent: true, activity: 'chat' });
+      const npc = new NPC(this, { seatIndex: seat, silent: true, activity: 'chat', characterLease: leases[index] });
       this.dequeue(npc);
       npc.state = 'sitting';
       npc.stateT = rand(0, 30);
@@ -3866,7 +3879,7 @@ export class CrowdSim {
   }
 
   _eachMovingRoot(visit) {
-    visit(this.barista.mesh);
+    if (this.barista) visit(this.barista.mesh);
     if (this.waiter) visit(this.waiter.mesh);
     if (this.performer) visit(this.performer.mesh);
     for (const npc of this.npcs) visit(npc.mesh);
@@ -3885,7 +3898,7 @@ export class CrowdSim {
     this._eachMovingRoot((root) => this.motion.capture(root));
     this.listenerPos = listenerPos;
     this.doorFlow.update();
-    this.barista.update(dt, t);
+    this.barista?.update(dt, t);
     this.service?.update(t);
     this.waiter?.update(dt, t);
     this.performer?.update(dt, t);
@@ -4049,7 +4062,7 @@ export class CrowdSim {
     this.service?.cancelAll();
     this.waiter?.dispose();
     this.performer?.dispose();
-    this.barista.dispose();
+    this.barista?.dispose();
     this.outside.dispose();
     this.staticPatrons.forEach(({ model }) => model.parent?.remove(model));
     this.staticPatrons = [];

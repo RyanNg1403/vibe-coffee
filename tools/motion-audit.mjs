@@ -1,6 +1,6 @@
 // Measure 180 seconds of real crowd simulation at 30 Hz, including doorway,
 // service and seating transitions. Uses the memory-audit URL to disable the
-// automatic simulation loop, then advances the scene and crowd together.
+// automatic simulation loop, then advances the scene, crowd and pets together.
 // CHROME_PATH=/path/to/chrome node tools/motion-audit.mjs --venue=goldenhour
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -156,8 +156,16 @@ try {
   const report = await client.evaluate(`(() => {
     const c = window.__vibe.crowd;
     const step = 1 / 30;
+    const pets = window.__vibe.pets;
+    const petMotion = { maxStep:0, maxTurn:0, maxDoorSeconds:0, dogArrivals:0, dogDepartures:0, states:[] };
+    const petStates = new Set(), seenDogs = new WeakSet();
+    let activePetDoor = null, petDoorSeconds = 0;
     const max = { walkStep: 0, baristaTurn: 0, waiterStep: 0, seatedTurn: 0, seatStep: 0, seatTurn: 0, renderRestoreError: 0 };
     const states = new Set();
+    const diversity = {
+      initial: c.characterDiversityReport(), maxCopies: 0, minUniqueAssets: Infinity,
+      allocationMismatches: 0, violations: [], peakCounts: {},
+    };
     let interpolatedFrames = 0;
     let baristaTurns = 0;
     const prior = new WeakMap();
@@ -169,8 +177,30 @@ try {
         yaw: actor.mesh.rotation.y, state: actor.state,
         parent: actor.mesh.parent, path: !!actor.path,
       });
+      const previousPets = pets?.pets.map(pet => ({pet,position:pet.mesh.position.clone(),yaw:pet.mesh.rotation.y})) ?? [];
       window.__vibe.cafe.animate(step);
       c.update(step, tick * step);
+      pets?.update(step, c, null);
+      for (const {pet,position,yaw} of previousPets) {
+        petMotion.maxStep = Math.max(petMotion.maxStep, position.distanceTo(pet.mesh.position));
+        const turn=pet.mesh.rotation.y-yaw;
+        petMotion.maxTurn = Math.max(petMotion.maxTurn,Math.abs(Math.atan2(Math.sin(turn),Math.cos(turn))));
+        petStates.add(pet.kind+':'+pet.state);
+        if (pet.kind==='dog'&&!seenDogs.has(pet)) {seenDogs.add(pet);petMotion.dogArrivals++;}
+        if (pet.kind==='dog'&&pet.dead) petMotion.dogDepartures++;
+      }
+      const doorPet = c.doorFlow.active?.kind==='dog' ? c.doorFlow.active : null;
+      petDoorSeconds = doorPet && doorPet===activePetDoor ? petDoorSeconds+step : 0;
+      activePetDoor = doorPet;
+      petMotion.maxDoorSeconds = Math.max(petMotion.maxDoorSeconds,petDoorSeconds);
+      const currentCast = c.characterDiversityReport();
+      diversity.maxCopies = Math.max(diversity.maxCopies, currentCast.maxCopies);
+      diversity.minUniqueAssets = Math.min(diversity.minUniqueAssets, currentCast.uniqueAssets);
+      if (!currentCast.allocationsMatch) diversity.allocationMismatches++;
+      for (const [key, count] of Object.entries(currentCast.counts)) {
+        diversity.peakCounts[key] = Math.max(diversity.peakCounts[key] ?? 0, count);
+        if (count > 2 && diversity.violations.length < 10) diversity.violations.push({ tick, key, count });
+      }
       for (const actor of actors) {
         const prev = prior.get(actor);
         if (actor.mesh.parent !== prev.parent) continue;
@@ -199,16 +229,27 @@ try {
         for (const {root, pos, q} of roots) max.renderRestoreError = Math.max(max.renderRestoreError, root.position.distanceTo(pos), root.quaternion.angleTo(q));
       }
     }
-    return { seconds: 180, max, interpolatedFrames, baristaTurns, states: [...states], worst, dwell: c.dwellReport() };
+    diversity.final = c.characterDiversityReport();
+    petMotion.states = [...petStates];
+    return { seconds: 180, max, diversity, petMotion, interpolatedFrames, baristaTurns, states: [...states], worst, dwell: c.dwellReport() };
   })()`);
   console.log(JSON.stringify({ venue: VENUE, max: report.max, states: report.states }, null, 2));
   const { writeFile: writeReport } = await import('node:fs/promises');
   await writeReport(join(OUT_DIR, 'motion-report.json'), JSON.stringify(report, null, 2) + '\n');
+  if (report.diversity.initial.maxCopies > 2 || report.diversity.maxCopies > 2
+    || !report.diversity.initial.allocationsMatch || report.diversity.allocationMismatches) {
+    throw new Error('Character diversity audit failed: more than two copies or an untracked actor');
+  }
   if (report.max.walkStep > 0.06 || report.max.baristaTurn > 4.2 / 30 + 1e-8
     || report.max.renderRestoreError > 1e-6 || report.interpolatedFrames < 100
     || report.max.seatedTurn > 2.4 / 30 + 1e-8 || report.max.waiterStep > 0.03
     || report.max.seatStep > 1.2 / 30 + 1e-8 || report.max.seatTurn > 3.2 / 30 + 1e-8) {
     throw new Error('Movement audit failed');
+  }
+  if (report.petMotion.dogArrivals < 1 || report.petMotion.maxDoorSeconds < .2
+    || report.petMotion.maxStep > .62 / 30 + 1e-6 || report.petMotion.maxTurn > 3.6 / 30 + 1e-6
+    || report.petMotion.maxDoorSeconds > 12) {
+    throw new Error('Pet movement or shared doorway audit failed: '+JSON.stringify(report.petMotion));
   }
   await capture('motion-scene');
   const { writeFile } = await import('node:fs/promises');

@@ -1,0 +1,62 @@
+[
+  {
+    "key": "char_atelier_10",
+    "minY": 0.0008228824455297074,
+    "rootY": 0.04,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_15",
+    "minY": 3.2524976212738976,
+    "rootY": 3.27,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_13",
+    "minY": 0.0009239402542099394,
+    "rootY": 0.02,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_5",
+    "minY": 0.0018235572074007701,
+    "rootY": 0.02,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_9",
+    "minY": 0.001741137900945603,
+    "rootY": 0.02,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_4",
+    "minY": 3.2485683879197147,
+    "rootY": 3.29,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_16",
+    "minY": -0.0010554571554646994,
+    "rootY": 0.04,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_8",
+    "minY": -0.0017753594972939948,
+    "rootY": 0.04,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_17",
+    "minY": 0.002783930763258835,
+    "rootY": 0.02,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_18",
+    "minY": 0.001907186216509149,
+    "rootY": 0.04,
+    "bar": false
+  }
+]

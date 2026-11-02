@@ -1,0 +1,6 @@
+ok   goldenhour  style=classic-salon    levels=1 tables=14 seats=42 surfaces=1 links=0 views=12
+ok   roastery    style=modern-roastery  levels=1 tables=8 seats=32 surfaces=1 links=0 views=12
+ok   midnight    style=jazz-lounge      levels=1 tables=17 seats=47 surfaces=1 links=0 views=11
+ok   terrace     style=garden-terrace   levels=3 tables=15 seats=45 surfaces=5 links=4 views=14
+
+4 venues, 4 distinct table plans, 0 errors

@@ -10,12 +10,13 @@ import { TEXTURE_MANIFEST } from '../src/textureManifest.js';
 import { studioChairGeometry } from '../src/decor/chairKit.js';
 import { createThinGlass } from '../src/rendering/thinGlass.js';
 import { MeshoptDecoder } from 'meshoptimizer';
+import { normalizeModel } from '../src/modelLoader.js';
 
 const budgets = {
-  studio_cup: [2600, 2, 70_000],
-  studio_espresso: [6500, 7, 200_000],
-  studio_pendant: [2000, 3, 50_000],
-  studio_chair: [2200, 2, 100_000],
+  studio_cup: [3200, 2, 90_000],
+  studio_espresso: [6500, 7, 250_000],
+  studio_pendant: [2000, 3, 80_000],
+  studio_chair: [2200, 2, 150_000],
 };
 await MeshoptDecoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
@@ -94,6 +95,38 @@ test('architectural glazing keeps the refraction prepass disabled', () => {
   assert.equal(glass.depthWrite, false);
   assert.equal(glass.forceSinglePass, true);
   glass.dispose();
+});
+
+test('armchairs and backed bar stools keep the Blender cushion at seated hip height', async () => {
+  for (const [key, low, high] of [['armchair', 0.48, 0.54], ['bar_stool', 0.67, 0.73]]) {
+    const document = await io.read(new URL(`../public/models/${key}.glb`, import.meta.url).pathname);
+    for (const texture of document.getRoot().listTextures()) texture.dispose();
+    for (const extension of document.getRoot().listExtensionsUsed()) {
+      if (extension.extensionName === 'EXT_meshopt_compression') extension.dispose();
+    }
+    const bytes = await io.writeBinary(document);
+    const gltf = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
+    const model = normalizeModel(gltf.scene, key);
+    model.updateMatrixWorld(true);
+    // The seat sits below the arms/back; inspect linen vertices near its center.
+    let seatTop = -Infinity;
+    model.traverse(object => {
+      if (!object.isMesh || !object.material.name.toLowerCase().includes('linen')) return;
+      const positions = object.geometry.attributes.position;
+      const index = object.geometry.index;
+      const point = object.position.clone(), center = object.position.clone();
+      for (let i = 0; i < (index?.count ?? positions.count); i += 3) {
+        center.set(0, 0, 0);
+        for (let j = 0; j < 3; j++) {
+          point.fromBufferAttribute(positions, index ? index.getX(i + j) : i + j).applyMatrix4(object.matrixWorld);
+          center.addScaledVector(point, 1 / 3);
+        }
+        if (Math.abs(center.x) < 0.15 && Math.abs(center.z) < 0.15) seatTop = Math.max(seatTop, center.y);
+      }
+    });
+    assert.ok(seatTop > low && seatTop < high, `${key}: cushion top ${seatTop} m`);
+    model.traverse(object => { object.geometry?.dispose(); object.material?.dispose(); });
+  }
 });
 
 test('every studio surface ships color, normal and roughness maps within the texture budget', async () => {

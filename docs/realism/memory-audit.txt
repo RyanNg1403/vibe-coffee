@@ -1,0 +1,54 @@
+┌─────────┬──────────────┬────────┬────────────────┬────────────┬──────────┬──────────────────┬────────────────┬───────┬───────────┬───────────────┬───────┐
+│ (index) │ theme        │ heapMB │ decodedAudioMB │ geometries │ textures │ activeGeometries │ activeTextures │ rain  │ umbrellas │ umbrellaHands │ calls │
+├─────────┼──────────────┼────────┼────────────────┼────────────┼──────────┼──────────────────┼────────────────┼───────┼───────────┼───────────────┼───────┤
+│ 0       │ 'roastery'   │ 115.14 │ 40.06          │ 422        │ 86       │ 628              │ 62             │ false │ '0/8'     │ 8             │ 810   │
+│ 1       │ 'midnight'   │ 117.43 │ 40.06          │ 475        │ 82       │ 667              │ 58             │ true  │ '6/8'     │ 8             │ 337   │
+│ 2       │ 'terrace'    │ 167.03 │ 40.06          │ 418        │ 77       │ 586              │ 57             │ false │ '0/8'     │ 8             │ 241   │
+│ 3       │ 'goldenhour' │ 119.4  │ 40.06          │ 488        │ 84       │ 730              │ 64             │ false │ '0/8'     │ 8             │ 840   │
+│ 4       │ 'roastery'   │ 114.56 │ 40.06          │ 422        │ 86       │ 628              │ 62             │ false │ '0/8'     │ 8             │ 236   │
+│ 5       │ 'midnight'   │ 117.66 │ 40.06          │ 475        │ 82       │ 667              │ 58             │ true  │ '6/8'     │ 8             │ 1010  │
+│ 6       │ 'terrace'    │ 168.1  │ 40.06          │ 418        │ 77       │ 586              │ 57             │ false │ '0/8'     │ 8             │ 662   │
+│ 7       │ 'goldenhour' │ 119.48 │ 40.06          │ 488        │ 84       │ 730              │ 64             │ false │ '0/8'     │ 8             │ 840   │
+│ 8       │ 'roastery'   │ 114.68 │ 40.06          │ 422        │ 86       │ 628              │ 62             │ false │ '0/8'     │ 8             │ 236   │
+│ 9       │ 'goldenhour' │ 121.29 │ 40.06          │ 488        │ 84       │ 730              │ 64             │ false │ '0/8'     │ 8             │ 840   │
+└─────────┴──────────────┴────────┴────────────────┴────────────┴──────────┴──────────────────┴────────────────┴───────┴───────────┴───────────────┴───────┘
+{
+  "start": {
+    "theme": "goldenhour",
+    "heapMB": 119.75,
+    "decodedAudioMB": 40.06,
+    "geometries": 488,
+    "textures": 84,
+    "activeGeometries": 730,
+    "activeTextures": 64,
+    "rain": false,
+    "umbrellas": "0/8",
+    "umbrellaHands": 8,
+    "calls": 840
+  },
+  "end": {
+    "theme": "goldenhour",
+    "heapMB": 121.29,
+    "decodedAudioMB": 40.06,
+    "geometries": 488,
+    "textures": 84,
+    "activeGeometries": 730,
+    "activeTextures": 64,
+    "rain": false,
+    "umbrellas": "0/8",
+    "umbrellaHands": 8,
+    "calls": 840
+  },
+  "delta": {
+    "heapMB": 1.55,
+    "geometries": 0,
+    "textures": 0
+  },
+  "checks": {
+    "stableResources": true,
+    "stableHeap": true,
+    "rainyUmbrellaMix": true,
+    "clearScenesHaveNoUmbrellas": true
+  },
+  "passed": true
+}

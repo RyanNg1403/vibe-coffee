@@ -1,0 +1,122 @@
+{
+  "venue": "goldenhour",
+  "quality": "detail",
+  "frames": 0,
+  "fps": 24,
+  "staging": "Actual pet positions; only a clear walking destination and close-up camera are staged.",
+  "pets": [
+    {
+      "kind": "cat",
+      "key": "pet_cat",
+      "originalState": "idle",
+      "start": [
+        5.0346504088025545,
+        0,
+        0.03855549038853495
+      ],
+      "target": {
+        "x": 6.7914916047786305,
+        "z": -0.3532467711176366
+      },
+      "bones": 22,
+      "end": {
+        "position": [
+          5.205852299897875,
+          0,
+          0.02020361641845844
+        ],
+        "state": "walking",
+        "mode": "walk"
+      },
+      "maxRestoreError": 0
+    }
+  ],
+  "errors": [],
+  "motion": {
+    "cat": {
+      "ticks": 75,
+      "maxStep": 0.016663166686123478,
+      "maxYaw": 0.12000000000000009
+    },
+    "dog": {
+      "ticks": 0,
+      "maxStep": 0,
+      "maxYaw": 0
+    }
+  },
+  "metrics": {
+    "theme": "goldenhour",
+    "rain": false,
+    "qualityMode": "detail",
+    "pixelRatio": 1,
+    "effects": 2,
+    "targetFps": 24,
+    "observedFps": 0.3,
+    "renderedFrames": 16,
+    "skippedFrames": 2,
+    "lastRenderMs": 176.5,
+    "shadowFps": 20,
+    "gtaoScale": 0.5,
+    "bloomScale": 0.5,
+    "heapBytes": 128900513,
+    "decodedAudioBytes": 36599336,
+    "outsidePedestrians": 8,
+    "indoorPatrons": 12,
+    "mobileActors": 20,
+    "characterDiversity": {
+      "limit": 2,
+      "actorCount": 22,
+      "uniqueAssets": 20,
+      "maxCopies": 2,
+      "counts": {
+        "char_atelier_4": 1,
+        "char_atelier_6": 1,
+        "char_atelier_9": 1,
+        "char_atelier_13": 1,
+        "char_atelier_11": 1,
+        "char_atelier_18": 1,
+        "char_atelier_10": 1,
+        "char_atelier_16": 1,
+        "char_atelier_15": 1,
+        "char_atelier_17": 1,
+        "char_atelier_5": 2,
+        "char_atelier_7": 2,
+        "char_atelier_2": 1,
+        "char_atelier_1": 1,
+        "char_atelier_3": 1,
+        "char_atelier_12": 1,
+        "char_atelier_8": 1,
+        "char_atelier_14": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 16
+    },
+    "outsideUmbrellas": 0,
+    "outsideUmbrellaHands": 8,
+    "outsideUmbrellaGripError": 0,
+    "doorOpenness": 0,
+    "doorQueue": 0,
+    "playerTypingBursts": 0,
+    "playerTypingActive": false,
+    "activeOneShotSources": 3,
+    "activePetVoices": 0,
+    "plannerEvalsPerSecond": 8,
+    "serviceTasks": 0,
+    "serviceReservations": 0,
+    "steamEmitters": 6,
+    "interactionTargets": 1,
+    "instancedMeshes": 10,
+    "instancedInstances": 505,
+    "geometries": 462,
+    "textures": 100,
+    "activeGeometries": 737,
+    "activeTextures": 63,
+    "activeSharedTextures": 49,
+    "calls": 1263,
+    "triangles": 3097446,
+    "points": 258,
+    "lines": 0
+  }
+}

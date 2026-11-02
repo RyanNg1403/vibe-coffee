@@ -11,3 +11,4 @@ tools/.artifact-cache/
 # Blender Python caches and reproducible capture frames
 __pycache__/
 docs/rebuild/*/frames/
+docs/realism/*/frames/

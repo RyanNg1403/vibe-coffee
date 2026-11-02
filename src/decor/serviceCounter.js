@@ -218,17 +218,20 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
   group.add(onSurface(stirrers, topY, 'stirrer cup'));
 
   // --- dirty-dish return: open tub on a low stand by the bin, off the aisle ---
+  const dishReturn = new THREE.Group();
+  dishReturn.name = 'Dish return stand and tub';
+  group.add(dishReturn);
   const standX = 4.0;
   const standZ = -D / 2 + 1.9;
   const stand = box(0.55, 0.72, 0.42, woodDarkMat);
   stand.position.set(standX, 0.36, standZ);
-  group.add(onSurface(stand, 0, 'dish stand'));
+  dishReturn.add(onSurface(stand, 0, 'dish stand'));
   const tub = box(0.48, 0.16, 0.36, new THREE.MeshStandardMaterial({ color: 0x8f9499, roughness: 0.8 }));
   tub.position.set(standX, 0.8, standZ);
-  group.add(onSurface(tub, 0.72, 'dish tub'));
+  dishReturn.add(onSurface(tub, 0.72, 'dish tub'));
   const tubInner = box(0.42, 0.14, 0.3, new THREE.MeshStandardMaterial({ color: 0x6f757b, roughness: 0.9 }));
   tubInner.position.set(standX, 0.82, standZ);
-  group.add(tubInner);
+  dishReturn.add(tubInner);
   const dishSign = new THREE.Mesh(
     new THREE.PlaneGeometry(0.3, 0.09),
     new THREE.MeshBasicMaterial({
@@ -243,7 +246,7 @@ export function buildServiceUpgrades({ group, theme, D, helpers, mats }) {
     })
   );
   dishSign.position.set(standX, 0.62, standZ + 0.215);
-  group.add(dishSign);
+  dishReturn.add(dishSign);
 
   return { anchors: serviceAnchorsFor(D), dishReturnCollider: { x: standX, z: standZ, r: 0.42 } };
 }

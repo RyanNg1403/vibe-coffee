@@ -1,0 +1,287 @@
+{
+  "seconds": 180,
+  "max": {
+    "walkStep": 0.03871164151089393,
+    "baristaTurn": 0.14000000000000057,
+    "waiterStep": 0.024000000000000046,
+    "seatedTurn": 0.08000000000000008,
+    "seatStep": 0.03998612846775586,
+    "seatTurn": 0.10661420138801336,
+    "renderRestoreError": 4.2146848510894035e-8
+  },
+  "diversity": {
+    "initial": {
+      "limit": 2,
+      "actorCount": 23,
+      "uniqueAssets": 20,
+      "maxCopies": 2,
+      "counts": {
+        "char_atelier_17": 1,
+        "char_atelier_15": 1,
+        "char_atelier_8": 1,
+        "char_atelier_5": 2,
+        "char_atelier_1": 1,
+        "char_atelier_7": 1,
+        "char_atelier_3": 2,
+        "char_atelier_9": 1,
+        "char_atelier_6": 1,
+        "char_atelier_2": 1,
+        "char_atelier_16": 2,
+        "char_atelier_14": 1,
+        "char_atelier_13": 1,
+        "char_atelier_18": 1,
+        "char_atelier_4": 1,
+        "char_atelier_12": 1,
+        "char_atelier_10": 1,
+        "char_atelier_11": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 15
+    },
+    "maxCopies": 2,
+    "minUniqueAssets": 20,
+    "allocationMismatches": 0,
+    "violations": [],
+    "peakCounts": {
+      "char_atelier_17": 1,
+      "char_atelier_15": 1,
+      "char_atelier_8": 1,
+      "char_atelier_5": 2,
+      "char_atelier_1": 1,
+      "char_atelier_7": 1,
+      "char_atelier_3": 2,
+      "char_atelier_9": 1,
+      "char_atelier_6": 1,
+      "char_atelier_2": 1,
+      "char_atelier_16": 2,
+      "char_atelier_14": 1,
+      "char_atelier_13": 1,
+      "char_atelier_18": 1,
+      "char_atelier_4": 1,
+      "char_atelier_12": 1,
+      "char_atelier_10": 1,
+      "char_atelier_11": 1,
+      "char_atelier_barista": 1,
+      "char_atelier_server": 1
+    },
+    "final": {
+      "limit": 2,
+      "actorCount": 23,
+      "uniqueAssets": 20,
+      "maxCopies": 2,
+      "counts": {
+        "char_atelier_2": 1,
+        "char_atelier_3": 2,
+        "char_atelier_4": 1,
+        "char_atelier_10": 1,
+        "char_atelier_18": 1,
+        "char_atelier_9": 1,
+        "char_atelier_11": 1,
+        "char_atelier_16": 2,
+        "char_atelier_6": 1,
+        "char_atelier_13": 1,
+        "char_atelier_14": 1,
+        "char_atelier_7": 1,
+        "char_atelier_12": 1,
+        "char_atelier_5": 2,
+        "char_atelier_1": 1,
+        "char_atelier_17": 1,
+        "char_atelier_8": 1,
+        "char_atelier_15": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 15
+    }
+  },
+  "interpolatedFrames": 2144,
+  "baristaTurns": 994,
+  "states": [
+    "sitting",
+    "approachingDoorIn",
+    "waitingDoorIn",
+    "crossingDoorIn",
+    "queueing",
+    "standingSeat",
+    "holdingDoorOut",
+    "ordering",
+    "approachingDoorOut",
+    "waitingPickup",
+    "holdingDoorIn",
+    "waitingDoorOut",
+    "crossingDoorOut",
+    "joiningSidewalk",
+    "toSeat",
+    "aligningSeat"
+  ],
+  "worst": [],
+  "dwell": {
+    "npcs": [
+      {
+        "serial": 10,
+        "state": "holdingDoorOut",
+        "seconds": 10.3,
+        "x": 0.07,
+        "y": 0,
+        "z": 3.07,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 11,
+        "state": "holdingDoorOut",
+        "seconds": 10.3,
+        "x": -0.31,
+        "y": 0,
+        "z": 4.45,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 15,
+        "state": "sitting",
+        "seconds": 99.5,
+        "x": -0.91,
+        "y": 0.04,
+        "z": 1.43,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 16,
+        "state": "sitting",
+        "seconds": 58.8,
+        "x": 5.44,
+        "y": 0.04,
+        "z": 5.07,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 17,
+        "state": "sitting",
+        "seconds": 47.2,
+        "x": 6.51,
+        "y": 0.04,
+        "z": 4.29,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 18,
+        "state": "sitting",
+        "seconds": 53,
+        "x": -4.05,
+        "y": 0.21,
+        "z": -2.6,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 19,
+        "state": "sitting",
+        "seconds": 14.9,
+        "x": -7.05,
+        "y": 0.02,
+        "z": 3.4,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 20,
+        "state": "aligningSeat",
+        "seconds": 0,
+        "x": 4.52,
+        "y": 0,
+        "z": -0.12,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 21,
+        "state": "toSeat",
+        "seconds": 15.5,
+        "x": 0.13,
+        "y": 0,
+        "z": 2.15,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 22,
+        "state": "ordering",
+        "seconds": 3.5,
+        "x": 2.13,
+        "y": 0,
+        "z": -4.55,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 23,
+        "state": "queueing",
+        "seconds": 45.7,
+        "x": 2.14,
+        "y": 0,
+        "z": -3.8,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 24,
+        "state": "queueing",
+        "seconds": 36.2,
+        "x": 2.13,
+        "y": 0,
+        "z": -3.05,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 25,
+        "state": "queueing",
+        "seconds": 18.6,
+        "x": 2.15,
+        "y": 0,
+        "z": -2.51,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 26,
+        "state": "queueing",
+        "seconds": 15.2,
+        "x": 1.67,
+        "y": 0,
+        "z": -2.32,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 27,
+        "state": "crossingDoorIn",
+        "seconds": 0.3,
+        "x": 0.02,
+        "y": 0,
+        "z": 7.25,
+        "level": "ground",
+        "seated": false
+      }
+    ],
+    "maxServiceDwell": {
+      "state": "waitingPickup",
+      "seconds": 15.8
+    },
+    "seatedHandCups": 0,
+    "waiter": {
+      "phase": "toTable",
+      "seconds": 3,
+      "hasTask": true,
+      "x": 0,
+      "z": -3.73
+    }
+  }
+}

@@ -21,6 +21,7 @@ import { createThinGlass } from './rendering/thinGlass.js';
 import { studioChairGeometry } from './decor/chairKit.js';
 import { paintSkyBackdrop } from './rendering/skyBackdrop.js';
 import { floatGeometry } from './rendering/floatGeometry.js';
+import { capturePlacementBounds, recordBatchedPlacement } from './rendering/placementBounds.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -40,30 +41,13 @@ function mergeStaticDecor(group, animatedRoots) {
   for (const root of animatedRoots) {
     if (root) root.traverse((o) => skip.add(o));
   }
-  group.updateMatrixWorld(true);
-  // Keep placement bounds before material batching separates a cabinet's
-  // shelves from its legs. Grounding audits must inspect placed assemblies,
-  // not the unrelated pieces that happen to share one GPU material batch.
-  const usesCompressedLibrary = (object) => {
-    let found = false;
-    object.traverse((part) => {
-      if (part.geometry?.userData.vibeShared && Object.values(part.geometry.attributes).some((attribute) => attribute.normalized)) found = true;
-    });
-    return found;
-  };
-  group.userData.placedUnits = group.children.filter(usesCompressedLibrary).map((object) => ({
-    uuid: object.uuid,
-    name: object.name || object.userData.surfaceName || object.type,
-    visible: object.visible,
-    isInstancedMesh: object.isInstancedMesh,
-    children: { length: object.children.length },
-    userData: {},
-    bounds: skip.has(object) ? null : new THREE.Box3().setFromObject(object),
-  }));
+  group.userData.placedUnits = capturePlacementBounds(group, animatedRoots);
+  const placementsById = new Map(group.userData.placedUnits.map(unit => [unit.uuid, unit]));
   const buckets = new Map();
   group.traverseVisible((o) => {
     if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
     if (skip.has(o) || o.children.length > 0 || !o.visible) return;
+    if (o.userData.illustratedBackdrop) return;
     if (o.userData.tableSurfaceProp) return;
     if (o.userData.seatIndex !== undefined) return;
     const material = o.material;
@@ -125,12 +109,17 @@ function mergeStaticDecor(group, animatedRoots) {
       })
       : meshes[0].material;
     const merged = new THREE.Mesh(mergedGeometry, material);
-    merged.userData.decorBatch = sig.endsWith('|library');
+    // Every batch is checked through its original placed assemblies, including
+    // procedural parts. This does not exempt the source objects from grounding.
+    merged.userData.decorBatch = true;
     merged.castShadow = meshes[0].castShadow;
     merged.receiveShadow = meshes[0].receiveShadow;
     merged.layers.mask = meshes[0].layers.mask;
     group.add(merged);
-    for (const o of meshes) o.parent.remove(o);
+    for (const o of meshes) {
+      recordBatchedPlacement(group, o, placementsById);
+      o.parent.remove(o);
+    }
   }
 }
 
@@ -258,14 +247,14 @@ export const THEMES = [
     id: 'goldenhour',
     name: 'Golden Hour Café',
     blurb: 'Warm wood, late-afternoon sun, plants everywhere.',
-    musicKey: 0, rain: false, exposure: 1.12, envIntensity: 0.45, bloom: 0.2,
-    fog: { color: 0x2b1d12, density: 0.012 },
-    floor: '#8a6242', floorLine: '#6d4b31', wall: '#c9b394', wallTrim: '#8a6242',
+    musicKey: 0, rain: false, exposure: 1.0, envIntensity: 0.38, bloom: 0.12,
+    fog: { color: 0xb7b0a3, density: 0.003 },
+    floor: '#8a6242', floorLine: '#6d4b31', wall: '#ddd7cc', wallTrim: '#675344',
     wood: 0x6f4a2d, woodDark: 0x4e3018, accent: 0x3e684f, cushion: 0x914438,
     counter: 0x5b3a20, counterTop: 0xd9c9a8,
-    hemi: [0xffe7c7, 0x4d3827, 0.65],
-    sun: { color: 0xffc58a, intensity: 2.25, pos: [6, 4.5, 12] },
-    lampColor: 0xffb46e, lampIntensity: 6.5, lampY: 2.3,
+    hemi: [0xdde7ee, 0x6b5746, 0.22],
+    sun: { color: 0xfff0da, intensity: 2.6, pos: [6, 5.5, 12] },
+    lampColor: 0xffd0a2, lampIntensity: 4.0, lampY: 2.3,
     outside: 'sunset',
     dust: true, neon: null,
     // furniture placement lives in the venue blueprint (src/cafe/interiorLayouts.js)
@@ -1062,7 +1051,7 @@ function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
 
 // per-café floor surface
 const FLOOR_SURF = {
-  goldenhour: { c: 'floor_wood.jpg', n: 'floor_wood_n.jpg', r: 'floor_wood_r.jpg', tint: 0xe4c49a, roughness: 0.82, normal: 0.34 },
+  goldenhour: { c: 'floor_wood.jpg', n: 'floor_wood_n.jpg', r: 'floor_wood_r.jpg', tint: 0xe4e0d7, roughness: 0.72, normal: 0.24 },
   roastery: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd1d2d2, roughness: 0.88, normal: 0.42 },
   midnight: { c: 'floor_dark.jpg', n: 'floor_dark_n.jpg', tint: 0xa88260, roughness: 0.78, normal: 0.28 },
   terrace: { c: 'floor_conc.jpg', n: 'floor_conc_n.jpg', tint: 0xd3bea0, roughness: 0.92, normal: 0.38 }, // sun-warmed pavers
@@ -1085,25 +1074,26 @@ export function buildCafe(theme, models = null) {
   const track = (t) => { disposables.push(t); return t; };
   const extraColliders = []; // decor added before the collider list is built
 
-  const woodMap = surfTex('studio_oak_color.jpg', { srgb: true });
-  const woodNorm = surfTex('studio_oak_normal.jpg');
-  const woodRough = surfTex('studio_oak_roughness.jpg');
-  const woodMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(theme.wood).lerp(new THREE.Color(0xffffff), 0.78),
+  const woodMap = surfTex('realism_walnut_color.jpg', { srgb: true });
+  const woodNorm = surfTex('realism_walnut_normal.jpg');
+  const woodRough = surfTex('realism_walnut_roughness.jpg');
+  const woodMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, clearcoat: 0.15, clearcoatRoughness: 0.3,
     roughness: 1, map: woodMap, normalMap: woodNorm, roughnessMap: woodRough,
     normalScale: new THREE.Vector2(0.7, 0.7),
   });
   const woodDarkMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(theme.woodDark).lerp(new THREE.Color(0xffffff), 0.36),
+    color: 0x91877c,
     roughness: 1, map: woodMap, normalMap: woodNorm, roughnessMap: woodRough,
     normalScale: new THREE.Vector2(0.5, 0.5),
   });
-  const clothTex = surfTex('studio_linen_color.jpg', { srgb: true, rx: 3, ry: 3 });
-  const clothNormal = surfTex('studio_linen_normal.jpg', { rx: 3, ry: 3 });
-  const cushionMat = new THREE.MeshStandardMaterial({
-    color: ({ goldenhour: 0x9b987c, roastery: 0x817e72, midnight: 0x76695e, terrace: 0x89947a })[theme.id], roughness: 1,
+  const clothTex = surfTex('realism_linen_color.jpg', { srgb: true, rx: 2, ry: 2 });
+  const clothNormal = surfTex('realism_linen_normal.jpg', { rx: 2, ry: 2 });
+  const cushionMat = new THREE.MeshPhysicalMaterial({
+    color: ({ goldenhour: 0xd0c8b8, roastery: 0xb7b5ae, midnight: 0xa49a8c, terrace: 0xb7b9a4 })[theme.id], roughness: 1,
+    sheen: 0.25, sheenColor: 0xeee5d3, sheenRoughness: 0.75,
     map: clothTex, normalMap: clothNormal, normalScale: new THREE.Vector2(0.45, 0.45),
-    roughnessMap: surfTex('studio_linen_roughness.jpg', { rx: 3, ry: 3 }),
+    roughnessMap: surfTex('realism_linen_roughness.jpg', { rx: 2, ry: 2 }),
   });
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x73767a, roughness: 0.32, metalness: 0.88 });
   // A compact material library keeps repeated table dressing visually related
@@ -1126,6 +1116,7 @@ export function buildCafe(theme, models = null) {
     normalMap: surfTex(fs.n, { rx: 4, ry: 3 }),
     roughnessMap: fs.r ? surfTex(fs.r, { rx: 4, ry: 3 }) : null,
     color: fs.tint, roughness: fs.roughness,
+    aoMap: surfTex(`realism_contact_${theme.id}.jpg`), aoMapIntensity: 0.9,
     normalScale: new THREE.Vector2(fs.normal, fs.normal),
   });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
@@ -1137,7 +1128,7 @@ export function buildCafe(theme, models = null) {
   if (!theme.openAir) {
     const ceil = new THREE.Mesh(
       new THREE.PlaneGeometry(W, D),
-      new THREE.MeshStandardMaterial({ color: theme.wallTrim, roughness: 0.92, metalness: 0 })
+      new THREE.MeshStandardMaterial({ color: theme.id === 'goldenhour' ? 0xe3dfd6 : theme.wall, roughness: 0.92, metalness: 0 })
     );
     ceil.rotation.x = Math.PI / 2;
     ceil.position.y = H;
@@ -1380,10 +1371,12 @@ export function buildCafe(theme, models = null) {
   const back1 = new THREE.Mesh(new THREE.PlaneGeometry(W * 3.2, 13), outMat);
   back1.position.set(0, 4.2, D / 2 + 17);
   back1.rotation.y = Math.PI;
+  back1.userData.illustratedBackdrop = true;
   group.add(back1);
   const back2 = new THREE.Mesh(new THREE.PlaneGeometry(D * 3.2, 13), outMat);
   back2.position.set(-W / 2 - 14, 4.2, 0);
   back2.rotation.y = Math.PI / 2;
+  back2.userData.illustratedBackdrop = true;
   group.add(back2);
   if (theme.openAir) {
     // The terrace is open on every side, so close the distant horizon behind
@@ -1391,9 +1384,11 @@ export function buildCafe(theme, models = null) {
     const back3 = new THREE.Mesh(new THREE.PlaneGeometry(D * 3.2, 13), outMat);
     back3.position.set(W / 2 + 14, 4.2, 0);
     back3.rotation.y = -Math.PI / 2;
+    back3.userData.illustratedBackdrop = true;
     group.add(back3);
     const back4 = new THREE.Mesh(new THREE.PlaneGeometry(W * 3.2, 13), outMat);
     back4.position.set(0, 4.2, -D / 2 - 17);
+    back4.userData.illustratedBackdrop = true;
     group.add(back4);
   }
 
@@ -1431,11 +1426,7 @@ export function buildCafe(theme, models = null) {
     [[-12, 4, 1.3], [-11, -4, 1.0], [12, 2, 1.2], [11.5, -5, 0.9],
       [-6, 11.5, 1.1], [5, 12.5, 1.4], [12, 10, 1.0], [-12.5, 10.5, 1.2], [-4, -11, 1.1], [6, -11.5, 1.3]]
       .forEach(([tx, tz, s], treeIndex) => {
-        // authored silhouettes carry the near ring; cheap blob trees keep the
-        // far depth so the park stays inside the terrace triangle budget
-        const model = treeIndex % 2 === 0
-          ? cloneModel(models, treeIndex % 4 === 0 ? 'tree_park_a' : 'tree_park_b')
-          : null;
+        const model = cloneModel(models, treeIndex % 2 === 0 ? 'tree_park_a' : 'tree_park_b');
         if (model) {
           model.position.set(tx, 0, tz);
           model.rotation.y = rand(0, Math.PI * 2);
@@ -1446,9 +1437,11 @@ export function buildCafe(theme, models = null) {
         }
       });
     for (let i = 0; i < 14; i++) {
-      const bush = new THREE.Mesh(new THREE.SphereGeometry(rand(0.3, 0.6), 7, 6), pick(leafMats));
+      const bush = cloneModel(models, 'tree_park_b')
+        ?? new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), leafMats[0]);
+      bush.scale.setScalar(rand(0.19, 0.28));
       const ang = rand(0, Math.PI * 2), rr = rand(10, 16);
-      bush.position.set(Math.cos(ang) * rr, 0.25, Math.sin(ang) * rr);
+      bush.position.set(Math.cos(ang) * rr, 0, Math.sin(ang) * rr);
       bush.castShadow = true;
       group.add(bush);
     }
@@ -1838,9 +1831,9 @@ export function buildCafe(theme, models = null) {
   });
   const counterTopMat = new THREE.MeshStandardMaterial({
     color: new THREE.Color(theme.counterTop).lerp(new THREE.Color(0xffffff), 0.72),
-    map: surfTex('studio_limestone_color.jpg', { srgb: true, rx: 6, ry: 2 }),
-    normalMap: surfTex('studio_limestone_normal.jpg', { rx: 6, ry: 2 }),
-    roughnessMap: surfTex('studio_limestone_roughness.jpg', { rx: 6, ry: 2 }),
+    map: surfTex('realism_stone_color.jpg', { srgb: true, rx: 6, ry: 2 }),
+    normalMap: surfTex('realism_stone_normal.jpg', { rx: 6, ry: 2 }),
+    roughnessMap: surfTex('realism_stone_roughness.jpg', { rx: 6, ry: 2 }),
     normalScale: new THREE.Vector2(0.55, 0.55),
     roughness: 1,
     metalness: 0,
@@ -2352,7 +2345,8 @@ export function buildCafe(theme, models = null) {
       }
       if (lounge) {
         chair.position.set(px, baseY, pz);
-        chair.scale.multiplyScalar(0.9);
+        // Keep the Blender cushion at its authored seat height so the shared
+        // seated animation rests on it instead of hovering above a scaled chair.
         chair.lookAt(tx, 0, tz);
         group.add(chair);
       }
@@ -2444,6 +2438,9 @@ export function buildCafe(theme, models = null) {
     }
     for (const barTable of blueprint.tables.filter((t) => t.isBar)) {
       if (barTable.archetype === 'rail') continue; // built separately below
+      const barAssembly = new THREE.Group();
+      barAssembly.name = 'Window bar and supported foot rail';
+      group.add(barAssembly);
       const barLen = barTable.width;
       const bx = barTable.center.x;
       const barZ = barTable.center.z;
@@ -2452,18 +2449,18 @@ export function buildCafe(theme, models = null) {
         ? roundedBox(barLen, 0.045, barTable.depth, metalMat, 0.015)
         : box(barLen, 0.05, barTable.depth, woodMat);
       bar.position.set(bx, 1.0, barZ);
-      group.add(bar);
+      barAssembly.add(bar);
       for (const [lx] of [[-barLen / 2 + 0.2], [barLen / 2 - 0.2]]) {
         const leg = modern
           ? box(0.04, 1.0, 0.04, metalMat)
           : box(0.05, 1.0, 0.36, woodDarkMat);
         leg.position.set(bx + lx, 0.5, barZ + (modern ? -barTable.depth / 2 + 0.06 : 0));
-        group.add(leg);
+        barAssembly.add(leg);
         if (modern) {
           // wall bracket instead of a deep leg: the rail reads as mounted steel
           const bracket = box(0.04, 0.05, barTable.depth, metalMat);
           bracket.position.set(bx + lx, 0.95, barZ);
-          group.add(bracket);
+          barAssembly.add(bracket);
         }
       }
       if (barTable.footRail) {
@@ -2471,14 +2468,14 @@ export function buildCafe(theme, models = null) {
         const rail = cyl(0.018, 0.018, barLen - 0.15, metalMat, 10);
         rail.rotation.z = Math.PI / 2;
         rail.position.set(bx, 0.24, barZ - barTable.depth / 2 - 0.1);
-        group.add(rail);
+        barAssembly.add(rail);
         for (const rx of [-barLen / 2 + 0.25, barLen / 2 - 0.25]) {
           const bracket = box(0.03, 0.24, 0.05, metalMat);
           bracket.position.set(bx + rx, 0.12, barZ - barTable.depth / 2 - 0.08);
-          group.add(bracket);
+          barAssembly.add(bracket);
           const brace = box(0.05, 0.08, 0.3, woodDarkMat);
           brace.position.set(bx + rx, 0.92, barZ);
-          group.add(brace);
+          barAssembly.add(brace);
         }
       }
       for (const blueprintSeat of barTable.seats) {
@@ -2524,27 +2521,37 @@ export function buildCafe(theme, models = null) {
   // strip running along z with one-sided stools — the Roastery's cupping
   // rail faces its production partition.
   for (const railTable of blueprint.tables.filter((t) => t.archetype === 'rail')) {
+    const railAssembly = new THREE.Group();
+    railAssembly.name = 'Tasting rail and connected footrest';
+    group.add(railAssembly);
     const cx = railTable.center.x;
     const cz = railTable.center.z;
     const railBase = railTable.baseY ?? 0;
     const railLen = railTable.depth; // runs along z
     const railTop = roundedBox(railTable.width, 0.045, railLen, metalMat, 0.015);
     railTop.position.set(cx, railBase + 1.0, cz);
-    group.add(railTop);
+    railAssembly.add(railTop);
     for (const lz of [-railLen / 2 + 0.25, railLen / 2 - 0.25]) {
       const post = box(0.05, 1.0, 0.05, metalMat);
       post.position.set(cx, railBase + 0.5, cz + lz);
-      group.add(post);
+      railAssembly.add(post);
       const foot = box(0.22, 0.05, 0.05, metalMat);
       foot.position.set(cx, railBase + 0.025, cz + lz);
-      group.add(foot);
+      railAssembly.add(foot);
     }
     if (railTable.footRail) {
       const stoolSide = Math.sign((railTable.seats[0]?.pos.x ?? cx + 1) - cx) || 1;
       const rail = cyl(0.018, 0.018, railLen - 0.3, metalMat, 10);
       rail.rotation.x = Math.PI / 2;
       rail.position.set(cx + stoolSide * (railTable.width / 2 + 0.08), railBase + 0.24, cz);
-      group.add(rail);
+      railAssembly.add(rail);
+      // The offset footrest needs visible brackets back to the grounded posts.
+      const offset = stoolSide * (railTable.width / 2 + 0.08);
+      for (const lz of [-railLen / 2 + 0.25, railLen / 2 - 0.25]) {
+        const bracket = box(Math.abs(offset) + 0.05, 0.035, 0.035, metalMat);
+        bracket.position.set(cx + offset / 2, railBase + 0.24, cz + lz);
+        railAssembly.add(bracket);
+      }
     }
     for (const blueprintSeat of railTable.seats) {
       const surfaceProps = [];
@@ -2594,15 +2601,32 @@ export function buildCafe(theme, models = null) {
 
   // rugs under the seating clusters
   const rugTex = track(rugTexture(theme.accent, theme.woodDark));
-  const rugMat = new THREE.MeshStandardMaterial({ map: rugTex, roughness: 1, bumpMap: rugTex, bumpScale: 0.004 });
+  const rugContact = track(floorMat.aoMap.clone());
+  rugContact.channel = 1;
+  const rugMat = theme.id === 'goldenhour'
+    ? new THREE.MeshPhysicalMaterial({
+      map: surfTex('realism_linen_color.jpg', { srgb: true, rx: 5, ry: 5 }),
+      normalMap: surfTex('realism_linen_normal.jpg', { rx: 5, ry: 5 }),
+      normalScale: new THREE.Vector2(0.2, 0.2), color: 0xb1a28b,
+      roughness: 0.96, sheen: 0.2, aoMap: rugContact, aoMapIntensity: 0.9,
+    })
+    : new THREE.MeshStandardMaterial({ map: rugTex, roughness: 1, bumpMap: rugTex, bumpScale: 0.004, aoMap: rugContact, aoMapIntensity: 0.9 });
   for (const [rx, rz, rr] of [[-4.9, -0.4, 2.5], [4.9, -0.2, 2.0]]) {
-    const rug = new THREE.Mesh(new THREE.CircleGeometry(rr, 36), rugMat);
+    const rugGeometry = new THREE.CircleGeometry(rr, 64);
+    const positions = rugGeometry.attributes.position;
+    const contactUV = new Float32Array(positions.count * 2);
+    for (let i = 0; i < positions.count; i++) {
+      contactUV[i * 2] = 0.5 + (rx + positions.getX(i)) / W;
+      contactUV[i * 2 + 1] = 0.5 - (rz - positions.getY(i)) / D;
+    }
+    rugGeometry.setAttribute('uv1', new THREE.BufferAttribute(contactUV, 2));
+    const rug = new THREE.Mesh(rugGeometry, rugMat);
     rug.rotation.x = -Math.PI / 2;
     rug.position.set(rx, 0.01, rz);
     rug.receiveShadow = true;
     group.add(rug);
     const rim = new THREE.Mesh(new THREE.RingGeometry(rr - 0.12, rr, 36),
-      new THREE.MeshStandardMaterial({ color: theme.woodDark, roughness: 1 }));
+      new THREE.MeshStandardMaterial({ color: theme.id === 'goldenhour' ? 0x817460 : theme.woodDark, roughness: 1 }));
     rim.rotation.x = -Math.PI / 2;
     rim.position.set(rx, 0.012, rz);
     group.add(rim);
@@ -3786,7 +3810,7 @@ export function buildCafe(theme, models = null) {
   sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
   sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 32;
   sun.shadow.bias = -0.00012;
-  sun.shadow.normalBias = 0.025;
+  sun.shadow.normalBias = 0.008;
   group.add(sun);
   group.add(sun.target);
 

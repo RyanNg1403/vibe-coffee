@@ -1,0 +1,249 @@
+{
+  "seconds": 180,
+  "max": {
+    "walkStep": 0.042895511971046706,
+    "baristaTurn": 0.14000000000000057,
+    "waiterStep": 0.02400000000000009,
+    "seatedTurn": 0.08000000000000008,
+    "seatStep": 0.03998011248184817,
+    "seatTurn": 0.10663672755023601,
+    "renderRestoreError": 4.2146848510894035e-8
+  },
+  "diversity": {
+    "initial": {
+      "limit": 2,
+      "actorCount": 20,
+      "uniqueAssets": 20,
+      "maxCopies": 1,
+      "counts": {
+        "char_atelier_10": 1,
+        "char_atelier_12": 1,
+        "char_atelier_17": 1,
+        "char_atelier_5": 1,
+        "char_atelier_4": 1,
+        "char_atelier_13": 1,
+        "char_atelier_3": 1,
+        "char_atelier_16": 1,
+        "char_atelier_1": 1,
+        "char_atelier_18": 1,
+        "char_atelier_8": 1,
+        "char_atelier_11": 1,
+        "char_atelier_14": 1,
+        "char_atelier_6": 1,
+        "char_atelier_2": 1,
+        "char_atelier_9": 1,
+        "char_atelier_7": 1,
+        "char_atelier_15": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 18
+    },
+    "maxCopies": 1,
+    "minUniqueAssets": 20,
+    "allocationMismatches": 0,
+    "violations": [],
+    "peakCounts": {
+      "char_atelier_10": 1,
+      "char_atelier_12": 1,
+      "char_atelier_17": 1,
+      "char_atelier_5": 1,
+      "char_atelier_4": 1,
+      "char_atelier_13": 1,
+      "char_atelier_3": 1,
+      "char_atelier_16": 1,
+      "char_atelier_1": 1,
+      "char_atelier_18": 1,
+      "char_atelier_8": 1,
+      "char_atelier_11": 1,
+      "char_atelier_14": 1,
+      "char_atelier_6": 1,
+      "char_atelier_2": 1,
+      "char_atelier_9": 1,
+      "char_atelier_7": 1,
+      "char_atelier_15": 1,
+      "char_atelier_barista": 1,
+      "char_atelier_server": 1
+    },
+    "final": {
+      "limit": 2,
+      "actorCount": 20,
+      "uniqueAssets": 20,
+      "maxCopies": 1,
+      "counts": {
+        "char_atelier_3": 1,
+        "char_atelier_15": 1,
+        "char_atelier_9": 1,
+        "char_atelier_6": 1,
+        "char_atelier_14": 1,
+        "char_atelier_8": 1,
+        "char_atelier_12": 1,
+        "char_atelier_4": 1,
+        "char_atelier_11": 1,
+        "char_atelier_18": 1,
+        "char_atelier_2": 1,
+        "char_atelier_7": 1,
+        "char_atelier_10": 1,
+        "char_atelier_1": 1,
+        "char_atelier_13": 1,
+        "char_atelier_16": 1,
+        "char_atelier_5": 1,
+        "char_atelier_17": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 18
+    }
+  },
+  "interpolatedFrames": 2017,
+  "baristaTurns": 1098,
+  "states": [
+    "sitting",
+    "approachingDoorIn",
+    "waitingDoorIn",
+    "crossingDoorIn",
+    "queueing",
+    "ordering",
+    "standingSeat",
+    "waitingPickup",
+    "toStairTop",
+    "traversingStair",
+    "toSeat",
+    "stairWaiting",
+    "approachingDoorOut",
+    "aligningSeat",
+    "waitingDoorOut",
+    "crossingDoorOut",
+    "joiningSidewalk",
+    "toStairBottom"
+  ],
+  "worst": [],
+  "dwell": {
+    "npcs": [
+      {
+        "serial": 7,
+        "state": "approachingDoorOut",
+        "seconds": 7.9,
+        "x": -0.01,
+        "y": 0,
+        "z": -0.98,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 11,
+        "state": "sitting",
+        "seconds": 104.5,
+        "x": -2.33,
+        "y": 0.02,
+        "z": -2.83,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 12,
+        "state": "sitting",
+        "seconds": 111.7,
+        "x": -0.67,
+        "y": 0.02,
+        "z": -3.17,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 13,
+        "state": "approachingDoorOut",
+        "seconds": 5.7,
+        "x": 0,
+        "y": 0,
+        "z": 2.64,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 14,
+        "state": "sitting",
+        "seconds": 67,
+        "x": 5.1,
+        "y": 0.04,
+        "z": 1.99,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 16,
+        "state": "sitting",
+        "seconds": 14.6,
+        "x": -8.09,
+        "y": 3.29,
+        "z": -0.3,
+        "level": "upper",
+        "seated": true
+      },
+      {
+        "serial": 18,
+        "state": "toSeat",
+        "seconds": 8.2,
+        "x": 0.16,
+        "y": 0,
+        "z": -1.66,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 19,
+        "state": "queueing",
+        "seconds": 28.4,
+        "x": 1.37,
+        "y": 0,
+        "z": -4.52,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 20,
+        "state": "queueing",
+        "seconds": 27.9,
+        "x": 1.64,
+        "y": 0,
+        "z": -4.36,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 21,
+        "state": "queueing",
+        "seconds": 16.1,
+        "x": 1.57,
+        "y": 0,
+        "z": -2.27,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 22,
+        "state": "queueing",
+        "seconds": 3.8,
+        "x": -0.23,
+        "y": 0,
+        "z": 2.17,
+        "level": "ground",
+        "seated": true
+      }
+    ],
+    "maxServiceDwell": {
+      "state": "queueing",
+      "seconds": 17.6
+    },
+    "seatedHandCups": 0,
+    "waiter": {
+      "phase": "toDishes",
+      "seconds": 7,
+      "hasTask": true,
+      "x": 0,
+      "z": 2.51
+    }
+  }
+}

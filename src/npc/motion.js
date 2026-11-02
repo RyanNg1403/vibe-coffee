@@ -29,6 +29,7 @@ export class MotionInterpolator {
       pose = {
         previousPosition: root.position.clone(), position: root.position.clone(),
         previousRotation: root.quaternion.clone(), rotation: root.quaternion.clone(),
+        previousScale: root.scale.clone(), scale: root.scale.clone(),
         euler: root.rotation.clone(),
       };
       this.poses.set(root, pose);
@@ -36,6 +37,7 @@ export class MotionInterpolator {
     pose.parent = root.parent;
     pose.previousPosition.copy(root.position);
     pose.previousRotation.copy(root.quaternion);
+    pose.previousScale.copy(root.scale);
     pose.ready = false;
   }
 
@@ -44,6 +46,7 @@ export class MotionInterpolator {
     if (!pose) return; // first frame of a newly spawned actor
     pose.position.copy(root.position);
     pose.rotation.copy(root.quaternion);
+    pose.scale.copy(root.scale);
     pose.euler.copy(root.rotation);
     // A sidewalk wrap or a change of coordinate space is a discontinuity,
     // never a journey across the room. Start a fresh interval next tick.
@@ -57,6 +60,7 @@ export class MotionInterpolator {
     alpha = MathUtils.clamp(alpha, 0, 1);
     root.position.lerpVectors(pose.previousPosition, pose.position, alpha);
     root.quaternion.slerpQuaternions(pose.previousRotation, pose.rotation, alpha);
+    root.scale.lerpVectors(pose.previousScale, pose.scale, alpha);
     pose.applied = true;
   }
 
@@ -66,7 +70,9 @@ export class MotionInterpolator {
     root.position.copy(pose.position);
     // Steering reads Euler yaw. Restoring only a quaternion can decompose a
     // 180-degree yaw into flipped X/Z axes and change the next steering turn.
-    root.rotation.copy(pose.euler);
+    if (root.isBone) root.quaternion.copy(pose.rotation);
+    else root.rotation.copy(pose.euler);
+    root.scale.copy(pose.scale);
     root.updateMatrix();
     root.matrixWorldNeedsUpdate = true;
     pose.applied = false;

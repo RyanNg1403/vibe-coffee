@@ -1,0 +1,174 @@
+{
+  "studio_cup": {
+    "triangles": 2992,
+    "added_objects": 2
+  },
+  "cup": {
+    "triangles": 2992,
+    "added_objects": 2
+  },
+  "mug": {
+    "triangles": 2340,
+    "added_objects": 2
+  },
+  "latte": {
+    "triangles": 3056,
+    "added_objects": 2
+  },
+  "teapot": {
+    "triangles": 2428,
+    "added_objects": 2
+  },
+  "studio_espresso": {
+    "triangles": 6096,
+    "added_objects": 17
+  },
+  "espresso_machine": {
+    "triangles": 6096,
+    "added_objects": 17
+  },
+  "studio_pendant": {
+    "triangles": 1732,
+    "added_objects": 0
+  },
+  "pendant_lamp": {
+    "triangles": 1536,
+    "added_objects": 0
+  },
+  "floor_lamp": {
+    "triangles": 1836,
+    "added_objects": 0
+  },
+  "table_lamp": {
+    "triangles": 1836,
+    "added_objects": 0
+  },
+  "lantern": {
+    "triangles": 744,
+    "added_objects": 0
+  },
+  "plant": {
+    "triangles": 2078,
+    "added_objects": 0
+  },
+  "plant_small": {
+    "triangles": 2904,
+    "added_objects": 0
+  },
+  "plant_monstera": {
+    "triangles": 2078,
+    "added_objects": 0
+  },
+  "plant_snake": {
+    "triangles": 1644,
+    "added_objects": 0
+  },
+  "plant_pothos": {
+    "triangles": 2078,
+    "added_objects": 0
+  },
+  "plant_pothos_vine": {
+    "triangles": 6132,
+    "added_objects": 0
+  },
+  "plant_fern": {
+    "triangles": 27164,
+    "added_objects": 0
+  },
+  "plant_succulent": {
+    "triangles": 2904,
+    "added_objects": 0
+  },
+  "plant_cacti": {
+    "triangles": 2176,
+    "added_objects": 0
+  },
+  "cactus_pot": {
+    "triangles": 2176,
+    "added_objects": 0
+  },
+  "tree_park_a": {
+    "triangles": 32212,
+    "added_objects": 0
+  },
+  "tree_park_b": {
+    "triangles": 32212,
+    "added_objects": 0
+  },
+  "croissant": {
+    "triangles": 1478,
+    "added_objects": 0
+  },
+  "muffin": {
+    "triangles": 1760,
+    "added_objects": 0
+  },
+  "cookie": {
+    "triangles": 1200,
+    "added_objects": 0
+  },
+  "cupcake": {
+    "triangles": 3520,
+    "added_objects": 0
+  },
+  "donut": {
+    "triangles": 1384,
+    "added_objects": 0
+  },
+  "cake": {
+    "triangles": 2300,
+    "added_objects": 0
+  },
+  "cakeSlice": {
+    "triangles": 2300,
+    "added_objects": 0
+  },
+  "pancakes": {
+    "triangles": 956,
+    "added_objects": 0
+  },
+  "apple": {
+    "triangles": 874,
+    "added_objects": 0
+  },
+  "sandwich": {
+    "triangles": 40,
+    "added_objects": 0
+  },
+  "iceCream": {
+    "triangles": 624,
+    "added_objects": 0
+  },
+  "bookcase": {
+    "triangles": 18424,
+    "added_objects": 0
+  },
+  "wall_shelf": {
+    "triangles": 18424,
+    "added_objects": 0
+  },
+  "painting": {
+    "triangles": 2488,
+    "added_objects": 0
+  },
+  "radio": {
+    "triangles": 1124,
+    "added_objects": 0
+  },
+  "typewriter": {
+    "triangles": 4564,
+    "added_objects": 0
+  },
+  "coat_rack": {
+    "triangles": 408,
+    "added_objects": 0
+  },
+  "crate": {
+    "triangles": 3760,
+    "added_objects": 0
+  },
+  "trashcan": {
+    "triangles": 1000,
+    "added_objects": 0
+  }
+}

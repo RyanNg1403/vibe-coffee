@@ -4,26 +4,64 @@
 
 import * as THREE from 'three';
 import { clonePet } from './modelLoader.js';
+import { MotionInterpolator, turnToward } from './npc/motion.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-// proven collision-free floor spots shared by all four rooms (the old cat's
-// waypoint list, extended) — targets only; steering still avoids furniture
+// Candidate floor spots are checked against the active venue's furniture;
+// the same point is not necessarily clear in every interior layout.
 const FLOOR_SPOTS = [
   { x: 4.9, z: -0.2 }, { x: -5.4, z: 1.8 }, { x: 1.4, z: 4.1 },
   { x: -1.2, z: -3.6 }, { x: 6.2, z: 2.6 }, { x: -6.4, z: -2.2 },
   { x: 0.4, z: 1.2 }, { x: -3.2, z: 4.4 },
 ];
 
-class Pet {
+
+export function isPetFloorClear(cafe, point, margin = 0.22) {
+  if (Math.abs(point.x) > 7.4 || point.z < -5.7 || point.z > 5.7) return false;
+  return !cafe.colliders.some(c => {
+    if ((c.levelId ?? 'ground') !== 'ground') return false;
+    if (c.r) return Math.hypot(point.x - c.x, point.z - c.z) < c.r + margin;
+    return c.rect && point.x > c.rect.x0 - margin && point.x < c.rect.x1 + margin
+      && point.z > c.rect.z0 - margin && point.z < c.rect.z1 + margin;
+  });
+}
+
+export function findPetFloorSpot(cafe, preferred = null) {
+  if (preferred) {
+    if (isPetFloorClear(cafe, preferred)) return { x: preferred.x, z: preferred.z };
+    // Keep a companion beside its human, choosing the nearest free side of
+    // the chair instead of materializing inside its table or a nearby sofa.
+    for (const radius of [0.25, 0.5, 0.75]) for (let i = 0; i < 16; i++) {
+      const angle = i * Math.PI / 8;
+      const point = { x: preferred.x + Math.sin(angle) * radius, z: preferred.z + Math.cos(angle) * radius };
+      if (isPetFloorClear(cafe, point)) return point;
+    }
+    return null;
+  }
+  const candidates = FLOOR_SPOTS.filter(point => isPetFloorClear(cafe, point));
+  // A future furniture layout may cover every authored candidate. Search a
+  // bounded interior grid rather than falling back to an obstructed spawn.
+  if (!candidates.length) for (let x = -7; x <= 7; x++) for (let z = -5; z <= 5; z++) {
+    if (isPetFloorClear(cafe, { x, z })) candidates.push({ x, z });
+  }
+  if (!candidates.length) return null;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const base = pick(candidates), point = { x: base.x + rand(-0.35, 0.35), z: base.z + rand(-0.35, 0.35) };
+    if (isPetFloorClear(cafe, point)) return point;
+  }
+  return { ...pick(candidates) };
+}
+
+export class Pet {
   constructor(cafe, kind, mesh, animations) {
     this.cafe = cafe;
     this.kind = kind; // 'cat' | 'dog'
     this.mesh = mesh;
     this.mixer = new THREE.AnimationMixer(mesh);
     this.actions = {};
-    const find = (n) => animations.find((a) => a.name.toLowerCase().endsWith('|' + n))
+    const find = (n) => animations.find((a) => a.name.toLowerCase() === n || a.name.toLowerCase().endsWith('|' + n))
       ?? animations.find((a) => a.name.toLowerCase().includes(n));
     const CLIPS = kind === 'cat'
       ? { idle: 'idle', walk: 'walk', groom: 'idle_eating', nudge: 'headbutt', lie: 'death' }
@@ -42,8 +80,11 @@ class Pet {
     this.state = 'idle';
     this.stateT = rand(0, 3);
     this.target = null;
+    this.waypoints = [];
+    this.doorFlow = null;
     this.speed = kind === 'cat' ? 0.5 : 0.62;
     this.velocity = new THREE.Vector2();
+    this._velocityChange = new THREE.Vector2();
     this._stallT = 0;
     this._bestDist = Infinity;
     this.owner = null; // dog only
@@ -77,7 +118,18 @@ class Pet {
   }
 
   _walkTo(x, z) {
-    this.target = { x, z };
+    this.doorFlow?.cancel(this);
+    const nav = this.cafe.nav;
+    this.waypoints = [];
+    // Cross the front wall through the actual doorway. The old room clamp
+    // teleported arriving dogs inward and made their exit unreachable.
+    if (nav.doorOutside && this.mesh.position.z > 6.1 && z <= 6.1) {
+      this.waypoints.push({ x: nav.door.x, z: 5.85, door: 'in' });
+    } else if (nav.doorOutside && this.mesh.position.z <= 6.1 && z > 6.1) {
+      this.waypoints.push({ x: nav.door.x, z: 5.85, approach: true });
+    }
+    this.waypoints.push({ x, z, door: nav.doorOutside && z > 6.1 ? 'out' : null });
+    this.target = this.waypoints.shift();
     this.state = 'walking';
     this.stateT = 0;
     this._stallT = 0;
@@ -87,13 +139,24 @@ class Pet {
   // collider-aware steering; pets weave between furniture rather than route
   _step(dt) {
     const pos = this.mesh.position;
+    if (this.target.door && this.doorFlow && !this.doorFlow.request(this, this.target.door)) {
+      this._slowToRest(dt);
+      this._setMode('idle');
+      return false;
+    }
     const dx = this.target.x - pos.x;
     const dz = this.target.z - pos.z;
     const dist = Math.hypot(dx, dz);
     if (dist < this._bestDist - 0.01) { this._bestDist = dist; this._stallT = 0; }
     else this._stallT += dt;
-    if (dist < 0.16 || this._stallT > 3.5) { this.target = null; return true; }
-    let dirX = dx / dist, dirZ = dz / dist;
+    if ((dist < 0.1 && this.velocity.length() < 0.045) || (this._stallT > 3.5 && !this.target.door && !this.target.approach)) {
+      if (this.target.door) this.doorFlow?.release(this);
+      this.target = this.waypoints.shift() ?? null;
+      this._stallT = 0; this._bestDist = Infinity;
+      this._slowToRest(dt);
+      return this.target === null;
+    }
+    let dirX = dx / Math.max(dist, 0.0001), dirZ = dz / Math.max(dist, 0.0001);
     const aheadX = pos.x + dirX * 0.4;
     const aheadZ = pos.z + dirZ * 0.4;
     for (const c of this.cafe.colliders) {
@@ -119,33 +182,63 @@ class Pet {
         }
       }
     }
-    const l = Math.hypot(dirX, dirZ) || 1;
-    const blend = 1 - Math.exp(-6 * dt);
-    this.velocity.x += ((dirX / l) * this.speed - this.velocity.x) * blend;
-    this.velocity.y += ((dirZ / l) * this.speed - this.velocity.y) * blend;
-    pos.x = THREE.MathUtils.clamp(pos.x + this.velocity.x * dt, -7.6, 7.6);
-    pos.z = THREE.MathUtils.clamp(pos.z + this.velocity.y * dt, -5.9, 6.1);
-    const speed = Math.hypot(this.velocity.x, this.velocity.y);
-    if (speed > 0.06) {
-      const targetYaw = Math.atan2(this.velocity.x, this.velocity.y);
-      let dy = targetYaw - this.mesh.rotation.y;
-      while (dy > Math.PI) dy -= Math.PI * 2;
-      while (dy < -Math.PI) dy += Math.PI * 2;
-      this.mesh.rotation.y += THREE.MathUtils.clamp(dy * (1 - Math.exp(-7 * dt)), -3.6 * dt, 3.6 * dt);
-    }
-    this._setMode('walk', THREE.MathUtils.clamp(speed / this.speed, 0.5, 1.3));
+    const length = Math.hypot(dirX, dirZ) || 1;
+    dirX /= length; dirZ /= length;
+    this.mesh.rotation.y = turnToward(this.mesh.rotation.y, Math.atan2(dirX, dirZ), dt, 7, 3.6);
+    const forwardX = Math.sin(this.mesh.rotation.y), forwardZ = Math.cos(this.mesh.rotation.y);
+    // Turn before advancing when the destination is behind the animal. Slow
+    // over the last half metre instead of hitting an invisible arrival wall.
+    const alignment = Math.max(0, forwardX * dirX + forwardZ * dirZ);
+    const desiredSpeed = Math.min(this.speed, Math.max(0, dist - 0.065) * 2.3) * alignment;
+    this._changeVelocity(forwardX * desiredSpeed, forwardZ * desiredSpeed, dt);
+    const speed = this._move(dt);
+    // The Blender walk cycles use .5 m/s for cats and .62 m/s for dogs.
+    // Actual displacement matters at room boundaries: a blocked pet must not
+    // keep paddling its paws at a minimum half-speed cadence.
+    if (speed > 0.015) this._setMode('walk', speed / this.speed);
+    else this._setMode('idle');
     return false;
   }
 
+  _changeVelocity(x, z, dt) {
+    this._velocityChange.set(x, z).sub(this.velocity);
+    const difference = this._velocityChange.length();
+    const rate = Math.hypot(x, z) > this.velocity.length() ? 1.5 : 2.1;
+    if (difference > 0) this.velocity.addScaledVector(this._velocityChange, Math.min(1, rate * dt / difference));
+  }
+
+  _move(dt) {
+    const pos = this.mesh.position;
+    const x = pos.x, z = pos.z;
+    const nav = this.cafe.nav;
+    let nextX = THREE.MathUtils.clamp(x + this.velocity.x * dt, -7.6, 7.6);
+    // Only the narrow door corridor extends beyond the interior floor. Keep
+    // outside animals in that corridor until they have fully crossed inside.
+    if (nav.doorOutside && z > 6.1) nextX = THREE.MathUtils.clamp(nextX, nav.door.x - 0.38, nav.door.x + 0.38);
+    const inDoor = nav.doorOutside && Math.abs(nextX - nav.door.x) <= 0.38;
+    const front = inDoor ? nav.doorOutside.z + 0.5 : 6.1;
+    pos.x = nextX;
+    pos.z = THREE.MathUtils.clamp(z + this.velocity.y * dt, -5.9, front);
+    if (dt <= 0) return 0;
+    // Record the actual velocity after boundary clipping, avoiding accumulated
+    // momentum that would kick the pet sideways when its next walk starts.
+    this.velocity.set((pos.x - x) / dt, (pos.z - z) / dt);
+    return this.velocity.length();
+  }
+
+  _slowToRest(dt) {
+    this._changeVelocity(0, 0, dt);
+    this._move(dt);
+  }
+
   _facePoint(x, z, dt, rate = 4) {
-    let dy = Math.atan2(x - this.mesh.position.x, z - this.mesh.position.z) - this.mesh.rotation.y;
-    while (dy > Math.PI) dy -= Math.PI * 2;
-    while (dy < -Math.PI) dy += Math.PI * 2;
-    this.mesh.rotation.y += dy * Math.min(1, dt * rate);
+    this.mesh.rotation.y = turnToward(this.mesh.rotation.y,
+      Math.atan2(x - this.mesh.position.x, z - this.mesh.position.z), dt, rate, 3.6);
   }
 
   dispose() {
     this.dead = true;
+    this.doorFlow?.cancel(this);
     this.interactions?.unregister(this.mesh);
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.mesh);
@@ -156,7 +249,7 @@ class Pet {
   }
 }
 
-class CatPet extends Pet {
+export class CatPet extends Pet {
   update(dt, playerPos) {
     this.mixer.update(dt);
     this.stateT += dt;
@@ -166,8 +259,10 @@ class CatPet extends Pet {
     const nearPlayer = playerPos
       && Math.hypot(playerPos.x - pos.x, playerPos.z - pos.z) < 1.15
       && playerPos.y < 1.8; // ignore the seated bird's-eye tween
+    if (this.state !== 'walking') this._slowToRest(dt);
     if (this.state === 'walking') {
       if (nearPlayer) {
+        this._slowToRest(dt);
         this.target = null; this.state = 'watchPlayer'; this.stateT = 0;
         this._tryVoice('chirp'); // a person! quiet greeting trill
       }
@@ -196,8 +291,8 @@ class CatPet extends Pet {
       this._setMode('lie', 0.8); // properly lies down and holds the doze
       if (nearPlayer) { this.state = 'watchPlayer'; this.stateT = 0; }
       else if (this.stateT > rand(16, 32)) {
-        const s = pick(FLOOR_SPOTS);
-        this._walkTo(s.x + rand(-0.4, 0.4), s.z + rand(-0.4, 0.4));
+        const spot = findPetFloorSpot(this.cafe);
+        if (spot) this._walkTo(spot.x, spot.z);
       }
       return;
     }
@@ -208,8 +303,8 @@ class CatPet extends Pet {
       this._tryVoice('chirp', 'meow');
     }
     else if (this.stateT > rand(4, 9)) {
-      const s = pick(FLOOR_SPOTS);
-      this._walkTo(s.x + rand(-0.4, 0.4), s.z + rand(-0.4, 0.4));
+      const spot = findPetFloorSpot(this.cafe);
+      if (spot) this._walkTo(spot.x, spot.z);
     }
   }
 
@@ -231,14 +326,14 @@ class CatPet extends Pet {
   }
 }
 
-class DogPet extends Pet {
+export class DogPet extends Pet {
   constructor(cafe, kind, mesh, animations, owner, restSpot) {
     super(cafe, kind, mesh, animations);
     this.owner = owner;
     this.restSpot = restSpot;
     // enters at the door and trots to its human
-    const door = cafe.nav.door;
-    mesh.position.set(door.x + rand(-0.2, 0.2), 0, door.z);
+    const door = cafe.nav.doorOutside ?? cafe.nav.door;
+    mesh.position.set(door.x + rand(-0.15, 0.15), 0, door.z);
     this._walkTo(restSpot.x, restSpot.z);
     this.state = 'walking';
     this.arriving = true;
@@ -250,13 +345,14 @@ class DogPet extends Pet {
     this.voiceCooldown -= dt;
     this.forceReactT = Math.max(0, this.forceReactT - dt);
     const ownerGone = !this.owner || this.owner.state !== 'sitting';
+    if (this.state !== 'walking' && this.state !== 'leaving') this._slowToRest(dt);
     if (this.state === 'leaving') {
       if (this._step(dt)) this.dead = true; // PetSystem sweeps and disposes
       return;
     }
     if (ownerGone && !this.arriving) {
       // human's getting up — time to go home together
-      const door = this.cafe.nav.door;
+      const door = this.cafe.nav.doorOutside ?? this.cafe.nav.door;
       this._walkTo(door.x, door.z + 0.3);
       this.state = 'leaving';
       return;
@@ -271,11 +367,12 @@ class DogPet extends Pet {
         this.state = 'settle';
         this.stateT = 0;
         // lie facing the room, next to the owner's chair
-        if (this.owner) this._facePoint(this.owner.mesh.position.x, this.owner.mesh.position.z, 1, 1);
+        if (this.owner) this._facePoint(this.owner.mesh.position.x, this.owner.mesh.position.z, dt);
       }
       return;
     }
     if (this.state === 'settle') {
+      if (this.owner) this._facePoint(this.owner.mesh.position.x, this.owner.mesh.position.z, dt);
       this._setMode('sniff', 0.9); // sniff the spot before flopping down
       if (this.stateT > 2.2) { this.state = 'rest'; this.stateT = 0; }
       return;
@@ -324,11 +421,12 @@ export class PetSystem {
     this.audio = audio;
     this.interactions = interactions;
     this.pets = [];
+    this.motion = new MotionInterpolator();
     this.dogTimer = rand(6, 18); // let the room settle before a dog shows up
     if (theme.cat !== undefined) {
-      const cat = clonePet(models, 'pet_cat');
+      const spot = findPetFloorSpot(cafe);
+      const cat = spot && clonePet(models, 'pet_cat');
       if (cat) {
-        const spot = pick(FLOOR_SPOTS);
         cat.mesh.position.set(spot.x, 0, spot.z);
         cat.mesh.rotation.y = rand(0, Math.PI * 2);
         cat.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
@@ -343,6 +441,8 @@ export class PetSystem {
   _adopt(pet) {
     pet.audio = this.audio;
     pet.interactions = this.interactions;
+    pet.motionNodes = [pet.mesh];
+    pet.mesh.traverse(node => { if (node.isBone) pet.motionNodes.push(node); });
     // clicking a visible pet is an intentional interaction; 1.5 s cooldown so
     // rapid clicks can neither stack sources nor restart the animation loop
     this.interactions?.register(pet.mesh, {
@@ -359,29 +459,44 @@ export class PetSystem {
       && !n.partner && n.stateT > 4 && (n.sitDuration ?? 0) > 60
       && n.sim.cafe.seats[n.seatIndex].pos.y < 0.05);
     if (!owner) { this.dogTimer = 8; return; }
-    const dog = clonePet(this.models, 'pet_dog');
-    if (!dog) return;
     const seat = owner.sim.cafe.seats[owner.seatIndex];
     const away = new THREE.Vector3().subVectors(seat.pos, seat.tableCenter).setY(0).normalize();
     const perp = new THREE.Vector3(away.z, 0, -away.x);
-    const rest = seat.pos.clone().addScaledVector(perp, 0.7).addScaledVector(away, 0.15);
+    const desired = seat.pos.clone().addScaledVector(perp, 0.7).addScaledVector(away, 0.15);
+    const rest = findPetFloorSpot(this.cafe, desired);
+    if (!rest) return;
+    const dog = clonePet(this.models, 'pet_dog');
+    if (!dog) return;
     dog.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
     this._adopt(new DogPet(this.cafe, 'dog', dog.mesh, dog.animations, owner, rest));
   }
 
   update(dt, crowd, playerPos) {
+    for (const pet of this.pets) for (const node of pet.motionNodes) this.motion.capture(node);
     this.dogTimer -= dt;
     if (this.dogTimer <= 0) {
       this.dogTimer = rand(30, 70);
       this._maybeSpawnDog(crowd);
     }
-    for (const pet of this.pets) pet.update(dt, playerPos);
+    for (const pet of this.pets) {
+      pet.doorFlow = crowd?.doorFlow ?? pet.doorFlow;
+      pet.update(dt, playerPos);
+      for (const node of pet.motionNodes) this.motion.commit(node);
+    }
     for (let i = this.pets.length - 1; i >= 0; i--) {
       if (this.pets[i].dead) {
         this.pets[i].dispose();
         this.pets.splice(i, 1);
       }
     }
+  }
+
+  interpolate(alpha) {
+    for (const pet of this.pets) for (const node of pet.motionNodes) this.motion.apply(node, alpha);
+  }
+
+  restoreSimulationPose() {
+    for (const pet of this.pets) for (const node of pet.motionNodes) this.motion.restore(node);
   }
 
   dispose() {

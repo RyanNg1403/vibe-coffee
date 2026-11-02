@@ -1,0 +1,13 @@
+{
+  "subject": {
+    "key": "char_atelier_1",
+    "x": -5.793003345316171,
+    "z": -0.46451978453157683,
+    "cameraX": -8.100166969508113,
+    "cameraZ": -2.1772357595856726
+  },
+  "frames": 144,
+  "fps": 24,
+  "finalState": "sitting",
+  "errors": []
+}

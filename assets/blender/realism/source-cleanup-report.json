@@ -1,0 +1,729 @@
+{
+  "apple.blend": {
+    "before_bytes": 372183,
+    "after_bytes": 371497,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "architectural-materials.blend": {
+    "before_bytes": 1981426,
+    "after_bytes": 1981717,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 10
+  },
+  "armchair.blend": {
+    "before_bytes": 569605,
+    "after_bytes": 568657,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "atelier_piano.blend": {
+    "before_bytes": 677534,
+    "after_bytes": 676854,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "atelier_roaster.blend": {
+    "before_bytes": 427185,
+    "after_bytes": 427510,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "atelier_streetscape.blend": {
+    "before_bytes": 806385,
+    "after_bytes": 807186,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "atelier_tables_goldenhour.blend": {
+    "before_bytes": 861974,
+    "after_bytes": 860771,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "atelier_tables_midnight.blend": {
+    "before_bytes": 853489,
+    "after_bytes": 666723,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "atelier_tables_roastery.blend": {
+    "before_bytes": 635869,
+    "after_bytes": 449696,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "atelier_tables_terrace.blend": {
+    "before_bytes": 832194,
+    "after_bytes": 645993,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "bar_stool.blend": {
+    "before_bytes": 570880,
+    "after_bytes": 570769,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "bookcase.blend": {
+    "before_bytes": 530419,
+    "after_bytes": 529986,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "cactus_pot.blend": {
+    "before_bytes": 146940,
+    "after_bytes": 147519,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "cake.blend": {
+    "before_bytes": 132109,
+    "after_bytes": 132368,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "cakeSlice.blend": {
+    "before_bytes": 132284,
+    "after_bytes": 132809,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "char_atelier_1.blend": {
+    "before_bytes": 3537875,
+    "after_bytes": 3533830,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_10.blend": {
+    "before_bytes": 3377962,
+    "after_bytes": 3371652,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_11.blend": {
+    "before_bytes": 3543092,
+    "after_bytes": 3542575,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_12.blend": {
+    "before_bytes": 3423737,
+    "after_bytes": 3425159,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_13.blend": {
+    "before_bytes": 3527691,
+    "after_bytes": 3527828,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_14.blend": {
+    "before_bytes": 3369279,
+    "after_bytes": 3374120,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_15.blend": {
+    "before_bytes": 3590050,
+    "after_bytes": 3586607,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_16.blend": {
+    "before_bytes": 3364554,
+    "after_bytes": 3362888,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_17.blend": {
+    "before_bytes": 3600872,
+    "after_bytes": 3603399,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_18.blend": {
+    "before_bytes": 3359423,
+    "after_bytes": 3360327,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_2.blend": {
+    "before_bytes": 3364495,
+    "after_bytes": 3363256,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_3.blend": {
+    "before_bytes": 3507424,
+    "after_bytes": 3509732,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_4.blend": {
+    "before_bytes": 3356149,
+    "after_bytes": 3361015,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_5.blend": {
+    "before_bytes": 3566847,
+    "after_bytes": 3572978,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_6.blend": {
+    "before_bytes": 3357084,
+    "after_bytes": 3361779,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_7.blend": {
+    "before_bytes": 3607237,
+    "after_bytes": 3607178,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_8.blend": {
+    "before_bytes": 3330526,
+    "after_bytes": 3331515,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_9.blend": {
+    "before_bytes": 3559883,
+    "after_bytes": 3555319,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_barista.blend": {
+    "before_bytes": 3405772,
+    "after_bytes": 3409375,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "char_atelier_server.blend": {
+    "before_bytes": 3558921,
+    "after_bytes": 3563141,
+    "actions": [
+      "Idle",
+      "Sitting",
+      "Walk",
+      "Wave",
+      "Working"
+    ],
+    "rig_bones": {
+      "CafePortraitRig": 24
+    },
+    "retained_images": 4
+  },
+  "coat_rack.blend": {
+    "before_bytes": 351141,
+    "after_bytes": 351272,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "contact-goldenhour.blend": {
+    "before_bytes": 570211,
+    "after_bytes": 570243,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 13
+  },
+  "contact-midnight.blend": {
+    "before_bytes": 609346,
+    "after_bytes": 608912,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 13
+  },
+  "contact-roastery.blend": {
+    "before_bytes": 408136,
+    "after_bytes": 409132,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 13
+  },
+  "contact-terrace.blend": {
+    "before_bytes": 575432,
+    "after_bytes": 575552,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 13
+  },
+  "cookie.blend": {
+    "before_bytes": 117154,
+    "after_bytes": 116953,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "crate.blend": {
+    "before_bytes": 387062,
+    "after_bytes": 387606,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "croissant.blend": {
+    "before_bytes": 125263,
+    "after_bytes": 125597,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "cup.blend": {
+    "before_bytes": 120640,
+    "after_bytes": 120896,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "cupcake.blend": {
+    "before_bytes": 167112,
+    "after_bytes": 166896,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "donut.blend": {
+    "before_bytes": 115169,
+    "after_bytes": 115212,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "espresso_machine.blend": {
+    "before_bytes": 438734,
+    "after_bytes": 438944,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "floor_lamp.blend": {
+    "before_bytes": 306908,
+    "after_bytes": 306614,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "furniture-study.blend": {
+    "before_bytes": 778272,
+    "after_bytes": 619808,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 15
+  },
+  "iceCream.blend": {
+    "before_bytes": 101207,
+    "after_bytes": 101377,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "lantern.blend": {
+    "before_bytes": 100202,
+    "after_bytes": 100686,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "latte.blend": {
+    "before_bytes": 122716,
+    "after_bytes": 122573,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "muffin.blend": {
+    "before_bytes": 128997,
+    "after_bytes": 129187,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "mug.blend": {
+    "before_bytes": 110190,
+    "after_bytes": 110154,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "painting.blend": {
+    "before_bytes": 395079,
+    "after_bytes": 395213,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "pancakes.blend": {
+    "before_bytes": 107342,
+    "after_bytes": 107424,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "pendant_lamp.blend": {
+    "before_bytes": 300683,
+    "after_bytes": 300984,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "plant.blend": {
+    "before_bytes": 151625,
+    "after_bytes": 151355,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "plant_cacti.blend": {
+    "before_bytes": 146844,
+    "after_bytes": 147230,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "plant_fern.blend": {
+    "before_bytes": 831139,
+    "after_bytes": 831362,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "plant_monstera.blend": {
+    "before_bytes": 151460,
+    "after_bytes": 151681,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "plant_pothos.blend": {
+    "before_bytes": 152045,
+    "after_bytes": 151841,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "plant_pothos_vine.blend": {
+    "before_bytes": 501250,
+    "after_bytes": 501337,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "plant_small.blend": {
+    "before_bytes": 174624,
+    "after_bytes": 174520,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "plant_snake.blend": {
+    "before_bytes": 137853,
+    "after_bytes": 138140,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "plant_succulent.blend": {
+    "before_bytes": 174605,
+    "after_bytes": 174778,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "radio.blend": {
+    "before_bytes": 552280,
+    "after_bytes": 552096,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "sandwich.blend": {
+    "before_bytes": 94133,
+    "after_bytes": 93919,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "side_table.blend": {
+    "before_bytes": 543070,
+    "after_bytes": 356729,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "sofa.blend": {
+    "before_bytes": 574358,
+    "after_bytes": 573959,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "studio_chair.blend": {
+    "before_bytes": 561991,
+    "after_bytes": 561273,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 6
+  },
+  "studio_cup.blend": {
+    "before_bytes": 120613,
+    "after_bytes": 120864,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "studio_espresso.blend": {
+    "before_bytes": 439125,
+    "after_bytes": 439549,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "studio_pendant.blend": {
+    "before_bytes": 116306,
+    "after_bytes": 115808,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "table_lamp.blend": {
+    "before_bytes": 306947,
+    "after_bytes": 307210,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "teapot.blend": {
+    "before_bytes": 379662,
+    "after_bytes": 379150,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "trashcan.blend": {
+    "before_bytes": 104774,
+    "after_bytes": 105224,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 0
+  },
+  "tree_park_a.blend": {
+    "before_bytes": 1294289,
+    "after_bytes": 1294750,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "tree_park_b.blend": {
+    "before_bytes": 1294017,
+    "after_bytes": 1294289,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "typewriter.blend": {
+    "before_bytes": 418012,
+    "after_bytes": 418090,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  },
+  "wall_shelf.blend": {
+    "before_bytes": 529539,
+    "after_bytes": 530119,
+    "actions": [],
+    "rig_bones": {},
+    "retained_images": 3
+  }
+}

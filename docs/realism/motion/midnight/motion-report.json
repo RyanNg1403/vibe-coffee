@@ -1,0 +1,272 @@
+{
+  "seconds": 180,
+  "max": {
+    "walkStep": 0.0422698269341821,
+    "baristaTurn": 0.14000000000000057,
+    "waiterStep": 0.02400000000000009,
+    "seatedTurn": 0.08000000000000008,
+    "seatStep": 0.03998370884325925,
+    "seatTurn": 0.106623079951369,
+    "renderRestoreError": 4.2146848510894035e-8
+  },
+  "diversity": {
+    "initial": {
+      "limit": 2,
+      "actorCount": 20,
+      "uniqueAssets": 20,
+      "maxCopies": 1,
+      "counts": {
+        "char_atelier_12": 1,
+        "char_atelier_17": 1,
+        "char_atelier_9": 1,
+        "char_atelier_3": 1,
+        "char_atelier_7": 1,
+        "char_atelier_16": 1,
+        "char_atelier_8": 1,
+        "char_atelier_14": 1,
+        "char_atelier_10": 1,
+        "char_atelier_15": 1,
+        "char_atelier_4": 1,
+        "char_atelier_18": 1,
+        "char_atelier_11": 1,
+        "char_atelier_5": 1,
+        "char_atelier_1": 1,
+        "char_atelier_13": 1,
+        "char_atelier_2": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1,
+        "char_atelier_6": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 18
+    },
+    "maxCopies": 1,
+    "minUniqueAssets": 20,
+    "allocationMismatches": 0,
+    "violations": [],
+    "peakCounts": {
+      "char_atelier_12": 1,
+      "char_atelier_17": 1,
+      "char_atelier_9": 1,
+      "char_atelier_3": 1,
+      "char_atelier_7": 1,
+      "char_atelier_16": 1,
+      "char_atelier_8": 1,
+      "char_atelier_14": 1,
+      "char_atelier_10": 1,
+      "char_atelier_15": 1,
+      "char_atelier_4": 1,
+      "char_atelier_18": 1,
+      "char_atelier_11": 1,
+      "char_atelier_5": 1,
+      "char_atelier_1": 1,
+      "char_atelier_13": 1,
+      "char_atelier_2": 1,
+      "char_atelier_barista": 1,
+      "char_atelier_server": 1,
+      "char_atelier_6": 1
+    },
+    "final": {
+      "limit": 2,
+      "actorCount": 20,
+      "uniqueAssets": 20,
+      "maxCopies": 1,
+      "counts": {
+        "char_atelier_5": 1,
+        "char_atelier_1": 1,
+        "char_atelier_2": 1,
+        "char_atelier_4": 1,
+        "char_atelier_12": 1,
+        "char_atelier_16": 1,
+        "char_atelier_8": 1,
+        "char_atelier_18": 1,
+        "char_atelier_7": 1,
+        "char_atelier_13": 1,
+        "char_atelier_15": 1,
+        "char_atelier_17": 1,
+        "char_atelier_10": 1,
+        "char_atelier_11": 1,
+        "char_atelier_9": 1,
+        "char_atelier_14": 1,
+        "char_atelier_3": 1,
+        "char_atelier_barista": 1,
+        "char_atelier_server": 1,
+        "char_atelier_6": 1
+      },
+      "allocationsMatch": true,
+      "availableSlots": 18
+    }
+  },
+  "interpolatedFrames": 1977,
+  "baristaTurns": 1178,
+  "states": [
+    "sitting",
+    "performing",
+    "approachingDoorIn",
+    "holdingDoorIn",
+    "waitingDoorIn",
+    "crossingDoorIn",
+    "queueing",
+    "standingSeat",
+    "holdingDoorOut",
+    "approachingDoorOut",
+    "ordering",
+    "waitingDoorOut",
+    "crossingDoorOut",
+    "openingUmbrella",
+    "joiningSidewalk",
+    "toSeat",
+    "waitingPickup",
+    "aligningSeat",
+    "toRest",
+    "resting",
+    "toStage"
+  ],
+  "worst": [],
+  "dwell": {
+    "npcs": [
+      {
+        "serial": 10,
+        "state": "crossingDoorOut",
+        "seconds": 0.1,
+        "x": -0.02,
+        "y": 0,
+        "z": 6.22,
+        "level": "ground",
+        "seated": false
+      },
+      {
+        "serial": 11,
+        "state": "sitting",
+        "seconds": 95.8,
+        "x": -3.43,
+        "y": 0.02,
+        "z": -2.03,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 12,
+        "state": "sitting",
+        "seconds": 88,
+        "x": -2.76,
+        "y": 0.04,
+        "z": -2.97,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 14,
+        "state": "sitting",
+        "seconds": 50.3,
+        "x": -5.59,
+        "y": 0.04,
+        "z": -3.5,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 15,
+        "state": "sitting",
+        "seconds": 47.2,
+        "x": 7.01,
+        "y": 0.04,
+        "z": 0,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 16,
+        "state": "sitting",
+        "seconds": 7,
+        "x": 5.44,
+        "y": 0.04,
+        "z": -0.08,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 17,
+        "state": "toSeat",
+        "seconds": 20.1,
+        "x": -0.54,
+        "y": 0,
+        "z": 5.54,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 18,
+        "state": "toSeat",
+        "seconds": 17.7,
+        "x": -0.81,
+        "y": 0,
+        "z": 5.1,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 19,
+        "state": "toSeat",
+        "seconds": 1.8,
+        "x": 0.82,
+        "y": 0,
+        "z": -4.54,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 20,
+        "state": "queueing",
+        "seconds": 28.2,
+        "x": 0.4,
+        "y": 0,
+        "z": -3.8,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 21,
+        "state": "queueing",
+        "seconds": 6.2,
+        "x": -0.27,
+        "y": 0,
+        "z": 1.37,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 22,
+        "state": "queueing",
+        "seconds": 2.2,
+        "x": 0.25,
+        "y": 0,
+        "z": 4.76,
+        "level": "ground",
+        "seated": true
+      },
+      {
+        "serial": 23,
+        "state": "holdingDoorIn",
+        "seconds": 7.9,
+        "x": 0.36,
+        "y": 0,
+        "z": 8.09,
+        "level": "ground",
+        "seated": false
+      }
+    ],
+    "maxServiceDwell": {
+      "state": "queueing",
+      "seconds": 25.2
+    },
+    "seatedHandCups": 0,
+    "waiter": {
+      "phase": "toTable",
+      "seconds": 20,
+      "hasTask": true,
+      "x": 5.15,
+      "z": 0
+    }
+  }
+}

@@ -118,10 +118,12 @@ ${texEntries.map((e) => `  '${e.key}': '${e.url}',`).join('\n')}
 writeFileSync(REPO + 'src/textureManifest.js', texManifest);
 entries.push(...texEntries.map((e) => ({ ...e, texture: true })));
 
+entries.push({ key: 'courtyard.hdr', url: '/environment/courtyard.hdr', environment: true });
+
 const lines = entries.map((e) => {
   const c = credits[e.key];
   if (!c) return `- **${e.key}** — source metadata missing (see git history of tools/sound-credits.json)`;
-  return `- **${e.key}** — "${c.title ?? e.key}"${c.creator ? ` by ${c.creator}` : ''} — ${c.license ?? 'license unrecorded'} — [source](${c.item_url ?? c.source_url ?? '#'})`;
+  return `- **${e.key}** — "${c.title ?? e.key}"${c.creator ? ` by ${c.creator}` : ''} — ${c.license ?? 'license unrecorded'} — [source](${c.item_url ?? c.source_url ?? '#'})${c.modifications ? ` — ${c.modifications}` : ''}`;
 });
 const musicLines = musicEntries.map((e) => {
   const c = musicCredits[e.key];
@@ -131,11 +133,11 @@ const archivedModelLines = [...MODEL_EXCLUSIONS]
   .filter((key) => existsSync(`${MODELS_DIR}/${key}.glb`) && credits[key])
   .map((key) => {
     const c = credits[key];
-    return `- **${key}** — "${c.title ?? key}" by ${c.creator ?? 'Unknown creator'} — ${c.license ?? 'license unrecorded'} — [source](${c.item_url ?? c.source_url ?? '#'})`;
+    return `- **${key}** — "${c.title ?? key}" by ${c.creator ?? 'Unknown creator'} — ${c.license ?? 'license unrecorded'} — [source](${c.item_url ?? c.source_url ?? '#'})${c.modifications ? ` — ${c.modifications}` : ''}`;
   });
 const creditsMd = `# Asset credits
 
-## Sound effects, 3D models, and surface textures
+## Sound effects, 3D models, surface textures, and environment
 
 The recorded sound and model assets come from the sources below. Audio may be
 trimmed and loudness-normalized for in-app playback. Missing sound assets retain

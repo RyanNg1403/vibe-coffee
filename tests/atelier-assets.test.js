@@ -29,7 +29,14 @@ test('the entire runtime library uses self-contained Blender exports with finite
     if (key.startsWith('char_atelier_')) {
       assert.deepEqual(root.listAnimations().map(a => a.getName()).sort(), ['Idle', 'Sitting', 'Walk', 'Wave', 'Working']);
       assert.equal(root.listSkins().length, 1);
-      assert.equal(root.listSkins()[0].listJoints().length, 17);
+      const bounds = root.listNodes().map(node => node.getExtras().portrait_bounds).find(Boolean);
+      assert.ok(bounds?.length === 6 && bounds.every(Number.isFinite), `${key}: anatomical bounds keep accessories from changing seat alignment`);
+      assert.ok(bounds[4] - bounds[1] > 1.5 && bounds[4] - bounds[1] < 2, `${key}: human source scale`);
+      const joints = new Set(root.listSkins()[0].listJoints().map(joint => joint.getName()));
+      for (const bone of ['Hips', 'Head', 'neck', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftHand', 'RightHand']) {
+        assert.ok(joints.has(bone), `${key}: ${bone} supports café actions`);
+      }
+      assert.ok(root.listSkins()[0].listJoints().length <= 24);
       for (const animation of root.listAnimations()) for (const channel of animation.listChannels()) {
         const sampler = channel.getSampler();
         const times = sampler.getInput().getArray();
@@ -40,8 +47,8 @@ test('the entire runtime library uses self-contained Blender exports with finite
       }
     }
   }
-  assert.ok(total < 11 * 1024 * 1024, `runtime library: ${total} bytes`);
-  assert.equal(Object.keys(MODEL_MANIFEST).filter(k => k.startsWith('char_')).length, 8);
+  assert.ok(total < 28 * 1024 * 1024, `photo-textured runtime library: ${total} bytes`);
+  assert.equal(Object.keys(MODEL_MANIFEST).filter(k => k.startsWith('char_')).length, 20);
 });
 
 test('compressed geometry can be baked beyond unit bounds without clamping or mutating the shared source', () => {

@@ -1,0 +1,44 @@
+[
+  {
+    "key": "char_atelier_18",
+    "minY": 0.002241916155542062,
+    "rootY": 0.04,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_6",
+    "minY": 0.001131215400518415,
+    "rootY": 0.04,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_13",
+    "minY": 0.002048154697915326,
+    "rootY": 0.02,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_12",
+    "minY": 0.0020956017691544856,
+    "rootY": 0.04,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_7",
+    "minY": 0.002062364759514518,
+    "rootY": 0.02,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_4",
+    "minY": -0.0012352647632222283,
+    "rootY": 0.04,
+    "bar": false
+  },
+  {
+    "key": "char_atelier_3",
+    "minY": 0.001848640883648535,
+    "rootY": 0.02,
+    "bar": false
+  }
+]

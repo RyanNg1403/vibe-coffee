@@ -1,0 +1,355 @@
+{
+  "apple": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 892308
+  },
+  "armchair": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1868252
+  },
+  "atelier_piano": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 2578004
+  },
+  "atelier_roaster": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1042876
+  },
+  "atelier_streetscape": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 3710076
+  },
+  "atelier_tables_goldenhour": {
+    "materials": [
+      "walnut"
+    ],
+    "bytes": 1439132
+  },
+  "atelier_tables_midnight": {
+    "materials": [
+      "walnut"
+    ],
+    "bytes": 1560920
+  },
+  "atelier_tables_roastery": {
+    "materials": [
+      "walnut"
+    ],
+    "bytes": 1096636
+  },
+  "atelier_tables_terrace": {
+    "materials": [
+      "walnut"
+    ],
+    "bytes": 1524540
+  },
+  "bar_stool": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1860016
+  },
+  "bookcase": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 1913048
+  },
+  "cactus_pot": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 83420
+  },
+  "cake": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 81844
+  },
+  "cakeSlice": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 81480
+  },
+  "coat_rack": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 885856
+  },
+  "cookie": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 40808
+  },
+  "crate": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 1063864
+  },
+  "croissant": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 56868
+  },
+  "cupcake": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 126460
+  },
+  "donut": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 60704
+  },
+  "espresso_machine": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1170928
+  },
+  "floor_lamp": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1005148
+  },
+  "iceCream": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 20304
+  },
+  "lantern": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 37360
+  },
+  "muffin": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 66232
+  },
+  "painting": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 936444
+  },
+  "pancakes": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 41896
+  },
+  "pendant_lamp": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 991980
+  },
+  "plant": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 92180
+  },
+  "plant_cacti": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 83428
+  },
+  "plant_fern": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 1121820
+  },
+  "plant_monstera": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 92232
+  },
+  "plant_pothos": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 91488
+  },
+  "plant_pothos_vine": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 1128416
+  },
+  "plant_small": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 122860
+  },
+  "plant_snake": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 67048
+  },
+  "plant_succulent": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 122876
+  },
+  "radio": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 1849164
+  },
+  "sandwich": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 7440
+  },
+  "side_table": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 877920
+  },
+  "sofa": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1906556
+  },
+  "studio_chair": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1842428
+  },
+  "studio_espresso": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1170924
+  },
+  "studio_pendant": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 59244
+  },
+  "table_lamp": {
+    "materials": [
+      "linen",
+      "walnut"
+    ],
+    "bytes": 1005096
+  },
+  "teapot": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 910348
+  },
+  "trashcan": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 47112
+  },
+  "tree_park_a": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 2215760
+  },
+  "tree_park_b": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 2215772
+  },
+  "typewriter": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 1028128
+  },
+  "wall_shelf": {
+    "materials": [
+      "walnut",
+      "linen"
+    ],
+    "bytes": 1913064
+  }
+}

@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
+import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
@@ -18,6 +20,7 @@ const buildDir = join(cache, 'dist');
 const modelDir = join(cache, 'models');
 const musicDir = join(cache, 'music');
 const textureDir = join(cache, 'textures');
+const soundDir = join(cache, 'sounds');
 const output = join(root, 'artifact', 'vibe-coffee.html');
 const MAX_BYTES = 15.5 * 1024 * 1024;
 
@@ -69,6 +72,7 @@ await rm(cache, { recursive: true, force: true });
 await mkdir(modelDir, { recursive: true });
 await mkdir(musicDir, { recursive: true });
 await mkdir(textureDir, { recursive: true });
+await mkdir(soundDir, { recursive: true });
 
 await MeshoptEncoder.ready;
 await MeshoptDecoder.ready;
@@ -81,8 +85,30 @@ const io = new NodeIO()
     'meshopt.decoder': MeshoptDecoder,
   });
 
+const compactImages = new Map();
 for (const name of artifactModels) {
   const document = await io.read(join(root, 'public', 'models', `${name}.glb`));
+  // Keep facial detail while reducing the transfer cost of the portable edition.
+  // The full application and editable Blender sources retain larger maps.
+  for (const texture of document.getRoot().listTextures()) {
+    const pixels = texture.getImage();
+    const resolution = name.startsWith('char_atelier_') ? 384 : 256;
+    const key = createHash('sha256').update(pixels).update(String(resolution)).digest('hex');
+    if (!compactImages.has(key)) {
+      const input = join(textureDir, `${key}.input`);
+      const output = join(textureDir, `${key}.jpg`);
+      await writeFile(input, pixels);
+      await run('ffmpeg', [
+        '-hide_banner', '-loglevel', 'error', '-y', '-i', input,
+        '-vf', `scale=${resolution}:${resolution}:force_original_aspect_ratio=decrease`,
+        '-frames:v', '1', '-q:v', '3', output,
+      ]);
+      compactImages.set(key, await readFile(output));
+    }
+    const bytes = compactImages.get(key);
+    texture.setImage(bytes).setMimeType('image/jpeg')
+      .setName('asset-texture-' + createHash('sha256').update(bytes).digest('hex'));
+  }
   for (const extension of document.getRoot().listExtensionsUsed()) {
     if (extension.extensionName === 'KHR_draco_mesh_compression') extension.dispose();
   }
@@ -91,7 +117,12 @@ for (const name of artifactModels) {
     // budget and redundant animation keys removed. Editable/full app assets
     // are unchanged by this export-only optimization.
     weld(),
-    simplify({ simplifier: MeshoptSimplifier, ratio: 0.55, error: 0.002, lockBorder: true }),
+    simplify({
+      simplifier: MeshoptSimplifier,
+      ratio: name.startsWith('char_atelier_') ? 0.28 : 0.55,
+      error: name.startsWith('char_atelier_') ? 0.008 : 0.002,
+      lockBorder: !name.startsWith('char_atelier_'),
+    }),
     resample({ tolerance: 0.0001 }),
     meshopt({
       encoder: MeshoptEncoder,
@@ -111,10 +142,10 @@ for (const id of uniqueTracks) {
     '-hide_banner', '-loglevel', 'error', '-y',
     '-i', join(root, 'public', 'music', `${id}.ogg`),
     // Opus remains transparent enough for the deliberately soft café mix at
-    // 56 kbps, while recovering the artifact headroom consumed by V2 code.
+    // 48 kbps, while recovering the artifact headroom consumed by V2 code.
     // Runtime/full-quality assets are untouched; this only affects the
     // self-contained fallback artifact.
-    '-t', '45', '-ac', '2', '-ar', '48000', '-c:a', 'libopus', '-b:a', '56k',
+    '-t', '45', '-ac', '2', '-ar', '48000', '-c:a', 'libopus', '-b:a', '48k',
     join(musicDir, `${id}.ogg`),
   ]);
 }
@@ -143,8 +174,11 @@ let js = await readFile(join(buildDir, scriptMatch[1].replace(/^\//, '')), 'utf8
 const mime = {
   '.glb': 'model/gltf-binary', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg',
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp',
+  '.hdr': 'application/octet-stream',
 };
-const assetUrls = [...new Set(js.match(/\/(?:models|sounds|music|textures)\/[A-Za-z0-9_.-]+/g) ?? [])];
+const assetUrls = [...new Set(js.match(/\/(?:models|sounds|music|textures|environment)\/[A-Za-z0-9_.-]+/g) ?? [])];
+const inlineAssets = [];
+const inlineAssetIndices = new Map();
 for (const url of assetUrls) {
   const [, kind, filename] = url.split('/');
   const source = kind === 'models'
@@ -153,28 +187,61 @@ for (const url of assetUrls) {
       ? join(musicDir, filename)
       : join(root, 'public', kind, filename);
   let bytes;
-  if (kind === 'textures' && filename.startsWith('studio_')) {
-    // The self-contained export has a strict transfer budget. Keep all four
-    // Blender models, using 256px variants of their supporting surface maps.
-    // Full-quality development/production maps remain 512px and untouched.
+  let contentType = mime[extname(filename)];
+  if (kind === 'sounds') {
+    // Preserve the full sound durations in the portable edition. Opus reduces
+    // ambience transfer cost while the full app retains its original files.
+    const compact = join(soundDir, filename + '.ogg');
+    await run('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-y', '-i', source,
+      '-c:a', 'libopus', '-b:a', '48k', '-vbr', 'on', compact,
+    ]);
+    bytes = await readFile(compact);
+    contentType = 'audio/ogg';
+  } else if (kind === 'environment') {
+    bytes = await readFile(join(root, 'assets/blender/realism/courtyard-compact.hdr'));
+  } else if (kind === 'textures' && /^(studio_|realism_)/.test(filename)) {
+    // Preserve spatial detail in room-sized contact maps; use compact maps
+    // for tiled materials in the standalone edition only.
+    const resolution = filename.startsWith('realism_contact_') ? 512 : 256;
     const compact = join(textureDir, filename);
     await run('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-y', '-i', source,
-      '-vf', 'scale=256:256:flags=lanczos', '-frames:v', '1', '-q:v', '3', compact,
+      '-vf', `scale=${resolution}:${resolution}:flags=lanczos`, '-frames:v', '1', '-q:v', '3', compact,
     ]);
     bytes = await readFile(compact);
   } else {
     bytes = await readFile(source);
   }
-  const dataUri = `data:${mime[extname(filename)]};base64,${bytes.toString('base64')}`;
-  js = js.replaceAll(url, dataUri);
+  const dataUri = `data:${contentType};base64,${bytes.toString('base64')}`;
+  // Aliases such as cat/pet_cat must reuse one payload. The gzip window alone
+  // cannot deduplicate large models that occur far apart in the asset table.
+  let index = inlineAssetIndices.get(dataUri);
+  if (index === undefined) {
+    index = inlineAssets.length;
+    inlineAssets.push(dataUri);
+    inlineAssetIndices.set(dataUri, index);
+  }
+  // Vite emits these source URLs as string literals. Replace the complete
+  // literal so every reference reuses one decoded data URI at startup.
+  for (const quote of ['"', "'", '`']) {
+    js = js.replaceAll(`${quote}${url}${quote}`, `__vibePortableAssets[${index}]`);
+  }
 }
 
-const unresolved = js.match(/\/(?:models|sounds|music|textures)\/[A-Za-z0-9_.-]+/g);
+const unresolved = js.match(/\/(?:models|sounds|music|textures|environment)\/[A-Za-z0-9_.-]+/g);
 if (unresolved) throw new Error(`Unresolved artifact assets: ${[...new Set(unresolved)].join(', ')}`);
+// Compress the asset table as one stream: GLB JSON, repeated material metadata,
+// and base64 overhead otherwise waste several MiB. Native decompression is
+// local, requires no fetch/worker, and leaves the decoded asset bytes intact.
+const packedAssets = gzipSync(Buffer.from(JSON.stringify(inlineAssets)), { level: 9 }).toString('base64');
+const assetBootstrap = `const __vibePortableAssets = JSON.parse(await new Response(
+  new Blob([Uint8Array.from(atob('${packedAssets}'), c => c.charCodeAt(0))])
+    .stream().pipeThrough(new DecompressionStream('gzip'))
+).text());\n`;
 html = html.replace(
   scriptMatch[0],
-  () => `<script type="module">${js.replaceAll('</script>', '<\\/script>')}</script>`,
+  () => `<script type="module">${assetBootstrap}${js.replaceAll('</script>', '<\\/script>')}</script>`,
 );
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, html);
@@ -185,4 +252,4 @@ if (size > MAX_BYTES) {
 }
 console.log(`Artifact: ${output}`);
 console.log(`Size: ${(size / 1024 / 1024).toFixed(2)} MB`);
-console.log(`Inlined assets: ${assetUrls.length}; all 67 Blender models included with Meshopt.`);
+console.log(`Inlined assets: ${assetUrls.length} URLs, ${inlineAssets.length} unique payloads; all ${artifactModels.length} Blender models included with Meshopt.`);
