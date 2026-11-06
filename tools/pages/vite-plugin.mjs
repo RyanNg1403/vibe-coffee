@@ -124,6 +124,7 @@ function notFoundPage(base) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="refresh" content="3; url=${base}" />
   <title>vibe coffee ☕ · not found</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>" />
   <style>
     html, body { height: 100%; margin: 0; background: #17110b; color: #f0e6d4; }
     body { display: grid; place-items: center; font: italic 16px Georgia, serif; text-align: center; }
