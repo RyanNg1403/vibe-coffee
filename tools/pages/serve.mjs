@@ -1,6 +1,7 @@
 // Serves dist/ the way GitHub Pages serves a project site: under the build's
 // base path, gzip for text types only, `Cache-Control: max-age=600`, no
-// custom headers (so no COOP/COEP), and 404.html with status 404 on a miss.
+// custom headers (so no COOP/COEP), ETag revalidation, and 404.html with
+// status 404 on a miss.
 //
 //   node tools/pages/serve.mjs [--port 4321] [--dir dist]
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
@@ -31,7 +32,13 @@ function send(req, res, file, status = 200) {
     'Cache-Control': 'max-age=600',
     'Accept-Ranges': 'bytes',
   };
-  const { size } = statSync(file);
+  const { size, mtimeMs } = statSync(file);
+  const etag = `"${size.toString(16)}-${Math.round(mtimeMs).toString(16)}"`;
+  headers.ETag = etag;
+  if (status === 200 && req.headers['if-none-match'] === etag) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
   const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
   if (range && status === 200 && (range[1] || range[2])) {
     const start = range[1] ? Number(range[1]) : size - Number(range[2]);

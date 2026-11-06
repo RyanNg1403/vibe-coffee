@@ -9,11 +9,12 @@
 // Writes numbered screenshots and smoke-report.json to --out
 // (default .pages-smoke/). CHROME_PATH overrides the browser.
 import { spawn } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { revision } from './vite-plugin.mjs';
 
 const args = new Map(process.argv.slice(2).flatMap((arg, i, all) => arg.startsWith('--') ? [[arg.slice(2), all[i + 1]]] : []));
 const OUT = resolve(args.get('out') ?? '.pages-smoke');
@@ -32,7 +33,8 @@ const CHROME = process.env.CHROME_PATH ?? [
 ].find(existsSync);
 if (!CHROME) throw new Error('Chrome/Chromium not found; set CHROME_PATH');
 
-const html = readFileSync(resolve('dist/index.html'), 'utf8');
+const DIST = resolve('dist');
+const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 const BASE = html.match(/<script type="module"[^>]*src="(\/[^"]*?)assets\//)?.[1] ?? '/';
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 const APP_URL = `${ORIGIN}${BASE}`;
@@ -140,6 +142,8 @@ const chrome = spawn(CHROME, [
 const report = { url: APP_URL, budgetFirstFrameMB: BUDGET_FIRST_FRAME_MB, phases: {} };
 let failed = false;
 let phase = null;
+// dist/ files the redeploy phase modifies, restored on exit.
+const restore = [];
 const finish = (current) => {
   const { lastActivity, expectNotFound, offline, ...summary } = current;
   report.phases[current.name] = summary;
@@ -148,6 +152,7 @@ const finish = (current) => {
 
 async function shutdown() {
   if (phase && !report.phases[phase.name]) finish(phase);
+  for (const [file, bytes] of restore.splice(0)) writeFileSync(file, bytes);
   chrome.kill('SIGTERM');
   server.kill('SIGTERM');
   await delay(500);
@@ -285,7 +290,39 @@ try {
   await shot('03-repeat-visit-inside');
   finish(phase);
 
-  // 3. Server gone: the precached shell and cached assets still start the café.
+  // 3. Redeploy with one fixed-name file changed: the worker must evict its
+  // copy and cache the new bytes, although the URL stayed the same.
+  track('redeploy');
+  const cachedUrls = await cdp.evaluate('caches.open("vibe-assets").then((c) => c.keys()).then((k) => k.map((r) => r.url))');
+  const changedUrl = cachedUrls.find((url) => url.endsWith('.jpg')) ?? cachedUrls.find((url) => url.endsWith('.mp3'));
+  if (!changedUrl) throw new Error('no cached .jpg/.mp3 to redeploy');
+  const changedRel = changedUrl.slice(APP_URL.length);
+  const changedFile = join(DIST, changedRel);
+  const swFile = join(DIST, 'sw.js');
+  restore.push([changedFile, readFileSync(changedFile)], [swFile, readFileSync(swFile)]);
+  const changedBytes = Buffer.concat([readFileSync(changedFile), Buffer.from('vibe-redeploy')]);
+  const newRevision = revision(changedBytes);
+  writeFileSync(changedFile, changedBytes);
+  const sw = readFileSync(swFile, 'utf8');
+  const manifest = JSON.parse(sw.match(/^self\.__VIBE_MANIFEST__ = (.*);$/m)[1]);
+  manifest.files[changedRel] = newRevision;
+  manifest.version = revision(`${manifest.version}-redeploy`).slice(0, 12);
+  writeFileSync(swFile, sw.replace(/^self\.__VIBE_MANIFEST__ = .*;$/m, () => `self.__VIBE_MANIFEST__ = ${JSON.stringify(manifest)};`));
+  await cdp.send('Page.reload', {});
+  await settle();
+  await until(() => cdp.evaluate(`caches.keys().then((k) => k.includes('vibe-shell-${manifest.version}') && k.filter((n) => n.startsWith('vibe-shell-')).length === 1)`), 'updated service worker', 60000);
+  await cdp.send('Page.reload', {});
+  await settle();
+  phase.changed = changedRel;
+  phase.cachedRevision = await until(() => cdp.evaluate(
+    `caches.open('vibe-assets').then((c) => c.match(${JSON.stringify(changedUrl)})).then((r) => r?.headers.get('X-Vibe-Revision'))`), 'revalidated copy', 60000)
+    .catch(() => null);
+  if (phase.cachedRevision !== newRevision) {
+    phase.failures.push(`${changedRel}: cached revision ${phase.cachedRevision} after redeploy, expected ${newRevision}`);
+  }
+  finish(phase);
+
+  // 4. Server gone: the precached shell and cached assets still start the café.
   track('offline-reload').offline = true;
   server.kill('SIGTERM');
   await until(async () => !(await fetch(APP_URL).then(() => true, () => false)), 'server shutdown', 10000);
@@ -297,7 +334,7 @@ try {
   server = startServer();
   await until(async () => (await fetch(APP_URL)).ok, 'Pages server restart', 15000);
 
-  // 4. Unknown page: GitHub Pages answers with 404.html.
+  // 5. Unknown page: GitHub Pages answers with 404.html.
   track('not-found').expectNotFound = true;
   await cdp.send('Page.navigate', { url: `${APP_URL}no-such-table` });
   await until(() => cdp.evaluate('document.readyState === "complete" && document.title.includes("not found")'), '404 page', 15000);

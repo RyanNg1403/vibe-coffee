@@ -9,6 +9,7 @@
 import { appendFileSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative, resolve, sep } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { revision } from './vite-plugin.mjs';
 
 const DIST = resolve(process.argv[2] ?? 'dist');
 const KB = 1024;
@@ -75,18 +76,20 @@ for (const file of files) {
   if (file.lfs) problems.push(`${file.rel} is a Git LFS pointer; Pages does not serve LFS content`);
 }
 
-// Every file in a hashed folder must be one the service worker manifest (and
-// so assetUrl()) knows. Anything else was written after hashing and is never
-// requested, e.g. a post-build step that rewrote dist/models/<name>.glb.
+// The service worker caches a fixed-name file only when its bytes match the
+// revision recorded at build time. A file rewritten afterwards (e.g. a
+// post-build step on dist/models) would download on every visit instead.
 const swSource = byPath.has('sw.js') ? readFileSync(join(DIST, 'sw.js'), 'utf8') : '';
 const swManifest = JSON.parse(swSource.match(/^self\.__VIBE_MANIFEST__ = (.*);$/m)?.[1] ?? 'null');
 if (swManifest) {
-  const known = new Set(swManifest.assets);
-  const hashedDirs = new Set(swManifest.assets.map((rel) => rel.split('/')[0]));
-  for (const file of files) {
-    if (hashedDirs.has(file.rel.split('/')[0]) && !known.has(file.rel)) {
-      problems.push(`${file.rel} is never requested: process public/ assets with a pagesDeploy preprocess step, not after the build`);
+  const known = new Set([...swManifest.shell, ...swManifest.immutable, ...Object.keys(swManifest.files), 'sw.js', '404.html', '.nojekyll']);
+  for (const [rel, expected] of Object.entries(swManifest.files)) {
+    if (byPath.has(rel) && revision(readFileSync(join(DIST, rel))) !== expected) {
+      problems.push(`${rel} changed after the service worker manifest was built: run asset steps as a pagesDeploy preprocess step, not after the build`);
     }
+  }
+  for (const file of files) {
+    if (!known.has(file.rel)) problems.push(`${file.rel} is not in the service worker manifest (written after the build?)`);
   }
 } else {
   problems.push('dist/sw.js or its manifest is missing');

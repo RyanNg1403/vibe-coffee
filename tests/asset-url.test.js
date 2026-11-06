@@ -10,6 +10,10 @@ test('manifest paths resolve against the root base outside a Vite build', () => 
   assert.equal(assetUrl('/draco/'), '/draco/');
 });
 
+test('resolving twice is harmless', () => {
+  assert.equal(assetUrl(assetUrl('/sounds/espresso.mp3')), assetUrl('/sounds/espresso.mp3'));
+});
+
 test('inlined, absolute and protocol-relative URLs pass through', () => {
   for (const url of ['data:model/gltf-binary;base64,AAAA', 'blob:http://x/1', 'https://cdn.example/a.glb', '//cdn.example/a.glb']) {
     assert.equal(assetUrl(url), url);

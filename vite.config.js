@@ -5,9 +5,8 @@ import { defineConfig } from 'vite';
 import { pagesDeploy } from './tools/pages/vite-plugin.mjs';
 
 // Re-encodes GLB colour textures as KTX2 when `toktx` and ffmpeg are on PATH
-// (CI installs both). It must run before the Pages plugin hashes
-// public/models, never as a later step on dist/: a file rewritten after
-// hashing would not be the one the app requests.
+// (CI installs both). As a Pages preprocess step its output is what ships in
+// dist/models and what the service worker revisions describe.
 const KTX2_STEP = 'tools/compress-textures.mjs';
 const preprocess = existsSync(KTX2_STEP) ? [{
   dir: 'models',

@@ -1,10 +1,10 @@
 // Build-time GitHub Pages support (see DEPLOYMENT.md).
 //
-// Pages sends every file with a fixed `Cache-Control: max-age=600`, so the
-// long-lived runtime assets in public/ (models, textures, audio, HDR) are
-// copied to content-hashed names and resolved through src/assetUrl.js. A
-// generated service worker then caches them cache-first, which is safe only
-// because a changed file always gets a new URL.
+// Pages sends every file with a fixed `Cache-Control: max-age=600`. Vite
+// already content-hashes the bundle (JS, CSS, imported WASM). Files in public/
+// keep their fixed names, so this plugin records a content revision for each
+// one; the generated service worker serves a cached copy only while its
+// revision matches the deployed build, and re-downloads it otherwise.
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,15 +13,15 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-// Top-level public/ folders whose files are renamed `<name>.<hash><ext>`.
-// draco/ keeps its names: DRACOLoader requests its decoder files by name.
-export const HASHED_DIRS = ['models', 'textures', 'sounds', 'music', 'environment'];
-
 // Fetched by main.js as soon as it runs; preloading starts the download in
 // parallel with the JavaScript instead of after it.
-const CRITICAL_PRELOADS = ['/environment/courtyard.hdr'];
+const CRITICAL_PRELOADS = ['environment/courtyard.hdr'];
+// Bundle files the worker precaches at install. Other bundle output (WASM,
+// workers' binaries, images) is content-hashed too but only cached when used.
+const PRECACHE = new Set(['.html', '.js', '.css']);
 
-const sha = (data) => createHash('sha256').update(data).digest('hex');
+// The service worker computes the same digest to verify downloads.
+export const revision = (data) => createHash('sha256').update(data).digest('hex').slice(0, 16);
 
 function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -32,16 +32,15 @@ function walk(dir) {
 
 // `preprocess` steps rewrite a public/ folder for the deployed build only,
 // e.g. `{ dir: 'models', run: (input, output) => … }`. Each run gets a fresh
-// empty output folder; files it writes replace their public/ counterparts
-// before hashing, so URLs, the service worker and the size report all see the
-// processed bytes. Files it does not write ship unchanged.
+// empty output folder; files it writes replace their public/ counterparts in
+// dist/ (same names), and the service worker revisions describe those bytes.
+// Files it does not write ship unchanged.
 export function pagesDeploy({ preprocess = [] } = {}) {
   let disabled = false;
   let base = '/';
   let outDir = '';
   let publicDir = '';
   const scratch = [];
-  const assetMap = {};
   const publicFiles = [];
 
   return {
@@ -76,21 +75,9 @@ export function pagesDeploy({ preprocess = [] } = {}) {
       for (const file of walk(publicDir).sort()) {
         const rel = relative(publicDir, file).split(sep).join('/');
         const src = replacements.get(rel) ?? file;
-        const hash = sha(readFileSync(src)).slice(0, 10);
-        let out = rel;
-        if (rel.includes('/') && HASHED_DIRS.includes(rel.split('/')[0])) {
-          const ext = extname(rel);
-          out = `${rel.slice(0, rel.length - ext.length)}.${hash}${ext}`;
-          assetMap[`/${rel}`] = out;
-        }
-        publicFiles.push({ src, out, hash, hashed: out !== rel });
+        publicFiles.push({ rel, src, revision: revision(readFileSync(src)) });
       }
       if (replacements.size) this.info(`preprocessed ${replacements.size} public files`);
-    },
-
-    transform(code) {
-      if (disabled || !code.includes('__VIBE_ASSET_MAP__')) return null;
-      return { code: code.replaceAll('__VIBE_ASSET_MAP__', JSON.stringify(assetMap)), map: null };
     },
 
     closeBundle() {
@@ -99,9 +86,10 @@ export function pagesDeploy({ preprocess = [] } = {}) {
 
     transformIndexHtml() {
       if (disabled) return [];
-      const preloads = CRITICAL_PRELOADS.filter((path) => assetMap[path]).map((path) => ({
+      const known = new Set(publicFiles.map((file) => file.rel));
+      const preloads = CRITICAL_PRELOADS.filter((rel) => known.has(rel)).map((rel) => ({
         tag: 'link',
-        attrs: { rel: 'preload', href: base + assetMap[path], as: 'fetch', crossorigin: '' },
+        attrs: { rel: 'preload', href: base + rel, as: 'fetch', crossorigin: '' },
         injectTo: 'head',
       }));
       const register = readFileSync(join(HERE, 'sw-register.js'), 'utf8')
@@ -112,7 +100,7 @@ export function pagesDeploy({ preprocess = [] } = {}) {
     writeBundle(_options, bundle) {
       if (disabled) return;
       for (const file of publicFiles) {
-        const target = join(outDir, file.out);
+        const target = join(outDir, file.rel);
         mkdirSync(dirname(target), { recursive: true });
         copyFileSync(file.src, target);
       }
@@ -123,17 +111,17 @@ export function pagesDeploy({ preprocess = [] } = {}) {
         .filter((item) => !item.fileName.endsWith('.map'))
         .map((item) => ({
           fileName: item.fileName,
-          hash: sha(item.type === 'chunk' ? item.code : item.source).slice(0, 10),
+          revision: revision(item.type === 'chunk' ? item.code : item.source),
         }));
       const manifest = {
         base,
-        shell: build.map((item) => item.fileName).sort(),
-        assets: publicFiles.filter((file) => file.hashed).map((file) => file.out),
-        files: publicFiles.filter((file) => !file.hashed).map((file) => file.out),
+        shell: build.filter((item) => PRECACHE.has(extname(item.fileName))).map((item) => item.fileName).sort(),
+        immutable: build.filter((item) => !PRECACHE.has(extname(item.fileName))).map((item) => item.fileName).sort(),
+        files: Object.fromEntries(publicFiles.map((file) => [file.rel, file.revision])),
       };
-      manifest.version = sha(JSON.stringify([
-        build.map((item) => item.hash).sort(),
-        publicFiles.map((file) => file.hash),
+      manifest.version = revision(JSON.stringify([
+        build.map((item) => item.revision).sort(),
+        publicFiles.map((file) => file.revision),
       ])).slice(0, 12);
       const worker = readFileSync(join(HERE, 'sw-template.js'), 'utf8');
       writeFileSync(join(outDir, 'sw.js'), `self.__VIBE_MANIFEST__ = ${JSON.stringify(manifest)};\n${worker}`);
