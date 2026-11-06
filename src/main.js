@@ -19,7 +19,10 @@ import {
 import { CrowdSim } from './npc.js';
 import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
-import { loadModelLibrary, cloneModel } from './modelLoader.js';
+import {
+  loadModelLibrary, loadModels, streamBackgroundModels, castCatalog, isCastModel, ModelView, cloneModel,
+} from './modelLoader.js';
+import { planCast } from './perf/castPlan.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
@@ -34,6 +37,10 @@ const preferences = loadPreferences();
 const auditParams = new URLSearchParams(window.location.search);
 const MEMORY_AUDIT_MODE = auditParams.has('memory-audit');
 const SEEDED_AUDIT_MODE = MEMORY_AUDIT_MODE || auditParams.has('visual-audit');
+// Normal visits draw the room first and stream its cast (patrons, staff,
+// pets) and the photographic sky afterwards. Audits keep the synchronous
+// path so seeded crowds and renderer counts stay comparable.
+const STREAM_CAST = !SEEDED_AUDIT_MODE;
 function resetMemoryAuditRandom(themeIndex) {
   if (!SEEDED_AUDIT_MODE) return;
   // Make every rebuild of a location contain the same patrons and procedural
@@ -110,7 +117,7 @@ function applyPhotographicEnvironment(theme) {
     if (object.userData.illustratedBackdrop) object.visible = false;
   });
 }
-loadDaylightEnvironment().then((texture) => {
+function startDaylightEnvironment() { loadDaylightEnvironment().then((texture) => {
   let target;
   try { target = pmrem.fromEquirectangular(texture); }
   catch (error) { texture.dispose(); throw error; }
@@ -120,7 +127,7 @@ loadDaylightEnvironment().then((texture) => {
   previousTarget.dispose();
   photographicEnvironment = texture;
   applyPhotographicEnvironment(currentTheme);
-}).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message));
+}).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message)); }
 
 // Post-processing chain. FXAA at the end replaces a persistent multisampled
 // half-float buffer, preserving clean edges at a fraction of its memory cost.
@@ -347,7 +354,7 @@ async function loadTheme(index) {
   const theme = resolveEnvironment(baseTheme, envTime, envSky);
   currentTheme = theme;
   const token = ++loadToken;
-  const models = await loadModelLibrary(theme.id);
+  const models = await loadModelLibrary(theme.id, { streamCast: STREAM_CAST });
   if (token !== loadToken) return; // a newer switch superseded this one
   lastModels = models;
   playerCup = null; // the old room takes the old cup with it
@@ -395,9 +402,7 @@ async function loadTheme(index) {
   applyPhotographicEnvironment(theme);
   bloomPass.strength = theme.bloom ?? 0.25;
 
-  crowd = new CrowdSim(cafe, audio, models);
-  pets = new PetSystem(cafe, models, theme, audio, interactions);
-  crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
+  if (!STREAM_CAST) spawnCrowd(theme, models);
   applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
@@ -412,11 +417,12 @@ async function loadTheme(index) {
   audio.setTheme(theme);
 
   const s = defaultSeat();
-  crowd.setPlayerSeat(s);
+  crowd?.setPlayerSeat(s);
   sitAt(s, true);
   pointerDirty = true;
   renderer.shadowMap.needsUpdate = true;
   perf.sceneChanged({ models });
+  if (STREAM_CAST) streamCast(token, theme, models);
 
   document.querySelectorAll('.loc-btn').forEach((b, i) => {
     const active = i === index;
@@ -424,6 +430,39 @@ async function loadTheme(index) {
     b.setAttribute('aria-pressed', String(active));
   });
   document.getElementById('blurb').textContent = theme.blurb;
+}
+
+function spawnCrowd(theme, cast, playerSeat = -1) {
+  crowd = new CrowdSim(cafe, audio, cast, { playerSeat });
+  pets = new PetSystem(cafe, cast, theme, audio, interactions);
+  crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
+}
+
+// Only the characters this café can spawn are downloaded, after its first
+// frame; the crowd then fades in nearest-first around the seated player.
+async function streamCast(token, theme, models) {
+  await perf.whenRendered();
+  if (!photographicEnvironment && !environmentRequested) {
+    environmentRequested = true;
+    startDaylightEnvironment();
+  }
+  const keys = planCast(castCatalog(), theme);
+  await loadModels(keys);
+  if (token !== loadToken || !cafe || crowd) return;
+  const wanted = new Set(keys);
+  const cast = new ModelView(models, (key) => !isCastModel(key) || wanted.has(key));
+  const before = perf.snapshotActors();
+  spawnCrowd(theme, cast, seatIndex);
+  applyEffectLevel(effectLevel);
+  renderer.shadowMap.needsUpdate = true;
+  pointerDirty = true;
+  await perf.revealActors(before);
+  streamBackgroundModels();
+}
+let environmentRequested = false;
+if (!STREAM_CAST) {
+  environmentRequested = true;
+  startDaylightEnvironment();
 }
 
 // ---------- sky popover: time of day × weather ----------
@@ -853,7 +892,8 @@ document.getElementById('laptop-btn')?.addEventListener('click', () => {
 
 // order a drink: the barista actually makes it, then it lands on your table
 document.getElementById('order-btn')?.addEventListener('click', () => {
-  if (!crowd || !cafe) return;
+  if (!cafe) return;
+  if (!crowd) { toast('the barista is just arriving — one moment'); return; }
   if (seatIndex < 0) { toast('find a seat first — click any free chair'); return; }
   if (orderPending) { toast('your drink is already on its way ☕'); return; }
   if (playerCup) { disposeObject3D(playerCup); playerCup = null; }
@@ -1038,10 +1078,10 @@ canvas.addEventListener('pointerup', (e) => {
   }
   const hit = seatHit.index;
   if (hit >= 0) {
-    if (crowd.isSeatTaken(hit)) {
+    if (crowd?.isSeatTaken(hit)) {
       toast('Someone’s sitting there — pick another spot ☕');
     } else if (hit !== seatIndex) {
-      crowd.setPlayerSeat(hit);
+      crowd?.setPlayerSeat(hit);
       sitAt(hit);
     }
   }
@@ -1607,7 +1647,7 @@ function frame(now = performance.now()) {
       const seat = cafe.seats[hoveredSeat];
       ring.position.set(seat.pos.x, seat.pos.y + 0.72, seat.pos.z);
       ring.visible = true;
-      ring.material.color.set(crowd.isSeatTaken(hoveredSeat) ? 0xd06050 : 0xffe2a8);
+      ring.material.color.set(crowd?.isSeatTaken(hoveredSeat) ? 0xd06050 : 0xffe2a8);
       ring.material.opacity = 0.6 + Math.sin(elapsed * 5) * 0.25;
       if (canvasCursor !== 'pointer') {
         canvas.style.cursor = 'pointer';

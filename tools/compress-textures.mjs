@@ -106,6 +106,25 @@ async function pool(items, limit, task) {
   }));
 }
 
+// Byte-identical models (wall_shelf = bookcase, pet_cat = cat, ...) are
+// listed in models/aliases.json so the app fetches each file once. Written
+// even without toktx: the deployed app always requests it.
+async function writeAliases() {
+  const firstByHash = new Map();
+  const aliases = {};
+  for (const [key, { url }] of Object.entries(MODEL_MANIFEST)) {
+    const file = join(inputDir, url.split('/').pop());
+    if (!existsSync(file)) continue;
+    const hash = createHash('sha256').update(await readFile(file)).digest('hex');
+    if (firstByHash.has(hash)) aliases[key] = firstByHash.get(hash);
+    else firstByHash.set(hash, key);
+  }
+  await mkdir(outputDir, { recursive: true });
+  await writeFile(join(outputDir, 'aliases.json'), `${JSON.stringify(aliases, null, 2)}\n`);
+  console.log(`[compress-textures] ${Object.keys(aliases).length} duplicate models aliased: ${Object.entries(aliases).map(([a, b]) => `${a}→${b}`).join(', ')}`);
+}
+if (existsSync(inputDir)) await writeAliases();
+
 const toktx = await findTool(process.env.TOKTX ?? 'toktx', '--version');
 const ffmpeg = await findTool(process.env.FFMPEG ?? 'ffmpeg', '-version');
 if (!toktx || !ffmpeg) {

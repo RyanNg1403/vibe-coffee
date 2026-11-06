@@ -162,6 +162,34 @@ export function normalizeModel(scene, key) {
 // set; the other venues stream in afterwards while the room is already live.
 const VENUE_ASSET = /^atelier_(?:decor|tables)_(.+)$/;
 const BACKGROUND_DELAY_MS = 4000;
+// The cast (patrons, staff, pets) is spawned by the crowd, not the room, so it
+// can stream in after the café's first frame (see loadModels()).
+export const isCastModel = (key) => key.startsWith('char_') || key === 'pet_cat' || key === 'pet_dog';
+// What a café's build clones, measured per venue: these never reach a first
+// frame (spares and fallbacks) or only one venue's. With streamCast they join
+// the background set. A stale entry only costs a procedural stand-in on a
+// first visit; development builds warn when that happens (cloneModel).
+const NOT_IN_FIRST_FRAME = new Set(['bookcase', 'cactus_pot', 'crate', 'cup', 'espresso_machine',
+  'iceCream', 'plant', 'plant_snake', 'cat']);
+const VENUE_ONLY = {
+  tree_park_a: ['terrace'],
+  tree_park_b: ['terrace'],
+  atelier_piano: ['midnight'],
+  atelier_roaster: ['roastery'],
+  atelier_streetscape: ['goldenhour', 'roastery', 'midnight'],
+  atelier_car: ['goldenhour', 'roastery', 'midnight'],
+};
+
+function neededForFirstFrame(key, themeId, streamCast) {
+  const venue = VENUE_ASSET.exec(key)?.[1];
+  if (venue) return !themeId || venue === themeId;
+  if (!streamCast) return true;
+  // The room itself checks for the pet cat (a live cat replaces its décor cat).
+  if (isCastModel(key)) return key === 'pet_cat';
+  if (NOT_IN_FIRST_FRAME.has(key)) return false;
+  return !themeId || !VENUE_ONLY[key] || VENUE_ONLY[key].includes(themeId);
+}
+const PORTABLE = Object.values(MODEL_MANIFEST).some(({ url }) => url.startsWith('data:'));
 let library = null;
 
 function createLibrary() {
@@ -179,6 +207,35 @@ function createLibrary() {
   const models = new Map();
   const sharedTextures = new Map();
   const pending = new Map();
+  // Byte-identical manifest entries (wall_shelf = bookcase, pet_cat = cat,
+  // ...) are listed by the build in models/aliases.json and fetched once.
+  const aliases = import.meta.env?.DEV || PORTABLE
+    ? Promise.resolve({})
+    : fetch(assetUrl('/models/aliases.json')).then((res) => (res.ok ? res.json() : {})).catch(() => ({}));
+  // Shared only between loads in flight together; a later alias re-requests
+  // the same URL from the HTTP/service-worker cache instead of pinning bytes.
+  const buffers = new Map();
+
+  function acquireBuffer(url) {
+    let entry = buffers.get(url);
+    if (!entry) {
+      entry = {
+        users: 0,
+        bytes: fetch(assetUrl(url)).then((res) => {
+          if (!res.ok) throw new Error(`http ${res.status}`);
+          return res.arrayBuffer();
+        }),
+      };
+      buffers.set(url, entry);
+    }
+    entry.users += 1;
+    return entry;
+  }
+
+  function releaseBuffer(url, entry) {
+    entry.users -= 1;
+    if (entry.users <= 0 && buffers.get(url) === entry) buffers.delete(url);
+  }
 
   async function loadEntry(key, def) {
     try {
@@ -187,11 +244,18 @@ function createLibrary() {
         await ktx2Ready;
         gltf = await loader.parseAsync(dataUriToArrayBuffer(def.url), '');
       } else {
-        const res = await fetch(assetUrl(def.url));
-        if (!res.ok) throw new Error(`http ${res.status}`);
-        const buffer = await res.arrayBuffer();
-        await ktx2Ready;
-        gltf = await loader.parseAsync(buffer, '');
+        const source = (await aliases)[key];
+        const url = MODEL_MANIFEST[source]?.url ?? def.url;
+        const entry = acquireBuffer(url);
+        try {
+          const buffer = await entry.bytes;
+          await ktx2Ready;
+          // Parsing never detaches the source buffer (views are sliced), so
+          // aliases can parse the same bytes into their own templates.
+          gltf = await loader.parseAsync(buffer, '');
+        } finally {
+          releaseBuffer(url, entry);
+        }
       }
       // Packed exports name identical embedded images by content hash. Reuse
       // one GPU texture across models while retaining distinct UV transforms.
@@ -257,26 +321,70 @@ function createLibrary() {
     }, BACKGROUND_DELAY_MS);
   }
 
-  return { load, fixups, streamRemaining };
+  return { load, fixups, streamRemaining, models };
 }
 
 // Resolves once every model the given café needs is ready (all models when
-// no café is named). The same Map instance is returned every time and gains
-// the remaining venues' assets in the background.
-export function loadModelLibrary(themeId = null) {
+// no café is named). With `streamCast`, patrons, staff and pets are left out:
+// the room renders first and the crowd's cast arrives via loadModels(). The
+// same Map instance is returned every time and gains later models.
+export function loadModelLibrary(themeId = null, { streamCast = false } = {}) {
   library ??= createLibrary();
   const keys = Object.keys(MODEL_MANIFEST).filter((key) => !CAST_EXCLUSIONS.has(key));
-  const needed = themeId
-    ? keys.filter((key) => { const venue = VENUE_ASSET.exec(key)?.[1]; return !venue || venue === themeId; })
-    : keys;
+  const needed = keys.filter((key) => neededForFirstFrame(key, themeId, streamCast));
   const ready = Promise.all(needed.map((key) => library.load(key))).then(() => library.fixups());
-  if (needed.length < keys.length) ready.then(() => library.streamRemaining(keys));
+  // Streaming callers start the background set themselves once the cast is
+  // in (streamBackgroundModels), so it never competes with the crowd.
+  if (!streamCast && needed.length < keys.length) ready.then(() => library.streamRemaining(keys));
   return ready;
 }
 
+// Idle-time download of every non-cast model not loaded yet (other venues,
+// spares): later café switches then need no network.
+export function streamBackgroundModels() {
+  library ??= createLibrary();
+  library.streamRemaining(Object.keys(MODEL_MANIFEST).filter((key) => !CAST_EXCLUSIONS.has(key) && !isCastModel(key)));
+}
+
+// Loads specific manifest models (e.g. a café's cast) into the shared Map.
+export function loadModels(keys) {
+  library ??= createLibrary();
+  return Promise.all(keys.filter((key) => MODEL_MANIFEST[key] && !CAST_EXCLUSIONS.has(key))
+    .map((key) => library.load(key))).then(() => library.fixups());
+}
+
+// A live, filtered view of the library for a crowd: models that stream in
+// later appear in it, cast members it was not given never do.
+export class ModelView {
+  constructor(source, include) {
+    this.source = source;
+    this.include = include;
+  }
+
+  get(key) { return this.include(key) ? this.source.get(key) : undefined; }
+  has(key) { return this.include(key) && this.source.has(key); }
+  get size() { return [...this.keys()].length; }
+  * entries() { for (const entry of this.source) if (this.include(entry[0])) yield entry; }
+  * keys() { for (const [key] of this.entries()) yield key; }
+  * values() { for (const [, value] of this.entries()) yield value; }
+  forEach(callback, thisArg) { for (const [key, value] of this.entries()) callback.call(thisArg, value, key, this); }
+  [Symbol.iterator]() { return this.entries(); }
+}
+
+// Every streamable cast model in the manifest, and whether it is resident.
+export function castCatalog() {
+  return Object.keys(MODEL_MANIFEST).filter((key) => isCastModel(key) && !CAST_EXCLUSIONS.has(key))
+    .map((key) => ({ key, loaded: !!library?.models.has(key) }));
+}
+
 // static props: plain clone
+const warnedMissing = new Set();
 export function cloneModel(models, key) {
   const entry = models?.get(key);
+  if (!entry && MODEL_MANIFEST[key] && import.meta.env?.DEV && library && !warnedMissing.has(key)) {
+    warnedMissing.add(key);
+    console.warn(`[models] "${key}" was requested before it streamed in; update the first-frame sets in modelLoader.js`);
+  }
   return entry && !entry.character && !entry.pet ? entry.template.clone(true) : null;
 }
 

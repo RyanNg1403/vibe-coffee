@@ -63,7 +63,50 @@ that do, the warm-up hold removes that stall from the main thread.
 | Lazy chunks | — | BVH 73 kB, KTX2 loader 56 kB, LOD worker 78 kB, HUD 3 kB |
 | Single-file artifact | 15.44 MB | 15.46 MB (limit 15.5 MB) |
 
-### LOD and culling fidelity
+### First load: room first, cast streamed (2026-11-06, later)
+
+Method: PR #23's first-frame probe (`tools/pages/smoke.mjs`: response bytes
+summed at the first frame after `window.__vibe.cafe`, 1280×720, quality
+`smooth`, no click). Both production builds were served by PR #23's
+`tools/pages/serve.mjs` (GitHub Pages emulation, gzip for text only) under
+`/vibe-coffee/`, with KTX2 textures. A second run throttled Chrome to
+10 Mbit/s, 40 ms latency, and clicked "step inside" at once, which also
+starts the ambience sound library.
+
+| | Before (PR head `9fadba1`) | After |
+| --- | --- | --- |
+| Bytes at first café frame (PR #23 probe) | 24.98 MB (characters 14.95, pets 1.04, other models 8.44, code 0.62) | **6.07 MB** (models 5.46, code 0.62) |
+| 10 Mbit/s with click: first café frame | 28.3 s, 31.3 MB (crowd already in) | **11.7 s**, 10.95 MB (room; sounds load alongside) |
+| 10 Mbit/s with click: crowd visible | 28.3 s (same frame) | 26.8 s, fading in nearest-first |
+| Character models downloaded for Golden Hour | 20 | 15 (the café's peak population needs no more) |
+| Bytes once the crowd is in (PR #23 probe) | 26.8 MB | 17.9 MB; 23.1 MB after idle background streaming |
+
+How:
+
+- The first café frame needs only the room. Patrons, staff and the dog
+  (`planCast`) download after that frame and are spawned together. The crowd
+  is told the player's seat, so nobody is pre-seated in it. The crowd then
+  fades in nearest actor first (`actorReveal.js`); both the opaque and the
+  fading shader variants compile before anything shows.
+- Each café downloads only enough patrons to cover its room crowd plus street
+  walkers under the two-copies-per-asset rule (13–14 of 18). Models already
+  downloaded are preferred, so a revisit or café switch reuses them.
+- Per-café first-frame sets (`modelLoader.js`): park trees are terrace-only,
+  the piano midnight-only, the roaster roastery-only, and the street set is
+  unused on the terrace. Spares never cloned at build (`bookcase`, `crate`,
+  `espresso_machine`, `cup`, `plant`, ...) stream later. `pet_cat` loads with
+  the room because the room swaps its décor cat for a live one when the pet
+  exists. Development builds warn if a deferred model is requested early.
+- Byte-identical models are fetched once (`models/aliases.json` from the
+  build step; today only `pet_cat` = `cat`).
+- The photographic HDR sky starts after the first frame; the room-light
+  fallback covers the gap.
+- Remaining non-cast models stream at idle only after the crowd is in, so
+  they never compete with it.
+- Audit modes (`?visual-audit`, `?memory-audit`) keep the synchronous path,
+  so seeded crowds and renderer counts stay comparable with earlier runs.
+
+
 
 LOD levels are index-only (they share the source vertex buffers) and are
 chosen so the simplification error, including normal deviation, projects to

@@ -13,6 +13,7 @@ import { LodManager } from './lod/lodManager.js';
 import { SkinnedCuller } from './skinnedCulling.js';
 import { installAcceleratedRaycast, raycastStats } from './raycast.js';
 import { configureTextureCompression } from './textureCompression.js';
+import { ActorReveal } from './actorReveal.js';
 
 const SCAN_INTERVAL_MS = 1000;
 const textureBytesCache = new WeakMap();
@@ -81,6 +82,8 @@ export function installPerformance({
     : null;
   if (controller) controller.enabled = !off('adaptive');
 
+  const reveal = new ActorReveal({ renderer, scene, camera });
+  let renderWaiters = [];
   const frustum = new THREE.Frustum();
   const projScreen = new THREE.Matrix4();
   let culledActors = 0;
@@ -100,6 +103,7 @@ export function installPerformance({
       culler.scan(s);
       lod.scan(s);
     }
+    reveal.update();
     culler.update();
     lod.update(cam, r.domElement.height, (mesh) => culler.sphereFor(mesh));
     projScreen.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
@@ -183,7 +187,21 @@ export function installPerformance({
     },
 
     beginRender(now = performance.now()) { stats.begin(now); },
-    endRender() { stats.end(); },
+    endRender() {
+      stats.end();
+      if (renderWaiters.length) {
+        const waiters = renderWaiters;
+        renderWaiters = [];
+        waiters.forEach((resolve) => resolve());
+      }
+    },
+
+    // Resolves after the next completed frame (e.g. the new room's first).
+    whenRendered() { return new Promise((resolve) => renderWaiters.push(resolve)); },
+
+    // Snapshot the scene, add actors, then reveal() fades in what was added.
+    snapshotActors() { return reveal.snapshot(); },
+    revealActors(before) { return reveal.reveal(before); },
 
     // Report frame time to the adaptive controller. `eligible` lets the app
     // exclude intros, menus and manual quality modes.
@@ -202,6 +220,7 @@ export function installPerformance({
     // later arrivals never stall on synchronous program links.
     async sceneChanged({ models = null } = {}) {
       scanAt = 0;
+      reveal.cancel();
       if (off('warmup') || !renderer.compileAsync) return;
       const startedAt = performance.now();
       const token = { until: startedAt + WARMUP_HOLD_LIMIT_MS };
