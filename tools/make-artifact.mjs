@@ -177,6 +177,7 @@ for (const id of uniqueTracks) {
 
 await build({
   root,
+  mode: 'artifact',
   publicDir: false,
   // One self-contained module: the artifact inlines a single entry script.
   build: { outDir: buildDir, emptyOutDir: true, minify: true, rolldownOptions: { output: { codeSplitting: false } } },

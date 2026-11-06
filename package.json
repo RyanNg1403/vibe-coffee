@@ -6,7 +6,7 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
-    "build": "vite build && node tools/compress-textures.mjs",
+    "build": "vite build",
     "artifact": "node tools/make-artifact.mjs",
     "audit:motion": "node tools/motion-audit.mjs",
     "audit:resume": "node tools/resume-audit.mjs",
@@ -18,6 +18,9 @@
     "perf:bench": "node tools/perf-bench.mjs",
     "audit:ktx2": "node tools/ktx2-audit.mjs",
     "preview": "vite preview",
+    "pages:serve": "node tools/pages/serve.mjs",
+    "pages:size": "node tools/pages/size-report.mjs",
+    "pages:smoke": "node tools/pages/smoke.mjs",
     "test": "node --test",
     "audit:decor": "node tools/decor-audit.mjs",
     "audit:layout": "node tools/layout-audit.mjs"

@@ -7,6 +7,8 @@
 // common RMS target (peak-limited so nothing clips).
 import { StreamSource } from './audioStream.js';
 
+import { assetUrl } from './assetUrl.js';
+
 function analyze(buffer) {
   let sum = 0, peak = 0;
   const stride = Math.max(1, Math.floor(buffer.length / 200000)); // sample large files
@@ -64,7 +66,7 @@ const decoderContexts = new Map();
 
 async function fetchBytes(def) {
   if (def.url.startsWith('data:')) return dataUriToArrayBuffer(def.url);
-  const res = await fetch(def.url);
+  const res = await fetch(assetUrl(def.url));
   if (!res.ok) throw new Error(`http ${res.status}`);
   return res.arrayBuffer();
 }

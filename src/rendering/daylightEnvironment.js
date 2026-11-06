@@ -3,6 +3,7 @@ import {
   LinearSRGBColorSpace, RGBAFormat,
 } from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { assetUrl } from '../assetUrl.js';
 
 // The same credited HDR photograph lights metals/glass and supplies the view
 // through the windows. Data URI parsing also supports the standalone export.
@@ -19,7 +20,7 @@ export async function loadDaylightEnvironment(url = '/environment/courtyard.hdr'
     texture.generateMipmaps = false;
     texture.flipY = true;
     texture.needsUpdate = true;
-  } else texture = await loader.loadAsync(url);
+  } else texture = await loader.loadAsync(assetUrl(url));
   texture.mapping = EquirectangularReflectionMapping;
   texture.userData.vibeShared = true;
   return texture;

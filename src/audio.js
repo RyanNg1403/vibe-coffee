@@ -1882,7 +1882,7 @@ export class CafeAudio {
 
     next.mix = 0;
     this._applyRecordedVolumes();
-    next.el.src = track.url;
+    next.el.src = assetUrl(track.url);
     try {
       if (seek) next.el.currentTime = seek;
       await next.el.play();

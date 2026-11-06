@@ -11,6 +11,7 @@ tools/.artifact-cache/
 .motion-audit/
 .physics-audit/
 .physics-demo/
+.pages-smoke/
 
 # Blender Python caches and reproducible capture frames
 __pycache__/
