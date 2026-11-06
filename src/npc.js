@@ -3402,7 +3402,9 @@ class OutsideLife {
 }
 
 export class CrowdSim {
-  constructor(cafe, audio, models = null) {
+  // `playerSeat` lets a crowd created after the player sat down (streamed
+  // cast) pre-seat everyone else around them.
+  constructor(cafe, audio, models = null, { playerSeat = -1 } = {}) {
     this.cafe = cafe;
     this.audio = audio;
     this.models = models;
@@ -3428,7 +3430,7 @@ export class CrowdSim {
     this.brewT = 0;
     this.brewDuration = 8;
     this.takenSeats = new Set();
-    this.playerSeat = -1;
+    this.playerSeat = playerSeat;
     this.maxCrowd = cafe.theme.crowd ?? 9;
     this.qualityLevel = 2;
     this.umbrellaSerial = 8;

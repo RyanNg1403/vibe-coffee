@@ -153,12 +153,22 @@ for (const id of uniqueTracks) {
 await build({
   root,
   publicDir: false,
-  build: { outDir: buildDir, emptyOutDir: true, minify: true },
+  // One self-contained module: the artifact inlines a single entry script.
+  build: { outDir: buildDir, emptyOutDir: true, minify: true, rolldownOptions: { output: { codeSplitting: false } } },
   plugins: [{
     name: 'artifact-manifests',
     enforce: 'pre',
     transform(_code, id) {
       if (id.endsWith('/src/modelManifest.js')) return artifactModelManifest;
+      // Its models are pre-simplified for size, so BVH picking stays out of
+      // the size-capped artifact (and the LOD worker chunk is never reachable).
+      if (id.endsWith('/src/perf/bvhLoader.js')) return 'export const loadBvh = async () => null;';
+      // Artifact models keep JPEG textures (re-encoded above), so the KTX2
+      // loader chunk would only cost bytes.
+      if (id.endsWith('/src/perf/textureCompression.js')) {
+        return 'export function configureTextureCompression() {}\nexport const ktx2Loader = async () => null;\n'
+          + 'export function releaseAfterUpload() {}\nexport const ktx2Stats = {};';
+      }
       if (id.endsWith('/src/soundManifest.js')) return artifactSoundManifest;
       if (id.endsWith('/src/musicManifest.js')) return artifactMusicManifest;
       return null;

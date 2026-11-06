@@ -19,11 +19,16 @@ import {
 import { CrowdSim } from './npc.js';
 import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
-import { loadModelLibrary, cloneModel } from './modelLoader.js';
+import {
+  loadModelLibrary, loadModels, streamBackgroundModels, castCatalog, isCastModel, ModelView, cloneModel,
+} from './modelLoader.js';
+import { planCast } from './perf/castPlan.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
 import { WorldInteractions } from './interactions/worldInteractions.js';
+import { installPerformance, buildQualityLadder } from './perf/index.js';
+import { disposeObject3D } from './perf/disposal.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -32,6 +37,10 @@ const preferences = loadPreferences();
 const auditParams = new URLSearchParams(window.location.search);
 const MEMORY_AUDIT_MODE = auditParams.has('memory-audit');
 const SEEDED_AUDIT_MODE = MEMORY_AUDIT_MODE || auditParams.has('visual-audit');
+// Normal visits draw the room first and stream its cast (patrons, staff,
+// pets) and the photographic sky afterwards. Audits keep the synchronous
+// path so seeded crowds and renderer counts stay comparable.
+const STREAM_CAST = !SEEDED_AUDIT_MODE;
 function resetMemoryAuditRandom(themeIndex) {
   if (!SEEDED_AUDIT_MODE) return;
   // Make every rebuild of a location contain the same patrons and procedural
@@ -60,7 +69,9 @@ const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
 // benefit in a softly lit scene. Detail retains restrained supersampling.
 const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1);
 const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1.25);
-const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
+// Only Auto's adaptive controller reaches the floor, on devices that cannot
+// hold the frame budget at higher resolutions.
+const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.5);
 // Start Auto at a predictable 1x render target. It can add effects and extra
 // supersampling after a sustained period of headroom, instead of allocating the
 // largest half-float buffers first and stuttering while it backs down.
@@ -106,7 +117,7 @@ function applyPhotographicEnvironment(theme) {
     if (object.userData.illustratedBackdrop) object.visible = false;
   });
 }
-loadDaylightEnvironment().then((texture) => {
+function startDaylightEnvironment() { loadDaylightEnvironment().then((texture) => {
   let target;
   try { target = pmrem.fromEquirectangular(texture); }
   catch (error) { texture.dispose(); throw error; }
@@ -116,7 +127,7 @@ loadDaylightEnvironment().then((texture) => {
   previousTarget.dispose();
   photographicEnvironment = texture;
   applyPhotographicEnvironment(currentTheme);
-}).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message));
+}).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message)); }
 
 // Post-processing chain. FXAA at the end replaces a persistent multisampled
 // half-float buffer, preserving clean edges at a fraction of its memory cost.
@@ -199,6 +210,10 @@ composer.setSize(W0, H0);
 updateFxaaResolution(W0, H0);
 
 const audio = new CafeAudio();
+// Streaming visits hold the recorded ambience until the room has drawn, so
+// "step inside" never puts megabytes of audio in front of the first frame.
+let releaseAudioLibrary = () => {};
+if (STREAM_CAST) audio.libraryGate = new Promise((resolve) => { releaseAudioLibrary = resolve; });
 
 // ---------- state ----------
 
@@ -343,7 +358,7 @@ async function loadTheme(index) {
   const theme = resolveEnvironment(baseTheme, envTime, envSky);
   currentTheme = theme;
   const token = ++loadToken;
-  const models = await loadModelLibrary();
+  const models = await loadModelLibrary(theme.id, { streamCast: STREAM_CAST });
   if (token !== loadToken) return; // a newer switch superseded this one
   lastModels = models;
   playerCup = null; // the old room takes the old cup with it
@@ -391,9 +406,7 @@ async function loadTheme(index) {
   applyPhotographicEnvironment(theme);
   bloomPass.strength = theme.bloom ?? 0.25;
 
-  crowd = new CrowdSim(cafe, audio, models);
-  pets = new PetSystem(cafe, models, theme, audio, interactions);
-  crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
+  if (!STREAM_CAST) spawnCrowd(theme, models);
   applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
@@ -408,10 +421,12 @@ async function loadTheme(index) {
   audio.setTheme(theme);
 
   const s = defaultSeat();
-  crowd.setPlayerSeat(s);
+  crowd?.setPlayerSeat(s);
   sitAt(s, true);
   pointerDirty = true;
   renderer.shadowMap.needsUpdate = true;
+  perf.sceneChanged({ models });
+  if (STREAM_CAST) streamCast(token, theme, models);
 
   document.querySelectorAll('.loc-btn').forEach((b, i) => {
     const active = i === index;
@@ -419,6 +434,40 @@ async function loadTheme(index) {
     b.setAttribute('aria-pressed', String(active));
   });
   document.getElementById('blurb').textContent = theme.blurb;
+}
+
+function spawnCrowd(theme, cast, playerSeat = -1) {
+  crowd = new CrowdSim(cafe, audio, cast, { playerSeat });
+  pets = new PetSystem(cafe, cast, theme, audio, interactions);
+  crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
+}
+
+// Only the characters this café can spawn are downloaded, after its first
+// frame; the crowd then fades in nearest-first around the seated player.
+async function streamCast(token, theme, models) {
+  await perf.whenRendered();
+  releaseAudioLibrary();
+  if (!photographicEnvironment && !environmentRequested) {
+    environmentRequested = true;
+    startDaylightEnvironment();
+  }
+  const keys = planCast(castCatalog(), theme);
+  await loadModels(keys);
+  if (token !== loadToken || !cafe || crowd) return;
+  const wanted = new Set(keys);
+  const cast = new ModelView(models, (key) => !isCastModel(key) || wanted.has(key));
+  const before = perf.snapshotActors();
+  spawnCrowd(theme, cast, seatIndex);
+  applyEffectLevel(effectLevel);
+  renderer.shadowMap.needsUpdate = true;
+  pointerDirty = true;
+  await perf.revealActors(before);
+  streamBackgroundModels();
+}
+let environmentRequested = false;
+if (!STREAM_CAST) {
+  environmentRequested = true;
+  startDaylightEnvironment();
 }
 
 // ---------- sky popover: time of day × weather ----------
@@ -794,7 +843,8 @@ function placePlayerLaptop() {
   audio.stopPlayerTyping(); // a moved or packed laptop takes its sound with it
   if (playerLaptop) {
     interactions.unregister(playerLaptop);
-    playerLaptop.parent?.remove(playerLaptop);
+    // Every placement builds a fresh MacBook (geometry, canvas textures).
+    disposeObject3D(playerLaptop);
     playerLaptop = null;
   }
   if (!laptopOn || seatIndex < 0 || !cafe) {
@@ -847,10 +897,11 @@ document.getElementById('laptop-btn')?.addEventListener('click', () => {
 
 // order a drink: the barista actually makes it, then it lands on your table
 document.getElementById('order-btn')?.addEventListener('click', () => {
-  if (!crowd || !cafe) return;
+  if (!cafe) return;
+  if (!crowd) { toast('the barista is just arriving — one moment'); return; }
   if (seatIndex < 0) { toast('find a seat first — click any free chair'); return; }
   if (orderPending) { toast('your drink is already on its way ☕'); return; }
-  if (playerCup) { cafe.group.remove(playerCup); playerCup = null; }
+  if (playerCup) { disposeObject3D(playerCup); playerCup = null; }
   const ok = crowd.orderDrink(() => {
     orderPending = false;
     if (seatIndex < 0 || !cafe) return; // stood up meanwhile
@@ -1032,10 +1083,10 @@ canvas.addEventListener('pointerup', (e) => {
   }
   const hit = seatHit.index;
   if (hit >= 0) {
-    if (crowd.isSeatTaken(hit)) {
+    if (crowd?.isSeatTaken(hit)) {
       toast('Someone’s sitting there — pick another spot ☕');
     } else if (hit !== seatIndex) {
-      crowd.setPlayerSeat(hit);
+      crowd?.setPlayerSeat(hit);
       sitAt(hit);
     }
   }
@@ -1264,9 +1315,6 @@ function renderQualityMode() {
 }
 qualityToggle.addEventListener('click', () => {
   qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
-  perfSampleTime = 0;
-  perfSampleFrames = 0;
-  qualityCooldown = 0;
   if (qualityMode === 'detail') {
     applyEffectLevel(2);
     applyRenderPixelRatio(MAX_PIXEL_RATIO);
@@ -1277,6 +1325,7 @@ qualityToggle.addEventListener('click', () => {
     applyEffectLevel(autoEffectLevel);
     applyRenderPixelRatio(Math.min(renderPixelRatio, AUTO_MAX_PIXEL_RATIO));
   }
+  perf.quality.sync();
   renderQualityMode();
   persistPreferences();
   toast(qualityMode === 'auto'
@@ -1286,6 +1335,37 @@ qualityToggle.addEventListener('click', () => {
 renderQualityMode();
 if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
 if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
+
+// Auto's dynamic quality: the controller walks a { tier, scale } ladder from
+// measured frame time. Any pipeline exposing discrete quality tiers can be
+// plugged in here through the same target interface (see src/perf/).
+const autoQualityTarget = {
+  tierCount: 3,
+  getTier: () => autoEffectLevel,
+  setTier(tier) {
+    autoEffectLevel = tier;
+    applyEffectLevel(tier);
+  },
+  getRenderScale: () => renderPixelRatio,
+  setRenderScale: (scale) => applyRenderPixelRatio(scale),
+};
+const perf = installPerformance({
+  renderer,
+  scene,
+  camera,
+  quality: autoQualityTarget,
+  ladder: buildQualityLadder({
+    tierCount: autoQualityTarget.tierCount,
+    maxTier: AUTO_MAX_EFFECT_LEVEL,
+    scales: [AUTO_MAX_PIXEL_RATIO, 0.9, 0.8, 0.7, 0.6, 0.5].filter((scale) => scale <= AUTO_MAX_PIXEL_RATIO),
+  }),
+});
+perf.setExternalMetrics(() => ({
+  qualityMode,
+  targetFps: frameScheduler.targetFps,
+  calls: lastRenderStats.calls,
+  triangles: lastRenderStats.triangles,
+}));
 
 musicVolume.addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -1429,10 +1509,6 @@ let elapsed = 0;
 let lastListenerSync = 0;
 let simAcc = 0;
 let shadowAcc = 1 / 30;
-let perfSampleTime = 0;
-let perfSampleFrames = 0;
-let perfTargetFps = 0;
-let qualityCooldown = 0;
 let nextPlayerTypingAt = 0;
 let playerTypingActive = false;
 let metricsSyncAt = 0;
@@ -1449,65 +1525,17 @@ const SIM_STEP = 1 / 30;
 const MAX_SIM_STEPS = 6;
 
 function updateAdaptiveQuality(frameDt, targetFps) {
-  if (qualityMode !== 'auto') return;
   // The intro is intentionally cheap and mostly opaque. Measuring it would
   // over-promote quality before the real café and crowd are visible.
-  if (!overlay.classList.contains('hidden')) {
-    perfSampleTime = 0;
-    perfSampleFrames = 0;
-    return;
-  }
-  // Ignore tab switches and breakpoint pauses; they do not describe rendering
-  // performance and would otherwise force an unnecessary quality drop.
-  if (document.hidden || frameDt > 0.1) {
-    perfSampleTime = 0;
-    perfSampleFrames = 0;
-    return;
-  }
-  if (perfTargetFps !== targetFps) {
-    perfTargetFps = targetFps;
-    perfSampleTime = 0;
-    perfSampleFrames = 0;
-  }
-  qualityCooldown = Math.max(0, qualityCooldown - frameDt);
-  perfSampleTime += frameDt;
-  perfSampleFrames += 1;
-  if (perfSampleTime < 2.5) return;
-
-  const averageFrameMs = (perfSampleTime / perfSampleFrames) * 1000;
-  const targetFrameMs = 1000 / targetFps;
-  if (averageFrameMs > targetFrameMs * 1.18) {
-    if (renderPixelRatio > 1.001) {
-      applyRenderPixelRatio(renderPixelRatio - 0.15);
-    } else if (autoEffectLevel > 0) {
-      autoEffectLevel -= 1;
-      applyEffectLevel(autoEffectLevel);
-    } else if (renderPixelRatio > MIN_PIXEL_RATIO + 0.001) {
-      applyRenderPixelRatio(renderPixelRatio - 0.1);
-    }
-    qualityCooldown = 5;
-  } else if (averageFrameMs < targetFrameMs * 1.05 && qualityCooldown <= 0) {
-    // Restore scene depth before supersampling: a low-resolution image with
-    // contact light and bloom generally reads better than a sharper flat one.
-    if (autoEffectLevel < AUTO_MAX_EFFECT_LEVEL) {
-      autoEffectLevel += 1;
-      applyEffectLevel(autoEffectLevel);
-    } else if (renderPixelRatio < AUTO_MAX_PIXEL_RATIO) {
-      applyRenderPixelRatio(renderPixelRatio + 0.1);
-    }
-    // Composer target reallocations and light-count shader changes should be
-    // rare. A long hold prevents a 60 Hz display from repeatedly toggling on
-    // the 16.67 ms boundary.
-    qualityCooldown = 15;
-  }
-  perfSampleTime = 0;
-  perfSampleFrames = 0;
+  const eligible = qualityMode === 'auto' && overlay.classList.contains('hidden') && !document.hidden;
+  perf.updateQuality(frameDt, targetFps, eligible);
 }
 
 function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 
 function frame(now = performance.now()) {
   requestAnimationFrame(frame);
+  if (!perf.frame(now)) return;
   const activelyMoving = tween.active || dragging || keys.size > 0;
   if (!frameScheduler.shouldRender(now, {
     moving: activelyMoving,
@@ -1624,7 +1652,7 @@ function frame(now = performance.now()) {
       const seat = cafe.seats[hoveredSeat];
       ring.position.set(seat.pos.x, seat.pos.y + 0.72, seat.pos.z);
       ring.visible = true;
-      ring.material.color.set(crowd.isSeatTaken(hoveredSeat) ? 0xd06050 : 0xffe2a8);
+      ring.material.color.set(crowd?.isSeatTaken(hoveredSeat) ? 0xd06050 : 0xffe2a8);
       ring.material.opacity = 0.6 + Math.sin(elapsed * 5) * 0.25;
       if (canvasCursor !== 'pointer') {
         canvas.style.cursor = 'pointer';
@@ -1687,6 +1715,7 @@ function frame(now = performance.now()) {
 
   renderer.info.reset();
   const renderStartedAt = performance.now();
+  perf.beginRender(now);
   crowd?.interpolate(simAcc / SIM_STEP);
   pets?.interpolate(simAcc / SIM_STEP);
   try {
@@ -1695,6 +1724,7 @@ function frame(now = performance.now()) {
   } finally {
     crowd?.restoreSimulationPose();
     pets?.restoreSimulationPose();
+    perf.endRender();
   }
   lastRenderMs = performance.now() - renderStartedAt;
   lastRenderStats.calls = renderer.info.render.calls;
@@ -1745,6 +1775,7 @@ window.__vibe = {
   get crowd() { return crowd; },
   get pets() { return pets; },
   get interactions() { return interactions; },
+  get perf() { return perf; },
   metrics() {
     let decodedAudioBytes = 0;
     let instancedMeshes = 0;
@@ -1821,6 +1852,7 @@ window.__vibe = {
       triangles: lastRenderStats.triangles,
       points: lastRenderStats.points,
       lines: lastRenderStats.lines,
+      perf: perf.metrics(),
     };
   },
   place(x, z, yaw, pitch = 0, levelId = null) {
