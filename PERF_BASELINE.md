@@ -35,6 +35,13 @@ reachable as it will be once PR #23 lands. Same machine and session.
 | Golden Hour (return) | 1145 → **840** | 125 → **82** | 243 → **81** | 38.2 → **16.4** | 3.4 → **4.0** | 1167 → 967 | 723 → 416 |
 | **Peak tab PSS** | **1,296 → 926** (renderer 473 → 341, GPU process 823 → 585) | | | | | | |
 
+Rerun after rebasing onto PR #24's KTX2 retry commits (`ed77283`): per café
+tab PSS 667 / 687 / 693 / 763 / 804 MB, GPU 64–77 MB, peak 855 MB.
+`npm run audit:ktx2` passes 6/6 runs, and 6/6 with `--inject-faults`
+(7 injected failures retried and recovered per run). Transcoder workers are
+released only when no KTX2 load is in flight (including one waiting out a
+retry backoff) and none has settled for 10 s.
+
 The GPU estimate no longer grows with cafés visited (74–81 MB vs 193–293 MB).
 CPU copies of geometry and images fall from 92–159 MB to 42–52 MB. The low
 class shows 10–12 actors instead of 17–22.
