@@ -194,7 +194,9 @@ async function runViewport(name) {
     })()`);
     const offered = () => client.evaluate(`(() => {
       const button = document.querySelector('#continue-btn');
-      return { visible: Boolean(button && !button.hidden && button.offsetParent), text: button?.innerText ?? '',
+      // what is on screen, not the attribute: author CSS can override [hidden]
+      const shown = Boolean(button) && getComputedStyle(button).display !== 'none' && button.getClientRects().length > 0;
+      return { visible: shown, text: button?.innerText ?? '',
         newSession: document.querySelector('#enter-btn').innerText, checkpoint: window.__vibe.checkpoint.offered };
     })()`);
 
@@ -223,7 +225,9 @@ async function runViewport(name) {
       && legacy.theme === 'midnight' && legacy.focus.startsWith('30'), legacy);
     check(name, 'legacy interface settings load unchanged', legacy.textScale === '1.12', { textScale: legacy.textScale });
     check(name, 'legacy focus stats load unchanged', legacy.stats?.days?.[today]?.sessions === 2, legacy.stats);
-    check(name, 'no Continue without a checkpoint', legacy.offered === null && !(await offered()).visible);
+    const firstTitle = await offered();
+    check(name, 'no Continue without a checkpoint', legacy.offered === null && !firstTitle.visible
+      && /Step inside/.test(firstTitle.newSession), firstTitle);
     const files = [await capture('first-visit-title')];
 
     // 2. Visit: enter, change café, time and weather, the mix, start a focus
