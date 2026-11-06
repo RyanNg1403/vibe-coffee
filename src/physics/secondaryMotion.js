@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { floatGeometry } from '../rendering/floatGeometry.js';
 
 // Secondary motion driven by a cheap air-velocity field: people and pets drag
 // a wake of air behind them, the door pumps a gust as it swings and lets the
@@ -19,7 +21,7 @@ export class AirField {
     this.breeze = 0;           // m/s mean outdoor wind (open-air venues)
     this.breezeDirX = 0.8;
     this.breezeDirZ = -0.6;
-    this.draught = null;       // { x, z, vx, vz, r2 } inflow through an open door
+    this.draught = null;       // { x, z, inX, inZ, speed, r2, top } jet through an open door
   }
 
   begin(dt) {
@@ -69,11 +71,17 @@ export class AirField {
     }
     const d = this.draught;
     if (d) {
+      // a doorway draught enters as a jet that fans out into the room
       const dx = x - d.x;
       const dz = z - d.z;
-      const k = Math.exp(-(dx * dx + dz * dz) / d.r2);
-      wx += d.vx * k;
-      wz += d.vz * k;
+      const r2 = dx * dx + dz * dz;
+      if (r2 > 1e-4 && dx * d.inX + dz * d.inZ > 0) {
+        const r = Math.sqrt(r2);
+        const above = Math.max(0, y - d.top);
+        const k = d.speed * Math.exp(-(r2 + above * above * 2) / d.r2);
+        wx += (dx / r) * k;
+        wz += (dz / r) * k;
+      }
     }
     if (this.breeze > 0) {
       const t = this.time;
@@ -132,25 +140,50 @@ export class Pendulum {
   }
 }
 
-const _swing = new THREE.Quaternion();
-const _offset = new THREE.Vector3();
 const _euler = new THREE.Euler();
+const _relative = new THREE.Matrix4();
 const _wind = { x: 0, z: 0 };
 
-// Hangs authored fixtures from their anchors. Each target carries
-// `userData.secondaryMotion = { anchor: [x, y, z], length, drag? }` in its
-// parent's space.
+// Hangs authored fixtures from their anchors. Each fixture carries
+// `userData.secondaryMotion = { kind: 'pendulum', anchor: [x, y, z], length }`
+// in `root` space. Every fixture gets a bone at its anchor and is re-parented
+// beneath it; the fixtures' meshes are then re-batched into skinned meshes
+// (one draw per material for the whole venue), so swinging costs a bone
+// update instead of one draw call per lamp part.
 export class SwayRig {
-  constructor(root) {
+  constructor(root, { batch = true } = {}) {
     this.items = [];
+    this.batches = [];
+    this.skeleton = null;
+    this.rig = null;
+    this.awakeCount = 0;
+    const fixtures = [];
     root?.traverse((object) => {
       const spec = object.userData?.secondaryMotion;
-      if (!spec || spec.kind !== 'pendulum' || !Array.isArray(spec.anchor)) return;
+      if (spec?.kind === 'pendulum' && Array.isArray(spec.anchor)) fixtures.push(object);
+    });
+    if (!fixtures.length) return;
+    root.updateMatrixWorld(true);
+    this.rig = new THREE.Group();
+    this.rig.name = 'Sway rig';
+    this.rig.userData.decorBatch = true;
+    root.add(this.rig);
+    const placements = new Map((root.userData.placedUnits ?? []).map((unit) => [unit.uuid, unit]));
+    for (const object of fixtures) {
+      const spec = object.userData.secondaryMotion;
+      const bone = new THREE.Bone();
+      bone.name = `sway:${object.name || object.type}`;
+      bone.position.fromArray(spec.anchor);
+      this.rig.add(bone);
+      bone.updateMatrixWorld(true);
+      // the authored placement snapshot keeps representing it in audits
+      const placement = placements.get(object.uuid);
+      if (placement?.bounds) placement.batched = true;
+      bone.attach(object);
       this.items.push({
         object,
+        bone,
         anchor: new THREE.Vector3().fromArray(spec.anchor),
-        basePosition: object.position.clone(),
-        baseQuaternion: object.quaternion.clone(),
         bobY: spec.anchor[1] - (spec.length ?? 0.9),
         pendulum: new Pendulum({
           length: spec.length ?? 0.9,
@@ -158,10 +191,65 @@ export class SwayRig {
           damping: spec.damping ?? 0.06,
         }),
         awake: false,
-        dirty: false,
       });
-    });
-    this.awakeCount = 0;
+    }
+    if (batch) this._batch(root);
+  }
+
+  _batch(root) {
+    const buckets = new Map();
+    this.items.forEach((item, index) => item.object.traverse((mesh) => {
+      if (!mesh.isMesh || mesh.isSkinnedMesh || mesh.isInstancedMesh || !mesh.visible) return;
+      if (Array.isArray(mesh.material) || !mesh.geometry?.attributes?.position) return;
+      if (mesh.geometry.morphAttributes && Object.keys(mesh.geometry.morphAttributes).length) return;
+      const key = [
+        mesh.material.uuid,
+        Object.keys(mesh.geometry.attributes).sort().join(','),
+        mesh.geometry.index ? 'i' : 'n',
+        mesh.castShadow ? 'c' : '',
+        mesh.receiveShadow ? 'r' : '',
+        mesh.layers.mask,
+      ].join('|');
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push({ mesh, index });
+    }));
+    if (!buckets.size) return;
+    root.updateMatrixWorld(true);
+    const rootInverse = root.matrixWorld.clone().invert();
+    this.skeleton = new THREE.Skeleton(this.items.map((item) => item.bone));
+    for (const entries of buckets.values()) {
+      const geometries = entries.map(({ mesh, index }) => {
+        const geometry = floatGeometry(mesh.geometry);
+        geometry.applyMatrix4(_relative.multiplyMatrices(rootInverse, mesh.matrixWorld));
+        const count = geometry.attributes.position.count;
+        const skinIndex = new Uint16Array(count * 4);
+        const skinWeight = new Float32Array(count * 4);
+        for (let i = 0; i < count; i += 1) {
+          skinIndex[i * 4] = index;
+          skinWeight[i * 4] = 1;
+        }
+        geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndex, 4));
+        geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeight, 4));
+        return geometry;
+      });
+      const merged = mergeGeometries(geometries, false);
+      geometries.forEach((geometry) => geometry.dispose());
+      if (!merged) continue; // unmatched parts still swing as children of their bone
+      const source = entries[0].mesh;
+      const skinned = new THREE.SkinnedMesh(merged, source.material);
+      skinned.name = 'Swaying fixtures';
+      skinned.userData.decorBatch = true;
+      skinned.castShadow = source.castShadow;
+      skinned.receiveShadow = source.receiveShadow;
+      skinned.layers.mask = source.layers.mask;
+      // the batch spans the venue and only ever swings a few degrees
+      skinned.frustumCulled = false;
+      root.add(skinned);
+      skinned.updateMatrixWorld(true);
+      skinned.bind(this.skeleton, skinned.matrixWorld);
+      for (const { mesh } of entries) mesh.parent?.remove(mesh);
+      this.batches.push(skinned);
+    }
   }
 
   get size() { return this.items.length; }
@@ -193,20 +281,24 @@ export class SwayRig {
 
   _apply(item) {
     const p = item.pendulum;
-    // tilt toward +x is a rotation about +z; toward +z is about -x
-    _swing.setFromEuler(_euler.set(-p.az, 0, p.ax, 'XYZ'));
-    item.object.quaternion.copy(_swing).multiply(item.baseQuaternion);
-    _offset.copy(item.basePosition).sub(item.anchor).applyQuaternion(_swing);
-    item.object.position.copy(item.anchor).add(_offset);
+    // the bone sits on the anchor: tilt toward +x is a rotation about +z,
+    // toward +z a rotation about -x
+    item.bone.quaternion.setFromEuler(_euler.set(-p.az, 0, p.ax, 'XYZ'));
   }
 
   reset() {
     for (const item of this.items) {
-      item.object.position.copy(item.basePosition);
-      item.object.quaternion.copy(item.baseQuaternion);
+      item.bone.quaternion.identity();
+      item.pendulum.ax = item.pendulum.az = item.pendulum.wx = item.pendulum.wz = 0;
       item.awake = false;
     }
     this.awakeCount = 0;
+  }
+
+  // the café disposes geometry it owns; the bone texture belongs to the rig
+  dispose() {
+    this.skeleton?.dispose();
+    this.skeleton = null;
   }
 }
 

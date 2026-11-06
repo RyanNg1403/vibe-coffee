@@ -95,12 +95,19 @@ export class RealismSystem {
 
   attach({ cafe, crowd = null, pets = null, theme = null }) {
     this.detach();
-    if (!this.enabled || !cafe) return;
+    if (!cafe) return;
+    // cord-hung fixtures are kept out of static merging for the rig; batch
+    // them even when physics is off so they never cost a draw per part
+    this.sway = new SwayRig(cafe.group);
+    if (!this.enabled) {
+      this._staticSway = this.sway;
+      this.sway = null;
+      return;
+    }
     this.cafe = cafe;
     this.crowd = crowd;
     this.pets = pets;
     this.door = attachHingePhysics(cafe.entrance);
-    this.sway = new SwayRig(cafe.group);
     this.steam = new SteamDisturbance(cafe.group);
     this.tables = collectTables(cafe);
     const open = !!(theme ?? cafe.theme)?.openAir;
@@ -111,6 +118,9 @@ export class RealismSystem {
   detach() {
     this.props.clear();
     this.sway?.reset();
+    this.sway?.dispose();
+    this._staticSway?.dispose();
+    this._staticSway = null;
     if (this.crowd) this.crowd.playerAgent = null;
     this.cafe = this.crowd = this.pets = this.door = this.sway = this.steam = null;
     this.tables = [];
@@ -285,13 +295,12 @@ export class RealismSystem {
     }
     const open = door.openness;
     if (open > 0.05) {
-      // an open door lets the street draught in (stronger on blustery days)
-      const inflow = (0.3 + this.air.breeze * 0.5) * open;
-      air.draught = air.draught ?? { x: 0, z: 0, vx: 0, vz: 0, r2: 3.2 };
+      // an open door lets the street draught in (stronger on blustery days);
+      // the room is at -z of the front wall
+      air.draught = air.draught ?? { x: 0, z: 0, inX: 0, inZ: -1, speed: 0, r2: 6.8, top: 2.3 };
       air.draught.x = door.pivot.x + door.options.width * 0.5;
-      air.draught.z = door.pivot.z - 0.9;
-      air.draught.vx = 0;
-      air.draught.vz = -inflow;
+      air.draught.z = door.pivot.z;
+      air.draught.speed = (0.55 + this.air.breeze * 0.5) * open;
     } else {
       air.draught = null;
     }

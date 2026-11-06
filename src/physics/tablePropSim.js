@@ -19,10 +19,12 @@ export const MAX_SCENE_SECONDS = 3;
 const SLAB = 0.02;
 
 export function kickDisplacement(kick, t, out = { x: 0, y: 0, z: 0 }) {
-  // a damped push-and-ring: the frame moves with the walker, then springs back
-  const amplitude = Math.min(0.012, 0.0055 * kick.speed);
+  // a damped push-and-ring: the frame moves with the walker, then springs back.
+  // Peak tabletop acceleration stays near 1 g for a brisk walk-in, enough to
+  // skid light items and rock tall ones without throwing anything.
+  const amplitude = Math.min(0.008, 0.004 * kick.speed);
   const envelope = Math.exp(-t / 0.09);
-  const swing = Math.sin(2 * Math.PI * 7.5 * t + 0.35) * envelope;
+  const swing = Math.sin(2 * Math.PI * 6.5 * t + 0.35) * envelope;
   const lift = Math.max(0, Math.sin(2 * Math.PI * 11 * t)) * Math.exp(-t / 0.05) * 0.35;
   out.x = kick.dx * amplitude * swing;
   out.z = kick.dz * amplitude * swing;

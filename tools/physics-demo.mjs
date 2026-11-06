@@ -284,6 +284,38 @@ try {
     await finishScene('door', { playerAfterDoorHit: player, doorAngleWhileBlocked: angles });
   }
 
+  if (SCENES.includes('sway')) {
+    await beginScene('sway');
+    // a cord-hung plant by the entrance: the door's gust and draught reach it,
+    // then the player walks underneath and its wake sets it swinging
+    const plant = await client.evaluate(`(() => {
+      let best = null;
+      const door = window.__vibe.cafe.entrance?.root.position ?? { x: 0, z: 6.77 };
+      window.__vibe.cafe.group.traverse(o => {
+        const a = o.userData.secondaryMotion?.anchor;
+        if (!a) return;
+        const d = Math.hypot(a[0] - door.x, a[2] - door.z);
+        if (!best || d < best.d) best = { x: a[0], y: a[1], z: a[2], d };
+      });
+      return best;
+    })()`);
+    if (!plant) throw new Error('no sway fixtures in this venue');
+    const sx = plant.x + 0.9, sz = plant.z - 2.3;
+    const yaw = Math.atan2(-(plant.x - sx), -(plant.z - sz));
+    await client.evaluate(`window.__vibe.place(${sx}, ${sz}, ${yaw}, 0.42)`);
+    const open = `(() => { const d = window.__vibe.crowd.doorFlow; window.__demoVisitor ??= { kind: 'demo' };
+      d.join(window.__demoVisitor, 'in'); d.request(window.__demoVisitor, 'in'); })()`;
+    await record(0.3);
+    await record(1.2, async () => client.evaluate(open));
+    await client.evaluate('window.__vibe.crowd.doorFlow.release(window.__demoVisitor)');
+    await record(0.8);
+    await key('KeyW', true);
+    await record(0.9);
+    await key('KeyW', false);
+    await record(1.6);
+    await finishScene('sway', { plant });
+  }
+
   if (SCENES.includes('walk')) {
     await beginScene('walk');
     await client.evaluate('window.__vibe.place(0.2, 3.6, 0, -0.05)');

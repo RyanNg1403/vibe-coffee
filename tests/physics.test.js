@@ -162,6 +162,25 @@ test('an actor in the swing arc is pushed aside and bounces the leaf', () => {
   assert.equal(door.resolveActor({ x: 5, z: 5 }, 0.3), false);
 });
 
+test('a leaf pushing on someone who stands still knocks once, then just leans', () => {
+  const door = new HingeDoor();
+  door.setPivot(0, 0);
+  door.setTarget(1.24);
+  const actor = { x: 0.45, z: -0.55 };
+  let knocks = 0;
+  for (let i = 0; i < 90; i++) {
+    door.step(1 / 30);
+    for (let k = 0; k < 2; k++) {
+      const stand = { x: 0.45, z: -0.55 };
+      door.resolveActor(stand, 0.3);
+      actor.x = stand.x; actor.z = stand.z;
+    }
+    knocks += door.drainEvents().filter((e) => e.kind === 'actor').length;
+  }
+  assert.equal(knocks, 1);
+  assert.ok(door.angle < 1.24, 'the person holds the leaf back');
+});
+
 test('attached hinge keeps the entrance contract used by the door coordinator', () => {
   const root = new THREE.Object3D();
   root.position.set(-0.5, 0, 6.77);
@@ -216,15 +235,55 @@ test('sway rig pivots a fixture about its anchor and sleeps in still air', () =>
     air.addGust(2, 0, 1, 1.5, 0, 2);
     rig.update(1 / 30, air);
   }
-  assert.ok(plant.position.x > 2, 'swings downwind');
+  root.updateMatrixWorld(true);
+  const world = plant.getWorldPosition(new THREE.Vector3());
+  assert.ok(world.x > 2, 'swings downwind');
   // the cord's anchor stays put: the plant stays 0.8 m from it
-  const distance = plant.position.distanceTo(new THREE.Vector3(2, 3.6, 1));
+  const distance = world.distanceTo(new THREE.Vector3(2, 3.6, 1));
   assert.ok(Math.abs(distance - 0.8) < 1e-6);
   for (let i = 0; i < 2000 && rig.awakeCount; i++) {
     air.begin(1 / 30);
     rig.update(1 / 30, air);
   }
   assert.equal(rig.awakeCount, 0);
+});
+
+test('swinging fixtures share one skinned draw per material', () => {
+  const root = new THREE.Group();
+  const shade = new THREE.MeshStandardMaterial();
+  const placedUnits = [];
+  for (const x of [-2, 0, 2]) {
+    const fixture = new THREE.Group();
+    const lamp = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.16, 8), shade);
+    lamp.position.set(x, 2.1, 0);
+    fixture.add(lamp);
+    const light = new THREE.PointLight();
+    light.position.set(x, 2.0, 0);
+    fixture.add(light);
+    fixture.userData.secondaryMotion = { kind: 'pendulum', anchor: [x, 3.6, 0], length: 1.5 };
+    root.add(fixture);
+    placedUnits.push({ uuid: fixture.uuid, bounds: new THREE.Box3(), batched: false });
+  }
+  root.userData.placedUnits = placedUnits;
+  const rig = new SwayRig(root);
+  assert.equal(rig.size, 3);
+  assert.equal(rig.batches.length, 1);
+  assert.ok(rig.batches[0].isSkinnedMesh);
+  assert.equal(rig.batches[0].skeleton.bones.length, 3);
+  let meshes = 0;
+  root.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh) meshes += 1; });
+  assert.equal(meshes, 0, 'source meshes were folded into the batch');
+  assert.ok(placedUnits.every((unit) => unit.batched));
+  const air = new AirField();
+  air.begin(1 / 30);
+  air.addGust(2, 0, 0, 2, 0, 1.5);
+  rig.update(1 / 30, air);
+  const light = rig.items[2].object.children.find((o) => o.isPointLight);
+  root.updateMatrixWorld(true);
+  assert.ok(light.getWorldPosition(new THREE.Vector3()).x > 2, 'the lamp light swings with its shade');
+  assert.ok(rig.items[2].bone.quaternion.angleTo(new THREE.Quaternion()) > 0);
+  assert.ok(rig.items[0].bone.quaternion.angleTo(new THREE.Quaternion()) < 1e-9, 'out of the gust');
+  rig.dispose();
 });
 
 test('people drag a local wake of air; the field is still elsewhere', () => {
@@ -238,6 +297,20 @@ test('people drag a local wake of air; the field is still elsewhere', () => {
   assert.equal(out.x, 0);
   air.sample(0, 3.5, 0, out);
   assert.ok(out.x < 0.1, 'little wake above head height');
+});
+
+test('an open door fans a draught into the room only', () => {
+  const air = new AirField();
+  air.draught = { x: 0, z: 6.75, inX: 0, inZ: -1, speed: 0.55, r2: 6.8, top: 2.3 };
+  const out = { x: 0, z: 0 };
+  air.sample(-1.9, 1.5, 6.0, out);
+  assert.ok(out.x < -0.2 && out.z < 0, 'spreads sideways and inward near the door');
+  air.sample(0, 1.5, 3.5, out);
+  assert.ok(out.z < -0.1 && Math.abs(out.x) < 1e-9);
+  air.sample(0, 1.5, 8, out);
+  assert.equal(out.x + out.z, 0, 'nothing outside');
+  air.sample(0, 1.5, -2, out);
+  assert.ok(Math.abs(out.z) < 0.01, 'dies away across the room');
 });
 
 test('steam bends with the air without accumulating drift', () => {

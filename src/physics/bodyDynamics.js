@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { angleDelta } from '../npc/motion.js';
 import { criticalSpring } from './playerMotor.js';
+import { createRandom } from './random.js';
 
 // Whole-body dynamics layered over the authored clips: walkers and pets bank
 // into turns (centripetal lean, atan(v·ω/g)) and pitch with acceleration. The
@@ -108,6 +109,7 @@ export class GazeDirector {
     this.timer = 0;
     this.time = 0;
     this.enabled = true;
+    this.random = createRandom(0x9e3779b9);
   }
 
   update(dt, crowd, viewer, viewerMoving) {
@@ -131,13 +133,13 @@ export class GazeDirector {
       if (Math.abs(facing) > 1.75) continue; // behind them: they would not notice
       const closeness = 1 - d / 3.2;
       const chance = (viewerMoving ? 0.32 : 0.1) * closeness;
-      if (Math.random() > chance) {
+      if (this.random() > chance) {
         this.cooldowns.set(npc, now + 1.2);
         continue;
       }
       npc.gazeWorld = new THREE.Vector3(viewer.x, viewer.y, viewer.z);
-      npc.gazeT = 1.1 + Math.random() * 1.6;
-      this.cooldowns.set(npc, now + 9 + Math.random() * 10);
+      npc.gazeT = 1.1 + this.random() * 1.6;
+      this.cooldowns.set(npc, now + 9 + this.random() * 10);
     }
   }
 }

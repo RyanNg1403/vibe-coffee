@@ -36,6 +36,7 @@ export class HingeDoor {
     this.target = null;
     this.pivot = { x: 0, z: 0 };
     this.events = [];
+    this._sinceContact = Infinity;
   }
 
   setPivot(x, z) {
@@ -61,6 +62,7 @@ export class HingeDoor {
     const steps = Math.max(1, Math.ceil(dt / o.substep));
     const h = dt / steps;
     const I = this.inertia;
+    this._sinceContact += dt;
     for (let i = 0; i < steps; i += 1) {
       let torque;
       if (this.target !== null) {
@@ -123,8 +125,10 @@ export class HingeDoor {
     if (approaching) {
       const speed = Math.abs(this.omega) * lever;
       this.omega = -this.omega * o.actorRestitution;
-      if (speed > 0.3) this._emit('actor', speed, lever);
+      // a leaf leaning on someone is one knock, not a rattle every tick
+      if (speed > 0.3 && this._sinceContact > 0.3) this._emit('actor', speed, lever);
     }
+    this._sinceContact = 0;
     return true;
   }
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createRandom } from './random.js';
 
 // Main-thread side of tabletop prop physics. When the player walks into a
 // table, its loose props are described to the Rapier worker, which simulates
@@ -7,6 +8,7 @@ import * as THREE from 'three';
 // analytic rocking fallback gives the same cue at a fraction of the cost.
 
 const FALLBACK_LIFETIME = 1.6;
+const random = createRandom(0x2c1b3c6d);
 const box = new THREE.Box3();
 const size = new THREE.Vector3();
 const center = new THREE.Vector3();
@@ -174,7 +176,7 @@ export class TablePropPhysics {
     const height = Math.max(0.03, description.height);
     // rocking about the base edge, a few hertz for mug-sized objects
     const omega0 = Math.sqrt(9.81 / (height * 0.55)) * 0.9;
-    const kick = Math.min(0.06, (speed * 0.012) / height) * (0.7 + Math.random() * 0.6);
+    const kick = Math.min(0.06, (speed * 0.012) / height) * (0.7 + random() * 0.6);
     axis.set(dirZ, 0, -dirX).normalize();
     this.fallback.push({
       object,
@@ -183,16 +185,16 @@ export class TablePropPhysics {
       theta: 0,
       omega: kick * omega0,
       omega0,
-      slideX: dirX * speed * 0.0035 * (0.6 + Math.random() * 0.8),
-      slideZ: dirZ * speed * 0.0035 * (0.6 + Math.random() * 0.8),
+      slideX: dirX * speed * 0.0035 * (0.6 + random() * 0.8),
+      slideZ: dirZ * speed * 0.0035 * (0.6 + random() * 0.8),
       slid: 0,
       t: 0,
     });
     this.pendingImpacts.push({
-      at: Math.random() * 0.08,
+      at: random() * 0.08,
       material: description.material,
       object,
-      intensity: Math.min(1, speed * 0.45) * (0.5 + Math.random() * 0.5),
+      intensity: Math.min(1, speed * 0.45) * (0.5 + random() * 0.5),
     });
   }
 

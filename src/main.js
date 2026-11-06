@@ -1859,6 +1859,7 @@ window.__vibe = {
     crowd?.resolvePlayerCollision?.(walkPos);
     walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
       ?? navigator?.resolveHeight('ground', walkPos.x, walkPos.z) ?? 0;
+    realism.motor.reset(walkY); // a teleport carries no momentum or gait
     view.yaw = yaw; view.pitch = pitch;
     applyView();
   },

@@ -1,3 +1,5 @@
+import { createRandom } from './random.js';
+
 // Physically driven impact sounds. Each material is a handful of damped
 // resonant modes plus a short filtered noise transient (the contact click).
 // Impact speed sets loudness, brightness and ring time, so a gentle knock
@@ -17,6 +19,7 @@ export const IMPACT_MATERIALS = Object.freeze({
 });
 
 const MAX_VOICES = 10;
+const random = createRandom(0x51ed270b);
 const MIN_GAP = 0.035; // seconds between voices of one material
 
 export function impactLoudness(speed, reference = 1.2) {
@@ -69,7 +72,7 @@ export class ImpactAudio {
     };
     this.voices += 1;
     this.played += 1;
-    const detune = 1 + (Math.random() - 0.5) * 0.08;
+    const detune = 1 + (random() - 0.5) * 0.08;
     spec.modes.forEach(([frequency, amplitude], index) => {
       // harder hits excite the upper modes more strongly
       const brightness = index === 0 ? 1 : 0.35 + level * 0.65;
@@ -77,7 +80,7 @@ export class ImpactAudio {
       if (peak < 0.0004) return;
       const osc = ctx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.value = frequency * detune * (1 + (Math.random() - 0.5) * 0.03);
+      osc.frequency.value = frequency * detune * (1 + (random() - 0.5) * 0.03);
       const env = ctx.createGain();
       const decay = ring * Math.sqrt(spec.modes[0][0] / frequency) * 1.4;
       env.gain.setValueAtTime(0.0001, now);
@@ -103,7 +106,7 @@ export class ImpactAudio {
       noise.connect(band).connect(env).connect(out);
       pending += 1;
       noise.addEventListener('ended', () => { band.disconnect(); env.disconnect(); release(); }, { once: true });
-      noise.start(now, Math.random() * 1.5, 0.04);
+      noise.start(now, random() * 1.5, 0.04);
     }
     if (pending === 0) release();
     return true;
