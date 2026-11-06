@@ -316,6 +316,110 @@ try {
     await finishScene('sway', { plant });
   }
 
+  async function still(name, expression = 'null') {
+    await client.evaluate(expression);
+    const data = await client.evaluate("window.__vibe.captureFrame(1, 'image/jpeg')");
+    await writeFile(join(OUT_DIR, `${name}.jpg`), Buffer.from(data.split(',')[1], 'base64'));
+  }
+
+  if (SCENES.includes('chair')) {
+    await beginScene('chair');
+    // a free standard chair, approached from its side so the shove is visible
+    const plan = await client.evaluate(`(() => {
+      const v = window.__vibe, r = v.realism;
+      for (const chair of r.chairs.chairs) {
+        if (chair.heavy || chair.levelId !== 'ground' || v.crowd.isSeatTaken(chair.seatIndex)) continue;
+        for (const s of [1, -1]) {
+          const sx = -chair.away.z * s, sz = chair.away.x * s;
+          const x = chair.root.x + sx * 1.3, z = chair.root.z + sz * 1.3;
+          v.place(x, z, 0);
+          const p = v.player();
+          if (Math.hypot(p.x - x, p.z - z) > 0.03) continue;
+          return { x, z, cx: chair.root.x, cz: chair.root.z, seat: chair.seatIndex };
+        }
+      }
+      return null;
+    })()`);
+    if (!plan) throw new Error('no free chair with a clear side approach');
+    const yaw = Math.atan2(-(plan.cx - plan.x), -(plan.cz - plan.z));
+    await client.evaluate(`window.__vibe.place(${plan.x}, ${plan.z}, ${yaw}, -0.55)`);
+    await record(0.4);
+    await key('KeyW', true);
+    await record(0.9);
+    await key('KeyW', false);
+    await record(1.1);
+    const offset = await client.evaluate(`window.__vibe.realism.chairs.offsetOf(${plan.seat})`);
+    await finishScene('chair', { plan, chairOffsetMetres: offset });
+  }
+
+  if (SCENES.includes('lookat')) {
+    await beginScene('lookat');
+    // sit across from a seated patron; they look up at you (head, neck, pitch)
+    const plan = await client.evaluate(`(() => {
+      const v = window.__vibe;
+      const seated = v.crowd.npcs.filter(n => n.state === 'sitting' && n.avatar && n.seatIndex >= 0 && (n.walkLevel ?? 'ground') === 'ground');
+      for (const npc of seated) {
+        const seat = v.cafe.seats[npc.seatIndex];
+        for (const d of [1.5, 1.9, 2.3]) {
+          for (const a of [0.35, -0.35, 0.65, -0.65, 0, 0.95, -0.95]) {
+            const x = npc.mesh.position.x + Math.sin(seat.facingYaw + a) * d;
+            const z = npc.mesh.position.z + Math.cos(seat.facingYaw + a) * d;
+            v.place(x, z, 0);
+            const p = v.player();
+            if (Math.hypot(p.x - x, p.z - z) > 0.05) continue;
+            return { x: p.x, z: p.z, nx: npc.mesh.position.x, nz: npc.mesh.position.z, serial: npc.serial };
+          }
+        }
+      }
+      return null;
+    })()`);
+    if (!plan) throw new Error('no seated patron to look at');
+    const yaw = Math.atan2(-(plan.nx - plan.x), -(plan.nz - plan.z));
+    const npcExpr = `window.__vibe.crowd.npcs.find(n => n.serial === ${plan.serial})`;
+    await client.evaluate(`window.__vibe.place(${plan.x}, ${plan.z}, ${yaw}, -0.22)`);
+    await client.evaluate(`${npcExpr}.gazeT = 0`);
+    await record(0.6);
+    const gaze = `(() => { const n = ${npcExpr}; if (!n) return; n.gazeWorld = window.__vibe.realism._viewer.clone(); n.gazeT = 3; })()`;
+    await record(1.6, async (t) => { if (t === 0) await client.evaluate(gaze); });
+    await still('lookat-ik-off', 'window.__vibe.realism.ik.lookEnabled = false');
+    await still('lookat-ik-on', 'window.__vibe.realism.ik.lookEnabled = true');
+    await record(0.8);
+    await client.evaluate(`${npcExpr}.gazeT = 0`);
+    await record(1.0);
+    await finishScene('lookat', { plan });
+  }
+
+  if (SCENES.includes('stairs')) {
+    await beginScene('stairs');
+    // fast-forward the crowd (no rendering) until someone takes the stairs
+    const found = await client.evaluate(`(() => {
+      const v = window.__vibe, c = v.crowd;
+      for (let tick = 0; tick < 30 * 600; tick++) {
+        const climber = c.npcs.find(n => n.state === 'traversingStair' && n.avatar && n.stateT < 1.5);
+        if (climber) return { serial: climber.serial, tick };
+        v.cafe.animate(1 / 30);
+        c.update(1 / 30, tick / 30, v.realism._viewer);
+        v.pets?.update(1 / 30, c, null);
+        v.realism.simStep(1 / 30, v.realism._viewer);
+      }
+      return null;
+    })()`);
+    if (!found) throw new Error('nobody took the stairs');
+    const npcExpr = `window.__vibe.crowd.npcs.find(n => n.serial === ${found.serial})`;
+    const follow = `(() => { const n = ${npcExpr}; if (!n) return false;
+      const p = n.mesh.position, x = p.x + 2.1, z = p.z + 0.6;
+      const yaw = Math.atan2(-(p.x - x), -(p.z - z));
+      const pitch = Math.atan2(p.y + 0.25 - 1.55, Math.hypot(p.x - x, p.z - z));
+      window.__vibe.place(x, z, yaw, pitch, 'ground'); return true; })()`;
+    await client.evaluate(follow);
+    await record(0.6, async () => client.evaluate(follow));
+    await still('stairs-feet-ik-off', `window.__vibe.realism.ik.feetEnabled = false; ${follow}`);
+    await still('stairs-feet-ik-on', `window.__vibe.realism.ik.feetEnabled = true; ${follow}`);
+    await record(1.6, async () => client.evaluate(follow));
+    const feet = await client.evaluate('window.__vibe.metrics().physicsFootIK');
+    await finishScene('stairs', { found, footIK: feet });
+  }
+
   if (SCENES.includes('walk')) {
     await beginScene('walk');
     await client.evaluate('window.__vibe.place(0.2, 3.6, 0, -0.05)');
@@ -349,8 +453,8 @@ try {
   summary.errors = client.errors;
   await writeFile(join(OUT_DIR, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
   const files = SCENES.map((name) => resolve(OUT_DIR, `${name}.mp4`)).filter(existsSync);
-  await writeFile(join(OUT_DIR, 'concat.txt'), files.map((f) => `file '${f}'`).join('\n'));
-  await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', join(OUT_DIR, 'concat.txt'),
+  if (files.length) await writeFile(join(OUT_DIR, 'concat.txt'), files.map((f) => `file '${f}'`).join('\n'));
+  if (files.length) await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', join(OUT_DIR, 'concat.txt'),
     '-c', 'copy', join(OUT_DIR, `physics-demo-${VENUE}.mp4`)]);
   console.log(JSON.stringify({ worker: summary.worker, frames: summary.frames, errors: client.errors.length }, null, 2));
 } finally {
