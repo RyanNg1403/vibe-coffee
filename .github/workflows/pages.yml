@@ -26,6 +26,11 @@ jobs:
       pages: read
     env:
       DEPLOY: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+      # KTX-Software provides `toktx` for the KTX2 texture step; without it
+      # (or ffmpeg) the build silently ships the original JPEG textures.
+      # To upgrade, take the Linux-x86_64.tar.bz2 digest from the release page.
+      KTX_VERSION: 4.4.2
+      KTX_SHA256: a8781bad05f9624edbf910b7f258cd0a4ba7d3e63b49ecc0a0ab440bf6a0a245
     steps:
       - uses: actions/checkout@v7
 
@@ -33,6 +38,45 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Restore KTX-Software ${{ env.KTX_VERSION }}
+        id: ktx-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ktx-software
+          key: ktx-software-${{ env.KTX_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ env.KTX_SHA256 }}
+
+      - name: Download KTX-Software ${{ env.KTX_VERSION }}
+        if: steps.ktx-cache.outputs.cache-hit != 'true'
+        run: |
+          archive="$RUNNER_TEMP/ktx-software.tar.bz2"
+          curl -fsSL --retry 4 -o "$archive" \
+            "https://github.com/KhronosGroup/KTX-Software/releases/download/v${KTX_VERSION}/KTX-Software-${KTX_VERSION}-Linux-x86_64.tar.bz2"
+          echo "${KTX_SHA256}  ${archive}" | sha256sum --check --strict
+          mkdir -p "$HOME/.cache/ktx-software"
+          tar -xjf "$archive" -C "$HOME/.cache/ktx-software" --strip-components=1
+
+      - name: Install ffmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          echo "$HOME/.cache/ktx-software/bin" >> "$GITHUB_PATH"
+
+      - name: Check texture tools
+        run: |
+          toktx --version
+          ffmpeg -hide_banner -version | head -n 1
+
+      # Encoded KTX2 files are cached by source-pixel hash plus encoder
+      # settings, so restoring an older cache is always safe.
+      - name: Restore KTX2 texture cache
+        uses: actions/cache@v6
+        with:
+          path: .texture-cache
+          key: ktx2-${{ env.KTX_VERSION }}-${{ hashFiles('public/models/**') }}
+          restore-keys: ktx2-${{ env.KTX_VERSION }}-
 
       - run: npm ci
 
@@ -53,8 +97,9 @@ jobs:
       - name: Size report and initial-load budget
         run: npm run pages:size
 
-      - name: Headless Chrome smoke test (served like Pages)
+      - name: Headless Chrome smoke test and first-frame budget (served like Pages)
         run: npm run pages:smoke
+        timeout-minutes: 16
 
       - name: Upload smoke screenshots
         if: always()

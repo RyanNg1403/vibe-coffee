@@ -75,6 +75,23 @@ for (const file of files) {
   if (file.lfs) problems.push(`${file.rel} is a Git LFS pointer; Pages does not serve LFS content`);
 }
 
+// Every file in a hashed folder must be one the service worker manifest (and
+// so assetUrl()) knows. Anything else was written after hashing and is never
+// requested, e.g. a post-build step that rewrote dist/models/<name>.glb.
+const swSource = byPath.has('sw.js') ? readFileSync(join(DIST, 'sw.js'), 'utf8') : '';
+const swManifest = JSON.parse(swSource.match(/^self\.__VIBE_MANIFEST__ = (.*);$/m)?.[1] ?? 'null');
+if (swManifest) {
+  const known = new Set(swManifest.assets);
+  const hashedDirs = new Set(swManifest.assets.map((rel) => rel.split('/')[0]));
+  for (const file of files) {
+    if (hashedDirs.has(file.rel.split('/')[0]) && !known.has(file.rel)) {
+      problems.push(`${file.rel} is never requested: process public/ assets with a pagesDeploy preprocess step, not after the build`);
+    }
+  }
+} else {
+  problems.push('dist/sw.js or its manifest is missing');
+}
+
 const groups = new Map();
 for (const file of files) {
   const top = file.rel.includes('/') ? file.rel.split('/')[0] : '(root)';

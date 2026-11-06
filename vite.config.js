@@ -1,5 +1,21 @@
+import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { promisify } from 'node:util';
 import { defineConfig } from 'vite';
 import { pagesDeploy } from './tools/pages/vite-plugin.mjs';
+
+// Re-encodes GLB colour textures as KTX2 when `toktx` and ffmpeg are on PATH
+// (CI installs both). It must run before the Pages plugin hashes
+// public/models, never as a later step on dist/: a file rewritten after
+// hashing would not be the one the app requests.
+const KTX2_STEP = 'tools/compress-textures.mjs';
+const preprocess = existsSync(KTX2_STEP) ? [{
+  dir: 'models',
+  run: async (input, output) => {
+    const { stdout, stderr } = await promisify(execFile)(process.execPath, [KTX2_STEP, `--in=${input}`, `--out=${output}`]);
+    process.stdout.write(stdout + stderr);
+  },
+}] : [];
 
 // GitHub Pages serves this project site from https://<owner>.github.io/vibe-coffee/.
 // VITE_BASE overrides the base of builds and `vite preview`: '/' for a custom
@@ -37,6 +53,6 @@ export default defineConfig(({ command, mode, isPreview }) => {
         },
       },
     },
-    plugins: artifact ? [] : [pagesDeploy()],
+    plugins: artifact ? [] : [pagesDeploy({ preprocess })],
   };
 });

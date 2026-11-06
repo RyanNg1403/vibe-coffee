@@ -6,7 +6,8 @@
 // generated service worker then caches them cache-first, which is safe only
 // because a changed file always gets a new URL.
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,10 +30,17 @@ function walk(dir) {
   });
 }
 
-export function pagesDeploy() {
+// `preprocess` steps rewrite a public/ folder for the deployed build only,
+// e.g. `{ dir: 'models', run: (input, output) => … }`. Each run gets a fresh
+// empty output folder; files it writes replace their public/ counterparts
+// before hashing, so URLs, the service worker and the size report all see the
+// processed bytes. Files it does not write ship unchanged.
+export function pagesDeploy({ preprocess = [] } = {}) {
   let disabled = false;
   let base = '/';
   let outDir = '';
+  let publicDir = '';
+  const scratch = [];
   const assetMap = {};
   const publicFiles = [];
 
@@ -45,29 +53,48 @@ export function pagesDeploy() {
         disabled = true;
         return;
       }
-      const root = resolve(userConfig.root ?? process.cwd());
-      const publicDir = resolve(root, userConfig.publicDir ?? 'public');
+      publicDir = resolve(userConfig.root ?? process.cwd(), userConfig.publicDir ?? 'public');
+      return { build: { copyPublicDir: false } };
+    },
+
+    configResolved(config) {
+      base = config.base;
+      outDir = resolve(config.root, config.build.outDir);
+    },
+
+    async buildStart() {
+      if (disabled) return;
+      const replacements = new Map();
+      for (const step of preprocess) {
+        const output = mkdtempSync(join(tmpdir(), `vibe-pages-${step.dir}-`));
+        scratch.push(output);
+        await step.run(join(publicDir, step.dir), output);
+        for (const file of walk(output)) {
+          replacements.set(`${step.dir}/${relative(output, file).split(sep).join('/')}`, file);
+        }
+      }
       for (const file of walk(publicDir).sort()) {
         const rel = relative(publicDir, file).split(sep).join('/');
-        const bytes = readFileSync(file);
-        const hash = sha(bytes).slice(0, 10);
+        const src = replacements.get(rel) ?? file;
+        const hash = sha(readFileSync(src)).slice(0, 10);
         let out = rel;
         if (rel.includes('/') && HASHED_DIRS.includes(rel.split('/')[0])) {
           const ext = extname(rel);
           out = `${rel.slice(0, rel.length - ext.length)}.${hash}${ext}`;
           assetMap[`/${rel}`] = out;
         }
-        publicFiles.push({ src: file, out, hash, hashed: out !== rel });
+        publicFiles.push({ src, out, hash, hashed: out !== rel });
       }
-      return {
-        build: { copyPublicDir: false },
-        define: { __VIBE_ASSET_MAP__: JSON.stringify(assetMap) },
-      };
+      if (replacements.size) this.info(`preprocessed ${replacements.size} public files`);
     },
 
-    configResolved(config) {
-      base = config.base;
-      outDir = resolve(config.root, config.build.outDir);
+    transform(code) {
+      if (disabled || !code.includes('__VIBE_ASSET_MAP__')) return null;
+      return { code: code.replaceAll('__VIBE_ASSET_MAP__', JSON.stringify(assetMap)), map: null };
+    },
+
+    closeBundle() {
+      for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true });
     },
 
     transformIndexHtml() {

@@ -4,8 +4,8 @@
 // loader and media src must resolve its path here. data:/blob:/absolute URLs
 // (the single-file artifact inlines assets as data: URIs) pass through.
 //
-// __VIBE_ASSET_MAP__ is defined by tools/pages/vite-plugin.mjs at build time;
-// it is absent in the dev server and under `node --test`.
+// tools/pages/vite-plugin.mjs substitutes the hashed-name map below at build
+// time; the dev server and `node --test` see an undefined identifier.
 const BASE = import.meta.env?.BASE_URL ?? '/';
 // eslint-disable-next-line no-undef
 const HASHED = typeof __VIBE_ASSET_MAP__ === 'object' ? __VIBE_ASSET_MAP__ : {};
