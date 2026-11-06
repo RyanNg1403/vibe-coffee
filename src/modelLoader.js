@@ -12,6 +12,14 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODEL_MANIFEST } from './modelManifest.js';
 import { ktx2Loader, releaseAfterUpload } from './perf/textureCompression.js';
+import { assetUrl } from './assetUrl.js';
+// Content-hashed build assets instead of a fixed /draco/ folder: they resolve
+// under any deployment base path and never go stale behind a cache.
+const DRACO_FILES = {
+  'draco_wasm_wrapper.js': new URL('../node_modules/three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js', import.meta.url).href,
+  'draco_decoder.wasm': new URL('../node_modules/three/examples/jsm/libs/draco/gltf/draco_decoder.wasm', import.meta.url).href,
+  'draco_decoder.js': new URL('../node_modules/three/examples/jsm/libs/draco/gltf/draco_decoder.js', import.meta.url).href,
+};
 
 // This asset's exaggerated head/hair proportions and seated silhouette clash
 // with the established café cast. Keep the source in the repository for
@@ -159,8 +167,9 @@ let library = null;
 function createLibrary() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  const dracoLoader = new DRACOLoader();
-  dracoLoader.setDecoderPath('/draco/');
+  const dracoManager = new THREE.LoadingManager();
+  dracoManager.setURLModifier((url) => DRACO_FILES[url.split('/').pop()] ?? url);
+  const dracoLoader = new DRACOLoader(dracoManager);
   loader.setDRACOLoader(dracoLoader);
   // Deployed builds carry KTX2 colour textures; resolve the transcoder once,
   // in parallel with the first downloads.
@@ -178,7 +187,7 @@ function createLibrary() {
         await ktx2Ready;
         gltf = await loader.parseAsync(dataUriToArrayBuffer(def.url), '');
       } else {
-        const res = await fetch(def.url);
+        const res = await fetch(assetUrl(def.url));
         if (!res.ok) throw new Error(`http ${res.status}`);
         const buffer = await res.arrayBuffer();
         await ktx2Ready;

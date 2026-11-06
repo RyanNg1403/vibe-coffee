@@ -158,6 +158,21 @@ can replace its `getTier`/`setTier`.
 
 A/B switches: `?lod=0`, `?cull=0`, `?bvh=0`, `?warmup=0`, `?adaptive=0`.
 
+### Deployment notes (GitHub Pages under a sub-path)
+
+Everything this layer loads resolves relative to the build's base and is
+content-hashed: the LOD worker (`new URL(..., import.meta.url)`), the BVH,
+KTX2-loader and HUD chunks, and the Basis transcoder and Draco decoder (Vite
+assets mapped onto the loaders' fixed file names via a `LoadingManager` URL
+modifier; `public/basis` and `public/draco` are gone). Model URLs go through
+`src/assetUrl.js` (`import.meta.env.BASE_URL`, idempotent). The decoders are
+single-threaded WASM. No `SharedArrayBuffer` is used (three-mesh-bvh only
+touches it behind an opt-in flag that is never set), so no COOP/COEP headers
+are needed. Verified with `vite build --base=/vibe-coffee/` + `vite preview`:
+models, worker, BVH, KTX2 and transcoder all load from `/vibe-coffee/assets/`.
+GLBs keep their fixed `models/<name>.glb` names (they come from `public/`).
+
+
 ---
 
 ## Immersion V2 baseline (2026-07-11)
