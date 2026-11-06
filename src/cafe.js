@@ -680,7 +680,7 @@ export function makeDrink(accent, models) {
     if (!_studioCoffeeGeometry) {
       _studioCoffeeGeometry = new THREE.CircleGeometry(0.0415, 32);
       _studioCoffeeGeometry.userData.vibeShared = true;
-      _studioCoffeeMaterial = new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.3 });
+      _studioCoffeeMaterial = new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.3, userData: { vibeLiquid: true } });
       _studioCoffeeMaterial.userData.vibeShared = true;
     }
     const liquid = new THREE.Mesh(_studioCoffeeGeometry, _studioCoffeeMaterial);
@@ -705,8 +705,8 @@ export function makeDrink(accent, models) {
       const liquid = new THREE.Mesh(
         new THREE.CircleGeometry(rimR, 20),
         art
-          ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.42 })
-          : new THREE.MeshStandardMaterial({ map: cremaTexture(), roughness: 0.38 })
+          ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.42, userData: { vibeLiquid: true } })
+          : new THREE.MeshStandardMaterial({ map: cremaTexture(), roughness: 0.38, userData: { vibeLiquid: true } })
       );
       liquid.rotation.x = -Math.PI / 2;
       const center = bb.getCenter(new THREE.Vector3());
@@ -761,7 +761,7 @@ function makeCup(accent, models, latteArt = false) {
   body.castShadow = true;
   g.add(body);
   const coffeeMat = latteArt
-    ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.48, metalness: 0 })
+    ? new THREE.MeshStandardMaterial({ map: latteArtTexture(), roughness: 0.48, metalness: 0, userData: { vibeLiquid: true } })
     : new THREE.MeshStandardMaterial({ color: 0x2c170d, roughness: 0.36, metalness: 0 });
   const coffee = cyl(0.041, 0.041, 0.004, coffeeMat, 16);
   coffee.position.y = 0.072;

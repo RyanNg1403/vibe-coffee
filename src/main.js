@@ -1,15 +1,8 @@
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { loadDaylightEnvironment } from './rendering/daylightEnvironment.js';
+import { createRenderingSystem } from './rendering/renderingSystem.js';
+import { TIER_NAMES, resolveTierName, tierConfig, tierIndex } from './rendering/qualityTiers.js';
 import { groundingAuditObjects } from './rendering/placementBounds.js';
 import { auditVenueCollections } from './decor/venueCollection.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink } from './cafe.js';
 import { createNavigator, pointInPolygon, surfaceHeightAt } from './cafe/levelNavigation.js';
 import {
@@ -50,16 +43,15 @@ function resetMemoryAuditRandom(themeIndex) {
 // ---------- renderer / scene ----------
 
 const canvas = document.getElementById('scene');
-// The scene is rendered through a multisampled composer target, so enabling
-// antialiasing on the (fullscreen-quad-only) default framebuffer duplicates
-// work without improving geometry edges.
+// Post-processing tiers render into their own HDR target and resolve
+// anti-aliasing there, so the default framebuffer never needs MSAA.
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
 // Auto stays at CSS-native resolution. On Retina screens, 1.5x creates 2.25x
 // as many half-float pixels across every composer target for little visible
 // benefit in a softly lit scene. Detail retains restrained supersampling.
 const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1);
-const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1.25);
+const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, tierConfig('ultra').maxPixelRatio);
 const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
 // Start Auto at a predictable 1x render target. It can add effects and extra
 // supersampling after a sustained period of headroom, instead of allocating the
@@ -70,7 +62,6 @@ renderer.setPixelRatio(renderPixelRatio);
 // become stale when a browser enters fullscreen without a conventional resize.
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // Crowd motion is simulated at 30 Hz, so refreshing its shadows faster only
 // re-renders the same poses. The main loop requests a shadow update at 30 Hz.
 renderer.shadowMap.autoUpdate = false;
@@ -85,118 +76,10 @@ renderer.info.autoReset = false;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.05, 60);
 
-// image-based environment lighting: gives every PBR material soft reflected
-// room light instead of the flat "primitive" look of pure analytic lights
-const pmrem = new THREE.PMREMGenerator(renderer);
-const fallbackRoom = new RoomEnvironment();
-let environmentTarget = pmrem.fromScene(fallbackRoom, 0.04);
-fallbackRoom.dispose();
-scene.environment = environmentTarget.texture;
-let photographicEnvironment = null;
-function applyPhotographicEnvironment(theme) {
-  if (!photographicEnvironment) return;
-  const night = theme.timeOfDay === 'night' || theme.outside.includes('Night') || theme.outside.includes('night');
-  scene.background = photographicEnvironment;
-  scene.backgroundBlurriness = theme.rain ? 0.2 : 0.06;
-  const daylight = { morning: 0.78, noon: 0.9, sunset: 0.72 }[theme.timeOfDay] ?? 0.72;
-  scene.backgroundIntensity = night ? 0.018 : daylight * (theme.rain ? 0.45 : 1);
-  scene.backgroundRotation.y = Math.PI * 0.6;
-  scene.environmentRotation.y = Math.PI * 0.6;
-  cafe?.group.traverse((object) => {
-    if (object.userData.illustratedBackdrop) object.visible = false;
-  });
-}
-loadDaylightEnvironment().then((texture) => {
-  let target;
-  try { target = pmrem.fromEquirectangular(texture); }
-  catch (error) { texture.dispose(); throw error; }
-  const previousTarget = environmentTarget;
-  environmentTarget = target;
-  scene.environment = target.texture;
-  previousTarget.dispose();
-  photographicEnvironment = texture;
-  applyPhotographicEnvironment(currentTheme);
-}).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message));
-
-// Post-processing chain. FXAA at the end replaces a persistent multisampled
-// half-float buffer, preserving clean edges at a fraction of its memory cost.
-// GTAO adds contact darkening; bloom makes practical lamps glow.
-const W0 = window.innerWidth, H0 = window.innerHeight;
-const rt = new THREE.WebGLRenderTarget(1, 1, {
-  samples: 0,
-  type: THREE.HalfFloatType,
-  colorSpace: THREE.LinearSRGBColorSpace,
-});
-const composer = new EffectComposer(renderer, rt);
-composer.addPass(new RenderPass(scene, camera));
-
-// GTAO reads the rendered depth/normals and multiplies soft occlusion in
-const gtaoPass = new GTAOPass(scene, camera, W0, H0);
-gtaoPass.output = GTAOPass.OUTPUT.Default;
-gtaoPass.updateGtaoMaterial({
-  // a tighter radius and softer blend keep the contact shadow under chairs
-  // and tables without the view-dependent dark halo that used to sweep
-  // across wall art as the camera panned
-  radius: 0.3,
-  distanceExponent: 1.4,
-  thickness: 0.6,
-  scale: 1.0,
-  samples: 6,
-  distanceFallOff: 1.0,
-  screenSpaceRadius: false,
-});
-gtaoPass.blendIntensity = 0.5;
-// Contact AO remains soft and convincing at half resolution, while avoiding
-// four full-resolution depth/normal/AO buffers on high-DPI displays.
-const setGtaoSize = gtaoPass.setSize.bind(gtaoPass);
-gtaoPass.setSize = (width, height) => {
-  setGtaoSize(Math.max(1, Math.ceil(width * 0.5)), Math.max(1, Math.ceil(height * 0.5)));
-};
-composer.addPass(gtaoPass);
-
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(W0, H0), 0.25, 0.5, 0.85
-);
-// Bloom is a deliberately blurred signal. Half-resolution buffers preserve
-// the perceived glow while cutting their pixel work and memory by about 75%.
-const setBloomSize = bloomPass.setSize.bind(bloomPass);
-bloomPass.setSize = (width, height) => {
-  setBloomSize(Math.max(1, Math.ceil(width * 0.5)), Math.max(1, Math.ceil(height * 0.5)));
-};
-composer.addPass(bloomPass);
-composer.addPass(new OutputPass());
-
-// A gentle vignette and static dither add depth without temporal grain.
-// Animating random grain every frame reads as full-screen flicker.
-const grainPass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null } },
-  vertexShader: /* glsl */`
-    varying vec2 vUv;
-    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse;
-    varying vec2 vUv;
-    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    void main() {
-      vec4 c = texture2D(tDiffuse, vUv);
-      vec2 d = vUv - 0.5;
-      float vig = 1.0 - dot(d, d) * 0.55;          // gentle corner falloff
-      float g = (hash(vUv * vec2(1920.0, 1080.0)) - 0.5) * 0.012;
-      gl_FragColor = vec4(c.rgb * vig + g, c.a);
-    }`,
-});
-composer.addPass(grainPass);
-const fxaaPass = new ShaderPass(FXAAShader);
-composer.addPass(fxaaPass);
-function updateFxaaResolution(width = window.innerWidth, height = window.innerHeight) {
-  fxaaPass.material.uniforms.resolution.value.set(
-    1 / Math.max(1, width * renderPixelRatio),
-    1 / Math.max(1, height * renderPixelRatio),
-  );
-}
-composer.setPixelRatio(renderPixelRatio);
-composer.setSize(W0, H0);
-updateFxaaResolution(W0, H0);
+// Lighting, image-based environment, shadow quality and the post stack live
+// in src/rendering. main.js feeds it the active café and the quality tier.
+const rendering = createRenderingSystem({ renderer, scene, camera });
+rendering.setSize(window.innerWidth, window.innerHeight);
 
 const audio = new CafeAudio();
 
@@ -374,27 +257,18 @@ async function loadTheme(index) {
   // random draws a build consumes, and without this every decor PR would
   // reshuffle the seeded audit crowd and make renderer counts incomparable.
   resetMemoryAuditRandom(index + 16);
-  // Furniture contacts need centimetre-scale detail across the room.
-  cafe.group.traverse((object) => {
-    if (object.isDirectionalLight && object.castShadow) {
-      object.shadow.mapSize.set(2048, 2048);
-      object.shadow.needsUpdate = true;
-    }
-  });
   scene.add(cafe.group);
   cafe.group.add(ring);
 
   scene.fog = new THREE.FogExp2(theme.fog.color, theme.fog.density);
   scene.background = new THREE.Color(theme.fog.color);
   renderer.toneMappingExposure = theme.exposure;
-  scene.environmentIntensity = theme.envIntensity ?? 0.35;
-  applyPhotographicEnvironment(theme);
-  bloomPass.strength = theme.bloom ?? 0.25;
+  rendering.applyTheme(theme, cafe);
 
   crowd = new CrowdSim(cafe, audio, models);
   pets = new PetSystem(cafe, models, theme, audio, interactions);
   crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
-  applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
+  applyQuality();
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
     door: cafe.nav.door,
@@ -1237,55 +1111,60 @@ muteToggle?.addEventListener('click', () => {
 });
 
 const qualityToggle = document.getElementById('quality-toggle');
-const QUALITY_MODES = ['auto', 'detail', 'smooth'];
-let qualityMode = preferences.qualityMode;
-let autoEffectLevel = 0;
-let effectLevel = 0;
+// Persisted ids (preferences / settings UI); rendering maps them to tiers:
+// smooth → low, balanced → medium, detail → high, ultra → ultra.
+const QUALITY_MODES = ['auto', 'smooth', 'balanced', 'detail', 'ultra'];
+// `?quality=<tier>` pins a tier for audits without touching saved preferences.
+let qualityMode = rendering.override ?? preferences.qualityMode;
+// Auto starts at the detected device tier and never climbs above it; the
+// adaptive loop sheds whole tiers (post stack, shadow filter, AO) under load.
+const AUTO_MAX_TIER_LEVEL = tierIndex(rendering.autoTier);
+let autoTierLevel = AUTO_MAX_TIER_LEVEL;
 let shadowInterval = 1 / 8;
-const AUTO_MAX_EFFECT_LEVEL = 0;
 
-// Resolution is only one part of the GPU budget. GTAO, bloom and animated
-// shadow maps each render the scene (or a full-screen buffer) again, so the
-// adaptive mode can shed those layers independently before the café starts
-// dropping input frames. Level 0 still keeps PBR lighting and the sun shadow.
-function applyEffectLevel(nextLevel) {
-  effectLevel = THREE.MathUtils.clamp(Math.round(nextLevel), 0, 2);
-  gtaoPass.enabled = effectLevel >= 1;
-  bloomPass.enabled = effectLevel >= 2;
-  shadowInterval = effectLevel === 2 ? 1 / 20 : effectLevel === 1 ? 1 / 12 : 1 / 8;
-  cafe?.setQuality?.(effectLevel);
-  crowd?.setQuality?.(effectLevel);
+// Tier changes may come from this loop, the quality button, or any other
+// driver of `rendering.quality`; the room's own budgets follow every one.
+function syncQualityConsumers(config = rendering.config) {
+  shadowInterval = 1 / config.shadows.updateHz;
+  cafe?.setQuality?.(config.effectLevel);
+  crowd?.setQuality?.(config.effectLevel);
   renderer.shadowMap.needsUpdate = true;
+  renderQualityMode();
+}
+rendering.quality.subscribe(syncQualityConsumers);
+
+function applyQuality(tier = qualityMode === 'auto' ? TIER_NAMES[autoTierLevel] : resolveTierName(qualityMode)) {
+  rendering.setTier(tier);
+  syncQualityConsumers();
+}
+
+function tierPixelRatio(tier) {
+  return Math.min(DEVICE_PIXEL_RATIO, tierConfig(tier).maxPixelRatio);
 }
 
 function renderQualityMode() {
-  qualityToggle.textContent = `quality · ${qualityMode}`;
-  qualityToggle.setAttribute('aria-label', `Rendering quality: ${qualityMode}`);
+  if (!qualityToggle) return;
+  const label = qualityMode === 'auto' ? `auto · ${rendering.tier}` : rendering.tier;
+  qualityToggle.textContent = `quality · ${label}`;
+  qualityToggle.setAttribute('aria-label', `Rendering quality: ${label}`);
 }
-qualityToggle.addEventListener('click', () => {
+qualityToggle?.addEventListener('click', () => {
   qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
   perfSampleTime = 0;
   perfSampleFrames = 0;
   qualityCooldown = 0;
-  if (qualityMode === 'detail') {
-    applyEffectLevel(2);
-    applyRenderPixelRatio(MAX_PIXEL_RATIO);
-  } else if (qualityMode === 'smooth') {
-    applyEffectLevel(0);
-    applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
-  } else {
-    applyEffectLevel(autoEffectLevel);
-    applyRenderPixelRatio(Math.min(renderPixelRatio, AUTO_MAX_PIXEL_RATIO));
-  }
+  applyQuality();
+  applyRenderPixelRatio(qualityMode === 'auto'
+    ? Math.min(renderPixelRatio, AUTO_MAX_PIXEL_RATIO)
+    : tierPixelRatio(qualityMode));
   renderQualityMode();
   persistPreferences();
   toast(qualityMode === 'auto'
     ? 'quality will adapt to keep the café smooth'
-    : `quality locked to ${qualityMode}`);
+    : `quality locked to ${rendering.tier}`);
 });
-renderQualityMode();
-if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
-if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
+applyQuality();
+if (qualityMode !== 'auto') applyRenderPixelRatio(tierPixelRatio(qualityMode));
 
 musicVolume.addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -1408,16 +1287,14 @@ function applyRenderPixelRatio(nextRatio) {
   renderPixelRatio = rounded;
   renderer.setPixelRatio(renderPixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
-  composer.setPixelRatio(renderPixelRatio);
-  updateFxaaResolution();
+  rendering.resize();
 }
 
 function resizeViewport() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight, false);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  updateFxaaResolution();
+  rendering.setSize(window.innerWidth, window.innerHeight);
   pointerDirty = true;
 }
 window.addEventListener('resize', resizeViewport);
@@ -1479,9 +1356,9 @@ function updateAdaptiveQuality(frameDt, targetFps) {
   if (averageFrameMs > targetFrameMs * 1.18) {
     if (renderPixelRatio > 1.001) {
       applyRenderPixelRatio(renderPixelRatio - 0.15);
-    } else if (autoEffectLevel > 0) {
-      autoEffectLevel -= 1;
-      applyEffectLevel(autoEffectLevel);
+    } else if (autoTierLevel > 0) {
+      autoTierLevel -= 1;
+      applyQuality();
     } else if (renderPixelRatio > MIN_PIXEL_RATIO + 0.001) {
       applyRenderPixelRatio(renderPixelRatio - 0.1);
     }
@@ -1489,9 +1366,9 @@ function updateAdaptiveQuality(frameDt, targetFps) {
   } else if (averageFrameMs < targetFrameMs * 1.05 && qualityCooldown <= 0) {
     // Restore scene depth before supersampling: a low-resolution image with
     // contact light and bloom generally reads better than a sharper flat one.
-    if (autoEffectLevel < AUTO_MAX_EFFECT_LEVEL) {
-      autoEffectLevel += 1;
-      applyEffectLevel(autoEffectLevel);
+    if (autoTierLevel < AUTO_MAX_TIER_LEVEL) {
+      autoTierLevel += 1;
+      applyQuality();
     } else if (renderPixelRatio < AUTO_MAX_PIXEL_RATIO) {
       applyRenderPixelRatio(renderPixelRatio + 0.1);
     }
@@ -1690,8 +1567,7 @@ function frame(now = performance.now()) {
   crowd?.interpolate(simAcc / SIM_STEP);
   pets?.interpolate(simAcc / SIM_STEP);
   try {
-    if (effectLevel === 0) renderer.render(scene, camera);
-    else composer.render(dt);
+    rendering.render(dt);
   } finally {
     crowd?.restoreSimulationPose();
     pets?.restoreSimulationPose();
@@ -1729,8 +1605,7 @@ window.__vibe = {
     try {
       renderer.shadowMap.needsUpdate = true;
       renderer.info.reset();
-      if (effectLevel === 0) renderer.render(scene, camera);
-      else composer.render(1 / 30);
+      rendering.render(1 / 30);
       for (const key of ['calls', 'triangles', 'points', 'lines']) {
         lastRenderStats[key] = renderer.info.render[key];
       }
@@ -1741,6 +1616,9 @@ window.__vibe = {
     }
   },
   get cafe() { return cafe; },
+  // Active rendering tier/config (`rendering.quality.config`) for audits and
+  // other systems that scale with the graphics budget.
+  get rendering() { return rendering; },
   venueCollectionAudit() { return auditVenueCollections(cafe.group); },
   get crowd() { return crowd; },
   get pets() { return pets; },
@@ -1776,15 +1654,17 @@ window.__vibe = {
       rain: !!cafe?.theme.rain,
       qualityMode,
       pixelRatio: renderPixelRatio,
-      effects: effectLevel,
+      effects: rendering.config.effectLevel,
+      qualityTier: rendering.tier,
       targetFps: frameScheduler.targetFps,
       observedFps: Number(observedRenderFps.toFixed(1)),
       renderedFrames: frameScheduler.renderedFrames,
       skippedFrames: frameScheduler.skippedFrames,
       lastRenderMs: Number(lastRenderMs.toFixed(2)),
       shadowFps: Math.round(1 / shadowInterval),
-      gtaoScale: 0.5,
-      bloomScale: 0.5,
+      gtaoScale: rendering.config.ao?.scale ?? 0,
+      bloomScale: rendering.config.bloom?.scale ?? 0,
+      rendering: rendering.metrics(),
       heapBytes: performance.memory?.usedJSHeapSize ?? null,
       decodedAudioBytes,
       outsidePedestrians: crowd?.outside?.walkers?.length ?? 0,
