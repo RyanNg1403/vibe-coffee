@@ -18,6 +18,9 @@ import { angleDelta, turnToward, walkingTimeScale, MotionInterpolator } from './
 import { cloneCharacter, cloneModel, characterKeys, sitCharacterKeys } from './modelLoader.js';
 import { CharacterAllocator, MAX_CHARACTER_COPIES, PROCEDURAL_CHARACTER_ASSET, countCharacterAssets } from './sim/characterAllocator.js';
 import { isFemalePortrait, seatForwardOffset } from './npc/seatFit.js';
+import { avoidAgent } from './physics/crowdAvoidance.js';
+
+const selfAgent = { x: 0, z: 0, vx: 0, vz: 0, radius: 0.3 };
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -1684,6 +1687,16 @@ class NPC {
           dir.z += pz * side * k;
         }
       }
+    }
+    // the walking player is anticipated by time-to-collision, not shoved
+    const player = this.sim.playerAgent;
+    if (player && Math.abs(player.y - pos.y) < 1.4) {
+      selfAgent.x = pos.x;
+      selfAgent.z = pos.z;
+      selfAgent.vx = this.velocity.x;
+      selfAgent.vz = this.velocity.z;
+      selfAgent.radius = this.personalSpace * 0.62;
+      avoidAgent(dir, selfAgent, player);
     }
     return dir;
   }

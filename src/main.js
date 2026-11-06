@@ -24,6 +24,7 @@ import { loadPreferences, savePreferences } from './preferences.js';
 import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
 import { WorldInteractions } from './interactions/worldInteractions.js';
+import { RealismSystem } from './physics/realism.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -199,6 +200,9 @@ composer.setSize(W0, H0);
 updateFxaaResolution(W0, H0);
 
 const audio = new CafeAudio();
+// physics & secondary motion (src/physics/); the player's own cup can rattle
+// on a table they walk into
+const realism = new RealismSystem({ audio, looseProps: () => [playerCup] });
 
 // ---------- state ----------
 
@@ -214,8 +218,6 @@ const walkPos = new THREE.Vector3();
 let walkLevelId = 'ground';
 let walkY = 0;
 let navigator = null;
-let walkBob = 0;
-let lastPlayerStep = 0;
 const keys = new Set();
 const frameScheduler = new AdaptiveFrameScheduler();
 const markInteraction = () => frameScheduler.markInteraction(performance.now());
@@ -277,6 +279,7 @@ function sitAt(index, instant = false) {
   if (crowd) crowd.setPlayerSeat(index);
   seatIndex = index;
   mode = 'seated';
+  realism.onSit();
   updateWalkBtn();
   placePlayerLaptop(); // your MacBook follows you to the new table
   placePlayerCup(); // keep an existing order grounded at the current table
@@ -355,6 +358,7 @@ async function loadTheme(index) {
   interactions.clear(); // world click targets belong to the departing room
   hoveredWorld = null;
   audio.stopPlayerTyping(); // no burst may outlive the room it was typed in
+  realism.detach();
   if (pets) { pets.dispose(); pets = null; }
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -394,6 +398,7 @@ async function loadTheme(index) {
   crowd = new CrowdSim(cafe, audio, models);
   pets = new PetSystem(cafe, models, theme, audio, interactions);
   crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
+  realism.attach({ cafe, crowd, pets, theme });
   applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
@@ -887,6 +892,7 @@ function standUp() {
   resolveCollisions(walkPos);
   walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
     ?? (seat ? seat.pos.y - (seat.isBar ? 0.15 : 0) : walkY);
+  realism.onStandUp(walkY);
   updateWalkBtn();
 }
 
@@ -896,6 +902,8 @@ function updateWalkBtn() {
 }
 
 const walkProposed = new THREE.Vector3();
+const walkDrive = { x: 0, z: 0 };
+const walkGait = { footstep: false, weight: 0 };
 
 // Commit a proposed walking position: authored portal transitions first, then
 // the current floor's surface height; off-surface candidates slide along one
@@ -1508,7 +1516,7 @@ function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2)
 
 function frame(now = performance.now()) {
   requestAnimationFrame(frame);
-  const activelyMoving = tween.active || dragging || keys.size > 0;
+  const activelyMoving = tween.active || dragging || keys.size > 0 || realism.motor.moving;
   if (!frameScheduler.shouldRender(now, {
     moving: activelyMoving,
     visible: !document.hidden,
@@ -1531,6 +1539,7 @@ function frame(now = performance.now()) {
       if (cafe) cafe.animate(SIM_STEP);
       if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
       if (pets) pets.update(SIM_STEP, crowd, camera.position);
+      realism.simStep(SIM_STEP, camera.position);
     }
   }
 
@@ -1561,33 +1570,45 @@ function frame(now = performance.now()) {
     if (keys.has('KeyS') || keys.has('ArrowDown')) walkMove.sub(walkForward);
     if (keys.has('KeyD') || keys.has('ArrowRight')) walkMove.add(walkRight);
     if (keys.has('KeyA') || keys.has('ArrowLeft')) walkMove.sub(walkRight);
-    const moving = walkMove.lengthSq() > 0;
-    if (moving) {
+    // the motor accelerates toward the input and glides to a stop
+    const motor = realism.motor;
+    const drive = motor.drive(dt, walkMove.x, walkMove.z, walkDrive);
+    if (motor.speed > 0) {
       cameraMoved = true;
-      walkMove.normalize();
-      walkProposed.copy(walkPos).addScaledVector(walkMove, dt * 2.0);
+      walkProposed.set(walkPos.x + drive.x, 0, walkPos.z + drive.z);
+      realism.beginPlayerMove(walkProposed);
       resolveCollisions(walkProposed);
+      realism.notePlayerFurniture(walkProposed, walkLevelId); // table knocks
       crowd?.resolvePlayerCollision?.(walkProposed, 0.3, walkY);
+      realism.resolvePlayer(walkProposed, walkLevelId); // swinging door leaf
       // A person can push the player toward a table edge; resolve the room once
       // more so the two collision systems cannot squeeze the camera into props.
       resolveCollisions(walkProposed);
       // §8: collision and walk-surface height resolve atomically — a candidate
       // off every surface of the current floor is rejected (or slid along an
       // axis), never dropped to another floor's height.
+      const fromX = walkPos.x, fromZ = walkPos.z;
       commitWalkMove(walkProposed);
-      walkBob += dt * 8;
-      // your own footsteps
-      const stepNow = Math.floor(walkBob / Math.PI);
-      if (stepNow !== lastPlayerStep) {
-        lastPlayerStep = stepNow;
-        if (audio.started) audio.playFootstep(walkPos, 0.55);
-      }
+      motor.settle(dt, walkPos.x - fromX, walkPos.z - fromZ);
+    } else if (realism.resolvePlayer(walkProposed.copy(walkPos), walkLevelId)) {
+      // standing in the door's swing: the leaf shoves you aside
+      cameraMoved = true;
+      resolveCollisions(walkProposed);
+      commitWalkMove(walkProposed);
     }
+    const gait = motor.gait(dt, walkY, walkRight.x, walkRight.z, walkGait);
+    if (gait.footstep) {
+      cameraMoved = true;
+      if (audio.started) audio.playFootstep(walkPos, 0.55 * gait.weight);
+    }
+    if (motor.moving) cameraMoved = true;
     camera.position.set(
-      walkPos.x,
-      walkY + STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : 0),
-      walkPos.z
+      walkPos.x + motor.swayX,
+      motor.eyeY + STAND_EYE + motor.bobY,
+      walkPos.z + motor.swayZ
     );
+    camera.quaternion.setFromEuler(viewEuler.set(view.pitch + motor.pitch, view.yaw, motor.roll, 'YXZ'));
+    realism.updatePlayer(walkPos, walkY, walkLevelId, true);
   } else if (seatIndex >= 0 && cafe) {
     // Keep a seated view pixel-stable. Sub-pixel idle motion made GTAO and
     // detailed PBR textures shimmer even though the user was not moving.
@@ -1685,14 +1706,17 @@ function frame(now = performance.now()) {
     shadowAcc %= shadowInterval;
   }
 
+  realism.frame(rawDt);
   renderer.info.reset();
   const renderStartedAt = performance.now();
   crowd?.interpolate(simAcc / SIM_STEP);
   pets?.interpolate(simAcc / SIM_STEP);
+  realism.beforeRender(); // render-only body lean, removed again below
   try {
     if (effectLevel === 0) renderer.render(scene, camera);
     else composer.render(dt);
   } finally {
+    realism.afterRender();
     crowd?.restoreSimulationPose();
     pets?.restoreSimulationPose();
   }
@@ -1726,6 +1750,7 @@ window.__vibe = {
   captureFrame(alpha = 1, format = 'image/png') {
     crowd?.interpolate(alpha);
     pets?.interpolate(alpha);
+    realism.beforeRender();
     try {
       renderer.shadowMap.needsUpdate = true;
       renderer.info.reset();
@@ -1736,6 +1761,7 @@ window.__vibe = {
       }
       return renderer.domElement.toDataURL(format, 0.92);
     } finally {
+      realism.afterRender();
       crowd?.restoreSimulationPose();
       pets?.restoreSimulationPose();
     }
@@ -1821,8 +1847,10 @@ window.__vibe = {
       triangles: lastRenderStats.triangles,
       points: lastRenderStats.points,
       lines: lastRenderStats.lines,
+      ...realism.metrics(),
     };
   },
+  get realism() { return realism; },
   place(x, z, yaw, pitch = 0, levelId = null) {
     standUp();
     if (levelId) walkLevelId = levelId;

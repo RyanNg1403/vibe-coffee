@@ -9,6 +9,7 @@
     "build": "vite build",
     "artifact": "node tools/make-artifact.mjs",
     "audit:motion": "node tools/motion-audit.mjs",
+    "audit:physics": "node tools/physics-audit.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
     "perf:baseline": "node tools/perf-baseline.mjs",
@@ -18,6 +19,7 @@
     "audit:layout": "node tools/layout-audit.mjs"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
     "three": "^0.166.1"
   },
   "devDependencies": {
