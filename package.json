@@ -13,6 +13,7 @@
     "audit:visual": "node tools/visual-audit.mjs",
     "perf:baseline": "node tools/perf-baseline.mjs",
     "perf:bench": "node tools/perf-bench.mjs",
+    "audit:ktx2": "node tools/ktx2-audit.mjs",
     "preview": "vite preview",
     "test": "node --test",
     "audit:decor": "node tools/decor-audit.mjs",

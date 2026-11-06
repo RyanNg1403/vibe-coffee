@@ -232,7 +232,48 @@ can replace its `getTier`/`setTier`.
 
 A/B switches: `?lod=0`, `?cull=0`, `?bvh=0`, `?warmup=0`, `?adaptive=0`.
 
-### Merge order with PR #23 (Pages deploy) and PR #26 (hero assets, baked LODs)
+### KTX2 "Couldn't load texture blob:" in the deploy smoke (2026-11-06)
+
+PR #23's smoke run of a #23+#24 merge (PR #24 head `dd0a349`) logged
+`THREE.GLTFLoader: Couldn't load texture blob:…` on three visits; CI fails
+on that console error. GLTFLoader logs it whenever its image loader rejects.
+For KTX2 that is `KTX2Loader.load`, which can fail in three ways: the read of
+the texture's blob URL, the worker transcode, or the one-time transcoder
+fetch/initialisation. The last is the worst, because KTX2Loader caches the
+rejected promise and every later texture on the page then fails too. Any
+failure drops the whole model (procedural fallback).
+
+- Not reproduced organically:
+  - 8 cold visits at 4× CPU throttle with fast café switches;
+  - 14 random-time reloads mid-load;
+  - 12 concurrent cold tabs at 6× throttle;
+  - 819 concurrent parses of all KTX2 GLBs through one shared loader
+    (0 transcode failures);
+  - 7 runs of PR #23's own smoke on local #23+#24 merges (old and current
+    heads), about 35 visits.
+
+  The pipeline itself is deterministic. The reported failures are
+  consistent with transient fetch or worker failures on a CPU-starved
+  runner, and JPEG builds have no worker or transcoder step that could fail
+  that way.
+- Fix (`textureCompression.js`): each KTX2 texture load is retried twice. A
+  failed transcoder initialisation is cleared before the retry, and the
+  reason is logged as a warning (`[textures] KTX2 texture load failed (…)`),
+  which CI does not fail on. `window.__vibe.metrics().perf.ktx2` counts
+  retries, recoveries and failures.
+- Regression audit: `npm run audit:ktx2 -- --url=<served dist> [--runs]
+  [--throttle] [--inject-faults]` runs cold visits under CPU throttling with
+  café switches and fails on any console error or unloaded model.
+  `--inject-faults` makes the first six blob reads and the first transcoder
+  fetch fail. Against `3592a5e` (no retry) that reproduces the CI error
+  exactly (2/2 runs failed). With the fix, 3/3 runs passed with all 7
+  injected failures recovered, and 3/3 clean runs at 6× throttle passed.
+- Also found while reproducing: under #23's earlier preprocess
+  (`66bf6c9`), `models/aliases.json` was not shipped, so every visit logged a
+  404 console error. The alias file is removed (it only saved the
+  `pet_cat`/`cat` duplicate).
+
+
 
 Any order works; these are the resolutions to apply.
 
