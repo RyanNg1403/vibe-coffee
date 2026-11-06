@@ -5,6 +5,9 @@ import { ImpactAudio, impactLoudness } from './impactAudio.js';
 import { TablePropPhysics } from './propPhysics.js';
 import { BodyDynamics, GazeDirector } from './bodyDynamics.js';
 import { detectPhysicsTier, PhysicsBudget } from './deviceTier.js';
+import { ChairRig } from './chairs.js';
+import { CharacterIK } from './characterIK.js';
+import { SoftSway } from './softSway.js';
 
 // One owner for the café's physical layer. main.js forwards four hooks (sim
 // step, frame, before/after render) plus the player's walk step; everything
@@ -71,6 +74,8 @@ export class RealismSystem {
     });
     this.body = new BodyDynamics();
     this.gaze = new GazeDirector();
+    this.ik = new CharacterIK();
+    this.soft = new SoftSway();
     this.budget = new PhysicsBudget(2);
     this.budgetPinned = /[?&]physics=/.test(env.location?.search ?? '');
     this.looseProps = looseProps;
@@ -84,11 +89,20 @@ export class RealismSystem {
     this.tables = [];
     this.bumps = 0;
     this.costMs = 0;
+    this.renderCostMs = 0;
     this._actors = [];
+    this._npcs = [];
+    this._avatars = [];
+    this._viewer = null;
+    this._frameDt = 1 / 60;
     this._contact = { x: 0, z: 0 };
     this._lastBumpAt = -Infinity;
     this._simTick = 0;
     this._clock = 0;
+    this.audio = audio;
+    this._scrape = (x, z, loudness) => {
+      if (this.audio?.started && loudness > 0.3) this.audio.playChairScrape({ x, y: 0.3, z });
+    };
   }
 
   get level() { return this.enabled ? this.budget.level : -1; }
@@ -108,6 +122,9 @@ export class RealismSystem {
     this.crowd = crowd;
     this.pets = pets;
     this.door = attachHingePhysics(cafe.entrance);
+    this.chairs = new ChairRig(cafe);
+    this.ik.setStairs(cafe.blueprint?.decor?.deck);
+    if (crowd) crowd.anticipation = this.budget.level >= 1;
     this.steam = new SteamDisturbance(cafe.group);
     this.tables = collectTables(cafe);
     const open = !!(theme ?? cafe.theme)?.openAir;
@@ -121,10 +138,16 @@ export class RealismSystem {
     this.sway?.dispose();
     this._staticSway?.dispose();
     this._staticSway = null;
-    if (this.crowd) this.crowd.playerAgent = null;
-    this.cafe = this.crowd = this.pets = this.door = this.sway = this.steam = null;
+    if (this.crowd) {
+      this.crowd.playerAgent = null;
+      this.crowd.anticipation = false;
+    }
+    this.cafe = this.crowd = this.pets = this.door = this.sway = this.steam = this.chairs = null;
     this.tables = [];
     this._actors.length = 0;
+    this._npcs.length = 0;
+    this._avatars.length = 0;
+    this._viewer = null;
   }
 
   // The player stood up: start loading Rapier, since bumps only happen on foot.
@@ -194,6 +217,11 @@ export class RealismSystem {
     return [...objects].filter((object) => object.parent === group);
   }
 
+  // Walking player vs loose chairs (scraped aside, held when occupied).
+  resolveChairs(proposed, levelId, motor) {
+    return this.chairs?.resolvePlayer(proposed, levelId, PLAYER_RADIUS, motor, this._scrape) ?? false;
+  }
+
   // Door leaf vs player capsule (ground floor only).
   resolvePlayer(proposed, levelId) {
     if (!this.door || levelId !== 'ground') return false;
@@ -227,6 +255,7 @@ export class RealismSystem {
     const started = now();
     this._simTick += 1;
     const level = this.budget.level;
+    if (this.crowd) this.crowd.anticipation = level >= 1;
     const air = this.air;
     air.begin(dt);
     const vx = viewer?.x ?? 0;
@@ -269,8 +298,26 @@ export class RealismSystem {
         this._actors.push({ root: pet.mesh, target: pet.mesh, local: true, gain: 0.9 });
       }
       this.body.update(dt, this._actors, viewer);
+      this._npcs.length = 0;
+      this._avatars.length = 0;
+      for (const npc of this.crowd?.npcs ?? []) {
+        if (!npc.avatar) continue;
+        this._npcs.push(npc);
+        this._avatars.push(npc.avatar);
+      }
+      for (const staff of [this.crowd?.barista, this.crowd?.waiter, this.crowd?.performer]) {
+        if (staff?.avatar) this._avatars.push(staff.avatar);
+      }
+      this.ik.update(dt, this._npcs);
+      for (const avatar of this._avatars) this.soft.install(avatar);
+    } else {
+      this._npcs.length = 0;
+      this._avatars.length = 0;
     }
+    this._viewer = viewer;
     this.gaze.update(dt, this.crowd, viewer, this.player.walking && this.motor.speed > 0.2);
+
+    this.chairs?.update(dt, this.crowd, this.crowd?.playerSeat ?? -1, this._scrape);
 
     for (const event of this.door?.drainEvents() ?? []) {
       this.impacts.play('door', { x: event.x, y: 1.1, z: event.z }, impactLoudness(event.speed, 2.2));
@@ -310,16 +357,23 @@ export class RealismSystem {
 
   frame(rawDt) {
     this._clock += Math.min(rawDt, 0.25);
+    this._frameDt = Math.min(Math.max(rawDt, 0), 0.05);
     if (!this.enabled) return;
     if (!this.budgetPinned) this.budget.observe(rawDt);
     this.props.update(Math.min(rawDt, 0.05));
   }
 
   beforeRender() {
-    if (this.cafe && this.budget.level >= 1) this.body.beforeRender(this._actors);
+    if (!this.cafe || this.budget.level < 1) return;
+    const started = now();
+    this.body.beforeRender(this._actors);
+    this.ik.beforeRender(this._npcs, this._viewer);
+    this.soft.update(this._frameDt, this._avatars, this.air, this._viewer);
+    this.renderCostMs += (now() - started - this.renderCostMs) * 0.05;
   }
 
   afterRender() {
+    this.ik.afterRender();
     this.body.afterRender();
   }
 
@@ -333,9 +387,15 @@ export class RealismSystem {
       physicsSwayBatches: (this.sway ?? this._staticSway)?.batches.length ?? 0,
       physicsSwayAwake: this.sway?.awakeCount ?? 0,
       physicsTableBumps: this.bumps,
+      physicsChairs: this.chairs?.size ?? 0,
+      physicsLookIK: this.ik.lookApplied,
+      physicsFootIK: this.ik.feetApplied,
+      physicsSoftMaterials: this.soft.patched,
+      physicsChairScrapes: this.chairs?.scrapes ?? 0,
       physicsImpactVoices: this.impacts.voices,
       physicsImpactsPlayed: this.impacts.played,
       physicsSimMs: Number(this.costMs.toFixed(3)),
+      physicsRenderMs: Number(this.renderCostMs.toFixed(3)),
       doorAngle: Number((this.door?.angle ?? 0).toFixed(3)),
       doorOmega: Number((this.door?.omega ?? 0).toFixed(3)),
     };

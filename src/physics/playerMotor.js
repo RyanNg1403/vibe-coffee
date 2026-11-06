@@ -65,7 +65,8 @@ export class PlayerMotor {
   drive(dt, inputX, inputZ, out = { x: 0, z: 0 }, sprint = false) {
     const o = this.options;
     const length = Math.hypot(inputX, inputZ);
-    const top = sprint ? o.sprintSpeed : o.maxSpeed;
+    // analog input scales the pace; digital keys always give full magnitude
+    const top = (sprint ? o.sprintSpeed : o.maxSpeed) * Math.min(1, length);
     const targetX = length > 1e-6 ? (inputX / length) * top : 0;
     const targetZ = length > 1e-6 ? (inputZ / length) * top : 0;
     const dvx = targetX - this.vx;

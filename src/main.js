@@ -25,6 +25,8 @@ import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
 import { WorldInteractions } from './interactions/worldInteractions.js';
 import { RealismSystem } from './physics/realism.js';
+import { PlayerController } from './physics/playerController.js';
+import { readIntent } from './physics/movementIntent.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -234,9 +236,6 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const seatHits = [];
 const seatEyeScratch = new THREE.Vector3();
-const walkForward = new THREE.Vector3();
-const walkRight = new THREE.Vector3();
-const walkMove = new THREE.Vector3();
 const listenerForward = new THREE.Vector3();
 const viewEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let pointerDirty = true;
@@ -901,9 +900,16 @@ function updateWalkBtn() {
   if (b) b.textContent = mode === 'walking' ? 'click a chair to sit' : 'stand up & walk';
 }
 
-const walkProposed = new THREE.Vector3();
-const walkDrive = { x: 0, z: 0 };
-const walkGait = { footstep: false, weight: 0 };
+// the character controller reaches the room through these hooks (src/physics)
+const player = new PlayerController(realism, {
+  position: walkPos,
+  groundY: () => walkY,
+  levelId: () => walkLevelId,
+  resolveStatic: resolveCollisions,
+  resolveCrowd: (p) => crowd?.resolvePlayerCollision?.(p, 0.3, walkY),
+  commit: commitWalkMove,
+  onFootstep: (p, weight) => { if (audio.started) audio.playFootstep(p, 0.55 * weight); },
+});
 
 // Commit a proposed walking position: authored portal transitions first, then
 // the current floor's surface height; off-surface candidates slide along one
@@ -1525,6 +1531,9 @@ function frame(now = performance.now()) {
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
   updateAdaptiveQuality(rawDt, frameScheduler.targetFps);
+  // one movement intent per rendered frame (src/controls on the UI branch;
+  // until it merges the legacy key set feeds the same shape)
+  const intent = readIntent(dt, keys);
 
   // Run room life in stable 30 Hz steps, but cap catch-up work after a paused
   // or throttled tab so returning to the café cannot trigger a long CPU spike.
@@ -1562,53 +1571,11 @@ function frame(now = performance.now()) {
       applyView();
     }
   } else if (mode === 'walking' && cafe) {
-    // first-person stroll
-    walkForward.set(-Math.sin(view.yaw), 0, -Math.cos(view.yaw));
-    walkRight.set(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
-    walkMove.set(0, 0, 0);
-    if (keys.has('KeyW') || keys.has('ArrowUp')) walkMove.add(walkForward);
-    if (keys.has('KeyS') || keys.has('ArrowDown')) walkMove.sub(walkForward);
-    if (keys.has('KeyD') || keys.has('ArrowRight')) walkMove.add(walkRight);
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) walkMove.sub(walkRight);
-    // the motor accelerates toward the input and glides to a stop
-    const motor = realism.motor;
-    const drive = motor.drive(dt, walkMove.x, walkMove.z, walkDrive);
-    if (motor.speed > 0) {
-      cameraMoved = true;
-      walkProposed.set(walkPos.x + drive.x, 0, walkPos.z + drive.z);
-      realism.beginPlayerMove(walkProposed);
-      resolveCollisions(walkProposed);
-      realism.notePlayerFurniture(walkProposed, walkLevelId); // table knocks
-      crowd?.resolvePlayerCollision?.(walkProposed, 0.3, walkY);
-      realism.resolvePlayer(walkProposed, walkLevelId); // swinging door leaf
-      // A person can push the player toward a table edge; resolve the room once
-      // more so the two collision systems cannot squeeze the camera into props.
-      resolveCollisions(walkProposed);
-      // §8: collision and walk-surface height resolve atomically — a candidate
-      // off every surface of the current floor is rejected (or slid along an
-      // axis), never dropped to another floor's height.
-      const fromX = walkPos.x, fromZ = walkPos.z;
-      commitWalkMove(walkProposed);
-      motor.settle(dt, walkPos.x - fromX, walkPos.z - fromZ);
-    } else if (realism.resolvePlayer(walkProposed.copy(walkPos), walkLevelId)) {
-      // standing in the door's swing: the leaf shoves you aside
-      cameraMoved = true;
-      resolveCollisions(walkProposed);
-      commitWalkMove(walkProposed);
-    }
-    const gait = motor.gait(dt, walkY, walkRight.x, walkRight.z, walkGait);
-    if (gait.footstep) {
-      cameraMoved = true;
-      if (audio.started) audio.playFootstep(walkPos, 0.55 * gait.weight);
-    }
-    if (motor.moving) cameraMoved = true;
-    camera.position.set(
-      walkPos.x + motor.swayX,
-      motor.eyeY + STAND_EYE + motor.bobY,
-      walkPos.z + motor.swayZ
-    );
-    camera.quaternion.setFromEuler(viewEuler.set(view.pitch + motor.pitch, view.yaw, motor.roll, 'YXZ'));
-    realism.updatePlayer(walkPos, walkY, walkLevelId, true);
+    // first-person stroll: the character controller consumes the intent
+    const pose = player.step(dt, intent, view.yaw);
+    if (pose.moved) cameraMoved = true;
+    camera.position.set(pose.x, pose.y, pose.z);
+    camera.quaternion.setFromEuler(viewEuler.set(view.pitch + pose.pitch, view.yaw, pose.roll, 'YXZ'));
   } else if (seatIndex >= 0 && cafe) {
     // Keep a seated view pixel-stable. Sub-pixel idle motion made GTAO and
     // detailed PBR textures shimmer even though the user was not moving.

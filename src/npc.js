@@ -21,6 +21,8 @@ import { isFemalePortrait, seatForwardOffset } from './npc/seatFit.js';
 import { avoidAgent } from './physics/crowdAvoidance.js';
 
 const selfAgent = { x: 0, z: 0, vx: 0, vz: 0, radius: 0.3 };
+const otherAgent = { x: 0, z: 0, vx: 0, vz: 0, radius: 0.3 };
+const MAX_ANTICIPATED = 4;
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -1653,6 +1655,16 @@ class NPC {
   // to simple collision repulsion.
   _separation(dir) {
     const pos = this.mesh.position;
+    // anticipatory (time-to-collision) avoidance of other walkers: capped to
+    // a few neighbours and switched by the physics budget (sim.anticipation)
+    let anticipations = this.sim.anticipation ? MAX_ANTICIPATED : 0;
+    if (anticipations) {
+      selfAgent.x = pos.x;
+      selfAgent.z = pos.z;
+      selfAgent.vx = this.velocity.x;
+      selfAgent.vz = this.velocity.z;
+      selfAgent.radius = this.personalSpace * 0.62;
+    }
     for (const other of this.sim.npcs) {
       if (other === this) continue;
       const otherMoving = !!other.path;
@@ -1670,6 +1682,15 @@ class NPC {
         const k = (1 - d / radius) ** 2 * 2.6;
         dir.x += (dx / d) * k;
         dir.z += (dz / d) * k;
+      }
+
+      if (anticipations > 0 && otherMoving && d2 < 6.25 && other.velocity) {
+        otherAgent.x = other.mesh.position.x;
+        otherAgent.z = other.mesh.position.z;
+        otherAgent.vx = other.velocity.x;
+        otherAgent.vz = other.velocity.z;
+        otherAgent.radius = (other.personalSpace ?? 0.48) * 0.62;
+        if (avoidAgent(dir, selfAgent, otherAgent, 0.5) > 0) anticipations -= 1;
       }
 
       if (otherMoving && d2 < 1.7 && d2 > 0.06) {
