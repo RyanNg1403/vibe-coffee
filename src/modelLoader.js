@@ -213,9 +213,12 @@ function createLibrary() {
   const pending = new Map();
   // Byte-identical manifest entries (wall_shelf = bookcase, pet_cat = cat,
   // ...) are listed by the build in models/aliases.json and fetched once.
-  const aliases = import.meta.env?.DEV || PORTABLE
+  // Resolved next to the manifest's models (no literal path: the artifact
+  // builder inlines every '/models/…' string it finds).
+  const modelsDir = Object.values(MODEL_MANIFEST)[0]?.url.replace(/[^/]*$/, '') ?? '';
+  const aliases = import.meta.env?.DEV || PORTABLE || !modelsDir
     ? Promise.resolve({})
-    : fetch(assetUrl('/models/aliases.json')).then((res) => (res.ok ? res.json() : {})).catch(() => ({}));
+    : fetch(assetUrl(`${modelsDir}aliases.json`)).then((res) => (res.ok ? res.json() : {})).catch(() => ({}));
   // Shared only between loads in flight together; a later alias re-requests
   // the same URL from the HTTP/service-worker cache instead of pinning bytes.
   const buffers = new Map();
