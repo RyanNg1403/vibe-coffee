@@ -32,6 +32,25 @@ test('player motor ramps up, caps at walking speed and glides to a stop', () => 
   assert.ok(frames < 20, 'stops within a third of a second');
 });
 
+test('sprinting raises the top speed and lengthens the stride', () => {
+  const walk = new PlayerMotor();
+  const run = new PlayerMotor();
+  let walkSteps = 0;
+  let runSteps = 0;
+  const result = {};
+  for (let i = 0; i < 240; i++) {
+    walk.drive(FRAME, 0, -1);
+    run.drive(FRAME, 0, -1, undefined, true);
+    walk.gait(FRAME, 0, 1, 0, result);
+    if (result.footstep) walkSteps += 1;
+    run.gait(FRAME, 0, 1, 0, result);
+    if (result.footstep) runSteps += 1;
+  }
+  assert.ok(Math.abs(run.speed - run.options.sprintSpeed) < 1e-6);
+  const ratio = runSteps / walkSteps;
+  assert.ok(ratio > 1.2 && ratio < run.options.sprintSpeed / walk.options.maxSpeed, `cadence ratio ${ratio}`);
+});
+
 test('player motor slides along obstacles and reports the normal impact speed', () => {
   const motor = new PlayerMotor();
   for (let i = 0; i < 60; i++) motor.drive(FRAME, 1, 0);

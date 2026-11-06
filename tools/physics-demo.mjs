@@ -157,9 +157,9 @@ try {
     if (!virtual) { await delay(ms); return; }
     const expired = client.once('Emulation.virtualTimeBudgetExpired');
     await client.send('Emulation.setVirtualTimePolicy', { policy: 'advance', budget: ms, maxVirtualTimeTaskStarvationCount: 200 });
-    const timedOut = await Promise.race([expired.then(() => false), delay(20000).then(() => true)]);
+    const timedOut = await Promise.race([expired.then(() => false), delay(60000).then(() => true)]);
     if (timedOut) {
-      console.warn('virtual time stalled; continuing in real time');
+      console.warn(`virtual time stalled at frame ${frame}; continuing in real time`);
       virtual = false;
     }
   }

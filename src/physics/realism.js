@@ -330,6 +330,7 @@ export class RealismSystem {
       physicsWorker: this.props.state,
       physicsAwakeProps: this.props.awakeProps,
       physicsSwayFixtures: this.sway?.size ?? 0,
+      physicsSwayBatches: (this.sway ?? this._staticSway)?.batches.length ?? 0,
       physicsSwayAwake: this.sway?.awakeCount ?? 0,
       physicsTableBumps: this.bumps,
       physicsImpactVoices: this.impacts.voices,

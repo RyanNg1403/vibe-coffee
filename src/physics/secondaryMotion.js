@@ -85,11 +85,13 @@ export class AirField {
     }
     if (this.breeze > 0) {
       const t = this.time;
-      // a few incommensurate sines read as natural gusting; the spatial term
-      // makes neighbouring fixtures move slightly out of phase
-      const gust = 0.55 + 0.3 * Math.sin(t * 0.37 + x * 0.21)
-        + 0.18 * Math.sin(t * 1.13 + z * 0.37 + 1.3)
-        + 0.08 * Math.sin(t * 2.9 + x * 0.9);
+      // incommensurate sines from slow swells down to 1-3 s gusts (the band
+      // that sets a cord-hung lamp swinging); the spatial terms put
+      // neighbouring fixtures slightly out of phase
+      const gust = 0.55 + 0.22 * Math.sin(t * 0.37 + x * 0.21)
+        + 0.2 * Math.sin(t * 1.3 + z * 0.37 + 1.3)
+        + 0.12 * Math.sin(t * 2.7 + x * 0.9)
+        + 0.06 * Math.sin(t * 4.1 + z * 1.7);
       wx += this.breezeDirX * this.breeze * gust;
       wz += this.breezeDirZ * this.breeze * gust;
     }

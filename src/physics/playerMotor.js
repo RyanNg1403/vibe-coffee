@@ -7,6 +7,7 @@
 
 export const MOTOR_DEFAULTS = Object.freeze({
   maxSpeed: 2.0,          // m/s; the previous constant walking speed
+  sprintSpeed: 3.2,       // m/s with the sprint modifier held
   acceleration: 6.5,      // m/s² when speeding up toward the input
   braking: 9.5,           // m/s² when stopping or reversing (shoe friction)
   stepLength: 0.72,       // metres per footfall
@@ -61,11 +62,12 @@ export class PlayerMotor {
   get moving() { return this.speed > 0.015 || this.amplitude > 0.02; }
 
   // Integrate the desired velocity and return the unconstrained displacement.
-  drive(dt, inputX, inputZ, out = { x: 0, z: 0 }) {
+  drive(dt, inputX, inputZ, out = { x: 0, z: 0 }, sprint = false) {
     const o = this.options;
     const length = Math.hypot(inputX, inputZ);
-    const targetX = length > 1e-6 ? (inputX / length) * o.maxSpeed : 0;
-    const targetZ = length > 1e-6 ? (inputZ / length) * o.maxSpeed : 0;
+    const top = sprint ? o.sprintSpeed : o.maxSpeed;
+    const targetX = length > 1e-6 ? (inputX / length) * top : 0;
+    const targetZ = length > 1e-6 ? (inputZ / length) * top : 0;
     const dvx = targetX - this.vx;
     const dvz = targetZ - this.vz;
     const dv = Math.hypot(dvx, dvz);
@@ -119,8 +121,10 @@ export class PlayerMotor {
     result.weight = 0;
 
     const before = Math.floor(this.phase / Math.PI);
-    this.phase += (speed * dt / o.stepLength) * Math.PI;
-    const targetAmplitude = Math.min(1, speed / o.maxSpeed);
+    // strides lengthen as the pace quickens (0.72 m at walking speed)
+    const stride = o.stepLength * (1 + 0.12 * Math.max(0, speed - o.maxSpeed));
+    this.phase += (speed * dt / stride) * Math.PI;
+    const targetAmplitude = Math.min(1.35, speed / o.maxSpeed);
     this.amplitude += (targetAmplitude - this.amplitude) * (1 - Math.exp(-7 * dt));
     if (this.amplitude < 0.002 && speed < 0.015) this.amplitude = 0;
     if (Math.floor(this.phase / Math.PI) !== before && this.amplitude > 0.12) {
