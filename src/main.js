@@ -51,6 +51,10 @@ const SEEDED_AUDIT_MODE = MEMORY_AUDIT_MODE || auditParams.has('visual-audit');
 // pets) and the photographic sky afterwards. Audits keep the synchronous
 // path so seeded crowds and renderer counts stay comparable.
 const STREAM_CAST = !SEEDED_AUDIT_MODE;
+// Mirroring metrics() into <html data-vibe-metrics> traverses the scene and
+// rewrites a large attribute every 0.5 s (string churn, style invalidation),
+// so only audit and ?perf sessions do it; tools read window.__vibe.metrics().
+const METRICS_ATTRIBUTE = SEEDED_AUDIT_MODE || auditParams.has('perf');
 function resetMemoryAuditRandom(themeIndex) {
   if (!SEEDED_AUDIT_MODE) return;
   // Make every rebuild of a location contain the same patrons and procedural
@@ -1908,7 +1912,7 @@ function frame(now = performance.now()) {
     fpsWindowStartedAt = now;
   }
 
-  if (elapsed >= metricsSyncAt && window.__vibe) {
+  if (METRICS_ATTRIBUTE && elapsed >= metricsSyncAt && window.__vibe) {
     metricsSyncAt = elapsed + 0.5;
     document.documentElement.dataset.vibeMetrics = JSON.stringify(window.__vibe.metrics());
   }
