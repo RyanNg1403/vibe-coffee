@@ -13,6 +13,7 @@ import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.j
 import { MODEL_MANIFEST } from './modelManifest.js';
 import { ktx2Loader, releaseAfterUpload } from './perf/textureCompression.js';
 import { assetUrl } from './assetUrl.js';
+import { BakedLodPlugin } from './perf/lod/bakedLods.js';
 // Content-hashed build assets instead of a fixed /draco/ folder: they resolve
 // under any deployment base path and never go stale behind a cache.
 const DRACO_FILES = {
@@ -195,6 +196,9 @@ let library = null;
 function createLibrary() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
+  // Blender-baked LOD chains (MSFT_lod) feed the LOD manager; the scene graph
+  // keeps level 0 only, so batching and instancing never see other levels.
+  loader.register((parser) => new BakedLodPlugin(parser));
   const dracoManager = new THREE.LoadingManager();
   dracoManager.setURLModifier((url) => DRACO_FILES[url.split('/').pop()] ?? url);
   const dracoLoader = new DRACOLoader(dracoManager);

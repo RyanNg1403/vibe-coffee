@@ -7,6 +7,7 @@
 // work unchanged because vertices (and their bone weights) are untouched.
 import * as THREE from 'three';
 import { DEFAULT_LOD_RATIOS, pixelsPerUnit, selectLodLevel, usefulLevels } from './lodSelect.js';
+import { bakedLevels, selectBakedLevel } from './bakedLods.js';
 
 const _center = new THREE.Vector3();
 const _sphere = new THREE.Sphere();
@@ -61,6 +62,7 @@ export class LodManager {
     this.nextJobId = 1;
     this.stats = { managed: 0, ready: 0, pending: 0, generatedLevels: 0, sourceTriangles: 0, drawnTriangles: 0, histogram: [0, 0, 0, 0] };
     this.geometriesBuilt = 0;
+    this.bakedSources = 0;
     this.buildMs = 0;
   }
 
@@ -75,7 +77,7 @@ export class LodManager {
     // be cached for the session without any per-room disposal bookkeeping.
     if (!geometry?.userData?.vibeShared || !geometry.index || !geometry.attributes.position) return false;
     if (geometry.groups.length > 1 || geometry.drawRange.start !== 0 || geometry.drawRange.count !== Infinity) return false;
-    return triangleCount(geometry) >= this.minTriangles;
+    return bakedLevels.has(geometry) || triangleCount(geometry) >= this.minTriangles;
   }
 
   scan(root) {
@@ -86,8 +88,24 @@ export class LodManager {
       meshes.push(object);
       const source = this.sourceGeometry(object.geometry);
       if (!this.records.has(source)) {
-        this.records.set(source, { state: 'pending', scale: 1, levels: [] });
-        this.queue.push(source);
+        const baked = bakedLevels.get(source);
+        if (baked) {
+          // Blender-baked chains win; the worker only covers models without.
+          this.records.set(source, {
+            state: 'ready',
+            mode: 'baked',
+            scale: 1,
+            levels: baked.map(({ geometry, distance }) => {
+              geometry.userData.vibeShared = true;
+              this.sourceOf.set(geometry, source);
+              return { geometry, distance, triangles: triangleCount(geometry), error: 0 };
+            }),
+          });
+          this.bakedSources += 1;
+        } else {
+          this.records.set(source, { state: 'pending', mode: 'runtime', scale: 1, levels: [] });
+          this.queue.push(source);
+        }
       }
     });
     this.meshes = meshes;
@@ -190,6 +208,7 @@ export class LodManager {
   raycastProxy(geometry) {
     const record = this.records.get(this.sourceGeometry(geometry));
     if (!record || record.state !== 'ready') return null;
+    if (record.mode === 'baked') return record.levels.at(-1)?.geometry ?? null;
     // Coarsest level within ~3% of the mesh extent (about a centimetre on a
     // pet): plenty for choosing what the pointer is over.
     const level = record.levels.findLast((candidate) => candidate.error <= 0.03) ?? record.levels[0];
@@ -205,6 +224,7 @@ export class LodManager {
     stats.drawnTriangles = 0;
     stats.histogram.fill(0);
     stats.generatedLevels = this.geometriesBuilt;
+    stats.bakedSources = this.bakedSources;
     if (!this.enabled || !camera.isPerspectiveCamera) return;
     const fov = THREE.MathUtils.degToRad(camera.getEffectiveFOV ? camera.getEffectiveFOV() : camera.fov);
     for (const mesh of this.meshes) {
@@ -229,7 +249,9 @@ export class LodManager {
       const distance = Math.max(0.05, _center.distanceTo(camera.position) - _sphere.radius * 0.5);
       const extent = record.scale * meshWorldScale(mesh);
       const current = this.meshLevel.get(mesh) ?? 0;
-      const level = selectLodLevel(
+      const level = record.mode === 'baked'
+        ? selectBakedLevel(record.levels, _center.distanceTo(camera.position), viewportHeightPx, current)
+        : selectLodLevel(
         [{ error: 0 }, ...record.levels],
         extent,
         pixelsPerUnit(distance, fov, viewportHeightPx),

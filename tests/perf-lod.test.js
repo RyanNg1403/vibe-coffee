@@ -198,3 +198,34 @@ test('runtime disposal frees owned GPU resources but never shared library ones',
   assert.equal(root.parent, null);
   assert.deepEqual(disposed.sort(), ['clone-material', 'own-geometry', 'own-material', 'own-texture']);
 });
+
+test('Blender-baked LOD chains win over runtime simplification', async () => {
+  const { bakedLevels, selectBakedLevel } = await import('../src/perf/lod/bakedLods.js');
+  const geometry = sharedSphere();
+  const level1 = new THREE.BufferGeometry();
+  level1.setAttribute('position', geometry.attributes.position);
+  level1.setIndex(Array.from(geometry.index.array.slice(0, geometry.index.count / 2)));
+  bakedLevels.set(geometry, [{ geometry: level1, distance: 5 }]);
+  let workerCreated = false;
+  const manager = new LodManager({ minTriangles: 1000, createWorker: () => { workerCreated = true; throw new Error('unused'); } });
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+  const root = new THREE.Group().add(mesh);
+  manager.scan(root);
+  assert.equal(workerCreated, false, 'no runtime simplification for baked models');
+  assert.equal(manager.records.get(geometry).mode, 'baked');
+  const camera = new THREE.PerspectiveCamera(62, 1.6, 0.05, 100);
+  root.updateMatrixWorld(true);
+  camera.position.set(0, 0, 2);
+  camera.updateMatrixWorld();
+  manager.update(camera, 900);
+  assert.ok(mesh.geometry === geometry, 'inside the baked distance: level 0');
+  camera.position.set(0, 0, 9);
+  camera.updateMatrixWorld();
+  manager.update(camera, 900);
+  assert.ok(mesh.geometry === level1, 'beyond it: the baked level');
+  assert.equal(level1.userData.vibeShared, true);
+  // Lower render resolution switches earlier; hysteresis holds near the edge.
+  assert.equal(selectBakedLevel([{ distance: 5 }], 3, 450), 1);
+  assert.equal(selectBakedLevel([{ distance: 5 }], 4.8, 900, 1), 1);
+  assert.equal(selectBakedLevel([{ distance: 5 }], 5.2, 900, 0), 0);
+});

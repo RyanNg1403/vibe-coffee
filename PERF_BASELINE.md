@@ -122,9 +122,17 @@ culled (6–14 of ~15 in typical seated and walking views).
 
 Applied (all in `src/perf/` unless noted):
 
-- **Runtime LODs** (`lod/`): meshoptimizer simplification in a Web Worker,
-  three levels per heavy library mesh (≥ 3 K triangles), selected per mesh
-  from screen-space error with hysteresis. Skinned meshes work unchanged.
+- **LODs** (`lod/`): Blender-baked chains win where a GLB has them
+  (`MSFT_lod`, or the `vibeLodId`/`vibeLodOf` extras mirror). `bakedLods.js`
+  records each chain against LOD0's geometry and switches by the baked
+  `vibeLodDistances`, scaled with render height. Only models without a chain
+  fall back to meshoptimizer simplification in a Web Worker: three levels per
+  heavy library mesh (≥ 3 K triangles), chosen from screen-space error with
+  hysteresis. The scene graph only ever holds level 0 (no `THREE.LOD`), so
+  `cafe.js` static merging and instancing see full detail only. Skinned
+  meshes work unchanged. With PR #26's models: 284 of 287 managed meshes use
+  baked chains, 3 use the worker; drawn library triangles 1.09M → 0.57M at
+  Auto; 0.13 % of pixels differ by more than 8/255 at fixed 1×.
 - **Pose-following actor culling** (`skinnedCulling.js`): one bone-derived
   sphere per skeleton, mapped into each part's local space. This replaces
   "always draw" for indoor patrons; main and shadow passes cull independently.
@@ -136,10 +144,16 @@ Applied (all in `src/perf/` unless noted):
   pet template against its lights, holding the frame (≤ 2.5 s) meanwhile.
   Compressed library textures are then uploaded one per frame, so a patron
   walking in later causes no upload hitch.
-- **KTX2/ETC1S textures** (`tools/compress-textures.mjs`, part of
-  `npm run build`): colour textures re-encoded with mipmaps into `dist/`.
-  Source GLBs in `public/` are untouched, so Blender re-exports never
-  conflict. The transcoded data is released from the JS heap after upload.
+- **KTX2 textures** (`tools/compress-textures.mjs`, part of `npm run build`;
+  the only KTX2 path): every GLB texture is re-encoded with mipmaps into
+  `dist/`, chosen by role. Colour is ETC1S sRGB, normal maps UASTC linear
+  (RDO + zstd), occlusion/roughness/metalness and other data ETC1S linear.
+  Across the library that is 158 textures: download 7.76 → 7.74 MB (normals
+  0.31 → 1.03 MB, colour 7.07 → 6.25 MB), GPU estimate 301 → ≤ 75 MB. PR #26's
+  `MSFT_lod` chains are read and written back intact (registered from
+  `tools/msft-lod.mjs`; 179 chains verified on #26's models). Source GLBs in
+  `public/` are untouched, so Blender re-exports never conflict. The
+  transcoded data is released from the JS heap after upload.
   Requires [KTX-Software](https://github.com/KhronosGroup/KTX-Software)
   `toktx` on `PATH` (or `$TOKTX`) plus ffmpeg; the build skips this step
   with a warning when they are missing.
@@ -200,6 +214,40 @@ is blocked for an exponentially growing penalty. `main.js` currently adapts
 can replace its `getTier`/`setTier`.
 
 A/B switches: `?lod=0`, `?cull=0`, `?bvh=0`, `?warmup=0`, `?adaptive=0`.
+
+### Merge order with PR #23 (Pages deploy) and PR #26 (hero assets, baked LODs)
+
+Any order works; these are the resolutions to apply.
+
+- **#26 and this PR:**
+  - `tools/msft-lod.mjs` is byte-identical in both, so the add/add is clean.
+  - #26's `src/gltfLodPlugin.js` (which builds `THREE.LOD`) must stay
+    unregistered: `BakedLodPlugin` here reads the same chains without
+    restructuring the scene. Registering both would wrap meshes in
+    `THREE.LOD` and have two systems switch the same mesh.
+  - #26 regenerates `src/modelManifest.js` (base-prefixed URLs, `lods`
+    fields, `espresso_machine`/`cup` removed). This PR does not edit it, and
+    the first-frame lists in `modelLoader.js` ignore keys missing from the
+    manifest.
+  - #26 drops its committed `ktx2/` copies; `tools/compress-textures.mjs` is
+    the KTX2 path.
+  - Merging this PR first makes #26's LODs and textures effective as soon as
+    #26 lands. Merging #26 first leaves its chains dormant until this lands.
+- **#23 and this PR:**
+  - `src/assetUrl.js` is byte-identical.
+  - `package.json` `build`: keep #23's `vite build`. Its `pagesDeploy`
+    preprocess already runs `tools/compress-textures.mjs` into the Pages
+    output. Drop this PR's `&& node tools/compress-textures.mjs`, or the step
+    would rewrite `dist/models` after the service worker revisioned it.
+    `models/aliases.json` is written by that same step.
+  - `src/modelLoader.js`: take this PR's version, which uses hashed
+    Draco/Basis assets instead of `assetUrl('/draco/')`. `public/draco` is
+    removed here.
+  - `vite.config.js`: keep #23's config and add this PR's `bvh` chunk group.
+    #23 already keeps `three/examples` out of the vendor chunk.
+  - Drop #23's `CRITICAL_PRELOADS` entry for `environment/courtyard.hdr`.
+    `main.js` now requests the HDR after the first café frame, so the preload
+    would put its 1.4 MB back in front of first paint.
 
 ### Deployment notes (GitHub Pages under a sub-path)
 
