@@ -12,7 +12,7 @@
 
 import { loadSoundLibrary, loadSoundAsset, loadStreamedSoundAsset } from './soundLoader.js';
 import { SOUND_MANIFEST } from './soundManifest.js';
-import { MUSIC_MANIFEST } from './musicManifest.js';
+import { stationTracks, DEFAULT_MUSIC_STATION } from './musicStations.js';
 import { MediaElementPool, StreamedLoop, mediaStreamingSupported } from './audioStream.js';
 
 // Recordings the looping beds are built from; they stream before one-shots.
@@ -244,6 +244,10 @@ export class CafeAudio {
     this.voicesLevel = 1;     // user's "people talking" slider, scales the crowd beds
     this.recordedVolume = 0.5;
     this.recordedDuck = 1;
+    this.musicStation = DEFAULT_MUSIC_STATION;
+    // An external player (the UI's YouTube source) can take over the music
+    // slot; the radio keeps its own on/off state underneath.
+    this.musicSuppressed = false;
   }
 
   start(theme) {
@@ -726,9 +730,22 @@ export class CafeAudio {
     if (this.musicMuter) {
       const t = this.ctx.currentTime;
       this.musicMuter.gain.cancelScheduledValues(t);
-      this.musicMuter.gain.setTargetAtTime(on ? 1 : 0, t, 0.4);
+      this.musicMuter.gain.setTargetAtTime(on && !this.musicSuppressed ? 1 : 0, t, 0.4);
     }
     this._applyRecordedVolumes();
+  }
+
+  // Silences the café radio while another source (YouTube) plays.
+  setMusicSuppressed(suppressed) {
+    this.musicSuppressed = Boolean(suppressed);
+    this.setMusicOn(this.musicOn);
+  }
+
+  // Station changes crossfade to a record from the new station.
+  setMusicStation(stationId) {
+    if (!stationId || stationId === this.musicStation) return;
+    this.musicStation = stationId;
+    if (this._musicStarted && this.recordedMusic) this._playRecordedTrack(true);
   }
 
   setTheme(theme) {
@@ -752,10 +769,9 @@ export class CafeAudio {
     this.recordTextureGain?.gain.setTargetAtTime(theme?.vinyl ? 1 : theme?.id === 'goldenhour' ? 0.12 : 0.02, this.ctx.currentTime, 1.2);
     if (this._musicStarted) {
       if (this.recordedMusic) {
-        if (this._recordThemeId !== theme.id) {
-          this._recordThemeId = theme.id;
-          this._playRecordedTrack(true);
-        }
+        const venueChange = this._recordThemeId !== theme.id;
+        this._recordThemeId = theme.id;
+        if (venueChange && this.musicStation === 'cafe') this._playRecordedTrack(true);
       } else this._newSong();
     }
   }
@@ -1799,7 +1815,7 @@ export class CafeAudio {
 
   _startMusic() {
     this._musicStarted = true;
-    if (MUSIC_MANIFEST[this.styleId]?.length) {
+    if (this._musicPool().length) {
       this._startRecordedMusic();
       return;
     }
@@ -1808,7 +1824,7 @@ export class CafeAudio {
 
   _startRecordedMusic() {
     this.recordedMusic = true;
-    this._recordThemeId = this.styleId;
+    this._recordThemeId = this.theme?.id ?? this.styleId;
     this._recordBags = {};
     this._recordDeckIndex = -1;
     this._musicDecks = [0, 1].map(() => {
@@ -1822,10 +1838,15 @@ export class CafeAudio {
     this._playRecordedTrack(false);
   }
 
-  _nextRecordedTrack(themeId) {
-    const pool = MUSIC_MANIFEST[themeId] ?? [];
+  _musicPool() {
+    return stationTracks(this.musicStation, this.theme?.id ?? this.styleId);
+  }
+
+  _nextRecordedTrack() {
+    const pool = this._musicPool();
     if (!pool.length) return null;
-    let bag = this._recordBags[themeId];
+    const bagKey = this.musicStation === 'cafe' ? `cafe:${this.theme?.id ?? this.styleId}` : this.musicStation;
+    let bag = this._recordBags[bagKey];
     if (!bag?.length) {
       bag = pool.map((_, i) => i);
       for (let i = bag.length - 1; i > 0; i--) {
@@ -1835,7 +1856,7 @@ export class CafeAudio {
       if (bag.length > 1 && pool[bag[bag.length - 1]].id === this._lastRecordedId) {
         [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
       }
-      this._recordBags[themeId] = bag;
+      this._recordBags[bagKey] = bag;
     }
     const track = pool[bag.pop()];
     this._lastRecordedId = track.id;
@@ -1844,8 +1865,7 @@ export class CafeAudio {
 
   async _playRecordedTrack(themeChange = false) {
     if (!this.recordedMusic || !this.ctx) return;
-    const themeId = this.styleId || 'goldenhour';
-    const track = this._nextRecordedTrack(themeId);
+    const track = this._nextRecordedTrack();
     if (!track) return;
     const token = (this._recordToken ?? 0) + 1;
     this._recordToken = token;
@@ -1883,7 +1903,8 @@ export class CafeAudio {
 
   _applyRecordedVolumes() {
     if (!this._musicDecks) return;
-    const master = (this.muted ? 0 : 1) * (this.musicOn ? 1 : 0) * this.recordedVolume * this.recordedDuck;
+    const audible = this.musicOn && !this.musicSuppressed;
+    const master = (this.muted ? 0 : 1) * (audible ? 1 : 0) * this.recordedVolume * this.recordedDuck;
     for (const deck of this._musicDecks) deck.el.volume = clamp(deck.mix * master, 0, 1);
   }
 
