@@ -21,10 +21,14 @@ const TRANSCODER_IDLE_MS = 10000;
 // idle for a while is terminated; the loader spawns fresh workers from its
 // kept source and binary on the next transcode. Never mid-load or mid-retry,
 // and never while a failed transcoder initialisation may be reset.
+export function transcoderReleasable({ pool, inFlight, settledAt, now, idleMs = TRANSCODER_IDLE_MS }) {
+  if (!pool?.workers?.length || pool.workerStatus !== 0 || pool.queue.length) return false;
+  return inFlight === 0 && now - settledAt >= idleMs;
+}
+
 export function releaseIdleTranscoders(now = performance.now()) {
   const pool = resolvedLoader?.workerPool;
-  if (!pool?.workers?.length || pool.workerStatus !== 0 || pool.queue.length) return 0;
-  if (ktx2InFlight > 0 || now - ktx2SettledAt < TRANSCODER_IDLE_MS) return 0;
+  if (!transcoderReleasable({ pool, inFlight: ktx2InFlight, settledAt: ktx2SettledAt, now })) return 0;
   const count = pool.workers.length;
   pool.dispose();
   return count;
@@ -134,14 +138,26 @@ export function ktx2Loader() {
 
 // Library textures are uploaded once and never modified, so the transcoded
 // mip chain (as large as its video memory) can leave the JS heap afterwards.
+// Uncompressed ones drop their decoded image (an ImageBitmap is closed; its
+// dimensions stay readable for memory accounting).
 export function releaseAfterUpload(texture) {
-  if (!texture.isCompressedTexture || texture.userData.releaseAfterUpload) return;
+  if (texture.userData.releaseAfterUpload) return;
+  if (!texture.isCompressedTexture && !texture.image) return;
   texture.userData.releaseAfterUpload = true;
-  texture.userData.gpuBytes = (texture.mipmaps ?? []).reduce((sum, mip) => sum + (mip.data?.byteLength ?? 0), 0);
+  if (texture.isCompressedTexture) {
+    texture.userData.gpuBytes = (texture.mipmaps ?? []).reduce((sum, mip) => sum + (mip.data?.byteLength ?? 0), 0);
+  }
   const previous = texture.onUpdate;
   texture.onUpdate = (uploaded) => {
     previous?.(uploaded);
-    uploaded.mipmaps = [];
+    if (uploaded.isCompressedTexture) uploaded.mipmaps = [];
+    else {
+      const image = uploaded.image;
+      if (image && !image.released) {
+        uploaded.image = { width: image.width, height: image.height, released: true };
+        image.close?.();
+      }
+    }
     uploaded.onUpdate = previous ?? null;
     releasedTextures += 1;
   };

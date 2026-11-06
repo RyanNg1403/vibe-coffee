@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadWithRetries, KTX2_RETRIES } from '../src/perf/textureCompression.js';
+import { loadWithRetries, KTX2_RETRIES, transcoderReleasable } from '../src/perf/textureCompression.js';
 
 function flaky(failures, error = new Error('transcode failed')) {
   let calls = 0;
@@ -30,4 +30,14 @@ test('a failed transcoder initialisation is cleared before the next attempt', as
   const attempt = (onLoad, onError) => setTimeout(() => (transcoderReady ? onLoad('ok') : onError(new Error('transcoder fetch failed'))), 0);
   const texture = await loadWithRetries(attempt, { delayMs: 1, beforeRetry: async () => { transcoderReady = true; } });
   assert.equal(texture, 'ok');
+});
+
+test('idle transcoder workers are never released mid-load or during a retry backoff', () => {
+  const idlePool = { workers: [{}, {}], workerStatus: 0, queue: [] };
+  // A retry waiting out its backoff leaves the pool idle but the load in flight.
+  assert.equal(transcoderReleasable({ pool: idlePool, inFlight: 1, settledAt: 0, now: 60000 }), false);
+  assert.equal(transcoderReleasable({ pool: { ...idlePool, workerStatus: 1 }, inFlight: 0, settledAt: 0, now: 60000 }), false);
+  assert.equal(transcoderReleasable({ pool: { ...idlePool, queue: [{}] }, inFlight: 0, settledAt: 0, now: 60000 }), false);
+  assert.equal(transcoderReleasable({ pool: idlePool, inFlight: 0, settledAt: 55000, now: 60000 }), false, 'recently busy');
+  assert.equal(transcoderReleasable({ pool: idlePool, inFlight: 0, settledAt: 0, now: 60000 }), true);
 });

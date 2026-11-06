@@ -334,10 +334,9 @@ function createLibrary() {
     if (backgroundScheduled) return;
     backgroundScheduled = true;
     const warm = async () => {
-      const aliasMap = await aliases;
       for (const key of keys) {
         if (models.has(key) || pending.has(key)) continue;
-        const url = MODEL_MANIFEST[aliasMap[key]]?.url ?? MODEL_MANIFEST[key].url;
+        const url = MODEL_MANIFEST[key].url;
         if (url.startsWith('data:')) continue;
         await fetch(assetUrl(url), { priority: 'low' }).then((res) => res.arrayBuffer()).catch(() => null);
       }
