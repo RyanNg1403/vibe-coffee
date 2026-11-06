@@ -10,9 +10,24 @@
 //  - events are multi-stage (knock -> grind -> pump -> steam) instead of
 //    single noise bursts
 
-import { loadSoundLibrary, loadSoundAsset } from './soundLoader.js';
+import { loadSoundLibrary, loadSoundAsset, loadStreamedSoundAsset } from './soundLoader.js';
 import { SOUND_MANIFEST } from './soundManifest.js';
-import { MUSIC_MANIFEST } from './musicManifest.js';
+import { stationTracks, DEFAULT_MUSIC_STATION } from './musicStations.js';
+import { assetUrl } from './assetUrl.js';
+import { MediaElementPool, StreamedLoop, mediaStreamingSupported } from './audioStream.js';
+
+// Recordings the looping beds are built from; they stream before one-shots.
+const CHATTER_KEYS = ['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet'];
+const BED_KEYS = new Set([...CHATTER_KEYS, 'traffic_day', 'traffic_night']);
+// Long loops play compressed through media elements (audioStream.js) where
+// the browser supports it; ?audiostream=0 forces decoded buffers (A/B).
+const STREAMED_KEYS = new Set([...BED_KEYS, 'rain_light', 'rain_steady', 'rain_heavy']);
+const STREAM_LOOPS = typeof location === 'undefined' || new URLSearchParams(location.search).get('audiostream') !== '0';
+// One-shots only some cafés use: decoded on entering one, freed on leaving.
+const CAFE_SCOPED = { thunder: (theme) => !!theme?.rain };
+// Elements unlocked inside the "step inside" gesture (iOS needs this): two
+// per streamed loop, enough for the busiest café plus a rain change.
+const BLESSED_ELEMENTS = 14;
 
 const MIDI_A4 = 69;
 const freq = (midi) => 440 * Math.pow(2, (midi - MIDI_A4) / 12);
@@ -211,16 +226,29 @@ export class CafeAudio {
     this.occupancy = 0;
     this.capacity = 1;
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
+    // Recorded downloads wait for this (the app resolves it once the room has
+    // drawn its first frame); the synth beds play from the click meanwhile.
+    this.libraryGate = null;
     this.activeOneShotSources = 0; // live non-looping recorded sources, for runtime audits
     this._oneShotGroups = new Map(); // bounded high-frequency effects, e.g. crowd footsteps
     this.activePetVoices = 0;      // live pet voice sources (spontaneous ones cap at 1)
     this.rainIntensity = 2;        // sound-menu rain stop: 0 off .. 3 heavy
     this._lazyLoads = new Map();   // in-flight lazy buffer decodes by key
+    this._failedSounds = new Set(); // keys that failed to load; never retried
+    this._mediaPool = null;        // pooled <audio> elements for streamed loops
+    this._bedsReady = false;
+    this._bedToken = 0;
+    this.chatterBeds = {};
+    this.trafficBeds = {};
     this.petVolume = 0.65;         // user's pets slider, applied to petBus on start
     this._listenerPos = { x: 0, y: 1.5, z: 0 }; // mirrored for distance gating
     this.voicesLevel = 1;     // user's "people talking" slider, scales the crowd beds
     this.recordedVolume = 0.5;
     this.recordedDuck = 1;
+    this.musicStation = DEFAULT_MUSIC_STATION;
+    // An external player (the UI's YouTube source) can take over the music
+    // slot; the radio keeps its own on/off state underneath.
+    this.musicSuppressed = false;
   }
 
   start(theme) {
@@ -228,6 +256,10 @@ export class CafeAudio {
     this.started = true;
     this.theme = theme;
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (STREAM_LOOPS && mediaStreamingSupported(ctx)) {
+      this._mediaPool = new MediaElementPool(ctx);
+      this._mediaPool.bless(BLESSED_ELEMENTS);
+    }
 
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.9;
@@ -312,24 +344,51 @@ export class CafeAudio {
     this._startMusic();
 
     // recorded assets stream in behind the synth and take over the beds
-    loadSoundLibrary(ctx, SOUND_MANIFEST).then((buffers) => {
-      // lazily decoded entries (the active rain level) survive the swap
-      for (const [key, entry] of this.buffers) {
-        if (!buffers.has(key)) buffers.set(key, entry);
-      }
-      this.buffers = buffers;
-      this._applyRecordedBeds();
-    });
+    Promise.resolve(this.libraryGate).then(() => this._loadRecordedLibrary(ctx));
+  }
+
+  // Beds first (they replace the synth stand-ins as one mix), then one-shots,
+  // which are looked up by key whenever an event fires.
+  // Only the beds the current café mixes are loaded (and mounted); see
+  // _mountBeds. Café-scoped one-shots load when a café needs them.
+  async _loadRecordedLibrary(ctx) {
+    const entries = Object.entries(SOUND_MANIFEST);
+    const others = Object.fromEntries(entries.filter(([key]) => !BED_KEYS.has(key) && !CAFE_SCOPED[key]));
+    await this._applyRecordedBeds();
+    // merging keeps lazily decoded entries (the active rain level)
+    for (const [key, entry] of await loadSoundLibrary(ctx, others)) this.buffers.set(key, entry);
   }
 
   // ---------- recorded-asset helpers ----------
 
   _buf(key) { return this.buffers.get(key) || null; }
 
+  // Forget a recording. Loops still fading out keep their own reference.
+  _dropEntry(key) {
+    const entry = this.buffers.get(key);
+    if (!entry) return;
+    this.buffers.delete(key);
+    entry.stream?.release();
+  }
+
+  _playStream(entry, opts) {
+    const loop = new StreamedLoop(this.ctx, this._mediaPool, entry.stream, {
+      out: opts.out ?? this.ambienceBus,
+      volume: (opts.vol ?? 1) * (entry.gain ?? 1),
+      loopStart: opts.loopStart,
+      loopEnd: opts.loopEnd,
+      offset: opts.offset,
+      fallback: entry.decode,
+    });
+    if (opts.rate) loop.setRate(opts.rate);
+    return { src: loop.src, gain: loop.gain, release: null, stream: loop };
+  }
+
   // play a recorded asset; opts: {out, vol, rate, offset, dur, loop, seamless, when}
   _playBuf(key, opts = {}) {
     const entry = this._buf(key);
     if (!entry || !this.ctx) return null;
+    if (entry.stream) return opts.loop ? this._playStream(entry, opts) : null;
     const isOneShot = !opts.loop;
     const groupName = opts.group ?? null;
     const groupCount = groupName ? (this._oneShotGroups.get(groupName) ?? 0) : 0;
@@ -402,58 +461,108 @@ export class CafeAudio {
 
   // once assets are loaded: recorded chatter/traffic/rain beds fade in,
   // synth equivalents duck down to a supporting role
-  _applyRecordedBeds() {
-    const t = this.ctx.currentTime;
-
-    // every available crowd recording runs as a loop behind its own gain;
-    // each café's profile mixes them into a different-sounding room
-    this.chatterBeds = {};
-    const bedKeys = ['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet'];
-    if (bedKeys.some((k) => this._buf(k))) {
-      this.chatterTone = this.ctx.createBiquadFilter();
-      this.chatterTone.type = 'lowpass';
-      this.chatterTone.frequency.value = 7500;
-      this.chatterTone.connect(this.voicesBus);
-      for (const k of bedKeys) {
-        if (!this._buf(k)) continue;
-        const g = this.ctx.createGain();
-        g.gain.value = 0;
-        g.connect(this.chatterTone);
-        const src = this._playBuf(k, { out: g, vol: 1, loop: true });
-        this.chatterBeds[k] = { gain: g, src };
-      }
-      this._applyAmbienceProfile();
-      void t;
-    }
+  async _applyRecordedBeds() {
+    if (this._bedsReady) return;
+    this._bedsReady = true;
+    // each café's profile mixes the crowd recordings into a different room
+    this.chatterTone = this.ctx.createBiquadFilter();
+    this.chatterTone.type = 'lowpass';
+    this.chatterTone.frequency.value = 7500;
+    this.chatterTone.connect(this.voicesBus);
 
     // street heard from inside, localized at the shopfront
-    if (this._buf('traffic_day') || this._buf('traffic_night')) {
-      const front = this.anchors?.door ?? { x: 0, z: 5 };
-      this.trafficDayGain = this.ctx.createGain();
-      this.trafficNightGain = this.ctx.createGain();
-      const muffle = this.ctx.createBiquadFilter();
-      muffle.type = 'lowpass';
-      muffle.frequency.value = 1500; // through the glass
-      const pan = this._panner(front.x, 1.6, front.z + 1.5, this.exteriorBus);
-      this.trafficDayGain.connect(muffle);
-      this.trafficNightGain.connect(muffle);
-      muffle.connect(pan);
-      if (this._buf('traffic_day')) this._playBuf('traffic_day', { out: this.trafficDayGain, vol: 0.5, loop: true });
-      if (this._buf('traffic_night')) this._playBuf('traffic_night', { out: this.trafficNightGain, vol: 0.35, loop: true });
-      this._setTrafficMix();
-      // the occasional single car driving past
-      const carPass = () => {
-        if (this.theme && Math.random() < 0.75) this.playCarPass();
-        // busier street = more frequent cars
-        const busy = this._profile().traffic;
-        this._timer(carPass, rand(14000, 45000) / Math.max(0.4, busy));
-      };
-      this._timer(carPass, 8000);
-    }
+    const front = this.anchors?.door ?? { x: 0, z: 5 };
+    this.trafficDayGain = this.ctx.createGain();
+    this.trafficNightGain = this.ctx.createGain();
+    const muffle = this.ctx.createBiquadFilter();
+    muffle.type = 'lowpass';
+    muffle.frequency.value = 1500; // through the glass
+    const pan = this._panner(front.x, 1.6, front.z + 1.5, this.exteriorBus);
+    this.trafficDayGain.connect(muffle);
+    this.trafficNightGain.connect(muffle);
+    muffle.connect(pan);
+
+    await this._mountBeds();
+    this._syncCafeScopedSounds();
 
     // The recorded field ambience replaces the short synthetic fallback.
     // (Rain levels are lazy: _startRain triggers the on-demand decode.)
     if (this.theme?.rain) this._startRain();
+  }
+
+  // Bed weights for the current café, with weight falling back to the
+  // generic bed when a café-specific recording is unavailable.
+  _wantedBeds() {
+    const want = { ...this._profile().beds };
+    const available = (key) => !!SOUND_MANIFEST[key] && !this._failedSounds.has(key);
+    if (!available('chatter_busy') && want.chatter_busy) { want.chatter += want.chatter_busy * 0.8; want.chatter_busy = 0; }
+    if (!available('chatter_quiet') && want.chatter_quiet) { want.chatter += want.chatter_quiet * 0.5; want.chatter_quiet = 0; }
+    return want;
+  }
+
+  _wantedBedKeys() {
+    const want = this._wantedBeds();
+    const keys = CHATTER_KEYS.filter((key) => (want[key] ?? 0) > 0);
+    if (this._profile().traffic > 0) keys.push(this.theme?.timeOfDay === 'night' ? 'traffic_night' : 'traffic_day');
+    return keys.filter((key) => SOUND_MANIFEST[key] && !this._failedSounds.has(key));
+  }
+
+  // Load and loop exactly the beds this café mixes; beds of other cafés stop
+  // and their decoded copies (buffer fallback) are freed. All wanted beds
+  // start together so they replace the synth stand-ins as one mix.
+  async _mountBeds() {
+    if (!this._bedsReady || !this.ctx) return;
+    const token = ++this._bedToken;
+    let wanted = this._wantedBedKeys();
+    await Promise.all(wanted.map((key) => this._ensureLazyBuffer(key)));
+    if (token !== this._bedToken) return;
+    // a failed café-specific bed moves its weight onto the generic one
+    wanted = this._wantedBedKeys();
+    await Promise.all(wanted.map((key) => this._ensureLazyBuffer(key)));
+    if (token !== this._bedToken) return;
+    const t = this.ctx.currentTime;
+    for (const key of wanted) {
+      if (!this._buf(key)) continue;
+      if (CHATTER_KEYS.includes(key)) {
+        if (this.chatterBeds[key]) continue;
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0;
+        gain.connect(this.chatterTone);
+        this.chatterBeds[key] = { gain, src: this._playBuf(key, { out: gain, vol: 1, loop: true }) };
+      } else if (!this.trafficBeds[key]) {
+        const day = key === 'traffic_day';
+        this.trafficBeds[key] = {
+          src: this._playBuf(key, { out: day ? this.trafficDayGain : this.trafficNightGain, vol: day ? 0.5 : 0.35, loop: true }),
+        };
+        this._startCarPasses();
+      }
+    }
+    for (const beds of [this.chatterBeds, this.trafficBeds]) {
+      for (const key of Object.keys(beds)) {
+        if (wanted.includes(key)) continue;
+        const { gain, src } = beds[key];
+        delete beds[key];
+        gain?.gain.setTargetAtTime(0, t, 0.6);
+        src?.gain.gain.setTargetAtTime(0, t, 0.6);
+        try { src?.src.stop(t + 3); } catch { /* already stopped */ }
+        if (!this._buf(key)?.stream) this._dropEntry(key);
+      }
+    }
+    this._applyAmbienceProfile();
+    this._setTrafficMix();
+  }
+
+  // the occasional single car driving past
+  _startCarPasses() {
+    if (this._carPasses) return;
+    this._carPasses = true;
+    const carPass = () => {
+      if (this.theme && Math.random() < 0.75) this.playCarPass();
+      // busier street = more frequent cars
+      const busy = this._profile().traffic;
+      this._timer(carPass, rand(14000, 45000) / Math.max(0.4, busy));
+    };
+    this._timer(carPass, 8000);
   }
 
   _setTrafficMix() {
@@ -478,11 +587,7 @@ export class CafeAudio {
     const voices = (this.voicesLevel ?? 1) * (this.crowdFactor ?? 1);
     const occupancy = clamp(this.occupancy / Math.max(1, this.capacity), 0.08, 1);
     if (Object.keys(beds).length) {
-      // desired mix, with weight falling back to the generic bed when a
-      // café-specific recording didn't make it
-      const want = { ...p.beds };
-      if (!beds.chatter_busy && want.chatter_busy) { want.chatter += want.chatter_busy * 0.8; want.chatter_busy = 0; }
-      if (!beds.chatter_quiet && want.chatter_quiet) { want.chatter += want.chatter_quiet * 0.5; want.chatter_quiet = 0; }
+      const want = this._wantedBeds();
       for (const [k, bed] of Object.entries(beds)) {
         bed.gain.gain.setTargetAtTime((want[k] ?? 0) * voices * (0.3 + occupancy * 0.7), t, 0.8);
         bed.src?.src.playbackRate.setTargetAtTime(p.chatterRate * (k === 'chatter2' ? 0.97 : 1), t, 1.5);
@@ -626,9 +731,22 @@ export class CafeAudio {
     if (this.musicMuter) {
       const t = this.ctx.currentTime;
       this.musicMuter.gain.cancelScheduledValues(t);
-      this.musicMuter.gain.setTargetAtTime(on ? 1 : 0, t, 0.4);
+      this.musicMuter.gain.setTargetAtTime(on && !this.musicSuppressed ? 1 : 0, t, 0.4);
     }
     this._applyRecordedVolumes();
+  }
+
+  // Silences the café radio while another source (YouTube) plays.
+  setMusicSuppressed(suppressed) {
+    this.musicSuppressed = Boolean(suppressed);
+    this.setMusicOn(this.musicOn);
+  }
+
+  // Station changes crossfade to a record from the new station.
+  setMusicStation(stationId) {
+    if (!stationId || stationId === this.musicStation) return;
+    this.musicStation = stationId;
+    if (this._musicStarted && this.recordedMusic) this._playRecordedTrack(true);
   }
 
   setTheme(theme) {
@@ -636,6 +754,8 @@ export class CafeAudio {
     if (!this.ctx) return;
     if (theme?.rain) this._startRain(); else this._stopRain();
     if (theme?.birds) this._startBirds(); else this._stopBirds();
+    this._syncCafeScopedSounds();
+    this._mountBeds();
     this._setTrafficMix();
     this._applyAmbienceProfile();
     const room = this._profile().room;
@@ -650,10 +770,9 @@ export class CafeAudio {
     this.recordTextureGain?.gain.setTargetAtTime(theme?.vinyl ? 1 : theme?.id === 'goldenhour' ? 0.12 : 0.02, this.ctx.currentTime, 1.2);
     if (this._musicStarted) {
       if (this.recordedMusic) {
-        if (this._recordThemeId !== theme.id) {
-          this._recordThemeId = theme.id;
-          this._playRecordedTrack(true);
-        }
+        const venueChange = this._recordThemeId !== theme.id;
+        this._recordThemeId = theme.id;
+        if (venueChange && this.musicStation === 'cafe') this._playRecordedTrack(true);
       } else this._newSong();
     }
   }
@@ -882,12 +1001,15 @@ export class CafeAudio {
   // Decode a lazy manifest entry on demand (rain levels). Concurrent calls
   // share one in-flight promise; failures resolve null and the caller falls
   // back to another level or the synth bed.
+  // Long loops come back as compressed stream entries when media streaming
+  // is available.
   _ensureLazyBuffer(key) {
     if (this.buffers.has(key)) return Promise.resolve(this.buffers.get(key));
     if (this._lazyLoads.has(key)) return this._lazyLoads.get(key);
     const def = SOUND_MANIFEST[key];
-    if (!def || !this.ctx) return Promise.resolve(null);
-    const load = loadSoundAsset(this.ctx, key, def)
+    if (!def || !this.ctx || this._failedSounds.has(key)) return Promise.resolve(null);
+    const streamed = this._mediaPool && STREAMED_KEYS.has(key);
+    const load = (streamed ? loadStreamedSoundAsset(this.ctx, key, def) : loadSoundAsset(this.ctx, key, def))
       .then((entry) => {
         this.buffers.set(key, entry);
         this._lazyLoads.delete(key);
@@ -895,6 +1017,7 @@ export class CafeAudio {
       })
       .catch((e) => {
         console.warn(`[sounds] "${key}" unavailable (${e.message}) — synth fallback`);
+        this._failedSounds.add(key);
         this._lazyLoads.delete(key);
         return null;
       });
@@ -915,7 +1038,10 @@ export class CafeAudio {
       key = 'rain_steady'; // e.g. the single-file artifact carries only steady
       entry = await this._ensureLazyBuffer(key);
     }
-    if (!entry || !this.rainNodes || nodes.mountToken !== token || nodes.mountedKey === key) return;
+    if (!entry || !this.rainNodes || nodes.mountToken !== token || nodes.mountedKey === key) {
+      if (!this.theme?.rain) this._dropEntry(key);
+      return;
+    }
 
     // Rain heard from indoors loses sub-bass and the brittle top octave. Two
     // differently offset plays of the same mono buffer create a broad window
@@ -974,7 +1100,16 @@ export class CafeAudio {
     // AudioBuffer alive until they stop; dropping the map entry lets the
     // garbage collector reclaim the PCM right after.
     for (const level of RAIN_LEVELS) {
-      if (level.key && level.key !== key) this.buffers.delete(level.key);
+      if (level.key && level.key !== key) this._dropEntry(level.key);
+    }
+  }
+
+  // Café-scoped one-shots (thunder) are resident only in cafés that use them.
+  _syncCafeScopedSounds() {
+    if (!this._bedsReady) return;
+    for (const [key, needed] of Object.entries(CAFE_SCOPED)) {
+      if (needed(this.theme)) this._ensureLazyBuffer(key);
+      else this._dropEntry(key);
     }
   }
 
@@ -1050,9 +1185,18 @@ export class CafeAudio {
 
   _stopRain() {
     if (!this.rainNodes) return;
+    const nodes = this.rainNodes;
     const t = this.ctx.currentTime;
-    this.rainNodes.master.gain.cancelScheduledValues(t);
-    this.rainNodes.master.gain.setTargetAtTime(0, t, 0.8);
+    nodes.master.gain.cancelScheduledValues(t);
+    nodes.master.gain.setTargetAtTime(0, t, 0.8);
+    // A dry café keeps no rain recording playing silently or resident.
+    nodes.mountToken = (nodes.mountToken ?? 0) + 1;
+    for (const source of nodes.recordedSources) {
+      try { source.src.stop(t + 4); } catch { /* already stopped */ }
+    }
+    nodes.recordedSources = [];
+    nodes.mountedKey = null;
+    for (const level of RAIN_LEVELS) if (level.key) this._dropEntry(level.key);
   }
 
   // ---------- positional one-shots ----------
@@ -1672,7 +1816,7 @@ export class CafeAudio {
 
   _startMusic() {
     this._musicStarted = true;
-    if (MUSIC_MANIFEST[this.styleId]?.length) {
+    if (this._musicPool().length) {
       this._startRecordedMusic();
       return;
     }
@@ -1681,7 +1825,7 @@ export class CafeAudio {
 
   _startRecordedMusic() {
     this.recordedMusic = true;
-    this._recordThemeId = this.styleId;
+    this._recordThemeId = this.theme?.id ?? this.styleId;
     this._recordBags = {};
     this._recordDeckIndex = -1;
     this._musicDecks = [0, 1].map(() => {
@@ -1695,10 +1839,17 @@ export class CafeAudio {
     this._playRecordedTrack(false);
   }
 
-  _nextRecordedTrack(themeId) {
-    const pool = MUSIC_MANIFEST[themeId] ?? [];
+  _musicPool() {
+    return stationTracks(this.musicStation, this.theme?.id ?? this.styleId);
+  }
+
+  _nextRecordedTrack() {
+    const pool = this._musicPool();
     if (!pool.length) return null;
-    let bag = this._recordBags[themeId];
+    const resumed = this._takeMusicResume(pool);
+    if (resumed) return resumed;
+    const bagKey = this.musicStation === 'cafe' ? `cafe:${this.theme?.id ?? this.styleId}` : this.musicStation;
+    let bag = this._recordBags[bagKey];
     if (!bag?.length) {
       bag = pool.map((_, i) => i);
       for (let i = bag.length - 1; i > 0; i--) {
@@ -1708,7 +1859,7 @@ export class CafeAudio {
       if (bag.length > 1 && pool[bag[bag.length - 1]].id === this._lastRecordedId) {
         [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
       }
-      this._recordBags[themeId] = bag;
+      this._recordBags[bagKey] = bag;
     }
     const track = pool[bag.pop()];
     this._lastRecordedId = track.id;
@@ -1717,9 +1868,10 @@ export class CafeAudio {
 
   async _playRecordedTrack(themeChange = false) {
     if (!this.recordedMusic || !this.ctx) return;
-    const themeId = this.styleId || 'goldenhour';
-    const track = this._nextRecordedTrack(themeId);
+    const track = this._nextRecordedTrack();
     if (!track) return;
+    const seek = this._resumeSeek ?? 0;
+    this._resumeSeek = 0;
     const token = (this._recordToken ?? 0) + 1;
     this._recordToken = token;
     const oldIndex = this._recordDeckIndex;
@@ -1730,10 +1882,14 @@ export class CafeAudio {
 
     next.mix = 0;
     this._applyRecordedVolumes();
-    next.el.src = track.url;
+    next.el.src = assetUrl(track.url);
     try {
+      if (seek) next.el.currentTime = seek;
       await next.el.play();
     } catch (error) {
+      // A newer track (a quick café switch) reused this element and aborted
+      // this request; that is not a playback failure.
+      if (token !== this._recordToken) return;
       // A blocked media element should not leave the café silent: retain the
       // synth playlist as an automatic local fallback.
       console.warn(`[music] recorded playback unavailable (${error?.name}: ${error?.message})`);
@@ -1743,6 +1899,7 @@ export class CafeAudio {
     }
     if (token !== this._recordToken) { next.el.pause(); return; }
     this._recordDeckIndex = nextIndex;
+    this._playingTrack = { station: this.musicStation, trackId: track.id };
     this._crossfadeRecorded(old, next, fade, oldIndex);
 
     window.dispatchEvent(new CustomEvent('cafe-track-change', {
@@ -1751,12 +1908,49 @@ export class CafeAudio {
     const lead = 7;
     this._timer(() => {
       if (this.recordedMusic && this._recordToken === token) this._playRecordedTrack(false);
-    }, Math.max(1000, (track.duration - lead) * 1000));
+    }, Math.max(1000, (track.duration - lead - seek) * 1000));
+  }
+
+  // The recorded track playing now and how far into it, for checkpoints.
+  // Generative songs are random each time, so they have no resumable state.
+  musicState() {
+    const deck = this._musicDecks?.[this._recordDeckIndex];
+    if (!this.recordedMusic || !deck || !this._playingTrack) return null;
+    return { ...this._playingTrack, position: deck.el.currentTime || 0 };
+  }
+
+  // Make the next recorded pick a saved track at a saved position instead of
+  // a random one. Ignored when the track is not on the current station (the
+  // station or café changed since it was saved).
+  queueMusicResume(state) {
+    this._musicResume = state ?? null;
+  }
+
+  _takeMusicResume(pool) {
+    const resume = this._musicResume;
+    this._musicResume = null;
+    const track = resume && pool.find((entry) => entry.id === resume.trackId);
+    // Too close to the end to be worth resuming: start fresh instead.
+    if (!track || !(resume.position < track.duration - 10)) return null;
+    this._lastRecordedId = track.id;
+    this._resumeSeek = Math.max(0, resume.position);
+    return track;
+  }
+
+  // Fetch a saved track's file while the title screen is up, so Continue
+  // plays it without waiting. The service worker (when present) caches it.
+  prefetchMusic(state) {
+    const track = stationTracks('shuffle').find((entry) => entry.id === state?.trackId);
+    if (!track || typeof fetch !== 'function') return;
+    fetch(assetUrl(track.url), { priority: 'low' })
+      .then((response) => (response.ok ? response.arrayBuffer() : null))
+      .catch(() => {});
   }
 
   _applyRecordedVolumes() {
     if (!this._musicDecks) return;
-    const master = (this.muted ? 0 : 1) * (this.musicOn ? 1 : 0) * this.recordedVolume * this.recordedDuck;
+    const audible = this.musicOn && !this.musicSuppressed;
+    const master = (this.muted ? 0 : 1) * (audible ? 1 : 0) * this.recordedVolume * this.recordedDuck;
     for (const deck of this._musicDecks) deck.el.volume = clamp(deck.mix * master, 0, 1);
   }
 

@@ -3,39 +3,41 @@
 // Missing/undownloadable entries fall back to synthesis automatically.
 // Levels are auto-normalized at load time (see soundLoader.js).
 
+const BASE = import.meta.env?.BASE_URL ?? '/';
+
 export const SOUND_MANIFEST = {
-  carpass: { url: '/sounds/carpass.mp3', loop: false }, // 14.1s
-  cat_meow: { url: '/sounds/cat_meow.mp3', loop: false }, // 10s
-  cat_purr: { url: '/sounds/cat_purr.mp3', loop: false }, // 9s
-  chair_scrape: { url: '/sounds/chair_scrape.mp3', loop: false }, // 2.6s
-  chatter: { url: '/sounds/chatter.mp3', loop: true }, // 35s
-  chatter2: { url: '/sounds/chatter2.mp3', loop: true }, // 25.1s
-  chatter_busy: { url: '/sounds/chatter_busy.mp3', loop: false }, // 32s
-  chatter_quiet: { url: '/sounds/chatter_quiet.mp3', loop: false }, // 30s
-  cough: { url: '/sounds/cough.mp3', loop: false }, // 4.9s
-  cup_clinks: { url: '/sounds/cup_clinks.mp3', loop: false }, // 4.6s
-  dishes: { url: '/sounds/dishes.mp3', loop: false }, // 22.1s
-  dog_bark: { url: '/sounds/dog_bark.mp3', loop: false }, // 1.5s
-  dog_sniff: { url: '/sounds/dog_sniff.mp3', loop: false }, // 5.5s
-  dog_whine: { url: '/sounds/dog_whine.mp3', loop: false }, // 5s
-  door_bell: { url: '/sounds/door_bell.mp3', loop: false }, // 3.1s
-  door_open: { url: '/sounds/door_open.mp3', loop: false }, // 3.6s
-  espresso: { url: '/sounds/espresso.mp3', loop: false }, // 10s
-  footsteps: { url: '/sounds/footsteps.mp3', loop: false }, // 12s
-  grinder: { url: '/sounds/grinder.mp3', loop: false }, // 14s
-  laughter: { url: '/sounds/laughter.mp3', loop: false }, // 6.3s
-  macbook_typing: { url: '/sounds/macbook_typing.mp3', loop: false }, // 12.5s
-  page_turn: { url: '/sounds/page_turn.mp3', loop: false }, // 1.8s
-  pour: { url: '/sounds/pour.mp3', loop: false }, // 5.5s
-  rain_heavy: { url: '/sounds/rain_heavy.mp3', loop: true, lazy: true }, // 36s
-  rain_light: { url: '/sounds/rain_light.mp3', loop: true, lazy: true }, // 36s
-  rain_steady: { url: '/sounds/rain_steady.mp3', loop: true, lazy: true }, // 36s
-  register: { url: '/sounds/register.mp3', loop: false }, // 2.1s
-  steam_milk: { url: '/sounds/steam_milk.mp3', loop: false }, // 4.4s
-  thunder: { url: '/sounds/thunder.mp3', loop: false }, // 15.8s
-  traffic_day: { url: '/sounds/traffic_day.mp3', loop: true }, // 30.1s
-  traffic_night: { url: '/sounds/traffic_night.mp3', loop: true }, // 34.1s
-  typing: { url: '/sounds/typing.mp3', loop: false }, // 13s
+  carpass: { url: `${BASE}sounds/carpass.mp3`, loop: false }, // 14.1s
+  cat_meow: { url: `${BASE}sounds/cat_meow.mp3`, loop: false }, // 10s
+  cat_purr: { url: `${BASE}sounds/cat_purr.mp3`, loop: false }, // 9s
+  chair_scrape: { url: `${BASE}sounds/chair_scrape.mp3`, loop: false }, // 2.6s
+  chatter: { url: `${BASE}sounds/chatter.mp3`, loop: true }, // 35s
+  chatter2: { url: `${BASE}sounds/chatter2.mp3`, loop: true }, // 25.1s
+  chatter_busy: { url: `${BASE}sounds/chatter_busy.mp3`, loop: false }, // 32s
+  chatter_quiet: { url: `${BASE}sounds/chatter_quiet.mp3`, loop: false }, // 30s
+  cough: { url: `${BASE}sounds/cough.mp3`, loop: false }, // 4.9s
+  cup_clinks: { url: `${BASE}sounds/cup_clinks.mp3`, loop: false }, // 4.6s
+  dishes: { url: `${BASE}sounds/dishes.mp3`, loop: false }, // 22.1s
+  dog_bark: { url: `${BASE}sounds/dog_bark.mp3`, loop: false }, // 1.5s
+  dog_sniff: { url: `${BASE}sounds/dog_sniff.mp3`, loop: false }, // 5.5s
+  dog_whine: { url: `${BASE}sounds/dog_whine.mp3`, loop: false }, // 5s
+  door_bell: { url: `${BASE}sounds/door_bell.mp3`, loop: false }, // 3.1s
+  door_open: { url: `${BASE}sounds/door_open.mp3`, loop: false }, // 3.6s
+  espresso: { url: `${BASE}sounds/espresso.mp3`, loop: false }, // 10s
+  footsteps: { url: `${BASE}sounds/footsteps.mp3`, loop: false }, // 12s
+  grinder: { url: `${BASE}sounds/grinder.mp3`, loop: false }, // 14s
+  laughter: { url: `${BASE}sounds/laughter.mp3`, loop: false }, // 6.3s
+  macbook_typing: { url: `${BASE}sounds/macbook_typing.mp3`, loop: false }, // 12.5s
+  page_turn: { url: `${BASE}sounds/page_turn.mp3`, loop: false }, // 1.8s
+  pour: { url: `${BASE}sounds/pour.mp3`, loop: false }, // 5.5s
+  rain_heavy: { url: `${BASE}sounds/rain_heavy.mp3`, loop: true, lazy: true }, // 36s
+  rain_light: { url: `${BASE}sounds/rain_light.mp3`, loop: true, lazy: true }, // 36s
+  rain_steady: { url: `${BASE}sounds/rain_steady.mp3`, loop: true, lazy: true }, // 36s
+  register: { url: `${BASE}sounds/register.mp3`, loop: false }, // 2.1s
+  steam_milk: { url: `${BASE}sounds/steam_milk.mp3`, loop: false }, // 4.4s
+  thunder: { url: `${BASE}sounds/thunder.mp3`, loop: false }, // 15.8s
+  traffic_day: { url: `${BASE}sounds/traffic_day.mp3`, loop: true }, // 30.1s
+  traffic_night: { url: `${BASE}sounds/traffic_night.mp3`, loop: true }, // 34.1s
+  typing: { url: `${BASE}sounds/typing.mp3`, loop: false }, // 13s
 };
 
 // attribution data lives in CREDITS.md

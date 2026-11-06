@@ -37,6 +37,16 @@ const args = new Map(process.argv.slice(2)
   }));
 const CPU_SECONDS = Number(args.get('cpu-seconds') ?? 45);
 const OUT_FILE = args.get('out');
+// --quality pins a rendering tier: saved ids (auto/smooth/detail) go through
+// preferences, and tier names (low/medium/high/ultra, balanced) through the
+// `?quality=` override, so the flag works on builds before and after tiers.
+const QUALITY = args.get('quality') ?? 'auto';
+const PINNED_URL = (() => {
+  if (QUALITY === 'auto') return APP_URL;
+  const url = new URL(APP_URL);
+  url.searchParams.set('quality', QUALITY);
+  return url.href;
+})();
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -180,7 +190,7 @@ if (isMain) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
     }, 'Chrome DevTools');
     const target = await retry(async () => {
-      const response = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(APP_URL)}`, {
+      const response = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(PINNED_URL)}`, {
         method: 'PUT',
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -203,7 +213,7 @@ if (isMain) {
       voicesVolume: 0,
       musicOn: false,
       cafeIndex: 0,
-      qualityMode: 'auto',
+      qualityMode: ${JSON.stringify(QUALITY)},
       laptopOn: true,
       envTime: 'auto',
       envSky: 'auto'
@@ -211,7 +221,7 @@ if (isMain) {
     await retry(async () => {
       const ready = await client.evaluate(`document.readyState === 'complete'
         && performance.getEntriesByType('navigation')[0]?.type === 'reload'
-        && window.__vibe?.metrics().qualityMode === 'auto'`);
+        && (${QUALITY === 'auto'} ? window.__vibe?.metrics().qualityMode === 'auto' : window.__vibe?.metrics().qualityMode !== 'auto')`);
       if (!ready) throw new Error('configured application is not ready');
     }, 'configured application startup');
     await client.evaluate("document.querySelector('#enter-btn').click()");
@@ -273,6 +283,7 @@ if (isMain) {
         outsidePedestrians: metrics.outsidePedestrians,
         pixelRatio: metrics.pixelRatio,
         effects: metrics.effects,
+        qualityTier: metrics.qualityTier ?? null,
       };
       console.error(`${THEMES[index]}: calls=${metrics.calls} triangles=${metrics.triangles} `
         + `geometries=${metrics.geometries} textures=${metrics.textures}`);
@@ -308,15 +319,18 @@ if (isMain) {
 
     const report = {
       capturedAt: new Date().toISOString(),
-      url: APP_URL,
+      url: PINNED_URL,
       viewport: '1440x900@1x',
-      qualityMode: 'auto',
+      qualityMode: QUALITY,
       cpuSample: {
         theme: 'goldenhour',
         ambient: true,
         observedFpsBefore: metricsBefore.observedFps,
         observedFpsAfter: metricsAfter.observedFps,
         targetFps: metricsAfter.targetFps,
+        pixelRatio: metricsAfter.pixelRatio,
+        qualityTier: metricsAfter.qualityTier ?? null,
+        lastRenderMs: metricsAfter.lastRenderMs,
         ...cpu,
       },
       perCafe,

@@ -1,16 +1,18 @@
+import { connectUI } from './ui/index.js';
+import { lookSettings, motionReduced, breakMinutes, getUISettings, updateUISettings, onUISettingsChange } from './ui/settings.js';
+import { adoptFocusStats, getFocusStats, noteRestoredFocus } from './ui/focus.js';
+import { createControls } from './controls/index.js';
+import { clampPitch } from './controls/intent.js';
+import { initQualityTier, onQualityTierChange, qualityTierConfig, setQualityTier } from './qualityTier.js';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { loadDaylightEnvironment } from './rendering/daylightEnvironment.js';
+import { createRenderingSystem } from './rendering/renderingSystem.js';
+import { TIER_NAMES, resolveTierName, tierConfig, tierIndex } from './rendering/qualityTiers.js';
 import { groundingAuditObjects } from './rendering/placementBounds.js';
 import { auditVenueCollections } from './decor/venueCollection.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-import { THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink } from './cafe.js';
+import {
+  THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink, setShadowCasterMinRadius, setSurfaceTextureMaxSize,
+  releaseSurfaceTextures,
+} from './cafe.js';
 import { createNavigator, pointInPolygon, surfaceHeightAt } from './cafe/levelNavigation.js';
 import {
   placeFootprintForSeat, pullInsideShape, footprintSupported,
@@ -19,11 +21,30 @@ import {
 import { CrowdSim } from './npc.js';
 import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
-import { loadModelLibrary, cloneModel } from './modelLoader.js';
+import {
+  loadModelLibrary, loadModels, streamBackgroundModels, castCatalog, isCastModel, ModelView, cloneModel,
+  residentModels, configureModelBudget, evictModels, firstFrameKeys, libraryBytes, libraryReport,
+} from './modelLoader.js';
+import { trackGpuMemory } from './perf/gpuMemory.js';
+import { memoryReport } from './perf/memoryReport.js';
+import { detectDeviceProfile, capQualityTier } from './perf/deviceProfile.js';
+import { MemoryGovernor } from './perf/memoryGovernor.js';
+import { ThermalGovernor, frameCaps, watchBatterySaver } from './perf/framePacing.js';
+import { releaseIdleTranscoders } from './perf/textureCompression.js';
+import { planCast } from './perf/castPlan.js';
 import { loadPreferences, savePreferences } from './preferences.js';
+import { STORAGE_KEYS, readJSON, requestPersistentStorage } from './storage/index.js';
+import { createCheckpointStore } from './storage/checkpointStore.js';
+import { createAutosave } from './storage/autosave.js';
+import { describeCheckpoint, formatClock, resumeFocus } from './storage/checkpoint.js';
 import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
 import { WorldInteractions } from './interactions/worldInteractions.js';
+import { installPerformance, buildQualityLadder } from './perf/index.js';
+import { disposeObject3D } from './perf/disposal.js';
+import { RealismSystem } from './physics/realism.js';
+import { PlayerController } from './physics/playerController.js';
+import { readIntent } from './physics/movementIntent.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -32,6 +53,32 @@ const preferences = loadPreferences();
 const auditParams = new URLSearchParams(window.location.search);
 const MEMORY_AUDIT_MODE = auditParams.has('memory-audit');
 const SEEDED_AUDIT_MODE = MEMORY_AUDIT_MODE || auditParams.has('visual-audit');
+// Normal visits draw the room first and stream its cast (patrons, staff,
+// pets) and the photographic sky afterwards. Audits keep the synchronous
+// path so seeded crowds and renderer counts stay comparable.
+const STREAM_CAST = !SEEDED_AUDIT_MODE;
+// Mirroring metrics() into <html data-vibe-metrics> traverses the scene and
+// rewrites a large attribute every 0.5 s (string churn, style invalidation),
+// so only audit and ?perf sessions do it; tools read window.__vibe.metrics().
+const METRICS_ATTRIBUTE = SEEDED_AUDIT_MODE || auditParams.has('perf');
+
+// Session checkpoints (src/storage). Reading starts now so the first café
+// built can be the one the visitor left. Audits stay deterministic: they
+// neither restore nor save.
+const hadStoredPreferences = readJSON(STORAGE_KEYS.preferences) != null;
+const hadStoredUISettings = readJSON(STORAGE_KEYS.ui) != null;
+const checkpointStore = createCheckpointStore();
+const checkpointLoad = SEEDED_AUDIT_MODE
+  ? Promise.resolve(null)
+  : checkpointStore.load().catch((error) => {
+    console.warn('[checkpoint] could not be read:', error);
+    return null;
+  });
+const autosave = createAutosave({
+  capture: captureCheckpoint,
+  store: checkpointStore,
+  onResult: reportCheckpointSave,
+});
 function resetMemoryAuditRandom(themeIndex) {
   if (!SEEDED_AUDIT_MODE) return;
   // Make every rebuild of a location contain the same patrons and procedural
@@ -50,27 +97,38 @@ function resetMemoryAuditRandom(themeIndex) {
 // ---------- renderer / scene ----------
 
 const canvas = document.getElementById('scene');
-// The scene is rendered through a multisampled composer target, so enabling
-// antialiasing on the (fullscreen-quad-only) default framebuffer duplicates
-// work without improving geometry edges.
+// Post-processing tiers render into their own HDR target and resolve
+// anti-aliasing there, so the default framebuffer never needs MSAA.
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
+const gpuMemory = trackGpuMemory(renderer.getContext());
+// Device class (low/mid/high) sets ceilings for resolution, shadows, lights,
+// population, texture size, memory and frame rate; see perf/deviceProfile.js.
+// Seeded audits keep the full-size scene so their counts stay comparable.
+const device = detectDeviceProfile({ gl: renderer.getContext(), defaultTier: SEEDED_AUDIT_MODE ? 'high' : null });
+const tierSettings = device.settings;
+configureModelBudget({ textureMaxSize: tierSettings.textureMaxSize, anisotropy: tierSettings.anisotropy });
+setShadowCasterMinRadius(tierSettings.smallShadowCasterRadius);
+setSurfaceTextureMaxSize(tierSettings.surfaceTextureMaxSize);
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
-// Auto stays at CSS-native resolution. On Retina screens, 1.5x creates 2.25x
-// as many half-float pixels across every composer target for little visible
-// benefit in a softly lit scene. Detail retains restrained supersampling.
-const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1);
-const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1.25);
-const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
-// Start Auto at a predictable 1x render target. It can add effects and extra
-// supersampling after a sustained period of headroom, instead of allocating the
-// largest half-float buffers first and stuttering while it backs down.
-let renderPixelRatio = Math.min(MAX_PIXEL_RATIO, 1);
+// Auto stays at CSS-native resolution (lower on phones). On Retina screens,
+// 1.5x creates 2.25x as many half-float pixels across every composer target
+// for little visible benefit in a softly lit scene. Detail retains
+// restrained supersampling where the device class allows it.
+const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, tierSettings.autoMaxPixelRatio);
+const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, tierSettings.maxPixelRatio);
+// Only Auto's adaptive controller reaches the floor, on devices that cannot
+// hold the frame budget at higher resolutions.
+const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, tierSettings.minPixelRatio);
+// Start Auto at a predictable render target (1x on desktops, below native on
+// phones). It can add resolution after a sustained period of headroom,
+// instead of allocating the largest buffers first and stuttering while it
+// backs down.
+let renderPixelRatio = Math.min(MAX_PIXEL_RATIO, tierSettings.autoStartPixelRatio);
 renderer.setPixelRatio(renderPixelRatio);
 // CSS owns the canvas dimensions. Avoid inline pixel dimensions here: they
 // become stale when a browser enters fullscreen without a conventional resize.
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // Crowd motion is simulated at 30 Hz, so refreshing its shadows faster only
 // re-renders the same poses. The main loop requests a shadow update at 30 Hz.
 renderer.shadowMap.autoUpdate = false;
@@ -85,120 +143,23 @@ renderer.info.autoReset = false;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.05, 60);
 
-// image-based environment lighting: gives every PBR material soft reflected
-// room light instead of the flat "primitive" look of pure analytic lights
-const pmrem = new THREE.PMREMGenerator(renderer);
-const fallbackRoom = new RoomEnvironment();
-let environmentTarget = pmrem.fromScene(fallbackRoom, 0.04);
-fallbackRoom.dispose();
-scene.environment = environmentTarget.texture;
-let photographicEnvironment = null;
-function applyPhotographicEnvironment(theme) {
-  if (!photographicEnvironment) return;
-  const night = theme.timeOfDay === 'night' || theme.outside.includes('Night') || theme.outside.includes('night');
-  scene.background = photographicEnvironment;
-  scene.backgroundBlurriness = theme.rain ? 0.2 : 0.06;
-  const daylight = { morning: 0.78, noon: 0.9, sunset: 0.72 }[theme.timeOfDay] ?? 0.72;
-  scene.backgroundIntensity = night ? 0.018 : daylight * (theme.rain ? 0.45 : 1);
-  scene.backgroundRotation.y = Math.PI * 0.6;
-  scene.environmentRotation.y = Math.PI * 0.6;
-  cafe?.group.traverse((object) => {
-    if (object.userData.illustratedBackdrop) object.visible = false;
-  });
-}
-loadDaylightEnvironment().then((texture) => {
-  let target;
-  try { target = pmrem.fromEquirectangular(texture); }
-  catch (error) { texture.dispose(); throw error; }
-  const previousTarget = environmentTarget;
-  environmentTarget = target;
-  scene.environment = target.texture;
-  previousTarget.dispose();
-  photographicEnvironment = texture;
-  applyPhotographicEnvironment(currentTheme);
-}).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message));
-
-// Post-processing chain. FXAA at the end replaces a persistent multisampled
-// half-float buffer, preserving clean edges at a fraction of its memory cost.
-// GTAO adds contact darkening; bloom makes practical lamps glow.
-const W0 = window.innerWidth, H0 = window.innerHeight;
-const rt = new THREE.WebGLRenderTarget(1, 1, {
-  samples: 0,
-  type: THREE.HalfFloatType,
-  colorSpace: THREE.LinearSRGBColorSpace,
+// Lighting, image-based environment, shadow quality and the post stack live
+// in src/rendering. main.js feeds it the active café and the quality tier.
+// Streaming visits request the HDR sky after the room's first frame.
+const rendering = createRenderingSystem({
+  renderer, scene, camera, deferSky: STREAM_CAST,
+  maxShadowMapSize: auditParams.has('quality') ? Infinity : tierSettings.shadowMapSize,
 });
-const composer = new EffectComposer(renderer, rt);
-composer.addPass(new RenderPass(scene, camera));
-
-// GTAO reads the rendered depth/normals and multiplies soft occlusion in
-const gtaoPass = new GTAOPass(scene, camera, W0, H0);
-gtaoPass.output = GTAOPass.OUTPUT.Default;
-gtaoPass.updateGtaoMaterial({
-  // a tighter radius and softer blend keep the contact shadow under chairs
-  // and tables without the view-dependent dark halo that used to sweep
-  // across wall art as the camera panned
-  radius: 0.3,
-  distanceExponent: 1.4,
-  thickness: 0.6,
-  scale: 1.0,
-  samples: 6,
-  distanceFallOff: 1.0,
-  screenSpaceRadius: false,
-});
-gtaoPass.blendIntensity = 0.5;
-// Contact AO remains soft and convincing at half resolution, while avoiding
-// four full-resolution depth/normal/AO buffers on high-DPI displays.
-const setGtaoSize = gtaoPass.setSize.bind(gtaoPass);
-gtaoPass.setSize = (width, height) => {
-  setGtaoSize(Math.max(1, Math.ceil(width * 0.5)), Math.max(1, Math.ceil(height * 0.5)));
-};
-composer.addPass(gtaoPass);
-
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(W0, H0), 0.25, 0.5, 0.85
-);
-// Bloom is a deliberately blurred signal. Half-resolution buffers preserve
-// the perceived glow while cutting their pixel work and memory by about 75%.
-const setBloomSize = bloomPass.setSize.bind(bloomPass);
-bloomPass.setSize = (width, height) => {
-  setBloomSize(Math.max(1, Math.ceil(width * 0.5)), Math.max(1, Math.ceil(height * 0.5)));
-};
-composer.addPass(bloomPass);
-composer.addPass(new OutputPass());
-
-// A gentle vignette and static dither add depth without temporal grain.
-// Animating random grain every frame reads as full-screen flicker.
-const grainPass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null } },
-  vertexShader: /* glsl */`
-    varying vec2 vUv;
-    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse;
-    varying vec2 vUv;
-    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    void main() {
-      vec4 c = texture2D(tDiffuse, vUv);
-      vec2 d = vUv - 0.5;
-      float vig = 1.0 - dot(d, d) * 0.55;          // gentle corner falloff
-      float g = (hash(vUv * vec2(1920.0, 1080.0)) - 0.5) * 0.012;
-      gl_FragColor = vec4(c.rgb * vig + g, c.a);
-    }`,
-});
-composer.addPass(grainPass);
-const fxaaPass = new ShaderPass(FXAAShader);
-composer.addPass(fxaaPass);
-function updateFxaaResolution(width = window.innerWidth, height = window.innerHeight) {
-  fxaaPass.material.uniforms.resolution.value.set(
-    1 / Math.max(1, width * renderPixelRatio),
-    1 / Math.max(1, height * renderPixelRatio),
-  );
-}
-composer.setPixelRatio(renderPixelRatio);
-composer.setSize(W0, H0);
-updateFxaaResolution(W0, H0);
+rendering.setSize(window.innerWidth, window.innerHeight);
 
 const audio = new CafeAudio();
+// Streaming visits hold the recorded ambience until the room has drawn, so
+// "step inside" never puts megabytes of audio in front of the first frame.
+let releaseAudioLibrary = () => {};
+if (STREAM_CAST) audio.libraryGate = new Promise((resolve) => { releaseAudioLibrary = resolve; });
+// physics & secondary motion (src/physics/); the player's own cup can rattle
+// on a table they walk into
+const realism = new RealismSystem({ audio, looseProps: () => [playerCup] });
 
 // ---------- state ----------
 
@@ -214,10 +175,13 @@ const walkPos = new THREE.Vector3();
 let walkLevelId = 'ground';
 let walkY = 0;
 let navigator = null;
-let walkBob = 0;
-let lastPlayerStep = 0;
-const keys = new Set();
-const frameScheduler = new AdaptiveFrameScheduler();
+const controls = createControls({ canvas, settings: lookSettings });
+// The user's frame cap: 0 (device default) or 30 fps; ?fps=30 for testing.
+let userFrameCap = Number(auditParams.get('fps')) || preferences.frameCap || 0;
+const frameScheduler = new AdaptiveFrameScheduler({
+  interactiveFps: tierSettings.interactiveFps,
+  ambientFps: tierSettings.ambientFps,
+});
 const markInteraction = () => frameScheduler.markInteraction(performance.now());
 window.addEventListener('pointerdown', markInteraction, { passive: true });
 window.addEventListener('keydown', markInteraction, { passive: true });
@@ -232,15 +196,11 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const seatHits = [];
 const seatEyeScratch = new THREE.Vector3();
-const walkForward = new THREE.Vector3();
-const walkRight = new THREE.Vector3();
-const walkMove = new THREE.Vector3();
 const listenerForward = new THREE.Vector3();
 const viewEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let pointerDirty = true;
 let hoveredSeat = -1;
 let hoveredWorld = null;
-let canvasCursor = '';
 // clickable world objects (player laptop, pets, ...) — empty by default, so
 // seat picking behaves exactly as before until something registers
 const interactions = new WorldInteractions();
@@ -277,6 +237,8 @@ function sitAt(index, instant = false) {
   if (crowd) crowd.setPlayerSeat(index);
   seatIndex = index;
   mode = 'seated';
+  autosave.touch('seat');
+  realism.onSit();
   updateWalkBtn();
   placePlayerLaptop(); // your MacBook follows you to the new table
   placePlayerCup(); // keep an existing order grounded at the current table
@@ -294,6 +256,7 @@ function sitAt(index, instant = false) {
   // glide over to the new seat
   tween.active = true;
   tween.t = 0;
+  tween.dur = motionReduced() ? 0.35 : 1.4;
   tween.fromPos.copy(camera.position);
   tween.toPos.copy(eye);
   tween.fromQ.copy(camera.quaternion);
@@ -337,13 +300,16 @@ function activeTheme(index = currentThemeIndex) {
   if (index === currentThemeIndex) return currentTheme;
   return resolveEnvironment(base, envTime, envSky);
 }
-async function loadTheme(index) {
+// `place` may position the player in the new room (returns true when it
+// did); otherwise they take the best free seat.
+async function loadTheme(index, { place } = {}) {
   currentThemeIndex = index;
+  lastSceneChangeAt = performance.now();
   const baseTheme = THEMES[index];
   const theme = resolveEnvironment(baseTheme, envTime, envSky);
   currentTheme = theme;
   const token = ++loadToken;
-  const models = await loadModelLibrary();
+  const models = await loadModelLibrary(theme.id, { streamCast: STREAM_CAST });
   if (token !== loadToken) return; // a newer switch superseded this one
   lastModels = models;
   playerCup = null; // the old room takes the old cup with it
@@ -355,6 +321,7 @@ async function loadTheme(index) {
   interactions.clear(); // world click targets belong to the departing room
   hoveredWorld = null;
   audio.stopPlayerTyping(); // no burst may outlive the room it was typed in
+  realism.detach();
   if (pets) { pets.dispose(); pets = null; }
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -374,27 +341,17 @@ async function loadTheme(index) {
   // random draws a build consumes, and without this every decor PR would
   // reshuffle the seeded audit crowd and make renderer counts incomparable.
   resetMemoryAuditRandom(index + 16);
-  // Furniture contacts need centimetre-scale detail across the room.
-  cafe.group.traverse((object) => {
-    if (object.isDirectionalLight && object.castShadow) {
-      object.shadow.mapSize.set(2048, 2048);
-      object.shadow.needsUpdate = true;
-    }
-  });
   scene.add(cafe.group);
   cafe.group.add(ring);
 
   scene.fog = new THREE.FogExp2(theme.fog.color, theme.fog.density);
   scene.background = new THREE.Color(theme.fog.color);
   renderer.toneMappingExposure = theme.exposure;
-  scene.environmentIntensity = theme.envIntensity ?? 0.35;
-  applyPhotographicEnvironment(theme);
-  bloomPass.strength = theme.bloom ?? 0.25;
+  rendering.applyTheme(theme, cafe);
 
-  crowd = new CrowdSim(cafe, audio, models);
-  pets = new PetSystem(cafe, models, theme, audio, interactions);
-  crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
-  applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
+  if (!STREAM_CAST) spawnCrowd(theme, models);
+  realism.attach({ cafe, crowd, pets, theme });
+  syncQualityConsumers();
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
     door: cafe.nav.door,
@@ -407,11 +364,16 @@ async function loadTheme(index) {
   audio.setTypingSpots([]);
   audio.setTheme(theme);
 
-  const s = defaultSeat();
-  crowd.setPlayerSeat(s);
-  sitAt(s, true);
+  if (!place?.()) {
+    const s = defaultSeat();
+    crowd?.setPlayerSeat(s);
+    sitAt(s, true);
+  }
   pointerDirty = true;
   renderer.shadowMap.needsUpdate = true;
+  autosave.touch('cafe');
+  perf.sceneChanged({ models });
+  if (STREAM_CAST) streamCast(token, theme, models);
 
   document.querySelectorAll('.loc-btn').forEach((b, i) => {
     const active = i === index;
@@ -421,36 +383,82 @@ async function loadTheme(index) {
   document.getElementById('blurb').textContent = theme.blurb;
 }
 
-// ---------- sky popover: time of day × weather ----------
-const skyBtn = document.getElementById('sky-btn');
-const skyPop = document.getElementById('sky-pop');
-function setSkyOpen(open) {
-  if (!skyBtn || !skyPop) return;
-  skyPop.hidden = !open;
-  skyBtn.classList.toggle('open', open);
-  skyBtn.setAttribute('aria-expanded', String(open));
+// Entry devices host a smaller crowd: fewer skinned actors to animate and
+// draw, and fewer character models downloaded and resident.
+function crowdLimit(theme) {
+  return Math.max(4, Math.round((theme.crowd ?? 9) * tierSettings.crowdScale));
 }
+
+function spawnCrowd(theme, cast, playerSeat = -1) {
+  crowd = new CrowdSim(cafe, audio, cast, {
+    playerSeat, maxCrowd: crowdLimit(theme), streetWalkers: tierSettings.streetWalkers,
+  });
+  pets = new PetSystem(cafe, cast, theme, audio, interactions);
+  crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
+  realism.attachCast({ crowd, pets });
+}
+
+// Only the characters this café can spawn are downloaded, after its first
+// frame; the crowd then fades in nearest-first around the seated player.
+async function streamCast(token, theme, models) {
+  await perf.whenRendered();
+  releaseAudioLibrary();
+  rendering.startSky();
+  const keys = planCast(castCatalog(), { ...theme, crowd: crowdLimit(theme) }, {
+    headroom: tierSettings.streetWalkers + 2,
+  });
+  castKeys = new Set(keys);
+  await loadModels(keys);
+  if (token !== loadToken || !cafe || crowd) return;
+  const wanted = new Set(keys);
+  const cast = new ModelView(models, (key) => !isCastModel(key) || wanted.has(key));
+  const before = perf.snapshotActors();
+  spawnCrowd(theme, cast, seatIndex);
+  syncQualityConsumers();
+  renderer.shadowMap.needsUpdate = true;
+  pointerDirty = true;
+  await perf.revealActors(before);
+  if (token !== loadToken) return;
+  trimModelLibrary(tierSettings.modelBudgetMB);
+  // Memory-constrained classes only warm the HTTP cache for other cafés.
+  streamBackgroundModels({ warmOnly: !tierSettings.backgroundPrefetch });
+}
+
+// The current café's room set and cast stay; other cafés' models are evicted
+// least-recently-used first until the rest fit `budgetMB`.
+let castKeys = new Set();
+let lastEviction = null;
+function trimModelLibrary(budgetMB, { surfaceMaps = tierSettings.releaseSurfaceMaps } = {}) {
+  if (surfaceMaps && cafe) releaseSurfaceTextures(scene);
+  const inScene = new Set();
+  scene.traverse((object) => {
+    if (object.geometry) inScene.add(perf.lod.sourceGeometry(object.geometry));
+  });
+  const result = evictModels({
+    keep: new Set([...firstFrameKeys(currentTheme.id), ...castKeys]),
+    inScene,
+    budgetBytes: budgetMB * 1048576,
+    onGeometry: (geometry) => perf.lod.releaseGeometry(geometry),
+  });
+  if (result.evicted.length) lastEviction = { ...result, at: Math.round(performance.now()) };
+  return result;
+}
+
+
+// ---------- time of day × weather chips (shown in the UI's ambience panel) ----------
+const skyPop = document.getElementById('sky-pop');
 function renderSkyChips() {
   skyPop?.querySelectorAll('[data-time]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.time === envTime);
+    const active = b.dataset.time === envTime;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', String(active));
   });
   skyPop?.querySelectorAll('[data-sky]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.sky === envSky);
+    const active = b.dataset.sky === envSky;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', String(active));
   });
-  if (skyBtn) {
-    const label = envTime === 'auto' && envSky === 'auto'
-      ? 'sky'
-      : [envTime !== 'auto' ? envTime : '', envSky !== 'auto' ? envSky : ''].filter(Boolean).join(' · ');
-    skyBtn.textContent = '☀ ' + label;
-    skyBtn.classList.toggle('on', envTime !== 'auto' || envSky !== 'auto');
-  }
 }
-skyBtn?.addEventListener('click', () => setSkyOpen(skyPop.hidden));
-document.addEventListener('pointerdown', (e) => {
-  if (skyPop && !skyPop.hidden && !skyPop.contains(e.target) && !skyBtn.contains(e.target)) {
-    setSkyOpen(false);
-  }
-});
 skyPop?.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -794,7 +802,8 @@ function placePlayerLaptop() {
   audio.stopPlayerTyping(); // a moved or packed laptop takes its sound with it
   if (playerLaptop) {
     interactions.unregister(playerLaptop);
-    playerLaptop.parent?.remove(playerLaptop);
+    // Every placement builds a fresh MacBook (geometry, canvas textures).
+    disposeObject3D(playerLaptop);
     playerLaptop = null;
   }
   if (!laptopOn || seatIndex < 0 || !cafe) {
@@ -847,10 +856,11 @@ document.getElementById('laptop-btn')?.addEventListener('click', () => {
 
 // order a drink: the barista actually makes it, then it lands on your table
 document.getElementById('order-btn')?.addEventListener('click', () => {
-  if (!crowd || !cafe) return;
+  if (!cafe) return;
+  if (!crowd) { toast('the barista is just arriving — one moment'); return; }
   if (seatIndex < 0) { toast('find a seat first — click any free chair'); return; }
   if (orderPending) { toast('your drink is already on its way ☕'); return; }
-  if (playerCup) { cafe.group.remove(playerCup); playerCup = null; }
+  if (playerCup) { disposeObject3D(playerCup); playerCup = null; }
   const ok = crowd.orderDrink(() => {
     orderPending = false;
     if (seatIndex < 0 || !cafe) return; // stood up meanwhile
@@ -887,15 +897,29 @@ function standUp() {
   resolveCollisions(walkPos);
   walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
     ?? (seat ? seat.pos.y - (seat.isBar ? 0.15 : 0) : walkY);
+  autosave.touch('stand');
+  realism.onStandUp(walkY);
   updateWalkBtn();
 }
 
 function updateWalkBtn() {
   const b = document.getElementById('walk-btn');
-  if (b) b.textContent = mode === 'walking' ? 'click a chair to sit' : 'stand up & walk';
+  if (!b) return;
+  b.textContent = mode === 'walking' ? 'click a chair to sit' : 'stand up & walk';
+  b.dataset.mode = mode;
+  b.setAttribute('aria-label', mode === 'walking' ? 'Click a free chair to sit' : 'Stand up and walk');
 }
 
-const walkProposed = new THREE.Vector3();
+// the character controller reaches the room through these hooks (src/physics)
+const player = new PlayerController(realism, {
+  position: walkPos,
+  groundY: () => walkY,
+  levelId: () => walkLevelId,
+  resolveStatic: resolveCollisions,
+  resolveCrowd: (p) => crowd?.resolvePlayerCollision?.(p, 0.3, walkY),
+  commit: commitWalkMove,
+  onFootstep: (p, weight) => { if (audio.started) audio.playFootstep(p, 0.55 * weight); },
+});
 
 // Commit a proposed walking position: authored portal transitions first, then
 // the current floor's surface height; off-surface candidates slide along one
@@ -980,50 +1004,23 @@ function resolveCollisions(p) {
   }
 }
 
-const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-window.addEventListener('keydown', (e) => {
-  if (!MOVE_KEYS.includes(e.code)) return;
-  e.preventDefault();
-  keys.add(e.code);
-  if (mode === 'seated') standUp();
-});
-window.addEventListener('keyup', (e) => keys.delete(e.code));
-window.addEventListener('blur', () => keys.clear());
+// ---------- input: first-person controls (src/controls) ----------
+// Devices produce one movement intent per rendered frame; the frame loop
+// applies it below. The raycast pointer stays on the crosshair (screen
+// centre) except while resolving a touch tap at its own point.
 
-// ---------- input: drag to look, click chair to move ----------
-
-let dragging = false;
-let dragMoved = 0;
-let lastX = 0, lastY = 0;
-
-canvas.addEventListener('pointerdown', (e) => {
-  dragging = true;
-  dragMoved = 0;
-  lastX = e.clientX; lastY = e.clientY;
-  canvas.setPointerCapture(e.pointerId);
-});
-
-canvas.addEventListener('pointermove', (e) => {
-  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+function aimAtCentre() {
+  pointer.set(0, 0);
   pointerDirty = true;
-  if (!dragging) return;
-  const dx = e.clientX - lastX, dy = e.clientY - lastY;
-  dragMoved += Math.abs(dx) + Math.abs(dy);
-  lastX = e.clientX; lastY = e.clientY;
-  if (tween.active) return;
-  view.yaw -= dx * 0.0032;
-  view.pitch = THREE.MathUtils.clamp(view.pitch - dy * 0.0028, -1.1, 1.15);
-  applyView();
-});
+}
 
-canvas.addEventListener('pointerup', (e) => {
-  dragging = false;
-  if (dragMoved > 6 || tween.active) return;
-  // treat as a click: try to pick a seat
-  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+// interact at a point in normalised device coordinates (0,0 = crosshair):
+// a world object or a seat
+function activateAt(ndcX, ndcY) {
+  if (tween.active || !cafe) return;
+  pointer.set(ndcX, ndcY);
   const seatHit = pickSeat(); // also points the raycaster at the pointer
+  aimAtCentre();
   // a registered world object (laptop, pet) owns the click only when it is
   // the nearer target; otherwise chairs keep their existing behaviour
   const worldHit = interactions.pick(raycaster);
@@ -1032,14 +1029,14 @@ canvas.addEventListener('pointerup', (e) => {
   }
   const hit = seatHit.index;
   if (hit >= 0) {
-    if (crowd.isSeatTaken(hit)) {
+    if (crowd?.isSeatTaken(hit)) {
       toast('Someone’s sitting there — pick another spot ☕');
     } else if (hit !== seatIndex) {
-      crowd.setPlayerSeat(hit);
+      crowd?.setPlayerSeat(hit);
       sitAt(hit);
     }
   }
-});
+}
 
 // Reused result record: pickSeat runs on every pointer move, so it must not
 // allocate. distance lets world interactions arbitrate against the seat hit.
@@ -1096,23 +1093,6 @@ document.querySelectorAll('.loc-btn').forEach((b, i) => {
 document.getElementById('walk-btn').addEventListener('click', () => {
   if (mode === 'seated') standUp();
   else toast('Click any free chair to sit back down ☕');
-});
-
-// the volume sliders live in a small popover so the bar stays uncrowded
-const mixerBtn = document.getElementById('mixer-btn');
-const mixerPop = document.getElementById('mixer-pop');
-function setMixerOpen(open) {
-  if (!mixerBtn || !mixerPop) return;
-  mixerPop.hidden = !open;
-  mixerBtn.classList.toggle('open', open);
-  mixerBtn.setAttribute('aria-expanded', String(open));
-}
-mixerBtn?.addEventListener('click', () => setMixerOpen(mixerPop.hidden));
-document.addEventListener('pointerdown', (e) => {
-  if (mixerPop && !mixerPop.hidden
-    && !mixerPop.contains(e.target) && !mixerBtn.contains(e.target)) {
-    setMixerOpen(false);
-  }
 });
 
 const musicToggle = document.getElementById('music-toggle');
@@ -1194,8 +1174,8 @@ document.addEventListener('fullscreenchange', syncFullscreenButton);
 document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
 syncFullscreenButton();
 
-function persistPreferences() {
-  savePreferences({
+function currentPreferences() {
+  return {
     musicVolume: Number(musicVolume.value),
     ambienceVolume: Number(ambienceVolume.value),
     voicesVolume: Number(voicesVolume.value),
@@ -1209,9 +1189,15 @@ function persistPreferences() {
     qualityMode,
     laptopOn,
     focusMinutes,
-  });
+    frameCap: userFrameCap,
+  };
+}
+function persistPreferences() {
+  savePreferences(currentPreferences());
+  autosave.touch('preferences');
 }
 window.addEventListener('cafe-track-change', (e) => {
+  autosave.touch('music');
   if (!trackStyle) return;
   if (e.detail.recorded) {
     trackStyle.textContent = `${e.detail.title} — ${e.detail.artist}`;
@@ -1236,56 +1222,179 @@ muteToggle?.addEventListener('click', () => {
   toast(masterMuted ? 'all sound muted' : 'sound restored');
 });
 
-const qualityToggle = document.getElementById('quality-toggle');
-const QUALITY_MODES = ['auto', 'detail', 'smooth'];
-let qualityMode = preferences.qualityMode;
-let autoEffectLevel = 0;
-let effectLevel = 0;
+// qualityMode is the shared quality tier (src/qualityTier.js), chosen in the
+// settings menu: 'auto' adapts; every other tier pins a rendering tier and
+// resolution. `?quality=<tier>` pins a tier for audits without touching it.
+let qualityMode = initQualityTier(preferences.qualityMode);
+const qualityPin = rendering.override;
+// Settings tiers map onto rendering tiers (smooth → low, balanced → medium,
+// detail → high, ultra → ultra) after #28's device ceilings: a capped effect
+// level of 0 keeps the direct path, 1 stops at medium, 2 allows everything.
+const EFFECT_TIER_CEILING = [0, 1, 3];
+function manualQuality(id) {
+  const capped = capQualityTier(qualityTierConfig(id), tierSettings);
+  const requested = tierIndex(resolveTierName(capped.id) ?? 'medium');
+  const tier = TIER_NAMES[Math.min(requested, EFFECT_TIER_CEILING[capped.effects ?? 0])];
+  return { tier, pixelRatio: Math.min(capped.pixelRatio ?? 1, tierPixelRatio(tier)) };
+}
+// Auto starts at the detected GPU tier (never ultra) within the device cap;
+// #24's adaptive controller then walks tiers and resolution from frame time.
+const AUTO_MAX_TIER_LEVEL = Math.min(
+  tierIndex(rendering.autoTier),
+  qualityPin ? TIER_NAMES.length - 1 : EFFECT_TIER_CEILING[THREE.MathUtils.clamp(tierSettings.maxManualEffectLevel, 0, 2)],
+);
+let autoTierLevel = AUTO_MAX_TIER_LEVEL;
 let shadowInterval = 1 / 8;
-const AUTO_MAX_EFFECT_LEVEL = 0;
 
-// Resolution is only one part of the GPU budget. GTAO, bloom and animated
-// shadow maps each render the scene (or a full-screen buffer) again, so the
-// adaptive mode can shed those layers independently before the café starts
-// dropping input frames. Level 0 still keeps PBR lighting and the sun shadow.
-function applyEffectLevel(nextLevel) {
-  effectLevel = THREE.MathUtils.clamp(Math.round(nextLevel), 0, 2);
-  gtaoPass.enabled = effectLevel >= 1;
-  bloomPass.enabled = effectLevel >= 2;
-  shadowInterval = effectLevel === 2 ? 1 / 20 : effectLevel === 1 ? 1 / 12 : 1 / 8;
-  cafe?.setQuality?.(effectLevel);
-  crowd?.setQuality?.(effectLevel);
+// Tier changes may come from the adaptive controller, the quality setting, or
+// any other driver of `rendering.quality`; the room's own budgets follow.
+function syncQualityConsumers(config = rendering.config) {
+  shadowInterval = 1 / config.shadows.updateHz;
+  cafe?.setQuality?.(config.effectLevel, tierSettings.maxPointLights);
+  crowd?.setQuality?.(config.effectLevel);
   renderer.shadowMap.needsUpdate = true;
 }
+rendering.quality.subscribe(syncQualityConsumers);
 
-function renderQualityMode() {
-  qualityToggle.textContent = `quality · ${qualityMode}`;
-  qualityToggle.setAttribute('aria-label', `Rendering quality: ${qualityMode}`);
+function currentQualityTier() {
+  if (qualityPin) return qualityPin;
+  return qualityMode === 'auto' ? TIER_NAMES[autoTierLevel] : manualQuality(qualityMode).tier;
 }
-qualityToggle.addEventListener('click', () => {
-  qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
-  perfSampleTime = 0;
-  perfSampleFrames = 0;
-  qualityCooldown = 0;
-  if (qualityMode === 'detail') {
-    applyEffectLevel(2);
-    applyRenderPixelRatio(MAX_PIXEL_RATIO);
-  } else if (qualityMode === 'smooth') {
-    applyEffectLevel(0);
-    applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
-  } else {
-    applyEffectLevel(autoEffectLevel);
-    applyRenderPixelRatio(Math.min(renderPixelRatio, AUTO_MAX_PIXEL_RATIO));
-  }
-  renderQualityMode();
+
+function applyQuality(tier = currentQualityTier()) {
+  rendering.setTier(tier);
+  syncQualityConsumers();
+}
+
+function tierPixelRatio(tier) {
+  return Math.min(DEVICE_PIXEL_RATIO, tierConfig(tier).maxPixelRatio);
+}
+
+function qualityPixelRatio() {
+  if (qualityPin) return tierPixelRatio(qualityPin);
+  if (qualityMode === 'auto') return Math.min(renderPixelRatio, AUTO_MAX_PIXEL_RATIO);
+  return manualQuality(qualityMode).pixelRatio;
+}
+
+onQualityTierChange((tier, config) => {
+  qualityMode = tier;
+  applyQuality();
+  applyRenderPixelRatio(qualityPixelRatio());
+  perf.quality?.sync();
   persistPreferences();
-  toast(qualityMode === 'auto'
+  toast(tier === 'auto'
     ? 'quality will adapt to keep the café smooth'
-    : `quality locked to ${qualityMode}`);
+    : `quality set to ${config.label.toLowerCase()}`);
 });
-renderQualityMode();
-if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
-if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
+applyQuality();
+if (qualityPin || qualityMode !== 'auto') applyRenderPixelRatio(qualityPixelRatio());
+
+// Auto's dynamic quality: #24's controller walks a { tier, scale } ladder
+// over the rendering pipeline's tiers (low .. the Auto ceiling) from measured
+// frame time. It is the only adaptive loop.
+const autoQualityTarget = {
+  tierCount: rendering.qualityTarget.tierCount,
+  getTier: () => rendering.qualityTarget.getTier(),
+  setTier(tier) {
+    autoTierLevel = Math.min(AUTO_MAX_TIER_LEVEL, Math.max(0, Math.round(tier)));
+    applyQuality(TIER_NAMES[autoTierLevel]);
+  },
+  getRenderScale: () => renderPixelRatio,
+  setRenderScale: (scale) => applyRenderPixelRatio(scale),
+};
+const perf = installPerformance({
+  renderer,
+  scene,
+  camera,
+  quality: autoQualityTarget,
+  ladder: buildQualityLadder({
+    tierCount: autoQualityTarget.tierCount,
+    maxTier: AUTO_MAX_TIER_LEVEL,
+    scales: [...new Set([AUTO_MAX_PIXEL_RATIO, renderPixelRatio, 0.9, 0.8, 0.7, 0.6, 0.5])]
+      .filter((scale) => scale <= AUTO_MAX_PIXEL_RATIO && scale >= MIN_PIXEL_RATIO)
+      .sort((a, b) => b - a),
+  }),
+  actorShadowRange: tierSettings.actorShadowRange,
+});
+
+// ---------- memory and pacing governors ----------
+
+let lastSceneChangeAt = performance.now();
+// Decoder workers are released once a café has been settled for a while, so
+// a switch in progress never pays for respawning them.
+function releaseIdleWorkers() {
+  if (performance.now() - lastSceneChangeAt < 10000) return;
+  perf.lod.releaseIdleWorker();
+  releaseIdleTranscoders();
+}
+const memoryGovernor = new MemoryGovernor({
+  budgetMB: tierSettings.tabBudgetMB,
+  sample: () => {
+    const heap = performance.memory;
+    const cpuBytes = heap ? heap.usedJSHeapSize : libraryBytes() / 2;
+    return {
+      heapUsed: heap?.usedJSHeapSize ?? null,
+      heapLimit: heap?.jsHeapSizeLimit ?? null,
+      estimateMB: (cpuBytes + gpuMemory.totalBytes + gpuMemory.drawingBufferBytes()) / 1048576,
+    };
+  },
+  trim: (reason) => {
+    trimModelLibrary(0, { surfaceMaps: true });
+    perf.lod.releaseIdleWorker();
+    releaseIdleTranscoders();
+    if (reason === 'critical' && qualityMode === 'auto') perf.quality?.apply(0, 'memory pressure');
+  },
+  idle: releaseIdleWorkers,
+}).start();
+
+// Frame-rate ceilings: device class, thermal drift, the user's cap
+// (?fps=30 or the frameCap preference), battery saver, window focus.
+const thermal = new ThermalGovernor();
+let batterySaver = false;
+let windowFocused = document.hasFocus?.() ?? true;
+function applyFrameCaps() {
+  const caps = frameCaps({
+    device: tierSettings, thermal: thermal.caps, userCap: userFrameCap, batterySaver, focused: windowFocused,
+  });
+  frameScheduler.interactiveFps = caps.interactiveFps;
+  frameScheduler.ambientFps = caps.ambientFps;
+}
+watchBatterySaver((active) => {
+  batterySaver = active;
+  applyFrameCaps();
+});
+window.addEventListener('focus', () => { windowFocused = true; applyFrameCaps(); });
+window.addEventListener('blur', () => { windowFocused = false; applyFrameCaps(); });
+applyFrameCaps();
+function setFrameCap(fps) {
+  userFrameCap = [0, 30].includes(Number(fps)) ? Number(fps) : 0;
+  applyFrameCaps();
+  persistPreferences();
+}
+perf.setExternalMetrics(() => ({
+  qualityMode,
+  targetFps: frameScheduler.targetFps,
+  calls: lastRenderStats.calls,
+  triangles: lastRenderStats.triangles,
+  pixelRatio: renderPixelRatio,
+  device: deviceSummary(),
+  pacing: pacingSummary(),
+  memory: memoryGovernor.snapshot(),
+  gpuMB: gpuMemory.snapshot().total / 1048576,
+}));
+function deviceSummary() {
+  return { tier: device.tier, gpu: device.gpu, mobile: device.mobile, deviceMemory: device.deviceMemory, cores: device.cores, reasons: device.reasons, benchmarkMs: device.benchmarkMs === null ? null : Number(device.benchmarkMs.toFixed(1)) };
+}
+function pacingSummary() {
+  return {
+    interactiveFps: frameScheduler.interactiveFps,
+    ambientFps: frameScheduler.ambientFps,
+    thermalLevel: thermal.level,
+    userCap: userFrameCap,
+    batterySaver,
+    focused: windowFocused,
+  };
+}
 
 musicVolume.addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -1309,10 +1418,10 @@ rainSlider.addEventListener('input', (e) => {
   persistPreferences();
 });
 
-// focus timer (adjustable focus interval / five-minute break)
+// focus timer (adjustable focus interval / break length from UI settings);
+// the UI's focus panel hosts the duration controls
 const timerEl = document.getElementById('timer-display');
 const timerBtn = document.getElementById('timer-btn');
-const timerPop = document.getElementById('timer-pop');
 const timerDuration = document.getElementById('timer-duration');
 const timerPresetButtons = [...document.querySelectorAll('#timer-presets button')];
 let focusMinutes = preferences.focusMinutes;
@@ -1327,11 +1436,6 @@ function renderTimerDuration() {
     button.setAttribute('aria-pressed', String(active));
   });
   timerEl.setAttribute('aria-label', `Set focus duration, currently ${focusMinutes} minutes`);
-}
-function setTimerPopOpen(open) {
-  timerPop.hidden = !open;
-  timerEl.classList.toggle('open', open);
-  timerEl.setAttribute('aria-expanded', String(open));
 }
 function setFocusMinutes(nextMinutes) {
   focusMinutes = Math.round(THREE.MathUtils.clamp(nextMinutes, 1, 180));
@@ -1354,23 +1458,23 @@ function renderTimer() {
     lastTimerBreak = timerBreak;
   }
 }
+function renderTimerButton() {
+  timerBtn.textContent = timerRunning ? '❚❚' : '▶';
+  timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
+}
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   if (!timerRunning) audio.stopPlayerTyping();
-  if (timerRunning) setTimerPopOpen(false);
-  timerEl.disabled = timerRunning;
-  timerBtn.textContent = timerRunning ? '❚❚' : '▶';
-  timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
+  renderTimerButton();
+  autosave.touch('focus');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = focusMinutes * 60;
   audio.stopPlayerTyping();
-  timerEl.disabled = false;
-  timerBtn.textContent = '▶';
-  timerBtn.setAttribute('aria-label', 'Start focus timer');
+  renderTimerButton();
   renderTimer();
+  autosave.touch('focus');
 });
-timerEl.addEventListener('click', () => setTimerPopOpen(timerPop.hidden));
 document.getElementById('timer-minus').addEventListener('click', () => {
   setFocusMinutes(focusMinutes - (focusMinutes > 5 ? 5 : 1));
 });
@@ -1380,15 +1484,12 @@ document.getElementById('timer-plus').addEventListener('click', () => {
 timerPresetButtons.forEach((button) => {
   button.addEventListener('click', () => setFocusMinutes(Number(button.dataset.minutes)));
 });
-document.addEventListener('pointerdown', (event) => {
-  if (!timerPop.hidden && !document.getElementById('timer').contains(event.target)) setTimerPopOpen(false);
-});
 renderTimerDuration();
 renderTimer();
 
 // enter overlay — also unlocks the AudioContext
 const overlay = document.getElementById('overlay');
-document.getElementById('enter-btn').addEventListener('click', () => {
+function enterCafe() {
   overlay.classList.add('hidden');
   overlay.setAttribute('aria-hidden', 'true');
   audio.start(activeTheme());
@@ -1399,7 +1500,234 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   audio.setRainIntensity(Number(rainSlider.value));
   audio.setMusicOn(musicToggle.classList.contains('on'));
   audio.setMuted(masterMuted);
+}
+
+// ---------- session checkpoints: Continue / New session ----------
+// The title offers Continue when a checkpoint exists. Its café, time and
+// weather are already the ones built behind the title, with the player in
+// their saved spot, so Continue only has to resume the timer and music.
+
+let sessionStarted = false;
+let offeredCheckpoint = null;
+let restoredMusic = null;
+let saveProblemShown = false;
+let playerWasMoving = false;
+
+const cafeIndexOf = (checkpoint) => {
+  const byId = THEMES.findIndex((theme) => theme.id === checkpoint.cafeId);
+  return byId >= 0 ? byId : THREE.MathUtils.clamp(checkpoint.preferences.cafeIndex, 0, THEMES.length - 1);
+};
+
+function captureCheckpoint() {
+  let player = null;
+  // While a different room is being built, the old position means nothing.
+  if (cafe && cafe.theme === currentTheme) {
+    const look = { yaw: view.yaw, pitch: view.pitch };
+    if (mode === 'seated' && seatIndex >= 0) {
+      const { pos, levelId } = cafe.seats[seatIndex];
+      player = {
+        mode: 'seated', seat: { index: seatIndex, x: pos.x, y: pos.y, z: pos.z },
+        x: pos.x, y: pos.y, z: pos.z, levelId: levelId ?? 'ground', ...look,
+      };
+    } else if (mode === 'walking') {
+      player = { mode: 'walking', x: walkPos.x, y: walkY, z: walkPos.z, levelId: walkLevelId, ...look };
+    }
+  }
+  const music = audio.started ? audio.musicState() : null;
+  if (music) restoredMusic = null;
+  return {
+    savedAt: Date.now(),
+    cafeId: THEMES[currentThemeIndex].id,
+    preferences: currentPreferences(),
+    settings: getUISettings(),
+    stats: getFocusStats(),
+    player,
+    focus: { running: timerRunning, onBreak: timerBreak, remaining: timerLeft },
+    music: music ?? restoredMusic,
+  };
+}
+
+function reportCheckpointSave(result) {
+  if (!result || result.ok || saveProblemShown) return;
+  saveProblemShown = true;
+  toast(result.reason === 'quota'
+    ? 'storage is full, so this device can’t keep your spot for now'
+    : 'this browser isn’t keeping site data, so your spot won’t be saved');
+}
+
+// A saved seat is matched by position as well as index, so a layout change
+// between deploys never seats the player somewhere unexpected.
+function savedSeatIndex(saved) {
+  if (!saved || !cafe) return -1;
+  const near = (seat) => seat
+    && Math.hypot(seat.pos.x - saved.x, seat.pos.z - saved.z) < 0.35
+    && Math.abs(seat.pos.y - saved.y) < 0.5;
+  return near(cafe.seats[saved.index]) ? saved.index : cafe.seats.findIndex(near);
+}
+
+function restorePlayer(player) {
+  if (!cafe || !player) return false;
+  tween.active = false;
+  const index = player.mode === 'seated' ? savedSeatIndex(player.seat) : -1;
+  // a patron who sat down in the freshly built room gives the seat back
+  const seated = index >= 0 && (!crowd?.isSeatTaken(index) || crowd.evictSeat(index));
+  if (seated) {
+    crowd?.setPlayerSeat(index);
+    sitAt(index, true);
+  } else {
+    standUp();
+    mode = 'walking';
+    seatIndex = -1;
+    crowd?.setPlayerSeat(-1);
+    const onLevel = navigator?.resolveHeight(player.levelId, player.x, player.z) != null;
+    walkLevelId = onLevel ? player.levelId : 'ground';
+    // Patrons are respawned on every visit; the saved spot is honoured even
+    // if one stands there now (they step around the player).
+    walkPos.set(player.x, 0, player.z);
+    resolveCollisions(walkPos);
+    walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z) ?? 0;
+    realism.motor.reset(walkY);
+    camera.position.set(walkPos.x, walkY + STAND_EYE, walkPos.z);
+    placePlayerLaptop();
+    updateWalkBtn();
+  }
+  view.yaw = player.yaw;
+  view.pitch = clampPitch(player.pitch);
+  applyView();
+  return true;
+}
+
+function restoreFocusState(focus, savedAt) {
+  const resumed = resumeFocus(focus, savedAt, Date.now());
+  if (resumed.remaining <= 0) Object.assign(resumed, { running: false, onBreak: false, remaining: focusMinutes * 60 });
+  noteRestoredFocus(resumed);
+  timerRunning = resumed.running;
+  timerBreak = resumed.onBreak;
+  timerLeft = resumed.remaining;
+  renderTimerButton();
+  renderTimer();
+  if (resumed.interrupted) {
+    toast(`your ${resumed.onBreak ? 'break' : 'focus session'} is paused at ${formatClock(resumed.remaining)}, press play to carry on`);
+  }
+}
+
+// Only used to recover values a checkpoint holds when this device's
+// preference record is missing (for example after site data was partly
+// cleared). Normal visits already loaded these from src/preferences.js.
+function applyPreferenceValues(p) {
+  musicVolume.value = String(p.musicVolume);
+  ambienceVolume.value = String(p.ambienceVolume);
+  voicesVolume.value = String(p.voicesVolume);
+  petsVolume.value = String(p.petVolume);
+  rainSlider.value = String(p.rainIntensity);
+  renderRainStop();
+  audio.setMusicVolume(p.musicVolume);
+  audio.setAmbienceVolume(p.ambienceVolume);
+  audio.setVoicesVolume(p.voicesVolume);
+  audio.setPetVolume(p.petVolume);
+  audio.setRainIntensity(p.rainIntensity);
+  if (musicToggle.classList.contains('on') !== p.musicOn) musicToggle.click();
+  if (masterMuted !== p.muted) {
+    masterMuted = p.muted;
+    audio.setMuted(masterMuted);
+    renderMuteToggle();
+  }
+  setQualityTier(p.qualityMode);
+  if (p.frameCap !== userFrameCap) setFrameCap(p.frameCap);
+  laptopOn = p.laptopOn;
+  document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
+  if (focusMinutes !== p.focusMinutes) setFocusMinutes(p.focusMinutes);
+  persistPreferences();
+}
+
+function startNewSession() {
+  sessionStarted = true;
+  // The room behind the title showed the saved spot; a new session starts
+  // from the best free seat instead.
+  if (offeredCheckpoint && cafe && cafe.theme === currentTheme) {
+    const s = defaultSeat();
+    crowd?.setPlayerSeat(s);
+    sitAt(s, true);
+  }
+  persistPreferences();
+  autosave.enable();
+  autosave.saveNow('new-session');
+}
+
+function resumeSession(checkpoint) {
+  sessionStarted = true;
+  const { preferences: saved } = checkpoint;
+  const index = cafeIndexOf(checkpoint);
+  const sameRoom = index === currentThemeIndex && envTime === saved.envTime && envSky === saved.envSky
+    && cafe && cafe.theme === currentTheme;
+  envTime = saved.envTime;
+  envSky = saved.envSky;
+  renderSkyChips();
+  if (laptopOn !== saved.laptopOn) {
+    laptopOn = saved.laptopOn;
+    document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
+  }
+  if (focusMinutes !== saved.focusMinutes) setFocusMinutes(saved.focusMinutes);
+  // Re-applied even in the same room: the visitor may have looked around on
+  // the title screen.
+  if (sameRoom) restorePlayer(checkpoint.player);
+  else loadTheme(index, { place: () => restorePlayer(checkpoint.player) });
+  restoreFocusState(checkpoint.focus, checkpoint.savedAt);
+  restoredMusic = checkpoint.music;
+  audio.queueMusicResume(checkpoint.music);
+  persistPreferences();
+  autosave.enable();
+  autosave.touch('continue');
+  requestPersistentStorage();
+}
+
+document.getElementById('enter-btn').addEventListener('click', () => {
+  if (!sessionStarted) startNewSession();
+  enterCafe();
 });
+document.getElementById('continue-btn')?.addEventListener('click', () => {
+  if (!sessionStarted) {
+    if (offeredCheckpoint) resumeSession(offeredCheckpoint);
+    else startNewSession();
+  }
+  enterCafe();
+});
+onUISettingsChange(() => autosave.touch('settings'));
+document.addEventListener('vibe:focus-block', () => {
+  autosave.touch('focus-block');
+  requestPersistentStorage();
+});
+
+checkpointLoad.then((checkpoint) => {
+  if (!checkpoint || sessionStarted) return;
+  offeredCheckpoint = checkpoint;
+  adoptFocusStats(checkpoint.stats);
+  if (!hadStoredUISettings) updateUISettings(checkpoint.settings);
+  if (!hadStoredPreferences) applyPreferenceValues(checkpoint.preferences);
+});
+
+// Warm the checkpoint's café first: build the room, time and weather the
+// visitor left (with them in their spot) instead of a default room that
+// Continue would have to tear down, and fetch their music track meanwhile.
+// The model library starts downloading while the checkpoint is read.
+async function bootCafe() {
+  loadModelLibrary(THEMES[preferences.cafeIndex].id, { streamCast: STREAM_CAST }).catch(() => {});
+  const checkpoint = await Promise.race([
+    checkpointLoad,
+    new Promise((resolve) => setTimeout(resolve, 1500, null)),
+  ]);
+  if (!checkpoint) {
+    await loadTheme(preferences.cafeIndex);
+    return;
+  }
+  envTime = checkpoint.preferences.envTime;
+  envSky = checkpoint.preferences.envSky;
+  renderSkyChips();
+  audio.prefetchMusic(checkpoint.music);
+  await loadTheme(cafeIndexOf(checkpoint), {
+    place: () => !sessionStarted && restorePlayer(checkpoint.player),
+  });
+}
 
 function applyRenderPixelRatio(nextRatio) {
   const clamped = THREE.MathUtils.clamp(nextRatio, MIN_PIXEL_RATIO, MAX_PIXEL_RATIO);
@@ -1408,16 +1736,14 @@ function applyRenderPixelRatio(nextRatio) {
   renderPixelRatio = rounded;
   renderer.setPixelRatio(renderPixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
-  composer.setPixelRatio(renderPixelRatio);
-  updateFxaaResolution();
+  rendering.resize();
 }
 
 function resizeViewport() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight, false);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  updateFxaaResolution();
+  rendering.setSize(window.innerWidth, window.innerHeight);
   pointerDirty = true;
 }
 window.addEventListener('resize', resizeViewport);
@@ -1429,10 +1755,6 @@ let elapsed = 0;
 let lastListenerSync = 0;
 let simAcc = 0;
 let shadowAcc = 1 / 30;
-let perfSampleTime = 0;
-let perfSampleFrames = 0;
-let perfTargetFps = 0;
-let qualityCooldown = 0;
 let nextPlayerTypingAt = 0;
 let playerTypingActive = false;
 let metricsSyncAt = 0;
@@ -1449,66 +1771,18 @@ const SIM_STEP = 1 / 30;
 const MAX_SIM_STEPS = 6;
 
 function updateAdaptiveQuality(frameDt, targetFps) {
-  if (qualityMode !== 'auto') return;
   // The intro is intentionally cheap and mostly opaque. Measuring it would
   // over-promote quality before the real café and crowd are visible.
-  if (!overlay.classList.contains('hidden')) {
-    perfSampleTime = 0;
-    perfSampleFrames = 0;
-    return;
-  }
-  // Ignore tab switches and breakpoint pauses; they do not describe rendering
-  // performance and would otherwise force an unnecessary quality drop.
-  if (document.hidden || frameDt > 0.1) {
-    perfSampleTime = 0;
-    perfSampleFrames = 0;
-    return;
-  }
-  if (perfTargetFps !== targetFps) {
-    perfTargetFps = targetFps;
-    perfSampleTime = 0;
-    perfSampleFrames = 0;
-  }
-  qualityCooldown = Math.max(0, qualityCooldown - frameDt);
-  perfSampleTime += frameDt;
-  perfSampleFrames += 1;
-  if (perfSampleTime < 2.5) return;
-
-  const averageFrameMs = (perfSampleTime / perfSampleFrames) * 1000;
-  const targetFrameMs = 1000 / targetFps;
-  if (averageFrameMs > targetFrameMs * 1.18) {
-    if (renderPixelRatio > 1.001) {
-      applyRenderPixelRatio(renderPixelRatio - 0.15);
-    } else if (autoEffectLevel > 0) {
-      autoEffectLevel -= 1;
-      applyEffectLevel(autoEffectLevel);
-    } else if (renderPixelRatio > MIN_PIXEL_RATIO + 0.001) {
-      applyRenderPixelRatio(renderPixelRatio - 0.1);
-    }
-    qualityCooldown = 5;
-  } else if (averageFrameMs < targetFrameMs * 1.05 && qualityCooldown <= 0) {
-    // Restore scene depth before supersampling: a low-resolution image with
-    // contact light and bloom generally reads better than a sharper flat one.
-    if (autoEffectLevel < AUTO_MAX_EFFECT_LEVEL) {
-      autoEffectLevel += 1;
-      applyEffectLevel(autoEffectLevel);
-    } else if (renderPixelRatio < AUTO_MAX_PIXEL_RATIO) {
-      applyRenderPixelRatio(renderPixelRatio + 0.1);
-    }
-    // Composer target reallocations and light-count shader changes should be
-    // rare. A long hold prevents a 60 Hz display from repeatedly toggling on
-    // the 16.67 ms boundary.
-    qualityCooldown = 15;
-  }
-  perfSampleTime = 0;
-  perfSampleFrames = 0;
+  const eligible = qualityMode === 'auto' && !qualityPin && overlay.classList.contains('hidden') && !document.hidden;
+  perf.updateQuality(frameDt, targetFps, eligible);
 }
 
 function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 
 function frame(now = performance.now()) {
   requestAnimationFrame(frame);
-  const activelyMoving = tween.active || dragging || keys.size > 0;
+  if (!perf.frame(now)) return;
+  const activelyMoving = tween.active || controls.isActive() || realism.motor.moving;
   if (!frameScheduler.shouldRender(now, {
     moving: activelyMoving,
     visible: !document.hidden,
@@ -1517,6 +1791,16 @@ function frame(now = performance.now()) {
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
   updateAdaptiveQuality(rawDt, frameScheduler.targetFps);
+  // first-person input: one movement intent per rendered frame, shared by
+  // look, interaction and the character controller (src/physics)
+  const intent = readIntent(dt, controls);
+  if (!tween.active && (intent.look.yaw || intent.look.pitch)) {
+    view.yaw += intent.look.yaw;
+    view.pitch = clampPitch(view.pitch + intent.look.pitch);
+    applyView();
+  }
+  if (intent.interact) activateAt(intent.interact.x, intent.interact.y);
+  if (mode === 'seated' && !tween.active && (intent.move.x || intent.move.z)) standUp();
 
   // Run room life in stable 30 Hz steps, but cap catch-up work after a paused
   // or throttled tab so returning to the café cannot trigger a long CPU spike.
@@ -1531,6 +1815,7 @@ function frame(now = performance.now()) {
       if (cafe) cafe.animate(SIM_STEP);
       if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
       if (pets) pets.update(SIM_STEP, crowd, camera.position);
+      realism.simStep(SIM_STEP, camera.position);
     }
   }
 
@@ -1546,48 +1831,21 @@ function frame(now = performance.now()) {
     const k = easeInOut(Math.min(tween.t, 1));
     camera.position.lerpVectors(tween.fromPos, tween.toPos, k);
     // arc up slightly mid-flight, like standing and walking over
-    camera.position.y += Math.sin(k * Math.PI) * 0.35;
+    if (tween.dur > 1) camera.position.y += Math.sin(k * Math.PI) * 0.35;
     camera.quaternion.slerpQuaternions(tween.fromQ, tween.toQ, k);
     if (tween.t >= 1) {
       tween.active = false;
       applyView();
     }
   } else if (mode === 'walking' && cafe) {
-    // first-person stroll
-    walkForward.set(-Math.sin(view.yaw), 0, -Math.cos(view.yaw));
-    walkRight.set(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
-    walkMove.set(0, 0, 0);
-    if (keys.has('KeyW') || keys.has('ArrowUp')) walkMove.add(walkForward);
-    if (keys.has('KeyS') || keys.has('ArrowDown')) walkMove.sub(walkForward);
-    if (keys.has('KeyD') || keys.has('ArrowRight')) walkMove.add(walkRight);
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) walkMove.sub(walkRight);
-    const moving = walkMove.lengthSq() > 0;
-    if (moving) {
-      cameraMoved = true;
-      walkMove.normalize();
-      walkProposed.copy(walkPos).addScaledVector(walkMove, dt * 2.0);
-      resolveCollisions(walkProposed);
-      crowd?.resolvePlayerCollision?.(walkProposed, 0.3, walkY);
-      // A person can push the player toward a table edge; resolve the room once
-      // more so the two collision systems cannot squeeze the camera into props.
-      resolveCollisions(walkProposed);
-      // §8: collision and walk-surface height resolve atomically — a candidate
-      // off every surface of the current floor is rejected (or slid along an
-      // axis), never dropped to another floor's height.
-      commitWalkMove(walkProposed);
-      walkBob += dt * 8;
-      // your own footsteps
-      const stepNow = Math.floor(walkBob / Math.PI);
-      if (stepNow !== lastPlayerStep) {
-        lastPlayerStep = stepNow;
-        if (audio.started) audio.playFootstep(walkPos, 0.55);
-      }
-    }
-    camera.position.set(
-      walkPos.x,
-      walkY + STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : 0),
-      walkPos.z
-    );
+    // first-person stroll: the character controller consumes the intent
+    const pose = player.step(dt, intent, view.yaw);
+    if (pose.moved) cameraMoved = true;
+    const moving = realism.motor.moving;
+    if (playerWasMoving && !moving) autosave.touch('moved');
+    playerWasMoving = moving;
+    camera.position.set(pose.x, pose.y, pose.z);
+    camera.quaternion.setFromEuler(viewEuler.set(view.pitch + pose.pitch, view.yaw, pose.roll, 'YXZ'));
   } else if (seatIndex >= 0 && cafe) {
     // Keep a seated view pixel-stable. Sub-pixel idle motion made GTAO and
     // detailed PBR textures shimmer even though the user was not moving.
@@ -1603,7 +1861,7 @@ function frame(now = performance.now()) {
   }
 
   // hover highlight
-  if (cafe && !tween.active && !dragging) {
+  if (cafe && !tween.active) {
     if (pointerDirty || cameraMoved) {
       const seatHit = pickSeat();
       hoveredSeat = seatHit.index;
@@ -1616,29 +1874,22 @@ function frame(now = performance.now()) {
     }
     if (hoveredWorld) {
       ring.visible = false;
-      if (canvasCursor !== 'pointer') {
-        canvas.style.cursor = 'pointer';
-        canvasCursor = 'pointer';
-      }
+      controls.setAimTarget('use');
     } else if (hoveredSeat >= 0 && hoveredSeat !== seatIndex) {
       const seat = cafe.seats[hoveredSeat];
+      const taken = crowd?.isSeatTaken(hoveredSeat) ?? false;
       ring.position.set(seat.pos.x, seat.pos.y + 0.72, seat.pos.z);
       ring.visible = true;
-      ring.material.color.set(crowd.isSeatTaken(hoveredSeat) ? 0xd06050 : 0xffe2a8);
+      ring.material.color.set(taken ? 0xd06050 : 0xffe2a8);
       ring.material.opacity = 0.6 + Math.sin(elapsed * 5) * 0.25;
-      if (canvasCursor !== 'pointer') {
-        canvas.style.cursor = 'pointer';
-        canvasCursor = 'pointer';
-      }
+      controls.setAimTarget(taken ? 'taken' : 'sit');
     } else {
       ring.visible = false;
-      if (canvasCursor !== 'grab') {
-        canvas.style.cursor = 'grab';
-        canvasCursor = 'grab';
-      }
+      controls.setAimTarget(null);
     }
   } else {
     ring.visible = false;
+    controls.setAimTarget(null);
     if (hoveredWorld) {
       hoveredWorld = null;
       interactions.hover(null);
@@ -1658,9 +1909,10 @@ function frame(now = performance.now()) {
     if (timerLeft <= 0) {
       timerBreak = !timerBreak;
       if (timerBreak) audio.stopPlayerTyping();
-      timerLeft = (timerBreak ? 5 : focusMinutes) * 60;
+      timerLeft = (timerBreak ? breakMinutes() : focusMinutes) * 60;
       if (audio.started) audio.playTimerAlarm();
       toast(timerBreak ? 'Break time — stretch a little 🌿' : 'Back to focus ☕');
+      autosave.touch('focus');
     }
     renderTimer();
   }
@@ -1680,23 +1932,35 @@ function frame(now = performance.now()) {
   }
 
   shadowAcc += rawDt;
-  if (shadowAcc >= shadowInterval) {
+  // Battery saver halves how often the crowd's shadows are re-rendered.
+  const shadowEvery = batterySaver ? shadowInterval * 2 : shadowInterval;
+  if (shadowAcc >= shadowEvery) {
     renderer.shadowMap.needsUpdate = true;
-    shadowAcc %= shadowInterval;
+    shadowAcc %= shadowEvery;
   }
 
+  realism.frame(rawDt);
   renderer.info.reset();
   const renderStartedAt = performance.now();
+  perf.beginRender(now);
   crowd?.interpolate(simAcc / SIM_STEP);
   pets?.interpolate(simAcc / SIM_STEP);
+  realism.beforeRender(); // render-only body lean, removed again below
   try {
-    if (effectLevel === 0) renderer.render(scene, camera);
-    else composer.render(dt);
+    rendering.render(dt);
   } finally {
+    realism.afterRender();
     crowd?.restoreSimulationPose();
     pets?.restoreSimulationPose();
+    perf.endRender();
   }
   lastRenderMs = performance.now() - renderStartedAt;
+  if (!MEMORY_AUDIT_MODE && overlay.classList.contains('hidden')) {
+    const gpuMs = perf.stats.gpuTimer.supported ? perf.stats.gpuTimer.lastMs : null;
+    if (thermal.update(gpuMs ?? lastRenderMs, rawDt, perf.quality?.step ?? renderPixelRatio, 1000 / frameScheduler.targetFps)) {
+      applyFrameCaps();
+    }
+  }
   lastRenderStats.calls = renderer.info.render.calls;
   lastRenderStats.triangles = renderer.info.render.triangles;
   lastRenderStats.points = renderer.info.render.points;
@@ -1709,14 +1973,25 @@ function frame(now = performance.now()) {
     fpsWindowStartedAt = now;
   }
 
-  if (elapsed >= metricsSyncAt && window.__vibe) {
+  if (METRICS_ATTRIBUTE && elapsed >= metricsSyncAt && window.__vibe) {
     metricsSyncAt = elapsed + 0.5;
     document.documentElement.dataset.vibeMetrics = JSON.stringify(window.__vibe.metrics());
   }
 }
 
-loadTheme(preferences.cafeIndex);
+bootCafe();
 frame();
+
+connectUI({
+  venues: THEMES.map((theme) => ({ name: theme.name, blurb: theme.blurb })),
+  isReady: () => Boolean(cafe),
+  currentCafe: () => cafe,
+  controls,
+  audio,
+  checkpoint: checkpointLoad.then((checkpoint) => (checkpoint
+    ? describeCheckpoint(checkpoint, { cafeName: THEMES[cafeIndexOf(checkpoint)].name })
+    : null)),
+});
 
 // tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
@@ -1726,25 +2001,42 @@ window.__vibe = {
   captureFrame(alpha = 1, format = 'image/png') {
     crowd?.interpolate(alpha);
     pets?.interpolate(alpha);
+    realism.beforeRender();
     try {
       renderer.shadowMap.needsUpdate = true;
       renderer.info.reset();
-      if (effectLevel === 0) renderer.render(scene, camera);
-      else composer.render(1 / 30);
+      rendering.render(1 / 30);
       for (const key of ['calls', 'triangles', 'points', 'lines']) {
         lastRenderStats[key] = renderer.info.render[key];
       }
       return renderer.domElement.toDataURL(format, 0.92);
     } finally {
+      realism.afterRender();
       crowd?.restoreSimulationPose();
       pets?.restoreSimulationPose();
     }
   },
   get cafe() { return cafe; },
+  // Active rendering tier/config (`rendering.quality.config`) for audits and
+  // other systems that scale with the graphics budget.
+  get rendering() { return rendering; },
   venueCollectionAudit() { return auditVenueCollections(cafe.group); },
   get crowd() { return crowd; },
   get pets() { return pets; },
   get interactions() { return interactions; },
+  get perf() { return perf; },
+  get controls() { return controls; },
+  get view() { return { yaw: view.yaw, pitch: view.pitch }; },
+  checkpoint: {
+    capture: () => captureCheckpoint(),
+    save: (reason = 'debug') => autosave.saveNow(reason),
+    load: () => checkpointStore.load(),
+    whenRead: () => checkpointLoad.then(Boolean),
+    get backend() { return checkpointStore.backend; },
+    get offered() { return offeredCheckpoint; },
+    get autosaving() { return autosave.enabled; },
+    timer: () => ({ running: timerRunning, onBreak: timerBreak, remaining: timerLeft, minutes: focusMinutes }),
+  },
   metrics() {
     let decodedAudioBytes = 0;
     let instancedMeshes = 0;
@@ -1768,25 +2060,32 @@ window.__vibe = {
         }
       }
     });
-    for (const { buffer } of audio.buffers.values()) {
-      decodedAudioBytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+    let streamedAudioBytes = 0;
+    for (const { buffer, stream } of audio.buffers.values()) {
+      if (buffer) decodedAudioBytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+      if (stream) streamedAudioBytes += stream.bytes;
     }
     return {
       theme: cafe?.theme.id ?? currentTheme.id,
       rain: !!cafe?.theme.rain,
       qualityMode,
       pixelRatio: renderPixelRatio,
-      effects: effectLevel,
+      effects: rendering.config.effectLevel,
+      qualityTier: rendering.tier,
       targetFps: frameScheduler.targetFps,
       observedFps: Number(observedRenderFps.toFixed(1)),
       renderedFrames: frameScheduler.renderedFrames,
       skippedFrames: frameScheduler.skippedFrames,
       lastRenderMs: Number(lastRenderMs.toFixed(2)),
       shadowFps: Math.round(1 / shadowInterval),
-      gtaoScale: 0.5,
-      bloomScale: 0.5,
+      gtaoScale: rendering.config.ao?.scale ?? 0,
+      bloomScale: rendering.config.bloom?.scale ?? 0,
+      rendering: rendering.metrics(),
       heapBytes: performance.memory?.usedJSHeapSize ?? null,
       decodedAudioBytes,
+      streamedAudioBytes,
+      streamedLoops: Object.keys(audio.chatterBeds).length + Object.keys(audio.trafficBeds).length
+        + (audio.rainNodes?.recordedSources.length ?? 0),
       outsidePedestrians: crowd?.outside?.walkers?.length ?? 0,
       indoorPatrons: crowd?.npcs?.length ?? 0,
       mobileActors: (crowd?.outside?.walkers?.length ?? 0) + (crowd?.npcs?.length ?? 0),
@@ -1821,8 +2120,32 @@ window.__vibe = {
       triangles: lastRenderStats.triangles,
       points: lastRenderStats.points,
       lines: lastRenderStats.lines,
+      perf: perf.metrics(),
+      device: deviceSummary(),
+      pacing: pacingSummary(),
+      memoryGovernor: memoryGovernor.snapshot(),
+      lastEviction,
+      ...realism.metrics(),
     };
   },
+  get realism() { return realism; },
+  setFrameCap,
+  get frameCap() { return userFrameCap; },
+  trimMemory(reason = 'moderate') { memoryGovernor.trimNow(reason); },
+  memoryReport() {
+    const models = residentModels();
+    const templates = [...models.values()].map((entry) => entry.template);
+    let cast = 0;
+    for (const [key] of models) if (isCastModel(key)) cast += 1;
+    return memoryReport({
+      gpu: gpuMemory,
+      roots: [scene, ...templates],
+      audio: audio.buffers,
+      library: { models: models.size, cast },
+    });
+  },
+  gpuAllocations(limit = 20) { return gpuMemory.largest(limit); },
+  libraryReport() { return libraryReport(); },
   place(x, z, yaw, pitch = 0, levelId = null) {
     standUp();
     if (levelId) walkLevelId = levelId;
@@ -1831,6 +2154,7 @@ window.__vibe = {
     crowd?.resolvePlayerCollision?.(walkPos);
     walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
       ?? navigator?.resolveHeight('ground', walkPos.x, walkPos.z) ?? 0;
+    realism.motor.reset(walkY); // a teleport carries no momentum or gait
     view.yaw = yaw; view.pitch = pitch;
     applyView();
   },

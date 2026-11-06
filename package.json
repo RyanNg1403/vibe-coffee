@@ -9,23 +9,33 @@
     "build": "vite build",
     "artifact": "node tools/make-artifact.mjs",
     "audit:motion": "node tools/motion-audit.mjs",
+    "audit:resume": "node tools/resume-audit.mjs",
+    "audit:physics": "node tools/physics-audit.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
+    "audit:mobile": "node tools/memory-mobile-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
     "perf:baseline": "node tools/perf-baseline.mjs",
+    "perf:bench": "node tools/perf-bench.mjs",
+    "audit:ktx2": "node tools/ktx2-audit.mjs",
     "preview": "vite preview",
+    "pages:serve": "node tools/pages/serve.mjs",
+    "pages:size": "node tools/pages/size-report.mjs",
+    "pages:smoke": "node tools/pages/smoke.mjs",
     "test": "node --test",
     "audit:decor": "node tools/decor-audit.mjs",
     "audit:layout": "node tools/layout-audit.mjs"
   },
   "dependencies": {
-    "three": "^0.166.1"
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "meshoptimizer": "^0.22.0",
+    "three": "^0.166.1",
+    "three-mesh-bvh": "^0.8.3"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.4.1",
     "@gltf-transform/extensions": "^4.4.1",
     "@gltf-transform/functions": "^4.4.1",
     "draco3dgltf": "^1.5.7",
-    "meshoptimizer": "^0.22.0",
     "music-metadata": "^11.13.0",
     "vite": "^8.1.4"
   }

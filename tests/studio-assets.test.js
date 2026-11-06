@@ -12,11 +12,15 @@ import { createThinGlass } from '../src/rendering/thinGlass.js';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { normalizeModel } from '../src/modelLoader.js';
 
+// LOD0 triangles, materials, JPEG-variant bytes. The hero espresso machine and
+// cup carry baked 1024/512 px color, normal and ORM atlases; the chair is
+// instanced up to 64 times per room, so its LOD0 stays near 3k triangles.
+// Budgets are documented in assets/blender/hero/README.md.
 const budgets = {
-  studio_cup: [3200, 2, 90_000],
-  studio_espresso: [6500, 7, 250_000],
+  studio_cup: [3200, 2, 140_000],
+  studio_espresso: [20_000, 7, 650_000],
   studio_pendant: [2000, 3, 80_000],
-  studio_chair: [2200, 2, 150_000],
+  studio_chair: [3000, 2, 150_000],
 };
 await MeshoptDecoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
@@ -28,6 +32,10 @@ test('Blender exports are self-contained, finite, and inside their geometry/down
     assert.ok(bytes.length <= maxBytes, `${name}: ${bytes.length} bytes`);
     const document = await io.readBinary(bytes);
     let triangles = 0;
+    // Embedded MSFT_lod levels sit outside the scene graph and replace LOD0 at
+    // a distance; only the scene's full-detail meshes count toward the budget.
+    const sceneMeshes = new Set();
+    document.getRoot().getDefaultScene().traverse((node) => { if (node.getMesh()) sceneMeshes.add(node.getMesh()); });
     for (const mesh of document.getRoot().listMeshes()) {
       for (const primitive of mesh.listPrimitives()) {
         const positions = primitive.getAttribute('POSITION');
@@ -38,7 +46,7 @@ test('Blender exports are self-contained, finite, and inside their geometry/down
         assert.ok(indices, `${name}: indexed geometry`);
         assert.equal(indices.getCount() % 3, 0);
         assert.ok(indices.getArray().every((i) => i < positions.getCount()), `${name}: valid triangle indices`);
-        triangles += indices.getCount() / 3;
+        if (sceneMeshes.has(mesh)) triangles += indices.getCount() / 3;
       }
     }
     assert.ok(triangles > 100 && triangles <= maxTriangles, `${name}: ${triangles} triangles`);

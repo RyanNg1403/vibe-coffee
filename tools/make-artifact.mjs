@@ -12,6 +12,8 @@ import { meshopt, weld, simplify, resample } from '@gltf-transform/functions';
 import draco3d from 'draco3dgltf';
 import { MeshoptEncoder, MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
 import { MODEL_MANIFEST } from '../src/modelManifest.js';
+import { TEXTURE_MANIFEST } from '../src/textureManifest.js';
+import { MSFTLod, MSFT_LOD } from './msft-lod.mjs';
 
 const run = promisify(execFile);
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -78,7 +80,7 @@ await MeshoptEncoder.ready;
 await MeshoptDecoder.ready;
 await MeshoptSimplifier.ready;
 const io = new NodeIO()
-  .registerExtensions(ALL_EXTENSIONS)
+  .registerExtensions([...ALL_EXTENSIONS, MSFTLod])
   .registerDependencies({
     'draco3d.decoder': await draco3d.createDecoderModule(),
     'meshopt.encoder': MeshoptEncoder,
@@ -88,6 +90,29 @@ const io = new NodeIO()
 const compactImages = new Map();
 for (const name of artifactModels) {
   const document = await io.read(join(root, 'public', 'models', `${name}.glb`));
+  // The portable edition carries one level. Static props start from their
+  // embedded LOD1 (rigged characters and pets keep LOD0 and the stronger
+  // simplification below), then the LOD chains are dropped.
+  for (const node of document.getRoot().listNodes()) {
+    const lod = node.getExtension(MSFT_LOD);
+    if (!lod) continue;
+    const lod1 = lod.listLods()[0]?.getMesh();
+    if (lod1 && !node.getSkin()) {
+      const full = node.getMesh();
+      node.setMesh(lod1);
+      lod.listLods()[0].setMesh(full);
+    }
+    for (const level of lod.listLods()) {
+      const mesh = level.getMesh();
+      level.dispose();
+      for (const prim of mesh?.listPrimitives() ?? []) prim.dispose();
+      mesh?.dispose();
+    }
+    lod.dispose();
+  }
+  for (const extension of document.getRoot().listExtensionsUsed()) {
+    if (extension.extensionName === MSFT_LOD) extension.dispose();
+  }
   // Keep facial detail while reducing the transfer cost of the portable edition.
   // The full application and editable Blender sources retain larger maps.
   for (const texture of document.getRoot().listTextures()) {
@@ -152,15 +177,29 @@ for (const id of uniqueTracks) {
 
 await build({
   root,
+  mode: 'artifact',
   publicDir: false,
-  build: { outDir: buildDir, emptyOutDir: true, minify: true },
+  // One self-contained module: the artifact inlines a single entry script.
+  build: { outDir: buildDir, emptyOutDir: true, minify: true, rolldownOptions: { output: { codeSplitting: false } } },
   plugins: [{
     name: 'artifact-manifests',
     enforce: 'pre',
     transform(_code, id) {
       if (id.endsWith('/src/modelManifest.js')) return artifactModelManifest;
+      // Its models are pre-simplified for size, so BVH picking stays out of
+      // the size-capped artifact (and the LOD worker chunk is never reachable).
+      if (id.endsWith('/src/perf/bvhLoader.js')) return 'export const loadBvh = async () => null;';
+      // Artifact models keep JPEG textures (re-encoded above), so the KTX2
+      // loader chunk would only cost bytes.
+      if (id.endsWith('/src/perf/textureCompression.js')) {
+        return 'export function configureTextureCompression() {}\nexport const ktx2Loader = async () => null;\n'
+          + 'export function releaseAfterUpload() {}\nexport const ktx2Stats = {};';
+      }
       if (id.endsWith('/src/soundManifest.js')) return artifactSoundManifest;
       if (id.endsWith('/src/musicManifest.js')) return artifactMusicManifest;
+      // Literal root paths (BASE is '/' outside Vite) so the asset table below
+      // can find and inline every surface texture.
+      if (id.endsWith('/src/textureManifest.js')) return `export const TEXTURE_MANIFEST = ${JSON.stringify(TEXTURE_MANIFEST)};\n`;
       return null;
     },
   }],

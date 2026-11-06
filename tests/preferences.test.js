@@ -28,6 +28,7 @@ test('round-trips every preference', () => {
     qualityMode: 'smooth',
     laptopOn: true,
     focusMinutes: 42,
+    frameCap: 30,
   };
   savePreferences(preferences);
   assert.deepEqual(loadPreferences(), preferences);

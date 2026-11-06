@@ -29,5 +29,8 @@ contains editable models, source attribution, and regeneration instructions.
 Earlier captures remain in [docs/rebuild](docs/rebuild/README.md) and
 [docs/graphics](docs/graphics/README.md).
 
+The [rendering notes](docs/rendering/README.md) describe the lighting and
+post-processing pipeline and its low/medium/high/ultra quality tiers.
+
 See the [NPC movement notes](docs/motion/README.md) for smoothing changes and
 the reproducible browser motion audit.

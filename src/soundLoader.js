@@ -5,6 +5,9 @@
 // Assets arrive at wildly different recording levels, so each buffer is
 // loudness-analyzed on load and given an auto gain that brings it to a
 // common RMS target (peak-limited so nothing clips).
+import { StreamSource } from './audioStream.js';
+
+import { assetUrl } from './assetUrl.js';
 
 function analyze(buffer) {
   let sum = 0, peak = 0;
@@ -61,21 +64,18 @@ function dataUriToArrayBuffer(uri) {
 // decodes so dozens of assets never allocate dozens of offline contexts.
 const decoderContexts = new Map();
 
-// Fetches, decodes and loudness-normalizes ONE manifest entry. Used by the
-// startup library load and by on-demand (lazy) beds like the rain levels.
-export async function loadSoundAsset(ctx, key, def) {
-  let ab;
-  if (def.url.startsWith('data:')) {
-    ab = dataUriToArrayBuffer(def.url);
-  } else {
-    const res = await fetch(def.url);
-    if (!res.ok) throw new Error(`http ${res.status}`);
-    ab = await res.arrayBuffer();
-  }
-  // AudioContext.decodeAudioData() otherwise resamples every file to the
-  // output device (usually 48 kHz), undoing the RAM benefit of our 24 kHz
-  // ambience masters. Decode through a rate-specific OfflineAudioContext;
-  // AudioBufferSourceNode resamples the compact buffer only while playing.
+async function fetchBytes(def) {
+  if (def.url.startsWith('data:')) return dataUriToArrayBuffer(def.url);
+  const res = await fetch(assetUrl(def.url));
+  if (!res.ok) throw new Error(`http ${res.status}`);
+  return res.arrayBuffer();
+}
+
+// AudioContext.decodeAudioData() otherwise resamples every file to the
+// output device (usually 48 kHz), undoing the RAM benefit of our 24 kHz
+// ambience masters. Decode through a rate-specific OfflineAudioContext;
+// AudioBufferSourceNode resamples the compact buffer only while playing.
+async function decodeNormalized(ctx, key, def, ab) {
   const rate = def.decodeRate ?? decodeRate(key, ctx.sampleRate);
   let decoder = decoderContexts.get(rate);
   if (!decoder) {
@@ -87,7 +87,43 @@ export async function loadSoundAsset(ctx, key, def) {
   const { rms, peak } = analyze(buf);
   let gain = rms > 0.0001 ? targetRms(key, def) / rms : 1;
   gain = Math.min(gain, 6, peak > 0.0001 ? 0.95 / peak : 6);
-  return { buffer: buf, ...def, gain: gain * (def.trim ?? 1) };
+  return { buffer: buf, gain: gain * (def.trim ?? 1) };
+}
+
+// Fetches, decodes and loudness-normalizes ONE manifest entry. Used by the
+// startup library load and by on-demand (lazy) beds like the rain levels.
+export async function loadSoundAsset(ctx, key, def) {
+  const { buffer, gain } = await decodeNormalized(ctx, key, def, await fetchBytes(def));
+  return { buffer, ...def, gain };
+}
+
+// A looping bed kept compressed for media-element playback (audioStream.js).
+// The recording is decoded once, only to measure the same loudness gain as
+// the buffer path; the PCM is dropped right after. `decode()` rebuilds the
+// buffer from the kept bytes when an element cannot play.
+export async function loadStreamedSoundAsset(ctx, key, def) {
+  const ab = await fetchBytes(def);
+  const type = def.url.startsWith('data:') ? def.url.slice(5, def.url.indexOf(';')) : 'audio/mpeg';
+  // decodeAudioData detaches its input; the Blob copies the bytes first.
+  const stream = new StreamSource(ab, { type });
+  let decoded;
+  try {
+    decoded = await decodeNormalized(ctx, key, def, ab);
+  } catch (error) {
+    stream.release();
+    throw error;
+  }
+  const { buffer, gain } = decoded;
+  stream.duration = buffer.duration;
+  return {
+    ...def,
+    gain,
+    stream,
+    decode: async () => {
+      const bytes = await fetch(stream.url).then((res) => res.arrayBuffer());
+      return (await decodeNormalized(ctx, key, def, bytes)).buffer;
+    },
+  };
 }
 
 export async function loadSoundLibrary(ctx, manifest, onLoaded) {

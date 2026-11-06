@@ -1,0 +1,66 @@
+{
+  "latte": {
+    "dimensionsMetres": [
+      0.1527,
+      0.15,
+      0.103
+    ],
+    "maps": [
+      "latte_color 512px",
+      "latte_normal 512px",
+      "latte_orm 512px"
+    ],
+    "materials": [
+      "Hero / latte atlas"
+    ],
+    "sourceTriangles": 3196
+  },
+  "mug": {
+    "dimensionsMetres": [
+      0.1206,
+      0.0907,
+      0.098
+    ],
+    "maps": [
+      "mug_color 512px",
+      "mug_normal 512px",
+      "mug_orm 512px"
+    ],
+    "materials": [
+      "Hero / mug atlas"
+    ],
+    "sourceTriangles": 2236
+  },
+  "studio_cup": {
+    "dimensionsMetres": [
+      0.125,
+      0.125,
+      0.088
+    ],
+    "maps": [
+      "studio_cup_color 512px",
+      "studio_cup_normal 512px",
+      "studio_cup_orm 512px"
+    ],
+    "materials": [
+      "Hero / studio_cup atlas"
+    ],
+    "sourceTriangles": 2996
+  },
+  "studio_espresso": {
+    "dimensionsMetres": [
+      0.685,
+      0.6366,
+      0.5
+    ],
+    "maps": [
+      "espresso_color 1024px",
+      "espresso_normal 1024px",
+      "espresso_orm 1024px"
+    ],
+    "materials": [
+      "Hero / espresso atlas"
+    ],
+    "sourceTriangles": 19300
+  }
+}
