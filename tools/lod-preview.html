@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Dev-only LOD / KTX2 inspection page (served by `npm run dev`, not built):
+     /tools/lod-preview.html?keys=studio_espresso,char_atelier_1
+     Each row shows one model at LOD0, LOD1 and LOD2 side by side. KTX2Loader
+     is registered so build-time KTX2 outputs can be previewed too. -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>html, body { margin: 0; background: #2a2724; } canvas { display: block; }</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { MODEL_MANIFEST } from '/src/modelManifest.js';
+import { GLTFLodPlugin } from '/src/gltfLodPlugin.js';
+
+const params = new URLSearchParams(location.search);
+const keys = (params.get('keys') ?? 'studio_espresso').split(',');
+const cell = 360;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(cell * 3, cell * keys.length);
+renderer.toneMapping = THREE.AgXToneMapping;
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const ktx2 = new KTX2Loader().setTranscoderPath('/node_modules/three/examples/jsm/libs/basis/').detectSupport(renderer);
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setKTX2Loader(ktx2)
+  .register((parser) => new GLTFLodPlugin(parser));
+
+const report = [];
+for (const [row, key] of keys.entries()) {
+  const gltf = await loader.loadAsync(MODEL_MANIFEST[key].url);
+  const box = new THREE.Box3().setFromObject(gltf.scene);
+  const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+  const radius = size.length() / 2;
+  for (let level = 0; level < 3; level++) {
+    const scene = new THREE.Scene();
+    scene.environment = environment;
+    scene.background = new THREE.Color(0x2a2724);
+    const sun = new THREE.DirectionalLight(0xfff1dd, 2.2);
+    sun.position.set(1, 2, 1.5);
+    scene.add(sun);
+    const model = gltf.scene.clone(true);
+    let tris = 0;
+    model.traverse((o) => {
+      if (o.isLOD) {
+        o.autoUpdate = false;
+        const index = Math.min(level, o.levels.length - 1);
+        o.levels.forEach((l, i) => { l.object.visible = i === index; });
+      }
+    });
+    scene.add(model);
+    model.updateMatrixWorld(true);
+    model.traverse((o) => {
+      if (!o.isMesh) return;
+      let visible = true;
+      for (let p = o; p; p = p.parent) visible &&= p.visible;
+      if (visible) tris += (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3;
+    });
+    if (gltf.animations.length) {
+      const mixer = new THREE.AnimationMixer(model);
+      mixer.clipAction(gltf.animations.find((a) => a.name === 'Idle') ?? gltf.animations[0]).play();
+      mixer.update(0.5);
+    }
+    const camera = new THREE.PerspectiveCamera(30, 1, radius / 100, radius * 100);
+    camera.position.copy(center).add(new THREE.Vector3(0.55, 0.35, 1).normalize().multiplyScalar(radius * 3.4));
+    camera.lookAt(center);
+    renderer.setViewport(level * cell, (keys.length - 1 - row) * cell, cell, cell);
+    renderer.setScissor(level * cell, (keys.length - 1 - row) * cell, cell, cell);
+    renderer.render(scene, camera);
+    report.push({ key, level, triangles: tris });
+  }
+}
+window.lodPreview = { done: true, report, info: renderer.info.memory };
+</script>
+</body>
+</html>

@@ -164,10 +164,10 @@
   "bar_stool": {
     "creator": "Vibe Coffee project, authored in Blender 4.3",
     "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
-    "item_url": "assets/blender/collection/README.md",
+    "item_url": "assets/blender/hero/README.md",
     "title": "Blender collection finish — bar stool",
-    "source_url": "assets/blender/collection/bar_stool.blend",
-    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
+    "source_url": "assets/blender/hero/bar_stool.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork. Hero refinement: chamfered joinery with hardened normals and Cycles contact occlusion baked into the finish vertex colors (tools/blender/refine_hero_furniture.py). The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "char_hero_female": {
     "title": "Casually dressed female character (rigged; web-optimized with grounded idle and walk clips)",
@@ -198,18 +198,20 @@
     "item_url": "https://poly.pizza/m/mQnGoME1ez"
   },
   "mug": {
-    "title": "Atelier café rebuild — mug",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/mug.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Hero café rebuild — dipped stoneware mug",
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "source_url": "assets/blender/hero/mug.blend",
+    "item_url": "assets/blender/hero/README.md",
+    "modifications": "Bellied stoneware mug with reactive teal glaze over raw speckled clay, modeled coffee surface; baked 512 px PBR atlas. The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "latte": {
-    "title": "Atelier café rebuild — latte",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/latte.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Hero café rebuild — latte bowl with poured art",
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "source_url": "assets/blender/hero/latte.blend",
+    "item_url": "assets/blender/hero/README.md",
+    "modifications": "Latte bowl and saucer with iron rim band and an original wing-heart pour in microfoam; baked 512 px PBR atlas. The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "cookie": {
     "title": "Atelier café rebuild — cookie",
@@ -263,10 +265,10 @@
   "side_table": {
     "creator": "Vibe Coffee project, authored in Blender 4.3",
     "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
-    "item_url": "assets/blender/collection/README.md",
+    "item_url": "assets/blender/hero/README.md",
     "title": "Blender collection finish — side table",
-    "source_url": "assets/blender/collection/side_table.blend",
-    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
+    "source_url": "assets/blender/hero/side_table.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork. Hero refinement: chamfered joinery with hardened normals and Cycles contact occlusion baked into the finish vertex colors (tools/blender/refine_hero_furniture.py). The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "coat_rack": {
     "title": "Atelier café rebuild — coat rack",
@@ -580,18 +582,20 @@
     "item_url": "https://poly.pizza/m/66kQ4dBBC7"
   },
   "studio_cup": {
-    "title": "Atelier café rebuild — studio cup",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/studio_cup.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Hero café rebuild — porcelain cup and saucer",
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "source_url": "assets/blender/hero/studio_cup.blend",
+    "item_url": "assets/blender/hero/README.md",
+    "modifications": "Wheel-thrown tulip cup with foot ring, rolled lip, saucer well and strap handle; speckled glaze and unglazed foot baked to 512 px base color, normal and ORM atlases. The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "studio_espresso": {
-    "title": "Atelier café rebuild — studio espresso",
-    "creator": "Original project artwork, authored in Blender 4.3",
-    "license": "Original project artwork; no third-party model inputs",
-    "source_url": "assets/blender/rebuild/studio_espresso.blend",
-    "item_url": "assets/blender/README.md"
+    "title": "Hero café rebuild — two-group espresso machine",
+    "creator": "Vibe Coffee project, authored in Blender 4.3",
+    "license": "Original project artwork; no third-party model or texture inputs",
+    "source_url": "assets/blender/hero/studio_espresso.blend",
+    "item_url": "assets/blender/hero/README.md",
+    "modifications": "Remodeled in Blender 4.3 (tools/blender/build_hero_espresso.py): beveled stainless chassis, oiled-walnut panels, E61-style groups and portafilters, gauges, steam wands, slotted drip tray and perforated cup warmer; procedural materials baked to 1024 px base color, normal and ORM (with Cycles AO) atlases. The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "studio_pendant": {
     "title": "Atelier café rebuild — studio pendant",
@@ -657,18 +661,18 @@
   "studio_chair": {
     "creator": "Vibe Coffee project, authored in Blender 4.3",
     "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
-    "item_url": "assets/blender/collection/README.md",
+    "item_url": "assets/blender/hero/README.md",
     "title": "Blender collection finish — studio chair",
-    "source_url": "assets/blender/collection/studio_chair.blend",
-    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
+    "source_url": "assets/blender/hero/studio_chair.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork. Hero refinement: chamfered joinery with hardened normals and Cycles contact occlusion baked into the finish vertex colors (tools/blender/refine_hero_furniture.py). The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "armchair": {
     "creator": "Vibe Coffee project, authored in Blender 4.3",
     "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
-    "item_url": "assets/blender/collection/README.md",
+    "item_url": "assets/blender/hero/README.md",
     "title": "Blender collection finish — armchair",
-    "source_url": "assets/blender/collection/armchair.blend",
-    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
+    "source_url": "assets/blender/hero/armchair.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork. Hero refinement: chamfered joinery with hardened normals and Cycles contact occlusion baked into the finish vertex colors (tools/blender/refine_hero_furniture.py). The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "atelier_car": {
     "title": "Atelier café rebuild — atelier car",
@@ -868,10 +872,10 @@
   "sofa": {
     "creator": "Vibe Coffee project, authored in Blender 4.3",
     "license": "Original project geometry; includes CC0 ambientCG Wood067 material derivatives",
-    "item_url": "assets/blender/collection/README.md",
+    "item_url": "assets/blender/hero/README.md",
     "title": "Blender collection finish — sofa",
-    "source_url": "assets/blender/collection/sofa.blend",
-    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork."
+    "source_url": "assets/blender/hero/sofa.blend",
+    "modifications": "Satin timber, restrained grain, per-board finish variation and venue linen palettes applied in Blender while retaining approved furniture geometry and seating dimensions. Timber maps derive from ambientCG Wood067 (https://ambientcg.com/view?id=Wood067); linen fields are original project artwork. Hero refinement: chamfered joinery with hardened normals and Cycles contact occlusion baked into the finish vertex colors (tools/blender/refine_hero_furniture.py). The runtime GLB embeds LOD0-LOD2 (MSFT_lod)."
   },
   "teapot": {
     "title": "Atelier café rebuild — teapot",
@@ -907,10 +911,11 @@
     "item_url": "assets/blender/realism/architectural-materials.blend"
   },
   "realism_stone_color.jpg": {
-    "title": "Blender architectural stone color",
+    "title": "Honed Carrara-style marble color (seamless counter top)",
     "creator": "Vibe Coffee project",
     "license": "Original project artwork",
-    "item_url": "assets/blender/realism/architectural-materials.blend"
+    "item_url": "assets/blender/hero/counter-stone.blend",
+    "modifications": "Procedural 4D-torus marble baked in Blender 4.3 (tools/blender/build_hero_surfaces.py); tiles seamlessly."
   },
   "realism_walnut_normal.jpg": {
     "title": "Blender walnut finish, derived from ambientCG Wood067",
@@ -925,10 +930,11 @@
     "item_url": "assets/blender/realism/architectural-materials.blend"
   },
   "realism_stone_normal.jpg": {
-    "title": "Blender architectural stone normal",
+    "title": "Honed Carrara-style marble normal (seamless counter top)",
     "creator": "Vibe Coffee project",
     "license": "Original project artwork",
-    "item_url": "assets/blender/realism/architectural-materials.blend"
+    "item_url": "assets/blender/hero/counter-stone.blend",
+    "modifications": "Procedural 4D-torus marble baked in Blender 4.3 (tools/blender/build_hero_surfaces.py); tiles seamlessly."
   },
   "realism_walnut_roughness.jpg": {
     "title": "Blender walnut finish, derived from ambientCG Wood067",
@@ -943,10 +949,11 @@
     "item_url": "assets/blender/realism/architectural-materials.blend"
   },
   "realism_stone_roughness.jpg": {
-    "title": "Blender architectural stone roughness",
+    "title": "Honed Carrara-style marble roughness (seamless counter top)",
     "creator": "Vibe Coffee project",
     "license": "Original project artwork",
-    "item_url": "assets/blender/realism/architectural-materials.blend"
+    "item_url": "assets/blender/hero/counter-stone.blend",
+    "modifications": "Procedural 4D-torus marble baked in Blender 4.3 (tools/blender/build_hero_surfaces.py); tiles seamlessly."
   },
   "realism_contact_goldenhour.jpg": {
     "title": "Blender Cycles floor contact bake — goldenhour",
