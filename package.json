@@ -10,6 +10,7 @@
     "artifact": "node tools/make-artifact.mjs",
     "audit:motion": "node tools/motion-audit.mjs",
     "audit:resume": "node tools/resume-audit.mjs",
+    "audit:physics": "node tools/physics-audit.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
     "audit:mobile": "node tools/memory-mobile-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
@@ -22,6 +23,7 @@
     "audit:layout": "node tools/layout-audit.mjs"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
     "meshoptimizer": "^0.22.0",
     "three": "^0.166.1",
     "three-mesh-bvh": "^0.8.3"

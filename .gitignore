@@ -9,6 +9,8 @@ tools/.artifact-cache/
 .resume-audit/
 .visual-audit/
 .motion-audit/
+.physics-audit/
+.physics-demo/
 
 # Blender Python caches and reproducible capture frames
 __pycache__/

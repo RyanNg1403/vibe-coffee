@@ -42,6 +42,9 @@ import { AdaptiveFrameScheduler } from './frameScheduler.js';
 import { WorldInteractions } from './interactions/worldInteractions.js';
 import { installPerformance, buildQualityLadder } from './perf/index.js';
 import { disposeObject3D } from './perf/disposal.js';
+import { RealismSystem } from './physics/realism.js';
+import { PlayerController } from './physics/playerController.js';
+import { readIntent } from './physics/movementIntent.js';
 
 const preferences = loadPreferences();
 // A deterministic lifecycle probe used by the checked-in P0 benchmark. It
@@ -154,6 +157,9 @@ const audio = new CafeAudio();
 // "step inside" never puts megabytes of audio in front of the first frame.
 let releaseAudioLibrary = () => {};
 if (STREAM_CAST) audio.libraryGate = new Promise((resolve) => { releaseAudioLibrary = resolve; });
+// physics & secondary motion (src/physics/); the player's own cup can rattle
+// on a table they walk into
+const realism = new RealismSystem({ audio, looseProps: () => [playerCup] });
 
 // ---------- state ----------
 
@@ -169,11 +175,7 @@ const walkPos = new THREE.Vector3();
 let walkLevelId = 'ground';
 let walkY = 0;
 let navigator = null;
-let walkBob = 0;
-let lastPlayerStep = 0;
 const controls = createControls({ canvas, settings: lookSettings });
-const WALK_SPEED = 2.0;
-const SPRINT_MULTIPLIER = 1.75;
 // The user's frame cap: 0 (device default) or 30 fps; ?fps=30 for testing.
 let userFrameCap = Number(auditParams.get('fps')) || preferences.frameCap || 0;
 const frameScheduler = new AdaptiveFrameScheduler({
@@ -194,9 +196,6 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const seatHits = [];
 const seatEyeScratch = new THREE.Vector3();
-const walkForward = new THREE.Vector3();
-const walkRight = new THREE.Vector3();
-const walkMove = new THREE.Vector3();
 const listenerForward = new THREE.Vector3();
 const viewEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let pointerDirty = true;
@@ -239,6 +238,7 @@ function sitAt(index, instant = false) {
   seatIndex = index;
   mode = 'seated';
   autosave.touch('seat');
+  realism.onSit();
   updateWalkBtn();
   placePlayerLaptop(); // your MacBook follows you to the new table
   placePlayerCup(); // keep an existing order grounded at the current table
@@ -321,6 +321,7 @@ async function loadTheme(index, { place } = {}) {
   interactions.clear(); // world click targets belong to the departing room
   hoveredWorld = null;
   audio.stopPlayerTyping(); // no burst may outlive the room it was typed in
+  realism.detach();
   if (pets) { pets.dispose(); pets = null; }
   if (crowd) { crowd.dispose(); crowd = null; }
   if (cafe) {
@@ -349,6 +350,7 @@ async function loadTheme(index, { place } = {}) {
   rendering.applyTheme(theme, cafe);
 
   if (!STREAM_CAST) spawnCrowd(theme, models);
+  realism.attach({ cafe, crowd, pets, theme });
   syncQualityConsumers();
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
@@ -393,6 +395,7 @@ function spawnCrowd(theme, cast, playerSeat = -1) {
   });
   pets = new PetSystem(cafe, cast, theme, audio, interactions);
   crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
+  realism.attachCast({ crowd, pets });
 }
 
 // Only the characters this café can spawn are downloaded, after its first
@@ -895,6 +898,7 @@ function standUp() {
   walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
     ?? (seat ? seat.pos.y - (seat.isBar ? 0.15 : 0) : walkY);
   autosave.touch('stand');
+  realism.onStandUp(walkY);
   updateWalkBtn();
 }
 
@@ -906,7 +910,16 @@ function updateWalkBtn() {
   b.setAttribute('aria-label', mode === 'walking' ? 'Click a free chair to sit' : 'Stand up and walk');
 }
 
-const walkProposed = new THREE.Vector3();
+// the character controller reaches the room through these hooks (src/physics)
+const player = new PlayerController(realism, {
+  position: walkPos,
+  groundY: () => walkY,
+  levelId: () => walkLevelId,
+  resolveStatic: resolveCollisions,
+  resolveCrowd: (p) => crowd?.resolvePlayerCollision?.(p, 0.3, walkY),
+  commit: commitWalkMove,
+  onFootstep: (p, weight) => { if (audio.started) audio.playFootstep(p, 0.55 * weight); },
+});
 
 // Commit a proposed walking position: authored portal transitions first, then
 // the current floor's surface height; off-surface candidates slide along one
@@ -1573,6 +1586,7 @@ function restorePlayer(player) {
     walkPos.set(player.x, 0, player.z);
     resolveCollisions(walkPos);
     walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z) ?? 0;
+    realism.motor.reset(walkY);
     camera.position.set(walkPos.x, walkY + STAND_EYE, walkPos.z);
     placePlayerLaptop();
     updateWalkBtn();
@@ -1768,7 +1782,7 @@ function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2)
 function frame(now = performance.now()) {
   requestAnimationFrame(frame);
   if (!perf.frame(now)) return;
-  const activelyMoving = tween.active || controls.isActive();
+  const activelyMoving = tween.active || controls.isActive() || realism.motor.moving;
   if (!frameScheduler.shouldRender(now, {
     moving: activelyMoving,
     visible: !document.hidden,
@@ -1777,9 +1791,9 @@ function frame(now = performance.now()) {
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
   updateAdaptiveQuality(rawDt, frameScheduler.targetFps);
-
-  // first-person input: one movement intent per rendered frame
-  const intent = controls.frame(dt);
+  // first-person input: one movement intent per rendered frame, shared by
+  // look, interaction and the character controller (src/physics)
+  const intent = readIntent(dt, controls);
   if (!tween.active && (intent.look.yaw || intent.look.pitch)) {
     view.yaw += intent.look.yaw;
     view.pitch = clampPitch(view.pitch + intent.look.pitch);
@@ -1801,6 +1815,7 @@ function frame(now = performance.now()) {
       if (cafe) cafe.animate(SIM_STEP);
       if (crowd) crowd.update(SIM_STEP, elapsed - simAcc, camera.position);
       if (pets) pets.update(SIM_STEP, crowd, camera.position);
+      realism.simStep(SIM_STEP, camera.position);
     }
   }
 
@@ -1823,41 +1838,14 @@ function frame(now = performance.now()) {
       applyView();
     }
   } else if (mode === 'walking' && cafe) {
-    // first-person stroll
-    walkForward.set(-Math.sin(view.yaw), 0, -Math.cos(view.yaw));
-    walkRight.set(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
-    walkMove.set(0, 0, 0)
-      .addScaledVector(walkForward, intent.move.z)
-      .addScaledVector(walkRight, intent.move.x);
-    const moving = walkMove.lengthSq() > 1e-4;
+    // first-person stroll: the character controller consumes the intent
+    const pose = player.step(dt, intent, view.yaw);
+    if (pose.moved) cameraMoved = true;
+    const moving = realism.motor.moving;
     if (playerWasMoving && !moving) autosave.touch('moved');
     playerWasMoving = moving;
-    if (moving) {
-      cameraMoved = true;
-      const speed = WALK_SPEED * (intent.sprint ? SPRINT_MULTIPLIER : 1);
-      walkProposed.copy(walkPos).addScaledVector(walkMove, dt * speed);
-      resolveCollisions(walkProposed);
-      crowd?.resolvePlayerCollision?.(walkProposed, 0.3, walkY);
-      // A person can push the player toward a table edge; resolve the room once
-      // more so the two collision systems cannot squeeze the camera into props.
-      resolveCollisions(walkProposed);
-      // §8: collision and walk-surface height resolve atomically — a candidate
-      // off every surface of the current floor is rejected (or slid along an
-      // axis), never dropped to another floor's height.
-      commitWalkMove(walkProposed);
-      walkBob += dt * 8 * (intent.sprint ? 1.35 : 1);
-      // your own footsteps
-      const stepNow = Math.floor(walkBob / Math.PI);
-      if (stepNow !== lastPlayerStep) {
-        lastPlayerStep = stepNow;
-        if (audio.started) audio.playFootstep(walkPos, 0.55);
-      }
-    }
-    camera.position.set(
-      walkPos.x,
-      walkY + STAND_EYE + (moving ? Math.abs(Math.sin(walkBob)) * 0.03 : 0),
-      walkPos.z
-    );
+    camera.position.set(pose.x, pose.y, pose.z);
+    camera.quaternion.setFromEuler(viewEuler.set(view.pitch + pose.pitch, view.yaw, pose.roll, 'YXZ'));
   } else if (seatIndex >= 0 && cafe) {
     // Keep a seated view pixel-stable. Sub-pixel idle motion made GTAO and
     // detailed PBR textures shimmer even though the user was not moving.
@@ -1951,14 +1939,17 @@ function frame(now = performance.now()) {
     shadowAcc %= shadowEvery;
   }
 
+  realism.frame(rawDt);
   renderer.info.reset();
   const renderStartedAt = performance.now();
   perf.beginRender(now);
   crowd?.interpolate(simAcc / SIM_STEP);
   pets?.interpolate(simAcc / SIM_STEP);
+  realism.beforeRender(); // render-only body lean, removed again below
   try {
     rendering.render(dt);
   } finally {
+    realism.afterRender();
     crowd?.restoreSimulationPose();
     pets?.restoreSimulationPose();
     perf.endRender();
@@ -2010,6 +2001,7 @@ window.__vibe = {
   captureFrame(alpha = 1, format = 'image/png') {
     crowd?.interpolate(alpha);
     pets?.interpolate(alpha);
+    realism.beforeRender();
     try {
       renderer.shadowMap.needsUpdate = true;
       renderer.info.reset();
@@ -2019,6 +2011,7 @@ window.__vibe = {
       }
       return renderer.domElement.toDataURL(format, 0.92);
     } finally {
+      realism.afterRender();
       crowd?.restoreSimulationPose();
       pets?.restoreSimulationPose();
     }
@@ -2132,8 +2125,10 @@ window.__vibe = {
       pacing: pacingSummary(),
       memoryGovernor: memoryGovernor.snapshot(),
       lastEviction,
+      ...realism.metrics(),
     };
   },
+  get realism() { return realism; },
   setFrameCap,
   get frameCap() { return userFrameCap; },
   trimMemory(reason = 'moderate') { memoryGovernor.trimNow(reason); },
@@ -2159,6 +2154,7 @@ window.__vibe = {
     crowd?.resolvePlayerCollision?.(walkPos);
     walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
       ?? navigator?.resolveHeight('ground', walkPos.x, walkPos.z) ?? 0;
+    realism.motor.reset(walkY); // a teleport carries no momentum or gait
     view.yaw = yaw; view.pitch = pitch;
     applyView();
   },

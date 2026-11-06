@@ -60,6 +60,10 @@ function mergeStaticDecor(group, animatedRoots) {
   for (const root of animatedRoots) {
     if (root) root.traverse((o) => skip.add(o));
   }
+  // fixtures that swing on a cord (src/physics/secondaryMotion.js) stay live
+  group.traverse((o) => {
+    if (o.userData.secondaryMotion) o.traverse((part) => skip.add(part));
+  });
   group.userData.placedUnits = capturePlacementBounds(group, animatedRoots);
   const placementsById = new Map(group.userData.placedUnits.map(unit => [unit.uuid, unit]));
   const buckets = new Map();
@@ -3464,6 +3468,7 @@ export function buildCafe(theme, models = null) {
         }
       }
       hp.position.set(hx, H - 1.0, D / 2 - 0.75);
+      hp.userData.secondaryMotion = { kind: 'pendulum', anchor: [hx, H - 0.2, D / 2 - 0.75], length: 1.1, drag: 1.1 };
       group.add(hp);
     }
   }
@@ -3984,6 +3989,10 @@ export function buildCafe(theme, models = null) {
       pl.position.set(t.x, theme.lampY - 0.12, t.z);
       fixture.add(pl);
       lampLights.push(pl);
+    }
+    // only the open-air canopy has enough breeze to swing a pendant
+    if (theme.openAir) {
+      fixture.userData.secondaryMotion = { kind: 'pendulum', anchor: [t.x, H, t.z], length: H - theme.lampY, drag: 0.7, damping: 0.08 };
     }
     group.add(fixture);
   });
