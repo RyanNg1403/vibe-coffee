@@ -14,6 +14,7 @@ import { SkinnedCuller } from './skinnedCulling.js';
 import { installAcceleratedRaycast, raycastStats } from './raycast.js';
 import { configureTextureCompression } from './textureCompression.js';
 import { ActorReveal } from './actorReveal.js';
+import { compileScene } from './compile.js';
 
 const SCAN_INTERVAL_MS = 1000;
 const textureBytesCache = new WeakMap();
@@ -221,20 +222,20 @@ export function installPerformance({
     async sceneChanged({ models = null } = {}) {
       scanAt = 0;
       reveal.cancel();
-      if (off('warmup') || !renderer.compileAsync) return;
+      if (off('warmup')) return;
       const startedAt = performance.now();
       const token = { until: startedAt + WARMUP_HOLD_LIMIT_MS };
       hold = token;
       const staging = new THREE.Group();
       try {
-        await renderer.compileAsync(scene, camera);
+        await compileScene(renderer, scene, camera);
         const templates = [];
         for (const entry of models?.values?.() ?? []) {
           if ((entry.character || entry.pet) && entry.template && !entry.template.parent) templates.push(entry.template);
         }
         if (templates.length) {
           templates.forEach((template) => staging.add(template));
-          await renderer.compileAsync(staging, camera, scene);
+          await compileScene(renderer, staging, camera, scene);
         }
       } catch (error) {
         console.warn('[perf] shader warm-up skipped:', error.message);

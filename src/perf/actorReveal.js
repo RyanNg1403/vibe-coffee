@@ -3,6 +3,7 @@
 // (opaque) materials are compiled before anything is shown, so the reveal
 // itself never stalls on a program link.
 import * as THREE from 'three';
+import { compileScene } from './compile.js';
 
 const isShared = (material) => material.userData?.vibeShared || material.userData?.shared;
 const smooth = (t) => t * t * (3 - 2 * t);
@@ -98,7 +99,7 @@ export class ActorReveal {
 
   async compile() {
     try {
-      await this.renderer.compileAsync(this.scene, this.camera);
+      await compileScene(this.renderer, this.scene, this.camera);
     } catch {
       // Compilation falls back to the first draw.
     }
