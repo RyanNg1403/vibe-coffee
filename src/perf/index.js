@@ -12,7 +12,7 @@ import { FrameStats } from './frameStats.js';
 import { LodManager } from './lod/lodManager.js';
 import { SkinnedCuller } from './skinnedCulling.js';
 import { installAcceleratedRaycast, raycastStats } from './raycast.js';
-import { configureTextureCompression } from './textureCompression.js';
+import { configureTextureCompression, ktx2Stats } from './textureCompression.js';
 import { ActorReveal } from './actorReveal.js';
 import { compileScene } from './compile.js';
 
@@ -270,6 +270,7 @@ export function installPerformance({
         culledActors,
         raycast: { ...raycastStats, buildMs: Number(raycastStats.buildMs.toFixed(1)) },
         textureMemory: sceneTextureMemory(scene),
+        ktx2: { ...ktx2Stats },
         preUploadedTextures,
         warmups,
         lastWarmupMs: lastWarmupMs === null ? null : Math.round(lastWarmupMs),

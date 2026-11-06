@@ -166,7 +166,8 @@ await build({
       // Artifact models keep JPEG textures (re-encoded above), so the KTX2
       // loader chunk would only cost bytes.
       if (id.endsWith('/src/perf/textureCompression.js')) {
-        return 'export function configureTextureCompression() {}\nexport const ktx2Loader = async () => null;\nexport function releaseAfterUpload() {}';
+        return 'export function configureTextureCompression() {}\nexport const ktx2Loader = async () => null;\n'
+          + 'export function releaseAfterUpload() {}\nexport const ktx2Stats = {};';
       }
       if (id.endsWith('/src/soundManifest.js')) return artifactSoundManifest;
       if (id.endsWith('/src/musicManifest.js')) return artifactMusicManifest;
