@@ -89,6 +89,47 @@ const NORMALIZE = {
   table_lamp: { height: 0.48 },
   typewriter: { height: 0.16 },
 };
+// Device-class budgets (perf/deviceProfile.js): the largest texture edge
+// uploaded and the anisotropic filtering level of library colour maps.
+const budget = { textureMaxSize: Infinity, anisotropy: 8 };
+export function configureModelBudget({ textureMaxSize = Infinity, anisotropy = 8 } = {}) {
+  budget.textureMaxSize = textureMaxSize;
+  budget.anisotropy = anisotropy;
+}
+
+// Caps a freshly parsed texture to budget.textureMaxSize before it is ever
+// uploaded: block-compressed chains drop their top mip levels (each halves
+// the edge and quarters the bytes); decoded images are resized once.
+export async function capTextureSize(texture) {
+  const max = budget.textureMaxSize;
+  if (!Number.isFinite(max)) return;
+  if (texture.isCompressedTexture) {
+    const mips = texture.mipmaps ?? [];
+    let drop = 0;
+    while (drop < mips.length - 1 && Math.max(mips[drop].width, mips[drop].height) > max) drop += 1;
+    if (!drop) return;
+    texture.mipmaps = mips.slice(drop);
+    texture.image = { ...texture.image, width: texture.mipmaps[0].width, height: texture.mipmaps[0].height };
+    return;
+  }
+  const image = texture.image;
+  const width = image?.width ?? 0;
+  const height = image?.height ?? 0;
+  if (Math.max(width, height) <= max || typeof createImageBitmap !== 'function') return;
+  const scale = max / Math.max(width, height);
+  try {
+    const resized = await createImageBitmap(image, {
+      resizeWidth: Math.max(1, Math.round(width * scale)),
+      resizeHeight: Math.max(1, Math.round(height * scale)),
+      resizeQuality: 'high',
+      premultiplyAlpha: 'none',
+      colorSpaceConversion: 'none',
+    });
+    texture.image = resized;
+    image.close?.();
+  } catch { /* keep the original resolution */ }
+}
+
 // any key starting char_ is a rigged character
 function specFor(key) {
   if (key.startsWith('atelier_')) return { worldSpace: true };
@@ -150,7 +191,7 @@ export function normalizeModel(scene, key) {
       o.receiveShadow = true;
       // avoid texture shimmer/moire on oblique surfaces (paintings, labels)
       if (o.material?.map) {
-        o.material.map.anisotropy = 8;
+        o.material.map.anisotropy = budget.anisotropy;
         // library textures outlive every café — clones must never dispose them
         o.material.map.userData.shared = true;
       }
@@ -225,11 +266,16 @@ function createLibrary() {
       }
       // Packed exports name identical embedded images by content hash. Reuse
       // one GPU texture across models while retaining distinct UV transforms.
+      const fresh = new Set();
       gltf.scene.traverse((object) => {
         if (!object.material) return;
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
           for (const [slot, texture] of Object.entries(material)) {
-            if (!texture?.isTexture || !texture.name.startsWith('asset-texture-')) continue;
+            if (!texture?.isTexture) continue;
+            if (!texture.name.startsWith('asset-texture-')) {
+              fresh.add(texture);
+              continue;
+            }
             const id = [texture.name, texture.colorSpace, texture.channel, texture.flipY,
               texture.minFilter, texture.magFilter, texture.anisotropy, texture.generateMipmaps,
               texture.wrapS, texture.wrapT, ...texture.repeat.toArray(), ...texture.offset.toArray(),
@@ -237,11 +283,13 @@ function createLibrary() {
             if (sharedTextures.has(id)) material[slot] = sharedTextures.get(id);
             else {
               sharedTextures.set(id, texture);
-              releaseAfterUpload(texture);
+              fresh.add(texture);
             }
           }
         }
       });
+      await Promise.all([...fresh].map(capTextureSize));
+      fresh.forEach(releaseAfterUpload);
       const spec = specFor(key);
       const isChar = spec.character;
       models.set(key, {
@@ -277,17 +325,139 @@ function createLibrary() {
   }
 
   let backgroundScheduled = false;
-  function streamRemaining(keys) {
+  // `warmOnly` downloads into the HTTP cache without parsing, so a later café
+  // switch needs no network yet nothing extra stays resident.
+  function streamRemaining(keys, { warmOnly = false } = {}) {
     if (backgroundScheduled) return;
     backgroundScheduled = true;
-    const start = () => keys.forEach(load);
+    const warm = async () => {
+      const aliasMap = await aliases;
+      for (const key of keys) {
+        if (models.has(key) || pending.has(key)) continue;
+        const url = MODEL_MANIFEST[aliasMap[key]]?.url ?? MODEL_MANIFEST[key].url;
+        if (url.startsWith('data:')) continue;
+        await fetch(assetUrl(url), { priority: 'low' }).then((res) => res.arrayBuffer()).catch(() => null);
+      }
+    };
+    const start = () => (warmOnly ? warm() : keys.forEach(load));
     setTimeout(() => {
       if (typeof requestIdleCallback === 'function') requestIdleCallback(start, { timeout: 4000 });
       else start();
     }, BACKGROUND_DELAY_MS);
   }
 
-  return { load, fixups, streamRemaining, models };
+  // ---- residency (LRU under a byte budget) ----
+  const lastUsed = new Map();
+  function touch(keys) {
+    const now = performance.now();
+    for (const key of keys) lastUsed.set(key, now);
+  }
+
+  function texturesOf(template, into = new Set()) {
+    template.traverse((object) => {
+      for (const material of [object.material].flat()) {
+        for (const value of Object.values(material ?? {})) if (value?.isTexture) into.add(value);
+      }
+    });
+    return into;
+  }
+
+  // Approximate bytes a resident model costs: geometry (CPU copy + vertex
+  // buffers) and its textures as uploaded.
+  function residentBytes(entry) {
+    if (entry.bytes !== undefined) return entry.bytes;
+    const arrays = new Set();
+    entry.template.traverse((object) => {
+      const geometry = object.geometry;
+      if (!geometry) return;
+      for (const attribute of Object.values(geometry.attributes)) arrays.add(attribute.isInterleavedBufferAttribute ? attribute.data.array : attribute.array);
+      if (geometry.index) arrays.add(geometry.index.array);
+    });
+    let bytes = 0;
+    for (const array of arrays) bytes += 2 * (array?.byteLength ?? 0);
+    for (const texture of texturesOf(entry.template)) {
+      const image = texture.image;
+      bytes += texture.isCompressedTexture
+        ? texture.userData.gpuBytes ?? (texture.mipmaps ?? []).reduce((sum, mip) => sum + (mip.data?.byteLength ?? 0), 0)
+        : (image?.width ?? 0) * (image?.height ?? 0) * 4 * (4 / 3);
+    }
+    entry.bytes = bytes;
+    return bytes;
+  }
+
+  function disposeEntry(entry, keptTextures, onGeometry) {
+    const geometries = new Set();
+    entry.template.traverse((object) => {
+      if (object.geometry) geometries.add(object.geometry);
+      object.skeleton?.dispose();
+      for (const material of [object.material].flat()) {
+        if (!material) continue;
+        for (const value of Object.values(material)) {
+          if (value?.isTexture && !keptTextures.has(value)) value.dispose();
+        }
+        material.dispose();
+      }
+    });
+    for (const geometry of geometries) {
+      onGeometry?.(geometry);
+      geometry.dispose();
+    }
+    entry.template.clear();
+  }
+
+  /**
+   * Evicts least-recently-used models until the rest fit `budgetBytes`.
+   * Never evicts `keep` keys or models with a geometry in `inScene` (source
+   * geometries of anything currently drawn). Evicted models reload from the
+   * network/HTTP cache on demand.
+   */
+  function evict({ keep = new Set(), inScene = new Set(), budgetBytes = Infinity, onGeometry = null } = {}) {
+    let total = 0;
+    const candidates = [];
+    for (const [key, entry] of models) {
+      const bytes = residentBytes(entry);
+      total += bytes;
+      if (keep.has(key)) continue;
+      let drawn = false;
+      entry.template.traverse((object) => { if (object.geometry && inScene.has(object.geometry)) drawn = true; });
+      if (!drawn) candidates.push({ key, entry, bytes });
+    }
+    candidates.sort((a, b) => (lastUsed.get(a.key) ?? 0) - (lastUsed.get(b.key) ?? 0));
+    const evicted = [];
+    for (const candidate of candidates) {
+      if (total <= budgetBytes) break;
+      evicted.push(candidate);
+      total -= candidate.bytes;
+    }
+    if (!evicted.length) return { evicted: [], freedBytes: 0, residentBytes: total };
+    for (const { key } of evicted) {
+      models.delete(key);
+      pending.delete(key);
+    }
+    const keptTextures = new Set();
+    for (const entry of models.values()) texturesOf(entry.template, keptTextures);
+    for (const [id, texture] of sharedTextures) if (!keptTextures.has(texture)) sharedTextures.delete(id);
+    for (const { entry } of evicted) disposeEntry(entry, keptTextures, onGeometry);
+    backgroundScheduled = false;
+    return {
+      evicted: evicted.map(({ key }) => key),
+      freedBytes: evicted.reduce((sum, { bytes }) => sum + bytes, 0),
+      residentBytes: total,
+    };
+  }
+
+  function totalBytes() {
+    let total = 0;
+    for (const entry of models.values()) total += residentBytes(entry);
+    return total;
+  }
+
+  function report() {
+    return [...models].map(([key, entry]) => ({ key, MB: Number((residentBytes(entry) / 1048576).toFixed(2)) }))
+      .sort((a, b) => b.MB - a.MB);
+  }
+
+  return { load, fixups, streamRemaining, models, touch, evict, totalBytes, report };
 }
 
 // Resolves once every model the given café needs is ready (all models when
@@ -298,6 +468,7 @@ export function loadModelLibrary(themeId = null, { streamCast = false } = {}) {
   library ??= createLibrary();
   const keys = Object.keys(MODEL_MANIFEST).filter((key) => !CAST_EXCLUSIONS.has(key));
   const needed = keys.filter((key) => neededForFirstFrame(key, themeId, streamCast));
+  library.touch(needed);
   const ready = Promise.all(needed.map((key) => library.load(key))).then(() => library.fixups());
   // Streaming callers start the background set themselves once the cast is
   // in (streamBackgroundModels), so it never competes with the crowd.
@@ -307,16 +478,40 @@ export function loadModelLibrary(themeId = null, { streamCast = false } = {}) {
 
 // Idle-time download of every non-cast model not loaded yet (other venues,
 // spares): later café switches then need no network.
-export function streamBackgroundModels() {
+// With `warmOnly` (memory-constrained devices) they are only downloaded into
+// the HTTP cache, not parsed into the resident library.
+export function streamBackgroundModels({ warmOnly = false } = {}) {
   library ??= createLibrary();
-  library.streamRemaining(Object.keys(MODEL_MANIFEST).filter((key) => !CAST_EXCLUSIONS.has(key) && !isCastModel(key)));
+  library.streamRemaining(Object.keys(MODEL_MANIFEST).filter((key) => !CAST_EXCLUSIONS.has(key) && !isCastModel(key)), { warmOnly });
 }
 
 // Loads specific manifest models (e.g. a café's cast) into the shared Map.
 export function loadModels(keys) {
   library ??= createLibrary();
-  return Promise.all(keys.filter((key) => MODEL_MANIFEST[key] && !CAST_EXCLUSIONS.has(key))
-    .map((key) => library.load(key))).then(() => library.fixups());
+  const wanted = keys.filter((key) => MODEL_MANIFEST[key] && !CAST_EXCLUSIONS.has(key));
+  library.touch(wanted);
+  return Promise.all(wanted.map((key) => library.load(key))).then(() => library.fixups());
+}
+
+// Every non-cast model a café's room can clone, including its spares.
+export function firstFrameKeys(themeId) {
+  return Object.keys(MODEL_MANIFEST).filter((key) => !CAST_EXCLUSIONS.has(key) && !isCastModel(key)
+    && (NOT_IN_FIRST_FRAME.has(key) || neededForFirstFrame(key, themeId, true)));
+}
+
+// See createLibrary().evict(). Returns { evicted, freedBytes, residentBytes }.
+export function evictModels(options) {
+  if (!library) return { evicted: [], freedBytes: 0, residentBytes: 0 };
+  return library.evict(options);
+}
+
+export function libraryBytes() {
+  return library?.totalBytes() ?? 0;
+}
+
+// Resident models by estimated bytes (window.__vibe.libraryReport()).
+export function libraryReport() {
+  return library?.report() ?? [];
 }
 
 // A live, filtered view of the library for a crowd: models that stream in

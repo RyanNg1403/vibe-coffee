@@ -14,6 +14,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   qualityMode: 'auto',
   laptopOn: false,
   focusMinutes: 25,
+  frameCap: 0,
 });
 
 const numberIn = (value, min, max, fallback) => {
@@ -44,6 +45,7 @@ export function loadPreferences() {
         : DEFAULT_PREFERENCES.qualityMode,
       laptopOn: typeof saved.laptopOn === 'boolean' ? saved.laptopOn : DEFAULT_PREFERENCES.laptopOn,
       focusMinutes: Math.round(numberIn(saved.focusMinutes, 1, 180, DEFAULT_PREFERENCES.focusMinutes)),
+      frameCap: [0, 30].includes(saved.frameCap) ? saved.frameCap : DEFAULT_PREFERENCES.frameCap,
     };
   } catch {
     return { ...DEFAULT_PREFERENCES };

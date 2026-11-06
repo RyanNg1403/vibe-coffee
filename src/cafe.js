@@ -38,6 +38,23 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // multi-material meshes, and structural parents with children.
 const MERGE_MAP_SLOTS = ['map', 'normalMap', 'roughnessMap', 'bumpMap', 'emissiveMap',
   'metalnessMap', 'aoMap', 'alphaMap', 'envMap', 'lightMap'];
+// Static props smaller than this (world-space bounding radius, metres) stop
+// casting shadows on low-end devices: at a 1024² map their shadow is a few
+// texels, but each one is still drawn in every shadow refresh. Applied before
+// merging so they land in non-casting buckets.
+const MERGE_SHARED_VERTEX_LIMIT = 4000;
+let shadowCasterMinRadius = 0;
+export function setShadowCasterMinRadius(radius) {
+  shadowCasterMinRadius = Math.max(0, Number(radius) || 0);
+}
+const _casterSphere = new THREE.Sphere();
+function trimSmallShadowCaster(mesh) {
+  if (!shadowCasterMinRadius || !mesh.castShadow) return;
+  const geometry = mesh.geometry;
+  if (!geometry.boundingSphere) geometry.computeBoundingSphere();
+  _casterSphere.copy(geometry.boundingSphere).applyMatrix4(mesh.matrixWorld);
+  if (_casterSphere.radius < shadowCasterMinRadius) mesh.castShadow = false;
+}
 function mergeStaticDecor(group, animatedRoots) {
   const skip = new Set();
   for (const root of animatedRoots) {
@@ -48,6 +65,7 @@ function mergeStaticDecor(group, animatedRoots) {
   const buckets = new Map();
   group.traverseVisible((o) => {
     if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
+    if (!skip.has(o)) trimSmallShadowCaster(o);
     if (skip.has(o) || o.children.length > 0 || !o.visible) return;
     if (o.userData.illustratedBackdrop) return;
     if (o.userData.tableSurfaceProp) return;
@@ -57,6 +75,10 @@ function mergeStaticDecor(group, animatedRoots) {
     const geometry = o.geometry;
     if (!geometry?.attributes?.position) return;
     if (geometry.morphAttributes && Object.keys(geometry.morphAttributes).length) return;
+    // Large library meshes (the park trees, ...) stay clones sharing one
+    // geometry: merging copies every vertex per instance, de-quantized to
+    // float32, which cost Garden Terrace ~45 MB of RAM and video memory.
+    if (geometry.userData.vibeShared && geometry.attributes.position.count > MERGE_SHARED_VERTEX_LIMIT) return;
     const flags = (geometry.index ? 'i' : 'n') + (o.castShadow ? 'c' : '')
       + (o.receiveShadow ? 'r' : '') + `l${o.layers.mask}`;
     // Untextured flat-colour standard materials — most of the procedural
@@ -4272,11 +4294,12 @@ export function buildCafe(theme, models = null) {
   });
   pointLights.sort((a, b) => b.importance - a.importance);
 
-  function setQuality(level) {
+  // `maxPointLights` is the device class's ceiling (perf/deviceProfile.js).
+  function setQuality(level, maxPointLights = Infinity) {
     steamStride = level === 0 ? 2 : 1;
-    const keep = level >= 2
+    const keep = Math.min(maxPointLights, level >= 2
       ? pointLights.length
-      : level === 1 ? Math.min(9, pointLights.length) : Math.min(6, pointLights.length);
+      : level === 1 ? Math.min(9, pointLights.length) : Math.min(6, pointLights.length));
     pointLights.forEach(({ light }, index) => { light.visible = index < keep; });
     contactShadowMat.opacity = level >= 1 ? 0.3 : 0.48;
   }

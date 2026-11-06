@@ -73,11 +73,14 @@ export function createPerfOverlay({ read, visible = true }) {
       `cpu   ${fmt(m.cpuMs, 2, 'ms')}  gpu ${fmt(m.gpuMs, 2, 'ms')}`,
       `calls ${m.calls ?? '—'}  tris ${compact(m.triangles)}`,
       `geo ${m.geometries ?? '—'}  tex ${m.textures ?? '—'}  prog ${m.programs ?? '—'}`,
-      `heap  ${heap}`,
-      `quality tier ${m.quality?.tier ?? '—'}  scale ${fmt(m.quality?.scale, 2)}${m.qualityMode ? `  (${m.qualityMode})` : ''}`,
+      `heap  ${heap}  gpu ${fmt(m.gpuMB, 0, ' MB')}`,
+      m.memory ? `mem ~${fmt(m.memory.estimateMB, 0)}/${Number.isFinite(m.memory.budgetMB) ? m.memory.budgetMB : '∞'} MB  ${m.memory.pressure}  trims ${m.memory.trims}` : '',
+      m.device ? `device <b>${m.device.tier}</b>  ${m.device.gpu}${m.device.mobile ? '  mobile' : ''}${m.device.deviceMemory ? `  ${m.device.deviceMemory} GB` : ''}` : '',
+      m.pacing ? `pace ${m.pacing.interactiveFps}/${m.pacing.ambientFps} fps  thermal ${m.pacing.thermalLevel}${m.pacing.batterySaver ? '  battery saver' : ''}${m.pacing.userCap ? `  cap ${m.pacing.userCap}` : ''}` : '',
+      `quality tier ${m.quality?.tier ?? '—'}  scale ${fmt(m.quality?.scale, 2)}  dpr ${fmt(m.pixelRatio, 2)}${m.qualityMode ? `  (${m.qualityMode})` : ''}`,
       lod ? `lod ${lod.ready}/${lod.managed}  [${lod.histogram.join(' ')}]  -${compact(lod.sourceTriangles - lod.drawnTriangles)} tris` : 'lod off',
-      `culled actors ${m.culledActors ?? '—'}/${m.actors ?? '—'}`,
-    ].join('\n');
+      `culled actors ${m.culledActors ?? '—'}/${m.actors ?? '—'}${m.shadowlessActors ? `  no-shadow ${m.shadowlessActors}` : ''}`,
+    ].filter(Boolean).join('\n');
     drawGraph(m.intervals ?? [], m.targetFps ? 1000 / m.targetFps : 16.7);
   }, 250);
 

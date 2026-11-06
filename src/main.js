@@ -10,7 +10,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-import { THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink } from './cafe.js';
+import { THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink, setShadowCasterMinRadius } from './cafe.js';
 import { createNavigator, pointInPolygon, surfaceHeightAt } from './cafe/levelNavigation.js';
 import {
   placeFootprintForSeat, pullInsideShape, footprintSupported,
@@ -21,10 +21,14 @@ import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
 import {
   loadModelLibrary, loadModels, streamBackgroundModels, castCatalog, isCastModel, ModelView, cloneModel,
-  residentModels,
+  residentModels, configureModelBudget, evictModels, firstFrameKeys, libraryBytes, libraryReport,
 } from './modelLoader.js';
 import { trackGpuMemory } from './perf/gpuMemory.js';
 import { memoryReport } from './perf/memoryReport.js';
+import { detectDeviceProfile } from './perf/deviceProfile.js';
+import { MemoryGovernor } from './perf/memoryGovernor.js';
+import { ThermalGovernor, frameCaps, watchBatterySaver } from './perf/framePacing.js';
+import { releaseIdleTranscoders } from './perf/textureCompression.js';
 import { planCast } from './perf/castPlan.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
@@ -67,25 +71,36 @@ const canvas = document.getElementById('scene');
 // work without improving geometry edges.
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
 const gpuMemory = trackGpuMemory(renderer.getContext());
+// Device class (low/mid/high) sets ceilings for resolution, shadows, lights,
+// population, texture size, memory and frame rate; see perf/deviceProfile.js.
+// Seeded audits keep the full-size scene so their counts stay comparable.
+const device = detectDeviceProfile({ gl: renderer.getContext(), defaultTier: SEEDED_AUDIT_MODE ? 'high' : null });
+const tierSettings = device.settings;
+configureModelBudget({ textureMaxSize: tierSettings.textureMaxSize, anisotropy: tierSettings.anisotropy });
+setShadowCasterMinRadius(tierSettings.smallShadowCasterRadius);
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
-// Auto stays at CSS-native resolution. On Retina screens, 1.5x creates 2.25x
-// as many half-float pixels across every composer target for little visible
-// benefit in a softly lit scene. Detail retains restrained supersampling.
-const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1);
-const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1.25);
+// Auto stays at CSS-native resolution (lower on phones). On Retina screens,
+// 1.5x creates 2.25x as many half-float pixels across every composer target
+// for little visible benefit in a softly lit scene. Detail retains
+// restrained supersampling where the device class allows it.
+const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, tierSettings.autoMaxPixelRatio);
+const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, tierSettings.maxPixelRatio);
 // Only Auto's adaptive controller reaches the floor, on devices that cannot
 // hold the frame budget at higher resolutions.
-const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.5);
-// Start Auto at a predictable 1x render target. It can add effects and extra
-// supersampling after a sustained period of headroom, instead of allocating the
-// largest half-float buffers first and stuttering while it backs down.
-let renderPixelRatio = Math.min(MAX_PIXEL_RATIO, 1);
+const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, tierSettings.minPixelRatio);
+// Start Auto at a predictable render target (1x on desktops, below native on
+// phones). It can add resolution after a sustained period of headroom,
+// instead of allocating the largest buffers first and stuttering while it
+// backs down.
+let renderPixelRatio = Math.min(MAX_PIXEL_RATIO, tierSettings.autoStartPixelRatio);
 renderer.setPixelRatio(renderPixelRatio);
 // CSS owns the canvas dimensions. Avoid inline pixel dimensions here: they
 // become stale when a browser enters fullscreen without a conventional resize.
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// PCF without the soft kernel samples the shadow map far fewer times per
+// fragment; entry-level GPUs pay for every tap on every lit pixel.
+renderer.shadowMap.type = tierSettings.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 // Crowd motion is simulated at 30 Hz, so refreshing its shadows faster only
 // re-renders the same poses. The main loop requests a shadow update at 30 Hz.
 renderer.shadowMap.autoUpdate = false;
@@ -106,6 +121,8 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const fallbackRoom = new RoomEnvironment();
 let environmentTarget = pmrem.fromScene(fallbackRoom, 0.04);
 fallbackRoom.dispose();
+// Its scratch targets re-allocate if another environment is generated.
+pmrem.dispose();
 scene.environment = environmentTarget.texture;
 let photographicEnvironment = null;
 function applyPhotographicEnvironment(theme) {
@@ -124,12 +141,18 @@ function applyPhotographicEnvironment(theme) {
 function startDaylightEnvironment() { loadDaylightEnvironment().then((texture) => {
   let target;
   try { target = pmrem.fromEquirectangular(texture); }
-  catch (error) { texture.dispose(); throw error; }
+  finally {
+    // The prefiltered cube also serves as the (blurred) sky: a blurred
+    // equirect background would make Three build a second, identical PMREM
+    // from it and keep the half-float equirect resident on both sides.
+    texture.dispose();
+    pmrem.dispose();
+  }
   const previousTarget = environmentTarget;
   environmentTarget = target;
   scene.environment = target.texture;
   previousTarget.dispose();
-  photographicEnvironment = texture;
+  photographicEnvironment = target.texture;
   applyPhotographicEnvironment(currentTheme);
 }).catch((error) => console.warn('[environment] HDR lighting unavailable:', error.message)); }
 
@@ -236,7 +259,12 @@ let navigator = null;
 let walkBob = 0;
 let lastPlayerStep = 0;
 const keys = new Set();
-const frameScheduler = new AdaptiveFrameScheduler();
+// The user's frame cap: 0 (device default) or 30 fps; ?fps=30 for testing.
+let userFrameCap = Number(auditParams.get('fps')) || preferences.frameCap || 0;
+const frameScheduler = new AdaptiveFrameScheduler({
+  interactiveFps: tierSettings.interactiveFps,
+  ambientFps: tierSettings.ambientFps,
+});
 const markInteraction = () => frameScheduler.markInteraction(performance.now());
 window.addEventListener('pointerdown', markInteraction, { passive: true });
 window.addEventListener('keydown', markInteraction, { passive: true });
@@ -358,6 +386,7 @@ function activeTheme(index = currentThemeIndex) {
 }
 async function loadTheme(index) {
   currentThemeIndex = index;
+  lastSceneChangeAt = performance.now();
   const baseTheme = THEMES[index];
   const theme = resolveEnvironment(baseTheme, envTime, envSky);
   currentTheme = theme;
@@ -393,10 +422,11 @@ async function loadTheme(index) {
   // random draws a build consumes, and without this every decor PR would
   // reshuffle the seeded audit crowd and make renderer counts incomparable.
   resetMemoryAuditRandom(index + 16);
-  // Furniture contacts need centimetre-scale detail across the room.
+  // Furniture contacts need centimetre-scale detail across the room; entry
+  // devices trade some of it for a quarter of the map's memory and fill.
   cafe.group.traverse((object) => {
     if (object.isDirectionalLight && object.castShadow) {
-      object.shadow.mapSize.set(2048, 2048);
+      object.shadow.mapSize.set(tierSettings.shadowMapSize, tierSettings.shadowMapSize);
       object.shadow.needsUpdate = true;
     }
   });
@@ -440,8 +470,16 @@ async function loadTheme(index) {
   document.getElementById('blurb').textContent = theme.blurb;
 }
 
+// Entry devices host a smaller crowd: fewer skinned actors to animate and
+// draw, and fewer character models downloaded and resident.
+function crowdLimit(theme) {
+  return Math.max(4, Math.round((theme.crowd ?? 9) * tierSettings.crowdScale));
+}
+
 function spawnCrowd(theme, cast, playerSeat = -1) {
-  crowd = new CrowdSim(cafe, audio, cast, { playerSeat });
+  crowd = new CrowdSim(cafe, audio, cast, {
+    playerSeat, maxCrowd: crowdLimit(theme), streetWalkers: tierSettings.streetWalkers,
+  });
   pets = new PetSystem(cafe, cast, theme, audio, interactions);
   crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
 }
@@ -455,7 +493,10 @@ async function streamCast(token, theme, models) {
     environmentRequested = true;
     startDaylightEnvironment();
   }
-  const keys = planCast(castCatalog(), theme);
+  const keys = planCast(castCatalog(), { ...theme, crowd: crowdLimit(theme) }, {
+    headroom: tierSettings.streetWalkers + 2,
+  });
+  castKeys = new Set(keys);
   await loadModels(keys);
   if (token !== loadToken || !cafe || crowd) return;
   const wanted = new Set(keys);
@@ -466,7 +507,39 @@ async function streamCast(token, theme, models) {
   renderer.shadowMap.needsUpdate = true;
   pointerDirty = true;
   await perf.revealActors(before);
-  streamBackgroundModels();
+  if (token !== loadToken) return;
+  trimModelLibrary(tierSettings.modelBudgetMB);
+  // Memory-constrained classes only warm the HTTP cache for other cafés.
+  streamBackgroundModels({ warmOnly: !tierSettings.backgroundPrefetch });
+}
+
+// The current café's room set and cast stay; other cafés' models are evicted
+// least-recently-used first until the rest fit `budgetMB`.
+let castKeys = new Set();
+let lastEviction = null;
+function trimModelLibrary(budgetMB) {
+  const inScene = new Set();
+  scene.traverse((object) => {
+    if (object.geometry) inScene.add(perf.lod.sourceGeometry(object.geometry));
+  });
+  const result = evictModels({
+    keep: new Set([...firstFrameKeys(currentTheme.id), ...castKeys]),
+    inScene,
+    budgetBytes: budgetMB * 1048576,
+    onGeometry: (geometry) => perf.lod.releaseGeometry(geometry),
+  });
+  if (result.evicted.length) lastEviction = { ...result, at: Math.round(performance.now()) };
+  return result;
+}
+
+// Composer targets are only drawn into with effects on; Three re-creates
+// disposed targets on their next use.
+function releaseEffectTargets() {
+  for (const pass of [composer, ...composer.passes]) {
+    for (const value of Object.values(pass)) {
+      for (const target of [value].flat()) if (target?.isWebGLRenderTarget) target.dispose();
+    }
+  }
 }
 let environmentRequested = false;
 if (!STREAM_CAST) {
@@ -1264,6 +1337,7 @@ function persistPreferences() {
     qualityMode,
     laptopOn,
     focusMinutes,
+    frameCap: userFrameCap,
   });
 }
 window.addEventListener('cafe-track-change', (e) => {
@@ -1304,11 +1378,12 @@ const AUTO_MAX_EFFECT_LEVEL = 0;
 // adaptive mode can shed those layers independently before the café starts
 // dropping input frames. Level 0 still keeps PBR lighting and the sun shadow.
 function applyEffectLevel(nextLevel) {
-  effectLevel = THREE.MathUtils.clamp(Math.round(nextLevel), 0, 2);
+  effectLevel = THREE.MathUtils.clamp(Math.round(nextLevel), 0, tierSettings.maxManualEffectLevel);
   gtaoPass.enabled = effectLevel >= 1;
   bloomPass.enabled = effectLevel >= 2;
+  if (effectLevel === 0) releaseEffectTargets();
   shadowInterval = effectLevel === 2 ? 1 / 20 : effectLevel === 1 ? 1 / 12 : 1 / 8;
-  cafe?.setQuality?.(effectLevel);
+  cafe?.setQuality?.(effectLevel, tierSettings.maxPointLights);
   crowd?.setQuality?.(effectLevel);
   renderer.shadowMap.needsUpdate = true;
 }
@@ -1360,16 +1435,93 @@ const perf = installPerformance({
   quality: autoQualityTarget,
   ladder: buildQualityLadder({
     tierCount: autoQualityTarget.tierCount,
-    maxTier: AUTO_MAX_EFFECT_LEVEL,
-    scales: [AUTO_MAX_PIXEL_RATIO, 0.9, 0.8, 0.7, 0.6, 0.5].filter((scale) => scale <= AUTO_MAX_PIXEL_RATIO),
+    maxTier: Math.min(AUTO_MAX_EFFECT_LEVEL, tierSettings.maxEffectLevel),
+    scales: [...new Set([AUTO_MAX_PIXEL_RATIO, renderPixelRatio, 0.9, 0.8, 0.7, 0.6, 0.5])]
+      .filter((scale) => scale <= AUTO_MAX_PIXEL_RATIO && scale >= MIN_PIXEL_RATIO)
+      .sort((a, b) => b - a),
   }),
+  actorShadowRange: tierSettings.actorShadowRange,
 });
+
+// ---------- memory and pacing governors ----------
+
+let lastSceneChangeAt = performance.now();
+// Decoder workers are released once a café has been settled for a while, so
+// a switch in progress never pays for respawning them.
+function releaseIdleWorkers() {
+  if (performance.now() - lastSceneChangeAt < 10000) return;
+  perf.lod.releaseIdleWorker();
+  releaseIdleTranscoders();
+}
+const memoryGovernor = new MemoryGovernor({
+  budgetMB: tierSettings.tabBudgetMB,
+  sample: () => {
+    const heap = performance.memory;
+    const cpuBytes = heap ? heap.usedJSHeapSize : libraryBytes() / 2;
+    return {
+      heapUsed: heap?.usedJSHeapSize ?? null,
+      heapLimit: heap?.jsHeapSizeLimit ?? null,
+      estimateMB: (cpuBytes + gpuMemory.totalBytes + gpuMemory.drawingBufferBytes()) / 1048576,
+    };
+  },
+  trim: (reason) => {
+    trimModelLibrary(0);
+    if (effectLevel === 0) releaseEffectTargets();
+    perf.lod.releaseIdleWorker();
+    releaseIdleTranscoders();
+    if (reason === 'critical' && qualityMode === 'auto') perf.quality?.apply(0, 'memory pressure');
+  },
+  idle: releaseIdleWorkers,
+}).start();
+
+// Frame-rate ceilings: device class, thermal drift, the user's cap
+// (?fps=30 or the frameCap preference), battery saver, window focus.
+const thermal = new ThermalGovernor();
+let batterySaver = false;
+let windowFocused = document.hasFocus?.() ?? true;
+function applyFrameCaps() {
+  const caps = frameCaps({
+    device: tierSettings, thermal: thermal.caps, userCap: userFrameCap, batterySaver, focused: windowFocused,
+  });
+  frameScheduler.interactiveFps = caps.interactiveFps;
+  frameScheduler.ambientFps = caps.ambientFps;
+}
+watchBatterySaver((active) => {
+  batterySaver = active;
+  applyFrameCaps();
+});
+window.addEventListener('focus', () => { windowFocused = true; applyFrameCaps(); });
+window.addEventListener('blur', () => { windowFocused = false; applyFrameCaps(); });
+applyFrameCaps();
+function setFrameCap(fps) {
+  userFrameCap = [0, 30].includes(Number(fps)) ? Number(fps) : 0;
+  applyFrameCaps();
+  persistPreferences();
+}
 perf.setExternalMetrics(() => ({
   qualityMode,
   targetFps: frameScheduler.targetFps,
   calls: lastRenderStats.calls,
   triangles: lastRenderStats.triangles,
+  pixelRatio: renderPixelRatio,
+  device: deviceSummary(),
+  pacing: pacingSummary(),
+  memory: memoryGovernor.snapshot(),
+  gpuMB: gpuMemory.snapshot().total / 1048576,
 }));
+function deviceSummary() {
+  return { tier: device.tier, gpu: device.gpu, mobile: device.mobile, deviceMemory: device.deviceMemory, cores: device.cores, reasons: device.reasons, benchmarkMs: device.benchmarkMs === null ? null : Number(device.benchmarkMs.toFixed(1)) };
+}
+function pacingSummary() {
+  return {
+    interactiveFps: frameScheduler.interactiveFps,
+    ambientFps: frameScheduler.ambientFps,
+    thermalLevel: thermal.level,
+    userCap: userFrameCap,
+    batterySaver,
+    focused: windowFocused,
+  };
+}
 
 musicVolume.addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -1712,9 +1864,11 @@ function frame(now = performance.now()) {
   }
 
   shadowAcc += rawDt;
-  if (shadowAcc >= shadowInterval) {
+  // Battery saver halves how often the crowd's shadows are re-rendered.
+  const shadowEvery = batterySaver ? shadowInterval * 2 : shadowInterval;
+  if (shadowAcc >= shadowEvery) {
     renderer.shadowMap.needsUpdate = true;
-    shadowAcc %= shadowInterval;
+    shadowAcc %= shadowEvery;
   }
 
   renderer.info.reset();
@@ -1731,6 +1885,12 @@ function frame(now = performance.now()) {
     perf.endRender();
   }
   lastRenderMs = performance.now() - renderStartedAt;
+  if (!MEMORY_AUDIT_MODE && overlay.classList.contains('hidden')) {
+    const gpuMs = perf.stats.gpuTimer.supported ? perf.stats.gpuTimer.lastMs : null;
+    if (thermal.update(gpuMs ?? lastRenderMs, rawDt, perf.quality?.step ?? renderPixelRatio, 1000 / frameScheduler.targetFps)) {
+      applyFrameCaps();
+    }
+  }
   lastRenderStats.calls = renderer.info.render.calls;
   lastRenderStats.triangles = renderer.info.render.triangles;
   lastRenderStats.points = renderer.info.render.points;
@@ -1862,8 +2022,14 @@ window.__vibe = {
       points: lastRenderStats.points,
       lines: lastRenderStats.lines,
       perf: perf.metrics(),
+      device: deviceSummary(),
+      pacing: pacingSummary(),
+      memoryGovernor: memoryGovernor.snapshot(),
+      lastEviction,
     };
   },
+  setFrameCap,
+  trimMemory(reason = 'moderate') { memoryGovernor.trimNow(reason); },
   memoryReport() {
     const models = residentModels();
     const templates = [...models.values()].map((entry) => entry.template);
@@ -1877,6 +2043,7 @@ window.__vibe = {
     });
   },
   gpuAllocations(limit = 20) { return gpuMemory.largest(limit); },
+  libraryReport() { return libraryReport(); },
   place(x, z, yaw, pitch = 0, levelId = null) {
     standUp();
     if (levelId) walkLevelId = levelId;

@@ -267,6 +267,28 @@ export class LodManager {
     }
   }
 
+  // An evicted library model: free its level index buffers. The levels share
+  // the source's vertex buffers, which the library disposes with the source.
+  releaseGeometry(source) {
+    const record = this.records.get(source);
+    const queued = this.queue.indexOf(source);
+    if (queued >= 0) this.queue.splice(queued, 1);
+    if (!record) return;
+    for (const level of record.levels) level.geometry.dispose();
+    record.levels = [];
+    record.state = 'failed';
+    this.records.delete(source);
+  }
+
+  // Simplification worker is only needed while levels are being built; it
+  // holds the meshoptimizer WASM heap, so it is released when idle.
+  releaseIdleWorker() {
+    if (!this.worker || this.inFlight || this.queue.length) return false;
+    this.worker.terminate();
+    this.worker = null;
+    return true;
+  }
+
   // Put every managed mesh back on its source geometry (A/B toggles).
   restore() {
     for (const mesh of this.meshes) {

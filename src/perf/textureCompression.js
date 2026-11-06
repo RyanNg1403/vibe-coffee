@@ -10,6 +10,25 @@ import { LoadingManager } from 'three';
 let renderer = null;
 let loaderPromise = null;
 let releasedTextures = 0;
+let resolvedLoader = null;
+// KTX2 loads not yet settled, counting ones waiting out a retry backoff
+// (their worker pool looks idle then), and when the last one settled.
+let ktx2InFlight = 0;
+let ktx2SettledAt = 0;
+const TRANSCODER_IDLE_MS = 10000;
+
+// Each transcoder worker holds its own Basis WASM instance and heap. A pool
+// idle for a while is terminated; the loader spawns fresh workers from its
+// kept source and binary on the next transcode. Never mid-load or mid-retry,
+// and never while a failed transcoder initialisation may be reset.
+export function releaseIdleTranscoders(now = performance.now()) {
+  const pool = resolvedLoader?.workerPool;
+  if (!pool?.workers?.length || pool.workerStatus !== 0 || pool.queue.length) return 0;
+  if (ktx2InFlight > 0 || now - ktx2SettledAt < TRANSCODER_IDLE_MS) return 0;
+  const count = pool.workers.length;
+  pool.dispose();
+  return count;
+}
 
 // A KTX2 texture load can fail transiently: the blob read, the worker
 // transcode, or the one-time transcoder fetch/initialisation (whose rejection
@@ -45,6 +64,11 @@ function resilient(KTX2Loader) {
   return class ResilientKTX2Loader extends KTX2Loader {
     load(url, onLoad, onProgress, onError) {
       let retried = false;
+      ktx2InFlight += 1;
+      const settle = () => {
+        ktx2InFlight -= 1;
+        ktx2SettledAt = performance.now();
+      };
       loadWithRetries((resolve, reject) => super.load(url, resolve, onProgress, reject), {
         onRetry: (error, attempt) => {
           retried = true;
@@ -54,9 +78,11 @@ function resilient(KTX2Loader) {
         },
         beforeRetry: () => this.resetFailedTranscoder(),
       }).then((texture) => {
+        settle();
         if (retried) ktx2Stats.recovered += 1;
         onLoad?.(texture);
       }, (error) => {
+        settle();
         ktx2Stats.failed += 1;
         onError?.(error);
       });
@@ -97,7 +123,8 @@ export function ktx2Loader() {
     manager.setURLModifier((url) => (url.endsWith('basis_transcoder.js') ? jsUrl
       : url.endsWith('basis_transcoder.wasm') ? wasmUrl : url));
     const Loader = resilient(KTX2Loader);
-    return new Loader(manager).detectSupport(renderer);
+    resolvedLoader = new Loader(manager).detectSupport(renderer);
+    return resolvedLoader;
   }).catch((error) => {
     console.warn('[textures] KTX2 transcoding unavailable:', error.message);
     return null;

@@ -6,7 +6,7 @@ import { MAX_CHARACTER_COPIES } from '../sim/characterAllocator.js';
 
 export const STAFF_KEYS = ['char_atelier_barista', 'char_atelier_server'];
 export const PET_KEYS = ['pet_cat', 'pet_dog'];
-// Street walkers plus pairs/arrivals on top of the room's own crowd size.
+// Street walkers (8) plus pairs/arrivals on top of the room's own crowd size.
 const POPULATION_HEADROOM = 10;
 
 function stableHash(text) {
@@ -20,13 +20,13 @@ function stableHash(text) {
  * @param theme    café theme ({ id, crowd })
  * @returns ordered keys: staff, then patrons (already resident first), then pets
  */
-export function planCast(catalog, theme) {
+export function planCast(catalog, theme, { headroom = POPULATION_HEADROOM } = {}) {
   const available = new Map(catalog.map((entry) => [entry.key, entry.loaded]));
   const patrons = catalog
     .map((entry) => entry.key)
     .filter((key) => key.startsWith('char_') && !STAFF_KEYS.includes(key) && !key.startsWith('char_hero_'));
   const crowd = theme?.crowd ?? 9;
-  const count = Math.min(patrons.length, Math.ceil((crowd + POPULATION_HEADROOM) / MAX_CHARACTER_COPIES));
+  const count = Math.min(patrons.length, Math.ceil((crowd + headroom) / MAX_CHARACTER_COPIES));
   // Deterministic per café (so revisits reuse what is cached) but varied
   // between cafés; resident models are always preferred.
   const offset = stableHash(theme?.id ?? '') % Math.max(1, patrons.length);
