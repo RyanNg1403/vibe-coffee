@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .artifact-cache/
+.texture-cache/
 artifact/
 .DS_Store
 *.log
