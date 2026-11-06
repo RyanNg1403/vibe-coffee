@@ -116,8 +116,6 @@ How:
   `espresso_machine`, `cup`, `plant`, ...) stream later. `pet_cat` loads with
   the room because the room swaps its décor cat for a live one when the pet
   exists. Development builds warn if a deferred model is requested early.
-- Byte-identical models are fetched once (`models/aliases.json` from the
-  build step; today only `pet_cat` = `cat`).
 - The photographic HDR sky starts after the first frame; the room-light
   fallback covers the gap.
 - Remaining non-cast models stream at idle only after the crowd is in, so
@@ -258,7 +256,6 @@ Any order works; these are the resolutions to apply.
     preprocess already runs `tools/compress-textures.mjs` into the Pages
     output. Drop this PR's `&& node tools/compress-textures.mjs`, or the step
     would rewrite `dist/models` after the service worker revisioned it.
-    `models/aliases.json` is written by that same step.
   - `src/modelLoader.js`: take this PR's version, which uses hashed
     Draco/Basis assets instead of `assetUrl('/draco/')`. `public/draco` is
     removed here.

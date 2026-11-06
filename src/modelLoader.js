@@ -190,7 +190,6 @@ function neededForFirstFrame(key, themeId, streamCast) {
   if (NOT_IN_FIRST_FRAME.has(key)) return false;
   return !themeId || !VENUE_ONLY[key] || VENUE_ONLY[key].includes(themeId);
 }
-const PORTABLE = Object.values(MODEL_MANIFEST).some(({ url }) => url.startsWith('data:'));
 let library = null;
 
 function createLibrary() {
@@ -211,39 +210,6 @@ function createLibrary() {
   const models = new Map();
   const sharedTextures = new Map();
   const pending = new Map();
-  // Byte-identical manifest entries (wall_shelf = bookcase, pet_cat = cat,
-  // ...) are listed by the build in models/aliases.json and fetched once.
-  // Resolved next to the manifest's models (no literal path: the artifact
-  // builder inlines every '/models/…' string it finds).
-  const modelsDir = Object.values(MODEL_MANIFEST)[0]?.url.replace(/[^/]*$/, '') ?? '';
-  const aliases = import.meta.env?.DEV || PORTABLE || !modelsDir
-    ? Promise.resolve({})
-    : fetch(assetUrl(`${modelsDir}aliases.json`)).then((res) => (res.ok ? res.json() : {})).catch(() => ({}));
-  // Shared only between loads in flight together; a later alias re-requests
-  // the same URL from the HTTP/service-worker cache instead of pinning bytes.
-  const buffers = new Map();
-
-  function acquireBuffer(url) {
-    let entry = buffers.get(url);
-    if (!entry) {
-      entry = {
-        users: 0,
-        bytes: fetch(assetUrl(url)).then((res) => {
-          if (!res.ok) throw new Error(`http ${res.status}`);
-          return res.arrayBuffer();
-        }),
-      };
-      buffers.set(url, entry);
-    }
-    entry.users += 1;
-    return entry;
-  }
-
-  function releaseBuffer(url, entry) {
-    entry.users -= 1;
-    if (entry.users <= 0 && buffers.get(url) === entry) buffers.delete(url);
-  }
-
   async function loadEntry(key, def) {
     try {
       let gltf;
@@ -251,18 +217,11 @@ function createLibrary() {
         await ktx2Ready;
         gltf = await loader.parseAsync(dataUriToArrayBuffer(def.url), '');
       } else {
-        const source = (await aliases)[key];
-        const url = MODEL_MANIFEST[source]?.url ?? def.url;
-        const entry = acquireBuffer(url);
-        try {
-          const buffer = await entry.bytes;
-          await ktx2Ready;
-          // Parsing never detaches the source buffer (views are sliced), so
-          // aliases can parse the same bytes into their own templates.
-          gltf = await loader.parseAsync(buffer, '');
-        } finally {
-          releaseBuffer(url, entry);
-        }
+        const res = await fetch(assetUrl(def.url));
+        if (!res.ok) throw new Error(`http ${res.status}`);
+        const buffer = await res.arrayBuffer();
+        await ktx2Ready;
+        gltf = await loader.parseAsync(buffer, '');
       }
       // Packed exports name identical embedded images by content hash. Reuse
       // one GPU texture across models while retaining distinct UV transforms.
