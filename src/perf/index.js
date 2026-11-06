@@ -68,6 +68,9 @@ export function installPerformance({
   ladder = null,
   params = new URLSearchParams(window.location.search),
   dev = import.meta.env?.DEV ?? false,
+  // Skinned actors farther than this (metres, sphere edge to camera) stop
+  // casting shadows: each one is re-skinned in every shadow refresh.
+  actorShadowRange = Infinity,
 } = {}) {
   const off = (name) => params.get(name) === '0';
   configureTextureCompression(renderer);
@@ -94,6 +97,20 @@ export function installPerformance({
   let lastWarmupMs = null;
   let hiddenSince = null;
 
+  let shadowlessActors = 0;
+  function limitActorShadows(cam) {
+    shadowlessActors = 0;
+    for (const group of culler.groups) {
+      const near = group.sphere.radius === 0
+        || group.sphere.center.distanceTo(cam.position) - group.sphere.radius < actorShadowRange;
+      if (!near) shadowlessActors += 1;
+      for (const part of group.parts) {
+        part.userData.castShadowBase ??= part.castShadow;
+        part.castShadow = part.userData.castShadowBase && near;
+      }
+    }
+  }
+
   const previousBeforeRender = scene.onBeforeRender;
   scene.onBeforeRender = function onBeforeRender(r, s, cam, target) {
     previousBeforeRender.call(this, r, s, cam, target);
@@ -103,6 +120,7 @@ export function installPerformance({
       scanAt = now + SCAN_INTERVAL_MS;
       culler.scan(s);
       lod.scan(s);
+      if (Number.isFinite(actorShadowRange)) limitActorShadows(cam);
     }
     reveal.update();
     culler.update();
@@ -268,6 +286,7 @@ export function installPerformance({
         } : null,
         actors: culler.groups.length,
         culledActors,
+        shadowlessActors,
         raycast: { ...raycastStats, buildMs: Number(raycastStats.buildMs.toFixed(1)) },
         textureMemory: sceneTextureMemory(scene),
         ktx2: { ...ktx2Stats },

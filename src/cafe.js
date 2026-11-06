@@ -38,6 +38,23 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // multi-material meshes, and structural parents with children.
 const MERGE_MAP_SLOTS = ['map', 'normalMap', 'roughnessMap', 'bumpMap', 'emissiveMap',
   'metalnessMap', 'aoMap', 'alphaMap', 'envMap', 'lightMap'];
+// Static props smaller than this (world-space bounding radius, metres) stop
+// casting shadows on low-end devices: at a 1024² map their shadow is a few
+// texels, but each one is still drawn in every shadow refresh. Applied before
+// merging so they land in non-casting buckets.
+const MERGE_SHARED_VERTEX_LIMIT = 4000;
+let shadowCasterMinRadius = 0;
+export function setShadowCasterMinRadius(radius) {
+  shadowCasterMinRadius = Math.max(0, Number(radius) || 0);
+}
+const _casterSphere = new THREE.Sphere();
+function trimSmallShadowCaster(mesh) {
+  if (!shadowCasterMinRadius || !mesh.castShadow) return;
+  const geometry = mesh.geometry;
+  if (!geometry.boundingSphere) geometry.computeBoundingSphere();
+  _casterSphere.copy(geometry.boundingSphere).applyMatrix4(mesh.matrixWorld);
+  if (_casterSphere.radius < shadowCasterMinRadius) mesh.castShadow = false;
+}
 function mergeStaticDecor(group, animatedRoots) {
   const skip = new Set();
   for (const root of animatedRoots) {
@@ -48,6 +65,7 @@ function mergeStaticDecor(group, animatedRoots) {
   const buckets = new Map();
   group.traverseVisible((o) => {
     if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh) return;
+    if (!skip.has(o)) trimSmallShadowCaster(o);
     if (skip.has(o) || o.children.length > 0 || !o.visible) return;
     if (o.userData.illustratedBackdrop) return;
     if (o.userData.tableSurfaceProp) return;
@@ -57,6 +75,10 @@ function mergeStaticDecor(group, animatedRoots) {
     const geometry = o.geometry;
     if (!geometry?.attributes?.position) return;
     if (geometry.morphAttributes && Object.keys(geometry.morphAttributes).length) return;
+    // Large library meshes (the park trees, ...) stay clones sharing one
+    // geometry: merging copies every vertex per instance, de-quantized to
+    // float32, which cost Garden Terrace ~45 MB of RAM and video memory.
+    if (geometry.userData.vibeShared && geometry.attributes.position.count > MERGE_SHARED_VERTEX_LIMIT) return;
     const flags = (geometry.index ? 'i' : 'n') + (o.castShadow ? 'c' : '')
       + (o.receiveShadow ? 'r' : '') + `l${o.layers.mask}`;
     // Untextured flat-colour standard materials — most of the procedural
@@ -1018,21 +1040,79 @@ function makeMagazineStack() {
 }
 
 // photographic PBR surface maps (public/textures, CC0 from ambientCG),
-// cached across theme switches — these never get disposed
+// cached across theme switches; room disposal never frees them, the memory
+// governor does (releaseSurfaceTextures) on constrained devices.
+// Each image is decoded once: repeat variants are clones sharing its Source,
+// so Three uploads one GL texture per image and colour space.
 const _texLoader = new THREE.TextureLoader();
 const _texCache = new Map();
+const _texSources = new Map();
+const _texVariants = new WeakMap(); // base texture -> Set of repeat variants
+let surfaceTextureMaxSize = Infinity;
+export function setSurfaceTextureMaxSize(size) {
+  surfaceTextureMaxSize = size > 0 ? size : Infinity;
+}
+function onSurfaceImage(texture) {
+  const image = texture.image;
+  const edge = Math.max(image?.width ?? 0, image?.height ?? 0);
+  if (edge > surfaceTextureMaxSize && typeof document !== 'undefined') {
+    const scale = surfaceTextureMaxSize / edge;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    texture.image = canvas;
+  }
+  for (const variant of _texVariants.get(texture) ?? []) variant.needsUpdate = true;
+}
 function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
   const key = `${name}|${srgb}|${rx}|${ry}`;
   if (_texCache.has(key)) return _texCache.get(key);
-  const t = _texLoader.load(TEXTURE_MANIFEST[name] ?? '/textures/' + name);
+  let base = _texSources.get(name);
+  if (!base) {
+    base = _texLoader.load(TEXTURE_MANIFEST[name] ?? '/textures/' + name, onSurfaceImage);
+    _texVariants.set(base, new Set());
+    _texSources.set(name, base);
+  }
+  const t = base.clone();
+  // Until the shared image arrives (onSurfaceImage flags every variant), a
+  // variant must not ask the renderer for an upload.
+  if (!base.image) t.version = 0;
+  _texVariants.get(base).add(t);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(rx, ry);
   t.anisotropy = 8;
-  t.userData.shared = true; // cached across theme switches — never dispose
+  t.userData.shared = true; // cached across theme switches
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   t.userData.vibeShared = true;
   _texCache.set(key, t);
   return t;
+}
+
+// Frees surface maps the given room does not use (they reload from the HTTP
+// cache if a later café needs them again).
+export function releaseSurfaceTextures(keepRoot) {
+  const used = new Set();
+  keepRoot?.traverse((object) => {
+    for (const material of [object.material].flat()) {
+      for (const value of Object.values(material ?? {})) if (value?.isTexture) used.add(value);
+    }
+  });
+  let released = 0;
+  for (const [key, texture] of _texCache) {
+    if (used.has(texture)) continue;
+    texture.dispose();
+    _texCache.delete(key);
+    for (const variants of [..._texSources.values()].map((base) => _texVariants.get(base))) variants?.delete(texture);
+    released += 1;
+  }
+  const liveSources = new Set([..._texCache.values()].map((texture) => texture.source));
+  for (const [name, base] of _texSources) {
+    if (liveSources.has(base.source)) continue;
+    base.dispose();
+    _texSources.delete(name);
+  }
+  return released;
 }
 
 // per-café floor surface
@@ -4272,11 +4352,12 @@ export function buildCafe(theme, models = null) {
   });
   pointLights.sort((a, b) => b.importance - a.importance);
 
-  function setQuality(level) {
+  // `maxPointLights` is the device class's ceiling (perf/deviceProfile.js).
+  function setQuality(level, maxPointLights = Infinity) {
     steamStride = level === 0 ? 2 : 1;
-    const keep = level >= 2
+    const keep = Math.min(maxPointLights, level >= 2
       ? pointLights.length
-      : level === 1 ? Math.min(9, pointLights.length) : Math.min(6, pointLights.length);
+      : level === 1 ? Math.min(9, pointLights.length) : Math.min(6, pointLights.length));
     pointLights.forEach(({ light }, index) => { light.visible = index < keep; });
     contactShadowMat.opacity = level >= 1 ? 0.3 : 0.48;
   }

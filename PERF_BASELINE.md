@@ -1,5 +1,141 @@
 # Performance baselines
 
+## RAM and mobile (2026-11-06)
+
+Before = PR #24 at `3592a5e` plus the measurement commit only; after = this
+branch. Both are production builds (`vite build --base=/vibe-coffee/` plus
+KTX2 via `toktx` 4.3), served under `/vibe-coffee/`, with the sound library
+reachable as it will be once PR #23 lands. Same machine and session.
+
+- **Command:** `npm run audit:mobile -- --url=… [--mobile]`
+  (`tools/memory-mobile-audit.mjs`). It tours Golden Hour → Roastery →
+  Midnight → Terrace → Golden Hour, waits for each café's streamed cast,
+  samples pacing for 8 s, forces a GC, then records `window.__vibe.memoryReport()`
+  and the renderer + GPU process PSS from `/proc` (what the OS charges the
+  tab), polling peak PSS every second.
+- **Mobile emulation (CDP):** 412×915 at DPR 2.625, touch, Android Chrome UA
+  with mobile client hints, 4× CPU throttling, `hardwareConcurrency` 4,
+  `navigator.deviceMemory` 2. The app detects this as the **low** class.
+  Desktop runs: 1440×900, `?tier=high` (what a desktop GPU gets).
+- **Caveats:** SwiftShader renders on the CPU, so the GPU process PSS also
+  holds its JIT-compiled shaders and caches (it grows ~150 MB over the tour
+  in both builds while tracked allocations stay flat; program count goes
+  48 → 63, bounded). It supports BC7, so library textures stay compressed;
+  the photographic `/textures` maps are uncompressed JPEGs on every GPU.
+  FPS is software-GL scale; compare ratios.
+
+### Low-end mobile emulation, per café
+
+| Café | Tab PSS MB | JS heap MB | GPU MB (textures / targets / buffers) | Decoded audio MB | FPS | p95 frame ms | Draw calls |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Golden Hour | 935 → **675** | 152 → **83** | 193 (107/57/29) → **74** (40/15/19) | 34.9 → **16.4** | 2.4 → **3.9** | 1017 → 683 | 735 → 428 |
+| Roastery | 953 → **730** | 112 → **70** | 206 → **75** | 34.9 → **16.4** | 5.0 → **8.5** | 1017 → 583 | 690 → 371 |
+| Midnight | 1007 → **780** | 120 → **80** | 221 → **75** | 38.2 → **17.9** | 3.5 → **5.6** | 1117 → 383 | 887 → 485 |
+| Terrace | 1167 → **810** | 174 → **74** | 293 → **80** | 38.2 → **16.4** | 1.9 → **3.2** | 1133 → 1000 | 650 → 427 |
+| Golden Hour (return) | 1145 → **840** | 125 → **82** | 243 → **81** | 38.2 → **16.4** | 3.4 → **4.0** | 1167 → 967 | 723 → 416 |
+| **Peak tab PSS** | **1,296 → 926** (renderer 473 → 341, GPU process 823 → 585) | | | | | | |
+
+Rerun after rebasing onto PR #24's KTX2 retry commits (`ed77283`): per café
+tab PSS 667 / 687 / 693 / 763 / 804 MB, GPU 64–77 MB, peak 855 MB.
+`npm run audit:ktx2` passes 6/6 runs, and 6/6 with `--inject-faults`
+(7 injected failures retried and recovered per run). Transcoder workers are
+released only when no KTX2 load is in flight (including one waiting out a
+retry backoff) and none has settled for 10 s.
+
+The GPU estimate no longer grows with cafés visited (74–81 MB vs 193–293 MB).
+CPU copies of geometry and images fall from 92–159 MB to 42–52 MB. The low
+class shows 10–12 actors instead of 17–22.
+
+### Desktop, high class, per café
+
+| Café | Tab PSS MB | JS heap MB | GPU MB | Decoded audio MB |
+| --- | --- | --- | --- | --- |
+| Golden Hour | 964 → 871 | 126 → 94 | 196 → 159 | 34.9 → 16.4 |
+| Terrace | 1209 → 1043 | 171 → 94 | 293 → 208 | 38.2 → 16.4 |
+| Golden Hour (return) | 1181 → 1049 | 124 → 96 | 245 → 208 | 38.2 → 16.4 |
+| **Peak tab PSS** | **1,329 → 1,144** | | | |
+
+The high class keeps other cafés resident on purpose (instant switches).
+Ten-switch lifecycle audit (`npm run audit:memory`): heap +1.03 MB,
+geometries 0, textures 0 (passed). `npm test`: 245 passing.
+
+### What changed
+
+- **Measurement** (`perf/gpuMemory.js`, `perf/memoryReport.js`): video memory
+  is tracked from the WebGL call stream (texStorage/texImage/compressed
+  uploads, buffers, renderbuffers, deletes; block formats sized by block), so
+  shadow maps, PMREM cubes and render targets count too.
+  `window.__vibe.memoryReport()`, `gpuAllocations()` and `libraryReport()`
+  expose it, and the perf HUD shows GPU MB, footprint vs budget, device class
+  and pacing.
+- **Ambience audio streaming** (`audioStream.js`): the four chatter beds,
+  day/night traffic and the rain levels play compressed through `<audio>` plus
+  `MediaElementAudioSourceNode`. Two elements crossfade (equal power) before the
+  trimmed loop end, so MP3 padding never clicks. The loudness gain comes from
+  a transient decode, so the mix is unchanged. Elements are unlocked inside the
+  "step inside" gesture (iOS); a refused element falls back to a decoded loop.
+  Only the beds a café mixes are fetched and mounted. Dry cafés release the
+  rain level and thunder. Short one-shots stay decoded. PCM 38.2 → 16.4 MB.
+  A/B: `?audiostream=0`.
+- **Device classes** (`perf/deviceProfile.js`): mobile (UA client hints,
+  touch-only UA, coarse pointer), `deviceMemory` (Chrome reports 3 GB phones
+  as 2), cores, the unmasked GPU renderer (software, entry-level and mid-range
+  patterns), and a ~100 ms fragment benchmark in a throwaway 256² context,
+  cached per renderer. These give low/mid/high ceilings for resolution, shadow
+  map size and kernel (low: 1024², PCF), point lights, crowd and street
+  walkers, small-prop shadow casters and actor shadow range, texture size,
+  anisotropy, model and tab budgets, and frame rates. Override with `?tier=`.
+  Seeded audits default to high so their counts stay comparable.
+- **Model library LRU** (`modelLoader.js`): after each café's cast arrives,
+  least-recently-used models of other cafés are evicted until the rest fit the
+  class budget (low 0 MB, mid 96 MB, high 320 MB). The current room set, the
+  cast and anything drawn are protected. Textures still referenced by a kept
+  model survive, and LOD index buffers are freed with their source. Low and
+  mid classes only warm the HTTP cache for other cafés instead of parsing them.
+- **Textures**: decoded images and transcoded mips leave the heap after upload.
+  Over-size compressed chains drop top mips before upload, with half the edge
+  when KTX2 falls back to RGBA8. The photographic surface maps were cached per
+  name and repeat forever (about 80 MB of RGBA8 after a tour). Each image is
+  now decoded once, with repeat variants sharing one GL texture; it is capped
+  at 512/1024 on low/mid, and maps the current café does not use are released.
+- **Environment**: the HDR's prefiltered PMREM cube doubles as the blurred
+  sky. A blurred equirect background made Three build a second identical PMREM
+  and keep the half-float equirect resident. PMREM scratch targets and effect
+  composer targets are released when unused.
+- **Garden Terrace**: large library meshes are no longer merged into static
+  décor. The park trees were de-quantized and baked once per instance. Café
+  geometry 82.9 → 30.5 MB, triangles 3.12 M → 1.45 M (the trees now get
+  LODs), draw calls +5 %.
+- **Memory governor** (`perf/memoryGovernor.js`): every 5 s it compares
+  heap/limit and a footprint estimate (heap + tracked video memory) against
+  the class budget (low 420 MB, mid 800 MB). On pressure, or after 20 s
+  hidden, it evicts everything but the current café, releases surface maps
+  and effect targets, and on critical pressure drops Auto to its lowest step.
+  KTX2 transcoder and LOD workers are terminated once a café has been settled
+  for 10 s and respawn on demand.
+- **Frame pacing** (`perf/framePacing.js`): the class sets frame rates
+  (low 30/20, mid 40/24, high 45/24 fps interactive/ambient). A thermal
+  governor watches render work at an unchanged quality step. When it drifts
+  ≥ 35 % above its own baseline for 15 s (the throttling signature), the
+  rate steps down to 30/20, then 24/15, and recovers after 90 s with headroom.
+  Battery saver (discharging ≤ 20 % or Save-Data) caps 24/15 and halves
+  shadow refreshes. An unfocused window caps ambient at 20. The user cap is
+  `?fps=30` or the `frameCap` preference (`window.__vibe.setFrameCap(30)`).
+- `<html data-vibe-metrics>` is only written in audit and `?perf` sessions.
+
+### Quality tiers (PR #22) and the adaptive controller
+
+The device class only lowers ceilings. Auto's ladder (PR #24's controller)
+starts at the class's start resolution (low 0.75×, mid 0.9×, high 1×) and
+adapts within `[minPixelRatio, autoMaxPixelRatio]`. For PR #22's
+`src/qualityTier.js`, apply `capQualityTier(qualityTierConfig(id),
+device.settings)` before using a tier's `{ effects, pixelRatio }`. A manual
+Ultra on an entry phone then keeps its meaning without exceeding the
+phone's resolution or effects budget. `applyEffectLevel` already clamps to
+`maxManualEffectLevel`, so the existing `auto/detail/smooth` modes are capped
+the same way. The settings menu can expose the 30 fps cap through
+`window.__vibe.setFrameCap`.
+
 ## Performance workstream (2026-11-06)
 
 Before = `main` at `b683ef9`; after = this branch (`src/perf/`). Same
@@ -401,6 +537,7 @@ budgets from the first commit (systems that do not exist yet read zero):
 npm run dev &                      # vite on 127.0.0.1:5173
 npm run perf:baseline              # per-café Auto metrics + 45 s CPU sample
 npm run audit:memory               # ten-switch lifecycle audit
+npm run audit:mobile -- --mobile   # per-café RAM + pacing, low-end phone emulation
 npm run perf:bench -- --url=http://127.0.0.1:5173 --out=after.json
                                    # fixed-1x A/B bench; point --url at a
                                    # second checkout (e.g. main on :5174)

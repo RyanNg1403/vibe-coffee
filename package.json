@@ -10,6 +10,7 @@
     "artifact": "node tools/make-artifact.mjs",
     "audit:motion": "node tools/motion-audit.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
+    "audit:mobile": "node tools/memory-mobile-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
     "perf:baseline": "node tools/perf-baseline.mjs",
     "perf:bench": "node tools/perf-bench.mjs",

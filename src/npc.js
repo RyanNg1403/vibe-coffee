@@ -3223,7 +3223,7 @@ class OutsideLife {
     this.walkers = [];
     this.qualityLevel = 2;
     const rainy = !!cafe.theme.rain;
-    const n = 8;
+    const n = sim.streetWalkers;
     for (let i = 0; i < n; i++) {
       const lease = sim.reserveCharacter();
       if (!lease) break;
@@ -3404,7 +3404,8 @@ class OutsideLife {
 export class CrowdSim {
   // `playerSeat` lets a crowd created after the player sat down (streamed
   // cast) pre-seat everyone else around them.
-  constructor(cafe, audio, models = null, { playerSeat = -1 } = {}) {
+  // `maxCrowd` / `streetWalkers` let entry devices host a smaller crowd.
+  constructor(cafe, audio, models = null, { playerSeat = -1, maxCrowd = null, streetWalkers = 8 } = {}) {
     this.cafe = cafe;
     this.audio = audio;
     this.models = models;
@@ -3431,7 +3432,8 @@ export class CrowdSim {
     this.brewDuration = 8;
     this.takenSeats = new Set();
     this.playerSeat = playerSeat;
-    this.maxCrowd = cafe.theme.crowd ?? 9;
+    this.maxCrowd = maxCrowd ?? cafe.theme.crowd ?? 9;
+    this.streetWalkers = streetWalkers;
     this.qualityLevel = 2;
     this.umbrellaSerial = 8;
     this.doorFlow = new DoorCoordinator(cafe.entrance, () => {
