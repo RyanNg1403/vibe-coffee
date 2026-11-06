@@ -18,6 +18,7 @@ import { initTitle, isEntered } from './title.js';
 import { initHud, notify, selectVenue, stepVenue, toggleZen, markActivity } from './hud.js';
 import { initFocus } from './focus.js';
 import { initMusic } from './music.js';
+import { initMobile } from './mobile.js';
 import { onPanelChange } from './panels.js';
 import { initSettingsMenu, openSettings, closeSettings, isSettingsOpen } from './settingsMenu.js';
 import { initInput, getModality } from './input.js';
@@ -55,6 +56,7 @@ export function connectUI(bridge) {
     isEntered, isSettingsOpen, openSettings, closeSettings, selectVenue, stepVenue, toggleZen, notify, markActivity,
   });
   connectControls(bridge.controls);
+  initMobile(bridge);
 }
 
 // Gameplay input runs only in the café with no pause menu open. Mouse

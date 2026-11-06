@@ -8,10 +8,11 @@
 // look, WASD/arrows, Shift sprint, click or E to interact, Esc releases and
 // pauses. Where Pointer Lock is unavailable, drag-to-look is the fallback.
 // Gamepad: left stick move, right stick look, LT/L3 sprint, A interact.
-// Touch: drag to look, tap to interact, on-screen stick to move.
+// Touch: floating thumb stick in the lower-left zone, accelerated swipe
+// look elsewhere, tap (or the action button) to interact.
 import {
   createIntent, keysToMove, stickToMove, pointerLook, stickLook, smoothLook,
-  TOUCH_RADIANS_PER_PIXEL,
+  TOUCH_RADIANS_PER_PIXEL, TOUCH_STICK, touchLookGain,
 } from './intent.js';
 
 const MOVE_CODES = {
@@ -141,8 +142,12 @@ export function createControls({ canvas, settings = () => ({ sensitivity: 1, inv
   });
 
   // ---------- pointer on the scene: lock, interact, touch look ----------
-  const pointers = new Map(); // touch/drag pointers: id -> { x, y, startX, startY, t }
+  // Touch layout: a touch that starts in the lower-left thumb zone becomes a
+  // floating stick centred under the thumb; any other touch looks around
+  // (accelerated swipes) and a short tap interacts.
+  const pointers = new Map(); // look/drag pointers: id -> { x, y, startX, startY, t, lastT }
   const toNdc = (x, y) => ({ x: (x / window.innerWidth) * 2 - 1, y: -(y / window.innerHeight) * 2 + 1 });
+  const inStickZone = (x, y) => x < window.innerWidth * 0.42 && y > window.innerHeight * 0.38;
 
   canvas.addEventListener('pointerdown', (event) => {
     if (!enabled) return;
@@ -151,72 +156,115 @@ export function createControls({ canvas, settings = () => ({ sensitivity: 1, inv
       if (locked()) { pending.interact = { x: 0, y: 0 }; touchInput(); return; }
       if (!dragFallback()) { requestLock(); return; }
     }
-    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, t: now() });
+    if (event.pointerType === 'touch' && stickPointer === null && inStickZone(event.clientX, event.clientY)) {
+      startStick(event, event.clientX, event.clientY, canvas);
+      return;
+    }
+    const t = now();
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, t, lastT: event.timeStamp });
     try { canvas.setPointerCapture(event.pointerId); } catch { /* synthetic pointers cannot be captured */ }
   });
   canvas.addEventListener('pointermove', (event) => {
+    if (event.pointerId === stickPointer) { moveStick(event); return; }
     const p = pointers.get(event.pointerId);
     if (!p || !enabled) return;
-    const look = pointerLook(event.clientX - p.x, event.clientY - p.y, settings(), TOUCH_RADIANS_PER_PIXEL);
+    const dx = event.clientX - p.x;
+    const dy = event.clientY - p.y;
+    // Speed from the events' own timestamps: a busy main thread delivers
+    // moves late, which must not make a flick read as a slow drag.
+    const elapsed = Math.max(1, event.timeStamp - p.lastT);
+    const gain = event.pointerType === 'touch' ? touchLookGain(Math.hypot(dx, dy) / elapsed) : 1;
+    const look = pointerLook(dx * gain, dy * gain, settings(), TOUCH_RADIANS_PER_PIXEL);
     pending.yaw += look.yaw;
     pending.pitch += look.pitch;
     p.x = event.clientX;
     p.y = event.clientY;
+    p.lastT = event.timeStamp;
     touchInput();
   });
   const endPointer = (event) => {
+    if (event.pointerId === stickPointer) { endStick(); return; }
     const p = pointers.get(event.pointerId);
     if (!p) return;
     pointers.delete(event.pointerId);
     const moved = Math.hypot(event.clientX - p.startX, event.clientY - p.startY);
     if (event.type === 'pointerup' && enabled && moved < TAP_MAX_PX && now() - p.t < TAP_MAX_MS * (event.pointerType === 'mouse' ? 3 : 1)) {
-      pending.interact = toNdc(event.clientX, event.clientY);
+      // A tap close to the crosshair uses whatever the crosshair is on.
+      const nearCrosshair = Math.hypot(event.clientX - window.innerWidth / 2, event.clientY - window.innerHeight / 2) < 56;
+      pending.interact = nearCrosshair ? { x: 0, y: 0 } : toNdc(event.clientX, event.clientY);
       touchInput();
     }
   };
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', endPointer);
+  // Long-press must not open the browser's context menu or callout.
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 
-  // ---------- on-screen stick (touch) ----------
+  // ---------- thumb stick (touch) ----------
   const stickEl = document.getElementById('joystick');
-  const stickBase = stickEl?.querySelector('.joystick__base');
-  if (stickEl && stickBase) {
-    let stickPointer = null;
-    const move = (event) => {
-      const rect = stickBase.getBoundingClientRect();
-      const radius = rect.width / 2;
-      let dx = event.clientX - (rect.left + radius);
-      let dy = event.clientY - (rect.top + radius);
-      const max = radius * 0.62;
-      const length = Math.hypot(dx, dy);
-      if (length > max) { dx = (dx / length) * max; dy = (dy / length) * max; }
-      stickEl.style.setProperty('--jx', `${dx}px`);
-      stickEl.style.setProperty('--jy', `${dy}px`);
-      stick.x = dx / max;
-      stick.y = dy / max;
-      touchInput();
-    };
-    const end = () => {
-      stickPointer = null;
-      stick.active = false;
-      stick.x = 0;
-      stick.y = 0;
-      stickEl.classList.remove('active');
-      stickEl.style.setProperty('--jx', '0px');
-      stickEl.style.setProperty('--jy', '0px');
-    };
+  const stickKnob = stickEl?.querySelector('.joystick__knob');
+  let stickPointer = null;
+  let stickOrigin = { x: 0, y: 0 };
+  let stickTarget = null;
+  const restCentre = () => {
+    const rect = stickEl.getBoundingClientRect();
+    const shift = stickEl._shift ?? { x: 0, y: 0 };
+    return { x: rect.left - shift.x + rect.width / 2, y: rect.top - shift.y + rect.height / 2 };
+  };
+  function placeStick(x, y) {
+    if (!stickEl) return;
+    const rest = restCentre();
+    stickEl._shift = { x: x - rest.x, y: y - rest.y };
+    stickEl.style.transform = `translate3d(${stickEl._shift.x}px, ${stickEl._shift.y}px, 0)`;
+  }
+  function startStick(event, x, y, target) {
+    stickPointer = event.pointerId;
+    stickTarget = target;
+    stickOrigin = { x, y };
+    try { target.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+    if (target === canvas) placeStick(x, y);
+    stick.active = true;
+    stickEl?.classList.add('active');
+    moveStick(event);
+  }
+  function moveStick(event) {
+    let dx = event.clientX - stickOrigin.x;
+    let dy = event.clientY - stickOrigin.y;
+    const max = TOUCH_STICK.travel;
+    const length = Math.hypot(dx, dy);
+    if (length > max) { dx = (dx / length) * max; dy = (dy / length) * max; }
+    if (stickKnob) stickKnob.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+    stick.x = dx / max;
+    stick.y = dy / max;
+    stickEl?.classList.toggle('sprint', Math.hypot(stick.x, stick.y) >= TOUCH_STICK.sprintAt);
+    touchInput();
+  }
+  function endStick() {
+    stickPointer = null;
+    stickTarget = null;
+    stick.active = false;
+    stick.x = 0;
+    stick.y = 0;
+    if (stickEl) {
+      stickEl.classList.remove('active', 'sprint');
+      stickEl._shift = { x: 0, y: 0 };
+      stickEl.style.transform = '';
+      if (stickKnob) stickKnob.style.transform = '';
+    }
+  }
+  if (stickEl) {
     stickEl.addEventListener('pointerdown', (event) => {
-      stickPointer = event.pointerId;
-      try { stickEl.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
-      stick.active = true;
-      stickEl.classList.add('active');
-      move(event);
+      if (!enabled || stickPointer !== null) return;
+      const rest = restCentre();
+      startStick(event, rest.x, rest.y, stickEl);
       event.preventDefault();
     });
-    stickEl.addEventListener('pointermove', (event) => { if (event.pointerId === stickPointer) move(event); });
-    stickEl.addEventListener('pointerup', end);
-    stickEl.addEventListener('pointercancel', end);
+    stickEl.addEventListener('pointermove', (event) => { if (event.pointerId === stickPointer) moveStick(event); });
+    stickEl.addEventListener('pointerup', (event) => { if (event.pointerId === stickPointer) endStick(); });
+    stickEl.addEventListener('pointercancel', (event) => { if (event.pointerId === stickPointer) endStick(); });
   }
+  // Rotation or a resize mid-gesture must not leave the player walking.
+  window.addEventListener('orientationchange', () => { endStick(); pointers.clear(); });
 
   // ---------- gamepad ----------
   function readGamepad(dt, out) {
@@ -252,9 +300,9 @@ export function createControls({ canvas, settings = () => ({ sensitivity: 1, inv
       intent.move = fromKeys;
       intent.sprint = sprintKey;
       if (stick.active) {
-        const s = stickToMove(stick.x, stick.y, 0.12);
+        const s = stickToMove(stick.x, stick.y, TOUCH_STICK.deadZone, TOUCH_STICK.curve);
         if (Math.hypot(s.x, s.z) > Math.hypot(intent.move.x, intent.move.z)) intent.move = s;
-        if (Math.hypot(stick.x, stick.y) > 0.95) intent.sprint = true;
+        if (Math.hypot(stick.x, stick.y) >= TOUCH_STICK.sprintAt) intent.sprint = true;
       }
       readGamepad(dt, intent);
       const pointerLookDelta = smoothLook(smoothing, { yaw: pending.yaw, pitch: pending.pitch }, dt, settings().smoothing);
@@ -301,11 +349,14 @@ export function createControls({ canvas, settings = () => ({ sensitivity: 1, inv
         Object.assign(keys, { forward: false, back: false, left: false, right: false });
         sprintKey = false;
         pointers.clear();
+        endStick();
       }
       enabled = nextEnabled;
       menuOpen = nextMenu;
     },
     setAimTarget,
+    // Interact with what the crosshair is on (on-screen action button).
+    requestInteract(ndc = { x: 0, y: 0 }) { if (enabled) { pending.interact = ndc; touchInput(); } },
     onLockChange: (fn) => lockListeners.add(fn),
     onPause: (fn) => pauseListeners.add(fn),
     // Test hook: headless browsers cannot grant Pointer Lock. Forcing it

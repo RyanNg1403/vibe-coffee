@@ -41,13 +41,14 @@ function render() {
   pill.classList.toggle('is-break', onBreak);
   root.classList.toggle('focus-active', running && !onBreak);
   root.classList.toggle('focus-locked', running);
-  $$('#timer-pop button').forEach((b) => { b.disabled = running; });
+  // Runs once per timer tick: only touch the DOM when something changed.
+  $$('#timer-pop button').forEach((b) => { if (b.disabled !== running) b.disabled = running; });
 
-  const start = $('#focus-start');
-  if (start) {
-    start.querySelector('span').textContent = running ? 'Pause session' : state.remaining < total ? 'Resume session' : 'Start focusing';
-  }
-  document.title = running ? `${display.textContent} · ${onBreak ? 'Break' : 'Focus'} — vibe coffee` : baseTitle;
+  const startLabel = $('#focus-start span');
+  const nextLabel = running ? 'Pause session' : state.remaining < total ? 'Resume session' : 'Start focusing';
+  if (startLabel && startLabel.textContent !== nextLabel) startLabel.textContent = nextLabel;
+  const nextTitle = running ? `${display.textContent} · ${onBreak ? 'Break' : 'Focus'} — vibe coffee` : baseTitle;
+  if (document.title !== nextTitle) document.title = nextTitle;
 }
 
 function renderStats() {

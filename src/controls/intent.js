@@ -48,12 +48,27 @@ export function keysToMove({ forward, back, left, right }) {
 }
 
 // Analog stick (browser axes: +y is down) -> planar vector with a radial
-// dead zone rescaled so motion starts smoothly at its edge.
-export function stickToMove(ax, ay, deadZone = 0.18) {
+// dead zone rescaled so motion starts smoothly at its edge. `curve` > 1
+// gives finer control near the centre (slow, precise steps).
+export function stickToMove(ax, ay, deadZone = 0.18, curve = 1) {
   const length = Math.hypot(ax, ay);
   if (length <= deadZone) return { x: 0, z: 0 };
-  const scaled = Math.min(1, (length - deadZone) / (1 - deadZone));
+  const scaled = Math.min(1, (length - deadZone) / (1 - deadZone)) ** curve;
   return { x: (ax / length) * scaled, z: (-ay / length) * scaled };
+}
+
+// Touch thumb-stick tuning: a small dead zone absorbs thumb wobble, the
+// curve keeps half-deflection walking slow, full deflection sprints.
+export const TOUCH_STICK = Object.freeze({ deadZone: 0.14, curve: 1.35, sprintAt: 0.94, travel: 44 });
+
+// Swipe-to-look acceleration: slow drags stay 1:1 for precise aim, fast
+// flicks turn further (up to 2.2x) so a full turn needs no repeated swipes.
+export const TOUCH_LOOK_ACCEL = Object.freeze({ slow: 0.25, fast: 1.6, maxGain: 2.2 });
+export function touchLookGain(pxPerMs) {
+  const { slow, fast, maxGain } = TOUCH_LOOK_ACCEL;
+  const t = Math.min(1, Math.max(0, (pxPerMs - slow) / (fast - slow)));
+  const eased = t * t * (3 - 2 * t);
+  return 1 + (maxGain - 1) * eased;
 }
 
 // Raw pointer delta (pixels, +x right, +y down) -> look radians.

@@ -6,7 +6,14 @@
   <meta name="theme-color" content="#120c07" />
   <meta name="color-scheme" content="dark" />
   <title>vibe coffee ☕</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>" />
+  <meta name="description" content="A 3D café to study and work in: ambience, music and a focus timer." />
+  <link rel="icon" type="image/svg+xml" href="%BASE_URL%icons/icon.svg" />
+  <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
+  <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="vibe coffee" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <!-- Critical first-paint styles; the full stylesheet is injected by src/ui. -->
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; background: #120c07; color: #f6ecdd; }
@@ -50,6 +57,8 @@
         <p id="loader-tip" class="loader__tip" aria-live="off"></p>
       </div>
 
+      <!-- Start actions. A "Continue" button (save & resume) is inserted as the
+           first child of this nav; the menu styles any number of .btn rows. -->
       <nav class="title__menu" aria-label="Start">
         <button id="enter-btn" class="btn btn--primary btn--lg" aria-label="Step inside the coffee shop">
           <span>Step inside</span><kbd>Enter</kbd>
