@@ -235,6 +235,15 @@ html.ui-loaded .venue-picker { display: grid; gap: 12px; }
 html.ui-loaded .title__menu > *, html.ui-loaded .venue-picker { animation: rise var(--t-slow) var(--ease-out) both; }
 html.ui-loaded .title__menu > :nth-child(2) { animation-delay: 60ms; }
 html.ui-loaded .title__menu > :nth-child(3) { animation-delay: 120ms; }
+html.ui-loaded .title__menu > :nth-child(4) { animation-delay: 180ms; }
+.btn--resume { min-height: 64px; padding-block: 10px; }
+.btn__stack { display: grid; gap: 3px; min-width: 0; }
+.btn__meta {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.8rem; font-weight: 600; letter-spacing: 0; opacity: 0.85;
+}
+.btn__meta--soft { font-weight: 500; opacity: 0.7; }
+.btn__meta:empty { display: none; }
 html.ui-loaded .venue-picker { animation-delay: 180ms; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .title__menu .btn--ghost { justify-self: start; }
@@ -769,6 +778,12 @@ html:not(.entered) .settings__resume { display: none; }
   .title__content { top: 50%; bottom: auto; transform: translateY(-50%); gap: 14px; }
   .brand__tagline, .title__footer, .brand__mark { display: none; }
   .venue-card { min-height: 52px; }
+  /* Continue adds a row: pair the secondary actions to keep it on screen. */
+  html.has-checkpoint .title__menu { grid-template-columns: 1fr 1fr; gap: 8px; }
+  html.has-checkpoint .title__menu > .btn--resume,
+  html.has-checkpoint .title__menu > .btn--ghost { grid-column: 1 / -1; }
+  html.has-checkpoint .title__menu > .btn--ghost { min-height: 36px; }
+  html.has-checkpoint .title__menu kbd, html.has-checkpoint .venue-detail { display: none; }
   .popover { max-height: calc(100dvh - 90px); }
   .joystick { bottom: calc(var(--edge) + 20px); }
 }

@@ -60,6 +60,15 @@
       <!-- Start actions. A "Continue" button (save & resume) is inserted as the
            first child of this nav; the menu styles any number of .btn rows. -->
       <nav class="title__menu" aria-label="Start">
+        <!-- Shown when an on-device checkpoint exists; #enter-btn then becomes "New session". -->
+        <button id="continue-btn" class="btn btn--primary btn--lg btn--resume" hidden aria-describedby="continue-place continue-detail">
+          <span class="btn__stack">
+            <span>Continue</span>
+            <small id="continue-place" class="btn__meta"></small>
+            <small id="continue-detail" class="btn__meta btn__meta--soft"></small>
+          </span>
+          <kbd>Enter</kbd>
+        </button>
         <button id="enter-btn" class="btn btn--primary btn--lg" aria-label="Step inside the coffee shop">
           <span>Step inside</span><kbd>Enter</kbd>
         </button>

@@ -13,6 +13,7 @@
 import { loadSoundLibrary, loadSoundAsset } from './soundLoader.js';
 import { SOUND_MANIFEST } from './soundManifest.js';
 import { stationTracks, DEFAULT_MUSIC_STATION } from './musicStations.js';
+import { assetUrl } from './assetUrl.js';
 
 const MIDI_A4 = 69;
 const freq = (midi) => 440 * Math.pow(2, (midi - MIDI_A4) / 12);
@@ -1718,6 +1719,8 @@ export class CafeAudio {
   _nextRecordedTrack() {
     const pool = this._musicPool();
     if (!pool.length) return null;
+    const resumed = this._takeMusicResume(pool);
+    if (resumed) return resumed;
     const bagKey = this.musicStation === 'cafe' ? `cafe:${this.theme?.id ?? this.styleId}` : this.musicStation;
     let bag = this._recordBags[bagKey];
     if (!bag?.length) {
@@ -1740,6 +1743,8 @@ export class CafeAudio {
     if (!this.recordedMusic || !this.ctx) return;
     const track = this._nextRecordedTrack();
     if (!track) return;
+    const seek = this._resumeSeek ?? 0;
+    this._resumeSeek = 0;
     const token = (this._recordToken ?? 0) + 1;
     this._recordToken = token;
     const oldIndex = this._recordDeckIndex;
@@ -1752,8 +1757,12 @@ export class CafeAudio {
     this._applyRecordedVolumes();
     next.el.src = track.url;
     try {
+      if (seek) next.el.currentTime = seek;
       await next.el.play();
     } catch (error) {
+      // A newer track (a quick café switch) reused this element and aborted
+      // this request; that is not a playback failure.
+      if (token !== this._recordToken) return;
       // A blocked media element should not leave the café silent: retain the
       // synth playlist as an automatic local fallback.
       console.warn(`[music] recorded playback unavailable (${error?.name}: ${error?.message})`);
@@ -1763,6 +1772,7 @@ export class CafeAudio {
     }
     if (token !== this._recordToken) { next.el.pause(); return; }
     this._recordDeckIndex = nextIndex;
+    this._playingTrack = { station: this.musicStation, trackId: track.id };
     this._crossfadeRecorded(old, next, fade, oldIndex);
 
     window.dispatchEvent(new CustomEvent('cafe-track-change', {
@@ -1771,7 +1781,43 @@ export class CafeAudio {
     const lead = 7;
     this._timer(() => {
       if (this.recordedMusic && this._recordToken === token) this._playRecordedTrack(false);
-    }, Math.max(1000, (track.duration - lead) * 1000));
+    }, Math.max(1000, (track.duration - lead - seek) * 1000));
+  }
+
+  // The recorded track playing now and how far into it, for checkpoints.
+  // Generative songs are random each time, so they have no resumable state.
+  musicState() {
+    const deck = this._musicDecks?.[this._recordDeckIndex];
+    if (!this.recordedMusic || !deck || !this._playingTrack) return null;
+    return { ...this._playingTrack, position: deck.el.currentTime || 0 };
+  }
+
+  // Make the next recorded pick a saved track at a saved position instead of
+  // a random one. Ignored when the track is not on the current station (the
+  // station or café changed since it was saved).
+  queueMusicResume(state) {
+    this._musicResume = state ?? null;
+  }
+
+  _takeMusicResume(pool) {
+    const resume = this._musicResume;
+    this._musicResume = null;
+    const track = resume && pool.find((entry) => entry.id === resume.trackId);
+    // Too close to the end to be worth resuming: start fresh instead.
+    if (!track || !(resume.position < track.duration - 10)) return null;
+    this._lastRecordedId = track.id;
+    this._resumeSeek = Math.max(0, resume.position);
+    return track;
+  }
+
+  // Fetch a saved track's file while the title screen is up, so Continue
+  // plays it without waiting. The service worker (when present) caches it.
+  prefetchMusic(state) {
+    const track = stationTracks('shuffle').find((entry) => entry.id === state?.trackId);
+    if (!track || typeof fetch !== 'function') return;
+    fetch(assetUrl(track.url), { priority: 'low' })
+      .then((response) => (response.ok ? response.arrayBuffer() : null))
+      .catch(() => {});
   }
 
   _applyRecordedVolumes() {

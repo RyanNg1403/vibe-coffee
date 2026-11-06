@@ -1,6 +1,6 @@
 // Completed focus blocks per local calendar day, kept on this device only.
+import { STORAGE_KEYS, readJSON, writeJSON } from '../storage/index.js';
 
-const STORAGE_KEY = 'vibe-coffee.focus-stats.v1';
 const KEEP_DAYS = 60;
 
 export function dayKey(date) {
@@ -58,18 +58,28 @@ export function focusSummary(stats, now = new Date()) {
   return { sessionsToday: today.sessions, minutesToday: today.minutes, streak, week };
 }
 
-export function loadFocusStats(storage = globalThis.localStorage) {
-  try {
-    return sanitizeStats(JSON.parse(storage?.getItem(STORAGE_KEY) ?? '{}'));
-  } catch {
-    return { days: {} };
+// Two copies of the same history (localStorage and a checkpoint) can only
+// have grown, so the merge keeps the larger count for each day.
+export function mergeFocusStats(a, b) {
+  const left = sanitizeStats(a).days;
+  const right = sanitizeStats(b).days;
+  const days = { ...left };
+  for (const [key, value] of Object.entries(right)) {
+    const mine = days[key];
+    if (!mine || value.sessions > mine.sessions || (value.sessions === mine.sessions && value.minutes > mine.minutes)) {
+      days[key] = value;
+    }
   }
+  const keys = Object.keys(days).sort();
+  for (const old of keys.slice(0, Math.max(0, keys.length - KEEP_DAYS))) delete days[old];
+  return { days };
 }
 
-export function saveFocusStats(stats, storage = globalThis.localStorage) {
-  try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(sanitizeStats(stats)));
-  } catch {
-    // Stats are a nicety; a full or disabled storage must not interrupt focus.
-  }
+export function loadFocusStats(storage) {
+  return sanitizeStats(readJSON(STORAGE_KEYS.focusStats, storage));
+}
+
+// Stats are a nicety; a full or disabled storage must not interrupt focus.
+export function saveFocusStats(stats, storage) {
+  return writeJSON(STORAGE_KEYS.focusStats, sanitizeStats(stats), storage);
 }

@@ -5,7 +5,7 @@ import { $, $$, root } from './dom.js';
 import { iconSvg } from './icons.js';
 import { registerPanel, closePanel } from './panels.js';
 import { BREAK_MINUTES, getUISettings, updateUISettings, onUISettingsChange } from './settings.js';
-import { focusSummary, loadFocusStats, recordFocusBlock, saveFocusStats } from './focusStats.js';
+import { focusSummary, loadFocusStats, mergeFocusStats, recordFocusBlock, saveFocusStats } from './focusStats.js';
 
 let stats = loadFocusStats();
 const baseTitle = document.title;
@@ -27,6 +27,7 @@ function render() {
     stats = recordFocusBlock(stats, focusMinutes());
     saveFocusStats(stats);
     renderStats();
+    document.dispatchEvent(new CustomEvent('vibe:focus-block'));
   }
   state.running = running;
   state.onBreak = onBreak;
@@ -99,6 +100,23 @@ function renderExtras() {
     if (starting) closePanel({ restoreFocus: true });
   });
   renderStats();
+}
+
+export const getFocusStats = () => stats;
+
+// Stats carried by a restored checkpoint top up this device's history (for
+// example after site data was partly cleared); nothing already here is lost.
+export function adoptFocusStats(saved) {
+  stats = mergeFocusStats(stats, saved);
+  saveFocusStats(stats);
+  renderStats();
+}
+
+// The app is about to show a restored timer. Record its phase first so the
+// change is not mistaken for a focus block that just finished.
+export function noteRestoredFocus({ running, onBreak }) {
+  state.running = running;
+  state.onBreak = onBreak;
 }
 
 export function initFocus() {

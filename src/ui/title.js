@@ -43,7 +43,7 @@ export function initTitle(app) {
     root.classList.add('ui-loaded');
     $('#veil').classList.remove('on', 'loading');
     if (!entered && (document.activeElement === document.body || !document.activeElement)) {
-      $('#enter-btn').focus({ preventScroll: true });
+      startButton().focus({ preventScroll: true });
     }
     document.dispatchEvent(new CustomEvent('vibe:ui-loaded'));
   });
@@ -51,6 +51,8 @@ export function initTitle(app) {
   // The app's own #enter-btn handler (registered first) hides the overlay and
   // unlocks audio inside this same user gesture.
   $('#enter-btn').addEventListener('click', () => enter());
+  $('#continue-btn').addEventListener('click', () => enter());
+  app.checkpoint?.then((summary) => { if (summary && !entered) offerContinue(summary); });
   $('#title-focus').addEventListener('click', () => {
     $('#enter-btn').click();
     const timerBtn = $('#timer-btn');
@@ -59,6 +61,28 @@ export function initTitle(app) {
     notify(`Focus session started · ${minutes} minutes`);
   });
   $('#title-settings').addEventListener('click', () => openSettings());
+}
+
+// The primary start action: Continue when a checkpoint is offered.
+export function startButton() {
+  const resume = $('#continue-btn');
+  return resume && !resume.hidden ? resume : $('#enter-btn');
+}
+
+// The app has already built the saved café behind the title, with the
+// visitor in their spot; "Step inside" becomes a secondary "New session".
+function offerContinue({ place, detail }) {
+  const resume = $('#continue-btn');
+  const fresh = $('#enter-btn');
+  $('#continue-place').textContent = place;
+  $('#continue-detail').textContent = detail;
+  resume.setAttribute('aria-label', `Continue where you left off: ${place}`);
+  resume.hidden = false;
+  fresh.classList.remove('btn--primary');
+  fresh.setAttribute('aria-label', 'Start a new session');
+  fresh.innerHTML = '<span>New session</span><kbd>N</kbd>';
+  root.classList.add('has-checkpoint');
+  if (ready && document.activeElement === fresh) resume.focus({ preventScroll: true });
 }
 
 function enter() {
