@@ -11,6 +11,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODEL_MANIFEST } from './modelManifest.js';
+import { ktx2Loader, releaseAfterUpload } from './perf/textureCompression.js';
 
 // This asset's exaggerated head/hair proportions and seated silhouette clash
 // with the established café cast. Keep the source in the repository for
@@ -149,27 +150,39 @@ export function normalizeModel(scene, key) {
   return wrapper;
 }
 
-let libraryPromise = null;
+// Venue dressing is authored per café. The first café only waits for its own
+// set; the other venues stream in afterwards while the room is already live.
+const VENUE_ASSET = /^atelier_(?:decor|tables)_(.+)$/;
+const BACKGROUND_DELAY_MS = 4000;
+let library = null;
 
-export function loadModelLibrary() {
-  if (libraryPromise) return libraryPromise;
+function createLibrary() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const dracoLoader = new DRACOLoader();
   dracoLoader.setDecoderPath('/draco/');
   loader.setDRACOLoader(dracoLoader);
+  // Deployed builds carry KTX2 colour textures; resolve the transcoder once,
+  // in parallel with the first downloads.
+  const ktx2Ready = ktx2Loader().then((ktx2) => {
+    if (ktx2) loader.setKTX2Loader(ktx2);
+  });
   const models = new Map();
   const sharedTextures = new Map();
-  libraryPromise = Promise.all(Object.entries(MODEL_MANIFEST).map(async ([key, def]) => {
-    if (CAST_EXCLUSIONS.has(key)) return;
+  const pending = new Map();
+
+  async function loadEntry(key, def) {
     try {
       let gltf;
       if (def.url.startsWith('data:')) {
+        await ktx2Ready;
         gltf = await loader.parseAsync(dataUriToArrayBuffer(def.url), '');
       } else {
         const res = await fetch(def.url);
         if (!res.ok) throw new Error(`http ${res.status}`);
-        gltf = await loader.parseAsync(await res.arrayBuffer(), '');
+        const buffer = await res.arrayBuffer();
+        await ktx2Ready;
+        gltf = await loader.parseAsync(buffer, '');
       }
       // Packed exports name identical embedded images by content hash. Reuse
       // one GPU texture across models while retaining distinct UV transforms.
@@ -183,7 +196,10 @@ export function loadModelLibrary() {
               texture.wrapS, texture.wrapT, ...texture.repeat.toArray(), ...texture.offset.toArray(),
               ...texture.center.toArray(), texture.rotation].join('|');
             if (sharedTextures.has(id)) material[slot] = sharedTextures.get(id);
-            else sharedTextures.set(id, texture);
+            else {
+              sharedTextures.set(id, texture);
+              releaseAfterUpload(texture);
+            }
           }
         }
       });
@@ -199,7 +215,14 @@ export function loadModelLibrary() {
     } catch (e) {
       console.warn(`[models] "${key}" unavailable (${e.message}) — procedural fallback`);
     }
-  })).then(() => {
+  }
+
+  function load(key) {
+    if (!pending.has(key)) pending.set(key, loadEntry(key, MODEL_MANIFEST[key]));
+    return pending.get(key);
+  }
+
+  function fixups() {
     // char_j and char_l ship the same "HumanArmature" rig, but char_j's
     // authored "Sitting" is a floor pose — parked on a chair it reads as
     // kneeling behind the seat. char_l's clip is a proper chair sit and the
@@ -212,8 +235,34 @@ export function loadModelLibrary() {
       if (goodSit && badIndex >= 0) j.animations[badIndex] = goodSit;
     }
     return models;
-  });
-  return libraryPromise;
+  }
+
+  let backgroundScheduled = false;
+  function streamRemaining(keys) {
+    if (backgroundScheduled) return;
+    backgroundScheduled = true;
+    const start = () => keys.forEach(load);
+    setTimeout(() => {
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(start, { timeout: 4000 });
+      else start();
+    }, BACKGROUND_DELAY_MS);
+  }
+
+  return { load, fixups, streamRemaining };
+}
+
+// Resolves once every model the given café needs is ready (all models when
+// no café is named). The same Map instance is returned every time and gains
+// the remaining venues' assets in the background.
+export function loadModelLibrary(themeId = null) {
+  library ??= createLibrary();
+  const keys = Object.keys(MODEL_MANIFEST).filter((key) => !CAST_EXCLUSIONS.has(key));
+  const needed = themeId
+    ? keys.filter((key) => { const venue = VENUE_ASSET.exec(key)?.[1]; return !venue || venue === themeId; })
+    : keys;
+  const ready = Promise.all(needed.map((key) => library.load(key))).then(() => library.fixups());
+  if (needed.length < keys.length) ready.then(() => library.streamRemaining(keys));
+  return ready;
 }
 
 // static props: plain clone
