@@ -106,6 +106,14 @@ test('a device slower than the stall threshold on every frame still degrades', (
   assert.equal(target.scale, 0.5);
 });
 
+test('alternating long and short frames (GPU pipelining at very low fps) still degrade', () => {
+  const target = fakeTarget();
+  const ladder = buildQualityLadder({ tierCount: 1, scales: [1, 0.75, 0.5] });
+  const controller = new AdaptiveQualityController(target, { ladder });
+  for (let i = 0; i < 40; i += 1) controller.update(i % 2 ? 0.04 : 2.6, 24);
+  assert.equal(target.scale, 0.5);
+});
+
 test('mixed interactive and ambient frame rates are judged against their own budgets', () => {
   const target = fakeTarget();
   const ladder = buildQualityLadder({ tierCount: 1, scales: [1, 0.5] });

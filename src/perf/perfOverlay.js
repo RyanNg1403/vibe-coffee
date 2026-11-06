@@ -6,7 +6,7 @@ const STYLE = `
 #vibe-perf{position:fixed;top:8px;left:8px;z-index:9999;min-width:210px;padding:8px 10px;
   font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e9f1e6;
   background:rgba(12,14,16,.78);border:1px solid rgba(255,255,255,.12);border-radius:8px;
-  pointer-events:none;white-space:pre;backdrop-filter:blur(4px)}
+  pointer-events:none;white-space:pre}
 #vibe-perf b{color:#ffd58a;font-weight:600}
 #vibe-perf canvas{display:block;margin-top:6px}
 `;

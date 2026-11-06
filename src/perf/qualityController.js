@@ -113,7 +113,6 @@ export class AdaptiveQualityController {
     this._frames = [];
     this._work = [];
     this._sampleTime = 0;
-    this._longFrames = 0;
     this.step = startStep ?? nearestStep(ladder, target.getTier?.() ?? 0, target.getRenderScale?.() ?? 1);
   }
 
@@ -156,22 +155,18 @@ export class AdaptiveQualityController {
   update(frameSeconds, targetFps, workMs = null) {
     if (!this.enabled || !(frameSeconds > 0) || !(targetFps > 0)) return null;
     this.clock += frameSeconds;
-    // An isolated multi-second frame (breakpoint, blocked main thread) says
-    // nothing about steady-state cost: drop that sample but keep the window.
-    // Consecutive long frames are a genuinely slow device and must count.
-    // Hidden tabs and scene holds reset explicitly.
-    if (frameSeconds > this.stallSeconds) {
-      this._longFrames += 1;
-      if (this._longFrames < 2) return null;
-    } else {
-      this._longFrames = 0;
-    }
-    this.cooldown = Math.max(0, this.cooldown - frameSeconds);
+    // Multi-second frames are clamped, not dropped: a one-off stall
+    // (breakpoint, blocked main thread) then falls into the trimmed tail of a
+    // normal window, while a slow device whose frames alternate long and
+    // short (GPU pipelining) still counts every long frame. Hidden tabs and
+    // scene holds reset explicitly.
+    const sample = Math.min(frameSeconds, this.stallSeconds);
+    this.cooldown = Math.max(0, this.cooldown - sample);
     // Budget-relative samples: the scheduler switches between interactive and
     // ambient frame rates, so raw milliseconds from both cannot be pooled.
-    this._frames.push(frameSeconds * targetFps);
+    this._frames.push(sample * targetFps);
     if (Number.isFinite(workMs)) this._work.push((workMs * targetFps) / 1000);
-    this._sampleTime += frameSeconds;
+    this._sampleTime += sample;
     if (this._sampleTime < this.sampleSeconds || this._frames.length < this.minSamples) return null;
 
     const ratio = trimmedMean(this._frames);
