@@ -1,3 +1,5 @@
+import { isQualityTier } from './qualityTier.js';
+
 const STORAGE_KEY = 'vibe-coffee.preferences.v1';
 
 export const DEFAULT_PREFERENCES = Object.freeze({
@@ -39,7 +41,7 @@ export function loadPreferences() {
       envSky: ['auto', 'clear', 'rain'].includes(saved.envSky)
         ? saved.envSky
         : DEFAULT_PREFERENCES.envSky,
-      qualityMode: ['auto', 'detail', 'smooth'].includes(saved.qualityMode)
+      qualityMode: isQualityTier(saved.qualityMode)
         ? saved.qualityMode
         : DEFAULT_PREFERENCES.qualityMode,
       laptopOn: typeof saved.laptopOn === 'boolean' ? saved.laptopOn : DEFAULT_PREFERENCES.laptopOn,

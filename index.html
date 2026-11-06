@@ -2,335 +2,213 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#120c07" />
+  <meta name="color-scheme" content="dark" />
   <title>vibe coffee ☕</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>" />
+  <!-- Critical first-paint styles; the full stylesheet is injected by src/ui. -->
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; background: #17110b; }
-    body { font-family: Georgia, 'Times New Roman', serif; color: #f0e6d4; }
-    #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
-    #scene:active { cursor: grabbing; }
-
-    .panel {
-      position: fixed; z-index: 5;
-      background: rgba(20, 14, 8, 0.72);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(240, 230, 212, 0.14);
-      border-radius: 14px;
-    }
-
-    #hud-top {
-      top: 16px; left: 16px;
-      padding: 14px 18px;
-      max-width: 340px;
-    }
-    #hud-top h1 {
-      font-size: 20px; font-weight: normal; letter-spacing: 1px;
-      font-style: italic;
-    }
-    #hud-top h1 span { opacity: 0.6; font-size: 14px; }
-    #blurb { font-size: 12.5px; opacity: 0.75; margin-top: 3px; font-style: italic; }
-    #locations { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-    .loc-btn {
-      font-family: inherit; font-size: 12.5px;
-      color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
-      border: 1px solid rgba(240, 230, 212, 0.18);
-      border-radius: 999px; padding: 6px 12px; cursor: pointer;
-      transition: all 0.2s;
-    }
-    .loc-btn:hover { background: rgba(240, 230, 212, 0.16); }
-    .loc-btn.active { background: #c98e4e; border-color: #c98e4e; color: #241809; }
-    button:focus-visible, input:focus-visible {
-      outline: 2px solid #f2c27b; outline-offset: 2px;
-    }
-
-    #hud-bottom {
-      bottom: 16px; left: 50%; transform: translateX(-50%);
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 18px;
-      white-space: nowrap;
-    }
-    .ctl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
-    .ctl label { opacity: 0.7; }
-    input[type='range'] {
-      width: 86px; accent-color: #c98e4e; cursor: pointer;
-    }
-    #mixer { position: relative; display: flex; }
-    #mixer-pop {
-      position: absolute; bottom: calc(100% + 16px); left: 50%; transform: translateX(-50%);
-      display: flex; flex-direction: column; gap: 11px;
-      background: rgba(20, 14, 8, 0.88);
-      border: 1px solid rgba(240, 230, 212, 0.16);
-      border-radius: 12px; padding: 13px 16px;
-      backdrop-filter: blur(6px);
-    }
-    #mixer-pop[hidden] { display: none; }
-    #mixer-pop .ctl label { width: 42px; text-align: right; }
-    #mixer-pop input[type='range'] { width: 128px; }
-    #mixer-pop #rain-vol { width: 86px; }
-    #mixer-pop #rain-level { width: 42px; font-size: 11px; opacity: 0.75; }
-    #mixer-btn.open { background: rgba(240, 230, 212, 0.18); }
-    #sky { position: relative; display: flex; }
-    #sky-pop {
-      position: absolute; bottom: calc(100% + 16px); left: 50%; transform: translateX(-50%);
-      display: flex; flex-direction: column; gap: 10px;
-      background: rgba(20, 14, 8, 0.9);
-      border: 1px solid rgba(240, 230, 212, 0.16);
-      border-radius: 12px; padding: 13px 15px;
-      backdrop-filter: blur(6px);
-    }
-    #sky-pop[hidden] { display: none; }
-    .sky-row { display: flex; align-items: center; gap: 6px; }
-    .sky-label {
-      width: 52px; text-align: right; font-size: 10.5px;
-      letter-spacing: .08em; text-transform: uppercase; opacity: .55;
-    }
-    .chip {
-      font-family: inherit; font-size: 12px; cursor: pointer;
-      color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
-      border: 1px solid rgba(240, 230, 212, 0.18);
-      border-radius: 999px; padding: 5px 11px; transition: all 0.2s;
-    }
-    .chip:hover { background: rgba(240, 230, 212, 0.16); }
-    .chip.active { background: #c98e4e; border-color: #c98e4e; color: #241809; }
-    #sky-btn.open { background: rgba(240, 230, 212, 0.18); }
-    #sky-btn.on { border-color: #c98e4e; color: #f2c27b; }
-    #mute-toggle, #music-toggle, #walk-btn, #order-btn, #quality-toggle, #laptop-btn, #mixer-btn, #sky-btn, #fullscreen-btn {
-      font-family: inherit; font-size: 12.5px; cursor: pointer;
-      color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
-      border: 1px solid rgba(240, 230, 212, 0.18);
-      border-radius: 999px; padding: 6px 12px;
-      transition: all 0.2s;
-    }
-    #walk-btn:hover { background: rgba(240, 230, 212, 0.16); }
-    #music-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
-    #mute-toggle.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
-    #laptop-btn.on { background: #c98e4e; border-color: #c98e4e; color: #241809; }
-    #quality-toggle { color: rgba(240, 230, 212, .76); min-width: 102px; }
-    #fullscreen-btn { min-width: 42px; }
-    .divider { width: 1px; height: 22px; background: rgba(240, 230, 212, 0.15); }
-    #track-style {
-      min-width: 92px; max-width: 148px; overflow: hidden; text-overflow: ellipsis;
-      font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-      color: rgba(240, 230, 212, .62);
-    }
-
-    body::after {
-      content: ''; position: fixed; inset: 0; z-index: 3; pointer-events: none;
-      box-shadow: inset 0 0 140px rgba(12, 7, 3, .26);
-      background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 26%, rgba(12,7,3,.035));
-      mix-blend-mode: multiply;
-    }
-
-    #timer { position: relative; display: flex; align-items: center; gap: 7px; }
-    #timer-display {
-      min-width: 62px; padding-inline: 7px; border-color: transparent !important;
-      background: transparent !important; font-size: 16px !important;
-      font-variant-numeric: tabular-nums; letter-spacing: 1px;
-    }
-    #timer-display:hover, #timer-display.open { background: rgba(240, 230, 212, .1) !important; }
-    #timer-display:disabled { cursor: default; opacity: 1; }
-    #timer-display.break { color: #8fc9a0; }
-    #timer-pop {
-      position: absolute; bottom: calc(100% + 16px); right: 0; width: 224px;
-      padding: 15px; background: rgba(20, 14, 8, .92);
-      border: 1px solid rgba(240, 230, 212, .16); border-radius: 12px;
-      box-shadow: 0 14px 34px rgba(0, 0, 0, .28); backdrop-filter: blur(8px);
-    }
-    #timer-pop[hidden] { display: none; }
-    #timer-pop-title {
-      margin-bottom: 12px; color: rgba(240, 230, 212, .56);
-      font-size: 10px; letter-spacing: .12em; text-align: center; text-transform: uppercase;
-    }
-    #timer-adjust { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 8px; }
-    #timer-adjust button { width: 34px; height: 34px; padding: 0; border-radius: 50%; font-size: 17px; }
-    #timer-duration { font-size: 23px; text-align: center; font-variant-numeric: tabular-nums; }
-    #timer-duration small { margin-left: 3px; font-size: 11px; opacity: .56; }
-    #timer-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 13px; }
-    #timer-presets button { padding: 5px 0; color: rgba(240, 230, 212, .68); border-radius: 999px; }
-    #timer-presets button.active {
-      color: #241809; background: #c98e4e; border-color: #c98e4e;
-    }
-    #timer button {
-      font-family: inherit; font-size: 11px; cursor: pointer;
-      color: #f0e6d4; background: rgba(240, 230, 212, 0.07);
-      border: 1px solid rgba(240, 230, 212, 0.18);
-      border-radius: 6px; padding: 4px 8px;
-    }
-    #timer button:hover { background: rgba(240, 230, 212, 0.16); }
-
-    #hint {
-      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
-      font-size: 12px; font-style: italic; opacity: 0.55;
-      z-index: 4; pointer-events: none;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-    }
-
-    #toast {
-      position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-12px);
-      background: rgba(20, 14, 8, 0.85); border: 1px solid rgba(240, 230, 212, 0.2);
-      border-radius: 10px; padding: 10px 18px; font-size: 13.5px; font-style: italic;
-      opacity: 0; transition: all 0.35s; z-index: 10; pointer-events: none;
-    }
-    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    #overlay {
-      position: fixed; inset: 0; z-index: 20;
-      background: radial-gradient(ellipse at center, #241809 0%, #0e0903 100%);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 18px; transition: opacity 0.9s;
-    }
-    #overlay.hidden { opacity: 0; pointer-events: none; }
-    #overlay h1 { font-size: 44px; font-weight: normal; font-style: italic; letter-spacing: 2px; }
-    #overlay p { font-size: 15px; opacity: 0.65; font-style: italic; max-width: 420px; text-align: center; line-height: 1.6; }
-    #enter-btn {
-      font-family: inherit; font-size: 16px; font-style: italic; cursor: pointer;
-      color: #241809; background: #c98e4e; border: none;
-      border-radius: 999px; padding: 13px 34px; margin-top: 10px;
-      transition: all 0.25s; letter-spacing: 0.5px;
-    }
-    #enter-btn:hover { background: #e0a763; transform: translateY(-2px); }
-
-    /* Fullscreen is an immersive view: keep only a quiet escape control. */
-    :fullscreen #hud-top, :fullscreen #hint,
-    :-webkit-full-screen #hud-top, :-webkit-full-screen #hint {
-      display: none;
-    }
-    :fullscreen #hud-bottom > :not(#fullscreen-btn),
-    :-webkit-full-screen #hud-bottom > :not(#fullscreen-btn) {
-      display: none;
-    }
-    :fullscreen #hud-bottom, :-webkit-full-screen #hud-bottom {
-      left: auto; right: 16px; transform: none;
-      width: auto; max-height: none; overflow: visible; flex-wrap: nowrap;
-      padding: 0; border: 0; background: transparent;
-      backdrop-filter: none;
-    }
-    :fullscreen #fullscreen-btn, :-webkit-full-screen #fullscreen-btn {
-      width: 42px; height: 42px; padding: 0;
-      background: rgba(20, 14, 8, 0.52);
-      font-size: 18px;
-    }
-
-    @media (max-width: 720px) {
-      #hud-bottom {
-        flex-wrap: wrap; white-space: normal; justify-content: center;
-        width: min(94vw, 540px); max-height: 38vh; overflow-y: auto;
-        gap: 10px 14px; bottom: 8px; padding: 9px 12px;
-      }
-      #hud-top { top: 8px; left: 8px; max-width: calc(100vw - 16px); }
-      input[type='range'] { width: 72px; }
-      #hint { display: none; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
-    }
+    html, body { height: 100%; margin: 0; overflow: hidden; background: #120c07; color: #f6ecdd; }
+    body { font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #overlay { position: fixed; inset: 0; z-index: 20; }
+    html:not(.ui-ready) #overlay { background: #120c07; }
+    html:not(.ui-ready) #overlay > *, html:not(.ui-ready) .hud, html:not(.ui-ready) #hint,
+    html:not(.ui-ready) .ui-layer { visibility: hidden; }
   </style>
 </head>
 <body>
   <canvas id="scene" aria-label="Interactive three-dimensional coffee shop"></canvas>
 
-  <div id="overlay">
-    <h1>vibe coffee ☕</h1>
-    <p>a small corner of the internet that feels like your favourite café.<br/>
-       find a seat, put something warm on the table, and get to work.</p>
-    <button id="enter-btn" aria-label="Enter the coffee shop">step inside</button>
-  </div>
-
-  <div id="hud-top" class="panel">
-    <h1>vibe coffee <span>☕</span></h1>
-    <div id="blurb"></div>
-    <div id="locations">
-      <button class="loc-btn active" aria-pressed="true">Golden Hour Café</button>
-      <button class="loc-btn" aria-pressed="false">Downtown Roastery</button>
-      <button class="loc-btn" aria-pressed="false">Midnight Jazz Corner</button>
-      <button class="loc-btn" aria-pressed="false">Garden Terrace</button>
+  <!-- Title & loading screen. The app hides it (adds .hidden) on #enter-btn. -->
+  <div id="overlay" class="title" role="region" aria-labelledby="title-heading">
+    <div class="title__ambient" aria-hidden="true">
+      <span class="title__glow"></span><span class="title__glow title__glow--b"></span>
     </div>
+    <div class="title__scrim" aria-hidden="true"></div>
+    <main class="title__content">
+      <div class="brand">
+        <svg class="brand__mark" viewBox="0 0 64 64" aria-hidden="true">
+          <path class="brand__steam" d="M24 18c-3-4 3-6 0-10M32 18c-3-4 3-6 0-10M40 18c-3-4 3-6 0-10" />
+          <path d="M14 26h34v13a13 13 0 0 1-13 13h-8a13 13 0 0 1-13-13Z" />
+          <path d="M48 30h3a6 6 0 0 1 0 12h-4" />
+          <path d="M10 57h44" />
+        </svg>
+        <h1 id="title-heading" class="brand__name">vibe coffee</h1>
+        <p class="brand__tagline">A quiet corner of the internet that feels like your favourite café.
+          Find a seat, put something warm on the table, and get to work.</p>
+      </div>
+
+      <div id="loader" class="loader" role="progressbar" aria-label="Preparing the café"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="loader__track"><div class="loader__fill"></div></div>
+        <div class="loader__meta">
+          <span id="loader-stage">Opening the doors</span>
+          <span id="loader-pct" class="tabular">0%</span>
+        </div>
+        <p id="loader-tip" class="loader__tip" aria-live="off"></p>
+      </div>
+
+      <nav class="title__menu" aria-label="Start">
+        <button id="enter-btn" class="btn btn--primary btn--lg" aria-label="Step inside the coffee shop">
+          <span>Step inside</span><kbd>Enter</kbd>
+        </button>
+        <button id="title-focus" class="btn btn--lg">
+          <span>Start a focus session</span><kbd>F</kbd>
+        </button>
+        <button id="title-settings" class="btn btn--ghost">Settings</button>
+      </nav>
+
+      <section class="venue-picker" aria-labelledby="venue-picker-title">
+        <h2 id="venue-picker-title" class="eyebrow">Choose your café</h2>
+        <div id="venue-cards" class="venue-cards"></div>
+      </section>
+    </main>
+    <p class="title__footer">Best with headphones · Esc opens settings · Works with keyboard, mouse, touch &amp; controller</p>
   </div>
 
-  <div id="hint">drag to look around · WASD to walk · click any free chair to sit</div>
-
-  <div id="hud-bottom" class="panel">
-    <button id="walk-btn" aria-label="Stand up and walk">stand up &amp; walk</button>
-    <button id="order-btn" aria-label="Order a drink">☕ order</button>
-    <button id="laptop-btn" aria-label="Set up your MacBook on this table" title="set up your MacBook on this table">💻 laptop</button>
-    <div class="divider"></div>
-    <button id="mute-toggle" aria-label="Mute all sound" aria-pressed="false" title="mute all sound">🔊 sound</button>
-    <button id="music-toggle" class="on" aria-pressed="true">♪ music on</button>
-    <div id="mixer">
-      <button id="mixer-btn" aria-expanded="false" aria-haspopup="true" aria-label="Sound levels" title="sound levels">🎚 sound</button>
-      <div id="mixer-pop" hidden>
-        <div class="ctl">
-          <label for="music-vol">music</label>
-          <input id="music-vol" aria-label="Music volume" type="range" min="0" max="1" step="0.01" value="0.5" />
-        </div>
-        <div class="ctl">
-          <label for="amb-vol">café</label>
-          <input id="amb-vol" aria-label="Café ambience volume" type="range" min="0" max="1" step="0.01" value="0.7" />
-        </div>
-        <div class="ctl">
-          <label for="voices-vol">voices</label>
-          <input id="voices-vol" aria-label="Crowd voices volume" type="range" min="0" max="1.5" step="0.01" value="1" />
-        </div>
-        <div class="ctl">
-          <label for="pets-vol">pets</label>
-          <input id="pets-vol" aria-label="Pet voices volume" type="range" min="0" max="1" step="0.01" value="0.65" />
-        </div>
-        <div class="ctl">
-          <label for="rain-vol">rain</label>
-          <input id="rain-vol" aria-label="Rain intensity (off, light, steady, heavy)" type="range" min="0" max="3" step="1" value="2" list="rain-stops" />
-          <datalist id="rain-stops"><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option></datalist>
-          <span id="rain-level" aria-hidden="true">steady</span>
+  <!-- Top bar: venue switcher (left), now playing + system controls (right). -->
+  <header id="hud-top" class="hud hud-top">
+    <div class="hud-cluster">
+      <div class="venue">
+        <button id="venue-btn" class="pill-btn" aria-expanded="false" aria-controls="venue-pop">
+          <span class="pill-btn__icon" data-icon="pin" aria-hidden="true"></span>
+          <span class="venue__text">
+            <span id="venue-name" class="venue__name">Golden Hour Café</span>
+            <span id="venue-cond" class="venue__cond">Café pick</span>
+          </span>
+          <span class="pill-btn__chev" data-icon="chevron" aria-hidden="true"></span>
+        </button>
+        <div id="venue-pop" class="panel popover popover--down" role="dialog" aria-label="Choose a café" hidden>
+          <div id="locations" class="venue-list" role="group" aria-label="Café">
+            <button class="loc-btn active" aria-pressed="true">Golden Hour Café</button>
+            <button class="loc-btn" aria-pressed="false">Downtown Roastery</button>
+            <button class="loc-btn" aria-pressed="false">Midnight Jazz Corner</button>
+            <button class="loc-btn" aria-pressed="false">Garden Terrace</button>
+          </div>
+          <p id="blurb" class="venue__blurb"></p>
         </div>
       </div>
     </div>
-    <span id="track-style" aria-live="polite">playlist loading</span>
-    <div class="divider"></div>
-    <button id="quality-toggle" aria-label="Rendering quality: automatic">quality · auto</button>
-    <div id="sky">
-      <button id="sky-btn" aria-expanded="false" aria-haspopup="true" title="time of day &amp; weather" aria-label="Time of day and weather">☀ sky</button>
-      <div id="sky-pop" hidden>
-        <div class="sky-row" role="group" aria-label="Time of day">
-          <span class="sky-label">time</span>
-          <button data-time="auto" class="chip">café pick</button>
-          <button data-time="morning" class="chip">morning</button>
-          <button data-time="noon" class="chip">noon</button>
-          <button data-time="sunset" class="chip">sunset</button>
-          <button data-time="night" class="chip">night</button>
-        </div>
-        <div class="sky-row" role="group" aria-label="Weather">
-          <span class="sky-label">weather</span>
-          <button data-sky="auto" class="chip">café pick</button>
-          <button data-sky="clear" class="chip">clear</button>
-          <button data-sky="rain" class="chip">rain</button>
-        </div>
-      </div>
+    <div class="hud-cluster hud-cluster--end">
+      <span id="track-style" class="now-playing" aria-live="polite">playlist loading</span>
+      <button id="mute-toggle" class="icon-btn" aria-label="Mute all sound" aria-pressed="false" data-key="M">🔊 sound</button>
+      <button id="settings-btn" class="icon-btn" aria-label="Settings" aria-haspopup="dialog" data-key="Esc"></button>
+      <button id="fullscreen-btn" class="icon-btn" aria-label="Enter fullscreen" aria-pressed="false" data-key="F">⛶ full screen</button>
     </div>
-    <button id="fullscreen-btn" aria-label="Enter fullscreen" aria-pressed="false" title="enter fullscreen">⛶ full screen</button>
-    <div class="divider"></div>
-    <div id="timer">
-      <button id="timer-display" aria-label="Set focus duration, currently 25 minutes" aria-expanded="false" aria-haspopup="dialog">25:00</button>
-      <div id="timer-pop" role="dialog" aria-label="Choose focus duration" hidden>
-        <div id="timer-pop-title">focus session</div>
-        <div id="timer-adjust">
-          <button id="timer-minus" aria-label="Decrease focus duration">−</button>
-          <output id="timer-duration" aria-live="polite">25<small>min</small></output>
-          <button id="timer-plus" aria-label="Increase focus duration">+</button>
-        </div>
-        <div id="timer-presets" aria-label="Focus duration presets">
-          <button data-minutes="15">15</button>
-          <button data-minutes="25">25</button>
-          <button data-minutes="45">45</button>
-          <button data-minutes="60">60</button>
-        </div>
-      </div>
-      <button id="timer-btn" aria-label="Start focus timer">▶</button>
-      <button id="timer-reset" aria-label="Reset focus timer">↺</button>
-    </div>
-  </div>
+  </header>
 
-  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="hint" class="hint" aria-hidden="true"></div>
+
+  <!-- Bottom dock: actions, ambience, focus timer. -->
+  <nav id="hud-bottom" class="hud dock" aria-label="Café controls">
+    <div class="dock__group">
+      <button id="walk-btn" class="dock-btn" data-mode="seated" aria-label="Stand up and walk" data-key="E">stand up &amp; walk</button>
+      <button id="order-btn" class="dock-btn" aria-label="Order a drink" data-key="O">order</button>
+      <button id="laptop-btn" class="dock-btn" aria-label="Set up your laptop on this table" data-key="L">laptop</button>
+      <button id="ambience-btn" class="dock-btn" aria-label="Ambience and sound" aria-expanded="false" aria-controls="ambience-pop" data-key="V"></button>
+    </div>
+    <div id="timer" class="timer-pill">
+      <svg class="timer-pill__ring" viewBox="0 0 36 36" aria-hidden="true">
+        <circle class="timer-pill__track" cx="18" cy="18" r="15.5" />
+        <circle id="timer-ring" class="timer-pill__progress" cx="18" cy="18" r="15.5" pathLength="100" />
+      </svg>
+      <button id="timer-display" class="timer-pill__time tabular" aria-label="Set focus duration, currently 25 minutes"
+              aria-expanded="false" aria-controls="focus-pop" aria-haspopup="dialog">25:00</button>
+      <button id="timer-btn" class="timer-pill__btn" aria-label="Start focus timer" data-key="T">▶</button>
+      <button id="timer-reset" class="timer-pill__btn timer-pill__btn--quiet" aria-label="Reset focus timer">↺</button>
+    </div>
+
+    <section id="ambience-pop" class="panel popover popover--up" role="dialog" aria-labelledby="ambience-title" hidden>
+      <header class="popover__head">
+        <h2 id="ambience-title" class="eyebrow">Ambience</h2>
+      </header>
+      <div id="preset-list" class="preset-list" role="group" aria-label="Ambience presets"></div>
+      <div id="sky-pop" class="sky">
+        <div class="field" role="group" aria-labelledby="sky-time-label">
+          <span id="sky-time-label" class="field__label">Time of day</span>
+          <div class="segmented">
+            <button data-time="auto" class="chip">Café pick</button>
+            <button data-time="morning" class="chip">Morning</button>
+            <button data-time="noon" class="chip">Noon</button>
+            <button data-time="sunset" class="chip">Sunset</button>
+            <button data-time="night" class="chip">Night</button>
+          </div>
+        </div>
+        <div class="field" role="group" aria-labelledby="sky-weather-label">
+          <span id="sky-weather-label" class="field__label">Weather</span>
+          <div class="segmented">
+            <button data-sky="auto" class="chip">Café pick</button>
+            <button data-sky="clear" class="chip">Clear</button>
+            <button data-sky="rain" class="chip">Rain</button>
+          </div>
+        </div>
+      </div>
+      <div id="mixer-home">
+        <div id="mixer-pop" class="mixer">
+          <div class="mixer__row mixer__row--switch">
+            <span id="music-label" class="mixer__label">Music</span>
+            <button id="music-toggle" class="switch on" aria-labelledby="music-label" aria-pressed="true">♪ music on</button>
+          </div>
+          <div class="mixer__row">
+            <label for="music-vol" class="mixer__label">Music volume</label>
+            <input id="music-vol" type="range" min="0" max="1" step="0.01" value="0.5" />
+            <output class="mixer__value tabular" for="music-vol"></output>
+          </div>
+          <div class="mixer__row">
+            <label for="amb-vol" class="mixer__label">Café room</label>
+            <input id="amb-vol" type="range" min="0" max="1" step="0.01" value="0.7" />
+            <output class="mixer__value tabular" for="amb-vol"></output>
+          </div>
+          <div class="mixer__row">
+            <label for="voices-vol" class="mixer__label">Voices</label>
+            <input id="voices-vol" type="range" min="0" max="1.5" step="0.01" value="1" />
+            <output class="mixer__value tabular" for="voices-vol"></output>
+          </div>
+          <div class="mixer__row">
+            <label for="pets-vol" class="mixer__label">Pets</label>
+            <input id="pets-vol" type="range" min="0" max="1" step="0.01" value="0.65" />
+            <output class="mixer__value tabular" for="pets-vol"></output>
+          </div>
+          <div class="mixer__row">
+            <label for="rain-vol" class="mixer__label">Rain</label>
+            <input id="rain-vol" type="range" min="0" max="3" step="1" value="2"
+                   aria-valuetext="steady" />
+            <output id="rain-level" class="mixer__value" for="rain-vol">steady</output>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="focus-pop" class="panel popover popover--up popover--end" role="dialog" aria-labelledby="focus-title" hidden>
+      <header class="popover__head">
+        <h2 id="focus-title" class="eyebrow">Focus session</h2>
+      </header>
+      <div id="timer-pop" class="focus-length">
+        <div id="timer-adjust" class="stepper">
+          <button id="timer-minus" class="icon-btn icon-btn--sm" aria-label="Decrease focus duration">−</button>
+          <output id="timer-duration" class="stepper__value tabular" aria-live="polite">25<small>min</small></output>
+          <button id="timer-plus" class="icon-btn icon-btn--sm" aria-label="Increase focus duration">+</button>
+        </div>
+        <div id="timer-presets" class="segmented segmented--even" role="group" aria-label="Focus duration presets">
+          <button data-minutes="15" class="chip">15</button>
+          <button data-minutes="25" class="chip">25</button>
+          <button data-minutes="45" class="chip">45</button>
+          <button data-minutes="60" class="chip">60</button>
+        </div>
+      </div>
+      <div id="focus-extra"></div>
+    </section>
+  </nav>
+
+  <div id="joystick" class="joystick ui-layer" aria-hidden="true" hidden>
+    <div class="joystick__base"><div class="joystick__knob"></div></div>
+  </div>
+  <div id="reticle" class="reticle ui-layer" aria-hidden="true" hidden></div>
+  <div id="veil" class="veil ui-layer" aria-hidden="true"></div>
+  <div id="settings" class="settings ui-layer" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/src/main.js"></script>
 </body>

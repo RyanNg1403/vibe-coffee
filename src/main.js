@@ -1,3 +1,6 @@
+import { connectUI } from './ui/index.js';
+import { lookSettings, motionReduced, breakMinutes } from './ui/settings.js';
+import { initQualityTier, onQualityTierChange, qualityTierConfig } from './qualityTier.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { loadDaylightEnvironment } from './rendering/daylightEnvironment.js';
@@ -61,6 +64,8 @@ const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
 const AUTO_MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1);
 const MAX_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1.25);
 const MIN_PIXEL_RATIO = Math.min(MAX_PIXEL_RATIO, 0.75);
+// Only the explicit Ultra tier supersamples past MAX_PIXEL_RATIO.
+const ULTRA_PIXEL_RATIO = Math.min(DEVICE_PIXEL_RATIO, 1.5);
 // Start Auto at a predictable 1x render target. It can add effects and extra
 // supersampling after a sustained period of headroom, instead of allocating the
 // largest half-float buffers first and stuttering while it backs down.
@@ -294,6 +299,7 @@ function sitAt(index, instant = false) {
   // glide over to the new seat
   tween.active = true;
   tween.t = 0;
+  tween.dur = motionReduced() ? 0.35 : 1.4;
   tween.fromPos.copy(camera.position);
   tween.toPos.copy(eye);
   tween.fromQ.copy(camera.quaternion);
@@ -394,7 +400,7 @@ async function loadTheme(index) {
   crowd = new CrowdSim(cafe, audio, models);
   pets = new PetSystem(cafe, models, theme, audio, interactions);
   crowd.petSources = pets.pets; // live reference: the planner sees pets spawn/leave
-  applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityMode === 'detail' ? 2 : 0);
+  applyEffectLevel(qualityMode === 'auto' ? autoEffectLevel : qualityTierConfig(qualityMode).effects);
   audio.setAnchors({
     counter: cafe.nav.machineWorld,
     door: cafe.nav.door,
@@ -421,36 +427,20 @@ async function loadTheme(index) {
   document.getElementById('blurb').textContent = theme.blurb;
 }
 
-// ---------- sky popover: time of day × weather ----------
-const skyBtn = document.getElementById('sky-btn');
+// ---------- time of day × weather chips (shown in the UI's ambience panel) ----------
 const skyPop = document.getElementById('sky-pop');
-function setSkyOpen(open) {
-  if (!skyBtn || !skyPop) return;
-  skyPop.hidden = !open;
-  skyBtn.classList.toggle('open', open);
-  skyBtn.setAttribute('aria-expanded', String(open));
-}
 function renderSkyChips() {
   skyPop?.querySelectorAll('[data-time]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.time === envTime);
+    const active = b.dataset.time === envTime;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', String(active));
   });
   skyPop?.querySelectorAll('[data-sky]').forEach((b) => {
-    b.classList.toggle('active', b.dataset.sky === envSky);
+    const active = b.dataset.sky === envSky;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', String(active));
   });
-  if (skyBtn) {
-    const label = envTime === 'auto' && envSky === 'auto'
-      ? 'sky'
-      : [envTime !== 'auto' ? envTime : '', envSky !== 'auto' ? envSky : ''].filter(Boolean).join(' · ');
-    skyBtn.textContent = '☀ ' + label;
-    skyBtn.classList.toggle('on', envTime !== 'auto' || envSky !== 'auto');
-  }
 }
-skyBtn?.addEventListener('click', () => setSkyOpen(skyPop.hidden));
-document.addEventListener('pointerdown', (e) => {
-  if (skyPop && !skyPop.hidden && !skyPop.contains(e.target) && !skyBtn.contains(e.target)) {
-    setSkyOpen(false);
-  }
-});
 skyPop?.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -892,7 +882,10 @@ function standUp() {
 
 function updateWalkBtn() {
   const b = document.getElementById('walk-btn');
-  if (b) b.textContent = mode === 'walking' ? 'click a chair to sit' : 'stand up & walk';
+  if (!b) return;
+  b.textContent = mode === 'walking' ? 'click a chair to sit' : 'stand up & walk';
+  b.dataset.mode = mode;
+  b.setAttribute('aria-label', mode === 'walking' ? 'Click a free chair to sit' : 'Stand up and walk');
 }
 
 const walkProposed = new THREE.Vector3();
@@ -1011,18 +1004,34 @@ canvas.addEventListener('pointermove', (e) => {
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   dragMoved += Math.abs(dx) + Math.abs(dy);
   lastX = e.clientX; lastY = e.clientY;
-  if (tween.active) return;
-  view.yaw -= dx * 0.0032;
-  view.pitch = THREE.MathUtils.clamp(view.pitch - dy * 0.0028, -1.1, 1.15);
-  applyView();
+  lookBy(dx, dy);
 });
+
+// dx/dy are pointer-pixel equivalents; the gamepad's right stick uses this too
+function lookBy(dx, dy) {
+  if (tween.active) return;
+  const look = lookSettings();
+  view.yaw -= dx * 0.0032 * look.sensitivity;
+  view.pitch = THREE.MathUtils.clamp(view.pitch - dy * 0.0028 * look.sensitivity * (look.invertY ? -1 : 1), -1.1, 1.15);
+  applyView();
+}
+
+function aimAt(clientX, clientY) {
+  pointer.x = (clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+  pointerDirty = true;
+}
 
 canvas.addEventListener('pointerup', (e) => {
   dragging = false;
   if (dragMoved > 6 || tween.active) return;
-  // treat as a click: try to pick a seat
-  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  activateAt(e.clientX, e.clientY);
+});
+
+// treat as a click at a screen point: a world object or a seat
+function activateAt(clientX, clientY) {
+  if (tween.active || !cafe) return;
+  aimAt(clientX, clientY);
   const seatHit = pickSeat(); // also points the raycaster at the pointer
   // a registered world object (laptop, pet) owns the click only when it is
   // the nearer target; otherwise chairs keep their existing behaviour
@@ -1039,7 +1048,7 @@ canvas.addEventListener('pointerup', (e) => {
       sitAt(hit);
     }
   }
-});
+}
 
 // Reused result record: pickSeat runs on every pointer move, so it must not
 // allocate. distance lets world interactions arbitrate against the seat hit.
@@ -1096,23 +1105,6 @@ document.querySelectorAll('.loc-btn').forEach((b, i) => {
 document.getElementById('walk-btn').addEventListener('click', () => {
   if (mode === 'seated') standUp();
   else toast('Click any free chair to sit back down ☕');
-});
-
-// the volume sliders live in a small popover so the bar stays uncrowded
-const mixerBtn = document.getElementById('mixer-btn');
-const mixerPop = document.getElementById('mixer-pop');
-function setMixerOpen(open) {
-  if (!mixerBtn || !mixerPop) return;
-  mixerPop.hidden = !open;
-  mixerBtn.classList.toggle('open', open);
-  mixerBtn.setAttribute('aria-expanded', String(open));
-}
-mixerBtn?.addEventListener('click', () => setMixerOpen(mixerPop.hidden));
-document.addEventListener('pointerdown', (e) => {
-  if (mixerPop && !mixerPop.hidden
-    && !mixerPop.contains(e.target) && !mixerBtn.contains(e.target)) {
-    setMixerOpen(false);
-  }
 });
 
 const musicToggle = document.getElementById('music-toggle');
@@ -1236,9 +1228,9 @@ muteToggle?.addEventListener('click', () => {
   toast(masterMuted ? 'all sound muted' : 'sound restored');
 });
 
-const qualityToggle = document.getElementById('quality-toggle');
-const QUALITY_MODES = ['auto', 'detail', 'smooth'];
-let qualityMode = preferences.qualityMode;
+// qualityMode is the shared quality tier (src/qualityTier.js), chosen in the
+// settings menu: 'auto' adapts; every other tier pins effects + resolution.
+let qualityMode = initQualityTier(preferences.qualityMode);
 let autoEffectLevel = 0;
 let effectLevel = 0;
 let shadowInterval = 1 / 8;
@@ -1258,34 +1250,24 @@ function applyEffectLevel(nextLevel) {
   renderer.shadowMap.needsUpdate = true;
 }
 
-function renderQualityMode() {
-  qualityToggle.textContent = `quality · ${qualityMode}`;
-  qualityToggle.setAttribute('aria-label', `Rendering quality: ${qualityMode}`);
-}
-qualityToggle.addEventListener('click', () => {
-  qualityMode = QUALITY_MODES[(QUALITY_MODES.indexOf(qualityMode) + 1) % QUALITY_MODES.length];
+onQualityTierChange((tier, config) => {
+  qualityMode = tier;
   perfSampleTime = 0;
   perfSampleFrames = 0;
   qualityCooldown = 0;
-  if (qualityMode === 'detail') {
-    applyEffectLevel(2);
-    applyRenderPixelRatio(MAX_PIXEL_RATIO);
-  } else if (qualityMode === 'smooth') {
-    applyEffectLevel(0);
-    applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
-  } else {
+  if (tier === 'auto') {
     applyEffectLevel(autoEffectLevel);
     applyRenderPixelRatio(Math.min(renderPixelRatio, AUTO_MAX_PIXEL_RATIO));
+  } else {
+    applyEffectLevel(config.effects);
+    applyRenderPixelRatio(config.pixelRatio);
   }
-  renderQualityMode();
   persistPreferences();
-  toast(qualityMode === 'auto'
+  toast(tier === 'auto'
     ? 'quality will adapt to keep the café smooth'
-    : `quality locked to ${qualityMode}`);
+    : `quality set to ${config.label.toLowerCase()}`);
 });
-renderQualityMode();
-if (qualityMode === 'detail') applyRenderPixelRatio(MAX_PIXEL_RATIO);
-if (qualityMode === 'smooth') applyRenderPixelRatio(Math.min(0.8, MAX_PIXEL_RATIO));
+if (qualityMode !== 'auto') applyRenderPixelRatio(qualityTierConfig(qualityMode).pixelRatio);
 
 musicVolume.addEventListener('input', (e) => {
   audio.setMusicVolume(parseFloat(e.target.value));
@@ -1309,10 +1291,10 @@ rainSlider.addEventListener('input', (e) => {
   persistPreferences();
 });
 
-// focus timer (adjustable focus interval / five-minute break)
+// focus timer (adjustable focus interval / break length from UI settings);
+// the UI's focus panel hosts the duration controls
 const timerEl = document.getElementById('timer-display');
 const timerBtn = document.getElementById('timer-btn');
-const timerPop = document.getElementById('timer-pop');
 const timerDuration = document.getElementById('timer-duration');
 const timerPresetButtons = [...document.querySelectorAll('#timer-presets button')];
 let focusMinutes = preferences.focusMinutes;
@@ -1327,11 +1309,6 @@ function renderTimerDuration() {
     button.setAttribute('aria-pressed', String(active));
   });
   timerEl.setAttribute('aria-label', `Set focus duration, currently ${focusMinutes} minutes`);
-}
-function setTimerPopOpen(open) {
-  timerPop.hidden = !open;
-  timerEl.classList.toggle('open', open);
-  timerEl.setAttribute('aria-expanded', String(open));
 }
 function setFocusMinutes(nextMinutes) {
   focusMinutes = Math.round(THREE.MathUtils.clamp(nextMinutes, 1, 180));
@@ -1357,20 +1334,16 @@ function renderTimer() {
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   if (!timerRunning) audio.stopPlayerTyping();
-  if (timerRunning) setTimerPopOpen(false);
-  timerEl.disabled = timerRunning;
   timerBtn.textContent = timerRunning ? '❚❚' : '▶';
   timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = focusMinutes * 60;
   audio.stopPlayerTyping();
-  timerEl.disabled = false;
   timerBtn.textContent = '▶';
   timerBtn.setAttribute('aria-label', 'Start focus timer');
   renderTimer();
 });
-timerEl.addEventListener('click', () => setTimerPopOpen(timerPop.hidden));
 document.getElementById('timer-minus').addEventListener('click', () => {
   setFocusMinutes(focusMinutes - (focusMinutes > 5 ? 5 : 1));
 });
@@ -1379,9 +1352,6 @@ document.getElementById('timer-plus').addEventListener('click', () => {
 });
 timerPresetButtons.forEach((button) => {
   button.addEventListener('click', () => setFocusMinutes(Number(button.dataset.minutes)));
-});
-document.addEventListener('pointerdown', (event) => {
-  if (!timerPop.hidden && !document.getElementById('timer').contains(event.target)) setTimerPopOpen(false);
 });
 renderTimerDuration();
 renderTimer();
@@ -1402,7 +1372,7 @@ document.getElementById('enter-btn').addEventListener('click', () => {
 });
 
 function applyRenderPixelRatio(nextRatio) {
-  const clamped = THREE.MathUtils.clamp(nextRatio, MIN_PIXEL_RATIO, MAX_PIXEL_RATIO);
+  const clamped = THREE.MathUtils.clamp(nextRatio, MIN_PIXEL_RATIO, ULTRA_PIXEL_RATIO);
   const rounded = Math.round(clamped * 20) / 20;
   if (Math.abs(rounded - renderPixelRatio) < 0.001) return;
   renderPixelRatio = rounded;
@@ -1546,7 +1516,7 @@ function frame(now = performance.now()) {
     const k = easeInOut(Math.min(tween.t, 1));
     camera.position.lerpVectors(tween.fromPos, tween.toPos, k);
     // arc up slightly mid-flight, like standing and walking over
-    camera.position.y += Math.sin(k * Math.PI) * 0.35;
+    if (tween.dur > 1) camera.position.y += Math.sin(k * Math.PI) * 0.35;
     camera.quaternion.slerpQuaternions(tween.fromQ, tween.toQ, k);
     if (tween.t >= 1) {
       tween.active = false;
@@ -1658,7 +1628,7 @@ function frame(now = performance.now()) {
     if (timerLeft <= 0) {
       timerBreak = !timerBreak;
       if (timerBreak) audio.stopPlayerTyping();
-      timerLeft = (timerBreak ? 5 : focusMinutes) * 60;
+      timerLeft = (timerBreak ? breakMinutes() : focusMinutes) * 60;
       if (audio.started) audio.playTimerAlarm();
       toast(timerBreak ? 'Break time — stretch a little 🌿' : 'Back to focus ☕');
     }
@@ -1717,6 +1687,15 @@ function frame(now = performance.now()) {
 
 loadTheme(preferences.cafeIndex);
 frame();
+
+connectUI({
+  venues: THEMES.map((theme) => ({ name: theme.name, blurb: theme.blurb })),
+  isReady: () => Boolean(cafe),
+  currentCafe: () => cafe,
+  lookBy,
+  aimAt,
+  activateAt,
+});
 
 // tiny debug handle for automated tests: place the camera, inspect audio
 window.__vibe = {
