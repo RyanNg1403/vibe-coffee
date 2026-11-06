@@ -84,10 +84,9 @@ function renderExtras() {
     <div class="focus-section">
       <span class="field__label">Your focus</span>
       <div id="focus-stats"></div>
-    </div>
-    <div class="focus-section">
-      <button id="focus-start" class="btn btn--primary btn--block"><span>Start focusing</span></button>
     </div>`;
+  $('#focus-actions').insertAdjacentHTML('afterbegin',
+    '<button id="focus-start" class="btn btn--primary"><span>Start focusing</span></button>');
   $('#break-options').addEventListener('click', (event) => {
     const chip = event.target.closest('[data-break]');
     if (chip) updateUISettings({ breakMinutes: Number(chip.dataset.break) });

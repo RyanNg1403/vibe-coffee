@@ -1654,6 +1654,7 @@ connectUI({
   isReady: () => Boolean(cafe),
   currentCafe: () => cafe,
   controls,
+  audio,
 });
 
 // tiny debug handle for automated tests: place the camera, inspect audio

@@ -2,6 +2,9 @@
 // preferences (src/preferences.js) so either can evolve without migrating
 // the other; both are conveniences that fall back to defaults silently.
 
+import { isMusicStation, DEFAULT_MUSIC_STATION } from '../musicStations.js';
+import { sanitizeYouTubeRef } from './youtube.js';
+
 const STORAGE_KEY = 'vibe-coffee.ui.v1';
 
 export const TEXT_SCALES = Object.freeze([1, 1.12, 1.25, 1.4]);
@@ -18,6 +21,9 @@ export const DEFAULT_UI_SETTINGS = Object.freeze({
   lookSmoothing: false,
   breakMinutes: 5,
   focusHideHud: true,
+  musicSource: 'radio', // 'radio' | 'youtube'
+  musicStation: DEFAULT_MUSIC_STATION,
+  youtube: null, // last chosen YouTube video or playlist
 });
 
 const clamp = (value, min, max, fallback) => {
@@ -45,6 +51,9 @@ export function sanitizeUISettings(raw = {}) {
     lookSmoothing: bool(source.lookSmoothing, d.lookSmoothing),
     breakMinutes: nearest(source.breakMinutes, BREAK_MINUTES, d.breakMinutes),
     focusHideHud: bool(source.focusHideHud, d.focusHideHud),
+    musicSource: ['radio', 'youtube'].includes(source.musicSource) ? source.musicSource : d.musicSource,
+    musicStation: isMusicStation(source.musicStation) ? source.musicStation : d.musicStation,
+    youtube: sanitizeYouTubeRef(source.youtube),
   };
 }
 
@@ -74,7 +83,7 @@ export function getUISettings() {
 
 export function updateUISettings(patch) {
   const next = sanitizeUISettings({ ...current, ...patch });
-  const changed = Object.keys(next).filter((key) => next[key] !== current[key]);
+  const changed = Object.keys(next).filter((key) => JSON.stringify(next[key]) !== JSON.stringify(current[key]));
   if (!changed.length) return current;
   current = next;
   saveUISettings(current);

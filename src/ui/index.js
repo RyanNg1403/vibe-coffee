@@ -7,6 +7,7 @@
 //   isReady(): boolean,          // a café has been built
 //   currentCafe(): object,       // identity changes on every rebuild
 //   controls,                    // src/controls instance (pointer lock, intent)
+//   audio,                       // CafeAudio (music station / suppression)
 // }
 import css from './ui.css?inline';
 import './loading.js';
@@ -16,6 +17,7 @@ import { getUISettings, onUISettingsChange, motionReduced } from './settings.js'
 import { initTitle, isEntered } from './title.js';
 import { initHud, notify, selectVenue, stepVenue, toggleZen, markActivity } from './hud.js';
 import { initFocus } from './focus.js';
+import { initMusic } from './music.js';
 import { onPanelChange } from './panels.js';
 import { initSettingsMenu, openSettings, closeSettings, isSettingsOpen } from './settingsMenu.js';
 import { initInput, getModality } from './input.js';
@@ -46,6 +48,7 @@ export function connectUI(bridge) {
   connected = true;
   initSettingsMenu();
   initHud(bridge);
+  initMusic(bridge);
   initFocus();
   initTitle(bridge);
   initInput({

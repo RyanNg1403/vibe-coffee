@@ -172,6 +172,103 @@ function initAmbience() {
   syncMixerReadouts();
 }
 
+// ---------- option bar: More menu and tooltips ----------
+function initMoreMenu() {
+  const menu = $('#more-pop');
+  registerPanel('more-pop', { trigger: $('#more-btn') });
+  $('#zen-btn').addEventListener('click', () => toggleZen(true));
+  // Each item runs its own action first, then the menu closes.
+  menu.addEventListener('click', (event) => {
+    if (event.target.closest('.menu-btn')) closePanel();
+  });
+  menu.addEventListener('keydown', (event) => {
+    const items = $$('.menu-btn', menu);
+    const index = items.indexOf(document.activeElement);
+    const delta = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (delta) {
+      event.preventDefault();
+      event.stopPropagation();
+      items[(index + delta + items.length) % items.length].focus();
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      items[event.key === 'Home' ? 0 : items.length - 1].focus();
+    }
+  });
+  $('#more-btn').addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isPanelOpen('more-pop')) $('#more-btn').click();
+      $$('.menu-btn', menu)[0]?.focus();
+    }
+  });
+}
+
+// One tooltip element serves the whole bar: label from the control's
+// accessible name (kept current by the app), shortcut from data-key.
+function initTooltips() {
+  const tip = document.createElement('div');
+  tip.className = 'bar-tip';
+  tip.setAttribute('aria-hidden', 'true');
+  // Outside the dock: its translate would make it the containing block for
+  // this fixed-position element.
+  document.body.append(tip);
+  const bar = $('.option-bar');
+  let current = null;
+  let showTimer = null;
+  let lastHiddenAt = 0;
+
+  const place = (el) => {
+    const r = el.getBoundingClientRect();
+    const t = tip.getBoundingClientRect();
+    const x = Math.min(window.innerWidth - t.width - 8, Math.max(8, r.left + r.width / 2 - t.width / 2));
+    tip.style.transform = '';
+    tip.style.left = `${x}px`;
+    tip.style.top = `${r.top - t.height - 10}px`;
+  };
+  const show = (el) => {
+    const label = el.dataset.tip || el.getAttribute('aria-label');
+    if (!label || el.getAttribute('aria-expanded') === 'true') return;
+    current = el;
+    tip.textContent = label;
+    if (el.dataset.key) {
+      const key = document.createElement('kbd');
+      key.textContent = el.dataset.key;
+      tip.append(key);
+    }
+    place(el);
+    tip.classList.add('show');
+  };
+  const hide = () => {
+    clearTimeout(showTimer);
+    if (current) lastHiddenAt = performance.now();
+    current = null;
+    tip.classList.remove('show');
+  };
+  const target = (event) => event.target.closest?.('.bar-btn, .bar-timer__time');
+
+  bar.addEventListener('pointerover', (event) => {
+    const el = target(event);
+    if (!el || event.pointerType !== 'mouse' || el === current) return;
+    clearTimeout(showTimer);
+    // First tooltip waits a beat; moving along the bar switches instantly.
+    const delay = current || performance.now() - lastHiddenAt < 400 ? 0 : 380;
+    if (current) hide();
+    showTimer = setTimeout(() => show(el), delay);
+  });
+  bar.addEventListener('pointerleave', hide);
+  bar.addEventListener('pointerdown', hide);
+  bar.addEventListener('focusin', (event) => {
+    const el = target(event);
+    if (el?.matches(':focus-visible')) { hide(); show(el); }
+  });
+  bar.addEventListener('focusout', hide);
+  onPanelChange(hide);
+  // Labels change under the pointer (mute/unmute, play/pause): follow them.
+  new MutationObserver(() => { if (current) { const el = current; hide(); show(el); } })
+    .observe(bar, { subtree: true, attributes: true, attributeFilter: ['aria-label'] });
+}
+
 // ---------- contextual hints ----------
 const HINTS = {
   mouse: [
@@ -231,6 +328,8 @@ export function initHud(bridge) {
   interceptRebuildClicks();
   initVenue();
   initAmbience();
+  initMoreMenu();
+  initTooltips();
   for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart']) {
     window.addEventListener(type, markActivity, { passive: true, capture: true });
   }

@@ -93,31 +93,53 @@
     </div>
     <div class="hud-cluster hud-cluster--end">
       <span id="track-style" class="now-playing" aria-live="polite">playlist loading</span>
-      <button id="mute-toggle" class="icon-btn" aria-label="Mute all sound" aria-pressed="false" data-key="M">🔊 sound</button>
-      <button id="settings-btn" class="icon-btn" aria-label="Settings" aria-haspopup="dialog" data-key="Esc"></button>
-      <button id="fullscreen-btn" class="icon-btn" aria-label="Enter fullscreen" aria-pressed="false" data-key="F">⛶ full screen</button>
     </div>
   </header>
 
   <div id="hint" class="hint" aria-hidden="true"></div>
 
-  <!-- Bottom dock: actions, ambience, focus timer. -->
+  <!-- Option bar: focus timer, café actions, sound, and a "More" menu. -->
   <nav id="hud-bottom" class="hud dock" aria-label="Café controls">
-    <div class="dock__group">
-      <button id="walk-btn" class="dock-btn" data-mode="seated" aria-label="Stand up and walk" data-key="E">stand up &amp; walk</button>
-      <button id="order-btn" class="dock-btn" aria-label="Order a drink" data-key="O">order</button>
-      <button id="laptop-btn" class="dock-btn" aria-label="Set up your laptop on this table" data-key="L">laptop</button>
-      <button id="ambience-btn" class="dock-btn" aria-label="Ambience and sound" aria-expanded="false" aria-controls="ambience-pop" data-key="V"></button>
+    <div class="option-bar">
+      <div id="timer" class="bar-timer">
+        <span class="bar-timer__dial">
+          <svg class="bar-timer__ring" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="bar-timer__track" cx="18" cy="18" r="16" />
+            <circle id="timer-ring" class="bar-timer__progress" cx="18" cy="18" r="16" pathLength="100" />
+          </svg>
+          <button id="timer-btn" class="bar-btn bar-timer__play" aria-label="Start focus timer" data-key="T">▶</button>
+        </span>
+        <button id="timer-display" class="bar-timer__time tabular" aria-label="Set focus duration, currently 25 minutes"
+                aria-expanded="false" aria-controls="focus-pop" aria-haspopup="dialog" data-tip="Focus session">25:00</button>
+      </div>
+      <span class="bar-sep" aria-hidden="true"></span>
+      <div class="bar-group">
+        <button id="order-btn" class="bar-btn" aria-label="Order a drink" data-key="O">order</button>
+        <button id="laptop-btn" class="bar-btn" aria-label="Set up your laptop on this table" data-key="L">laptop</button>
+        <button id="ambience-btn" class="bar-btn" aria-label="Ambience and sound" aria-expanded="false" aria-controls="ambience-pop" data-key="V"></button>
+        <button id="mute-toggle" class="bar-btn" aria-label="Mute all sound" aria-pressed="false" data-key="M">🔊 sound</button>
+      </div>
+      <span class="bar-sep" aria-hidden="true"></span>
+      <button id="more-btn" class="bar-btn" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="more-pop"></button>
     </div>
-    <div id="timer" class="timer-pill">
-      <svg class="timer-pill__ring" viewBox="0 0 36 36" aria-hidden="true">
-        <circle class="timer-pill__track" cx="18" cy="18" r="15.5" />
-        <circle id="timer-ring" class="timer-pill__progress" cx="18" cy="18" r="15.5" pathLength="100" />
-      </svg>
-      <button id="timer-display" class="timer-pill__time tabular" aria-label="Set focus duration, currently 25 minutes"
-              aria-expanded="false" aria-controls="focus-pop" aria-haspopup="dialog">25:00</button>
-      <button id="timer-btn" class="timer-pill__btn" aria-label="Start focus timer" data-key="T">▶</button>
-      <button id="timer-reset" class="timer-pill__btn timer-pill__btn--quiet" aria-label="Reset focus timer">↺</button>
+
+    <div id="more-pop" class="panel popover popover--up popover--end popover--menu" role="menu" aria-label="More options" hidden>
+      <div class="menu-row">
+        <button id="walk-btn" class="menu-btn" role="menuitem" data-mode="seated" aria-label="Stand up and walk">stand up &amp; walk</button>
+      </div>
+      <div class="menu-row">
+        <button id="fullscreen-btn" class="menu-btn" role="menuitem" aria-label="Enter fullscreen" aria-pressed="false">⛶ full screen</button>
+        <kbd class="menu-key" aria-hidden="true">F</kbd>
+      </div>
+      <div class="menu-row">
+        <button id="zen-btn" class="menu-btn" role="menuitem" aria-label="Hide interface"></button>
+        <kbd class="menu-key" aria-hidden="true">H</kbd>
+      </div>
+      <div class="menu-sep" role="separator"></div>
+      <div class="menu-row">
+        <button id="settings-btn" class="menu-btn" role="menuitem" aria-label="Settings" aria-haspopup="dialog"></button>
+        <kbd class="menu-key" aria-hidden="true">Esc</kbd>
+      </div>
     </div>
 
     <section id="ambience-pop" class="panel popover popover--up" role="dialog" aria-labelledby="ambience-title" hidden>
@@ -145,10 +167,11 @@
           </div>
         </div>
       </div>
+      <div id="music-source" class="music"></div>
       <div id="mixer-home">
         <div id="mixer-pop" class="mixer">
           <div class="mixer__row mixer__row--switch">
-            <span id="music-label" class="mixer__label">Music</span>
+            <span id="music-label" class="mixer__label">Play music</span>
             <button id="music-toggle" class="switch on" aria-labelledby="music-label" aria-pressed="true">♪ music on</button>
           </div>
           <div class="mixer__row">
@@ -181,7 +204,7 @@
       </div>
     </section>
 
-    <section id="focus-pop" class="panel popover popover--up popover--end" role="dialog" aria-labelledby="focus-title" hidden>
+    <section id="focus-pop" class="panel popover popover--up popover--start" role="dialog" aria-labelledby="focus-title" hidden>
       <header class="popover__head">
         <h2 id="focus-title" class="eyebrow">Focus session</h2>
       </header>
@@ -199,6 +222,9 @@
         </div>
       </div>
       <div id="focus-extra"></div>
+      <div id="focus-actions" class="focus-actions">
+        <button id="timer-reset" class="btn btn--ghost" aria-label="Reset focus timer">Reset</button>
+      </div>
     </section>
   </nav>
 
