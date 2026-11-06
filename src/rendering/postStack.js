@@ -1,9 +1,18 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
-import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { GTAOShader, generateMagicSquareNoise } from 'three/examples/jsm/shaders/GTAOShader.js';
 import { LUT_SIZE, buildLutData, gradeForTheme } from './colorGrade.js';
+
+// SMAA embeds its lookup textures (~35 KB gzipped), so only the tiers that
+// use it fetch it; FXAA covers the frames until it arrives.
+let SMAAPassClass = null;
+let smaaRequest = null;
+function loadSmaa() {
+  smaaRequest ??= import('three/examples/jsm/postprocessing/SMAAPass.js')
+    .then((module) => { SMAAPassClass = module.SMAAPass; });
+  return smaaRequest;
+}
 
 // One scene draw into an HDR target with a depth texture; every effect below
 // derives from that pair. Nothing re-renders the scene (no normal pre-pass),
@@ -436,7 +445,16 @@ export class PostStack {
         depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
       });
     }
-    if (config.antialias === 'smaa') this.smaa = new SMAAPass(1, 1);
+    if (config.antialias === 'smaa') {
+      if (SMAAPassClass) this.smaa = new SMAAPassClass(1, 1);
+      else {
+        loadSmaa().then(() => {
+          if (this.config !== config || this.smaa) return;
+          this.smaa = new SMAAPassClass(1, 1);
+          this.resize();
+        }).catch((error) => console.warn('[rendering] SMAA unavailable, using FXAA:', error.message));
+      }
+    }
 
     const defines = this.composite.defines;
     for (const key of Object.keys(defines)) delete defines[key];
@@ -651,7 +669,7 @@ export class PostStack {
       this.pass(this.composite, null);
     } else {
       this.pass(this.composite, this.ldrTarget);
-      if (config.antialias === 'smaa') {
+      if (config.antialias === 'smaa' && this.smaa) {
         this.smaa.renderToScreen = true;
         this.smaa.render(renderer, null, this.ldrTarget);
         this.timings.passes += 3;
