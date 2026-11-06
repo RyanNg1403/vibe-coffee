@@ -1,0 +1,42 @@
+{
+  "armchair": {
+    "aoDistanceMetres": 0.25,
+    "aoFloor": 0.45,
+    "beveledParts": 14,
+    "meanCornerOcclusion": 0.622,
+    "sourceTrianglesAfter": 3916,
+    "sourceTrianglesBefore": 2684
+  },
+  "bar_stool": {
+    "aoDistanceMetres": 0.25,
+    "aoFloor": 0.45,
+    "beveledParts": 12,
+    "meanCornerOcclusion": 0.649,
+    "sourceTrianglesAfter": 3480,
+    "sourceTrianglesBefore": 2520
+  },
+  "side_table": {
+    "aoDistanceMetres": 0.25,
+    "aoFloor": 0.45,
+    "beveledParts": 4,
+    "meanCornerOcclusion": 0.685,
+    "sourceTrianglesAfter": 1224,
+    "sourceTrianglesBefore": 856
+  },
+  "sofa": {
+    "aoDistanceMetres": 0.25,
+    "aoFloor": 0.45,
+    "beveledParts": 1,
+    "meanCornerOcclusion": 0.65,
+    "sourceTrianglesAfter": 4226,
+    "sourceTrianglesBefore": 3778
+  },
+  "studio_chair": {
+    "aoDistanceMetres": 0.25,
+    "aoFloor": 0.45,
+    "beveledParts": 12,
+    "meanCornerOcclusion": 0.631,
+    "sourceTrianglesAfter": 2828,
+    "sourceTrianglesBefore": 1868
+  }
+}

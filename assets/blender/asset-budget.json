@@ -1,0 +1,1359 @@
+{
+  "totals": {
+    "models": 81,
+    "bytes": 29303736,
+    "lod0Triangles": 1361504,
+    "lod1Triangles": 743169,
+    "lod2Triangles": 390404
+  },
+  "models": {
+    "apple": {
+      "bytes": 78760,
+      "lodTriangles": [
+        874,
+        680,
+        298
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "armchair": {
+      "bytes": 179676,
+      "lodTriangles": [
+        3916,
+        2361,
+        1440
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_car": {
+      "bytes": 125192,
+      "lodTriangles": [
+        5918,
+        3063,
+        1194
+      ],
+      "lodLevels": 3,
+      "materials": 7,
+      "textures": [],
+      "animations": []
+    },
+    "atelier_decor_goldenhour": {
+      "bytes": 296180,
+      "lodTriangles": [
+        18949,
+        9473,
+        3945
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_decor_midnight": {
+      "bytes": 212288,
+      "lodTriangles": [
+        18271,
+        9286,
+        4196
+      ],
+      "lodLevels": 3,
+      "materials": 8,
+      "textures": [
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_decor_roastery": {
+      "bytes": 404460,
+      "lodTriangles": [
+        20844,
+        10442,
+        6773
+      ],
+      "lodLevels": 3,
+      "materials": 7,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_decor_terrace": {
+      "bytes": 321932,
+      "lodTriangles": [
+        23492,
+        11908,
+        6342
+      ],
+      "lodLevels": 3,
+      "materials": 7,
+      "textures": [
+        "color 512x512",
+        "normal 256x256",
+        "color 256x256"
+      ],
+      "animations": []
+    },
+    "atelier_piano": {
+      "bytes": 367148,
+      "lodTriangles": [
+        13392,
+        6782,
+        2672
+      ],
+      "lodLevels": 3,
+      "materials": 7,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_roaster": {
+      "bytes": 137984,
+      "lodTriangles": [
+        4904,
+        2537,
+        1350
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_streetscape": {
+      "bytes": 677908,
+      "lodTriangles": [
+        29260,
+        29260,
+        29260
+      ],
+      "lodLevels": 1,
+      "materials": 7,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_tables_goldenhour": {
+      "bytes": 404720,
+      "lodTriangles": [
+        30616,
+        30616,
+        30616
+      ],
+      "lodLevels": 1,
+      "materials": 5,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_tables_midnight": {
+      "bytes": 378216,
+      "lodTriangles": [
+        23088,
+        23088,
+        23088
+      ],
+      "lodLevels": 1,
+      "materials": 2,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_tables_roastery": {
+      "bytes": 157392,
+      "lodTriangles": [
+        6384,
+        6384,
+        6384
+      ],
+      "lodLevels": 1,
+      "materials": 3,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "atelier_tables_terrace": {
+      "bytes": 368900,
+      "lodTriangles": [
+        21612,
+        21612,
+        21612
+      ],
+      "lodLevels": 1,
+      "materials": 3,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "bar_stool": {
+      "bytes": 149100,
+      "lodTriangles": [
+        3480,
+        2176,
+        1511
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "bookcase": {
+      "bytes": 449832,
+      "lodTriangles": [
+        18424,
+        9212,
+        3682
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "cactus_pot": {
+      "bytes": 47736,
+      "lodTriangles": [
+        2176,
+        1288,
+        772
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [],
+      "animations": []
+    },
+    "cake": {
+      "bytes": 44236,
+      "lodTriangles": [
+        2300,
+        1346,
+        692
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [],
+      "animations": []
+    },
+    "cakeSlice": {
+      "bytes": 42676,
+      "lodTriangles": [
+        2300,
+        1822,
+        1500
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [],
+      "animations": []
+    },
+    "cat": {
+      "bytes": 536064,
+      "lodTriangles": [
+        19704,
+        9852,
+        3920
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "normal 512x512",
+        "color 1024x1024"
+      ],
+      "animations": [
+        "death",
+        "eating",
+        "headbutt",
+        "idle",
+        "idle_2",
+        "idle_2_headlow",
+        "idle_eating",
+        "walk"
+      ]
+    },
+    "char_atelier_1": {
+      "bytes": 885356,
+      "lodTriangles": [
+        36620,
+        18308,
+        7514
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_10": {
+      "bytes": 782616,
+      "lodTriangles": [
+        41851,
+        20921,
+        8367
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_11": {
+      "bytes": 900980,
+      "lodTriangles": [
+        37496,
+        18745,
+        7696
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_12": {
+      "bytes": 826968,
+      "lodTriangles": [
+        42719,
+        21356,
+        8530
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_13": {
+      "bytes": 924004,
+      "lodTriangles": [
+        36620,
+        18308,
+        7517
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_14": {
+      "bytes": 827960,
+      "lodTriangles": [
+        40167,
+        20082,
+        8028
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_15": {
+      "bytes": 933512,
+      "lodTriangles": [
+        39180,
+        19587,
+        8035
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_16": {
+      "bytes": 807156,
+      "lodTriangles": [
+        40167,
+        20081,
+        8027
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_17": {
+      "bytes": 926948,
+      "lodTriangles": [
+        40048,
+        20021,
+        8203
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_18": {
+      "bytes": 809088,
+      "lodTriangles": [
+        39291,
+        19645,
+        7852
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_2": {
+      "bytes": 816724,
+      "lodTriangles": [
+        40167,
+        20081,
+        8025
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_3": {
+      "bytes": 917692,
+      "lodTriangles": [
+        37496,
+        18744,
+        7704
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_4": {
+      "bytes": 795364,
+      "lodTriangles": [
+        39291,
+        19645,
+        7855
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_5": {
+      "bytes": 955228,
+      "lodTriangles": [
+        37644,
+        18883,
+        7732
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_6": {
+      "bytes": 816000,
+      "lodTriangles": [
+        40167,
+        20080,
+        8025
+      ],
+      "lodLevels": 3,
+      "materials": 5,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_7": {
+      "bytes": 955624,
+      "lodTriangles": [
+        40048,
+        20020,
+        8207
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_8": {
+      "bytes": 812956,
+      "lodTriangles": [
+        39291,
+        19641,
+        7850
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_9": {
+      "bytes": 961548,
+      "lodTriangles": [
+        38520,
+        19323,
+        7906
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_barista": {
+      "bytes": 825228,
+      "lodTriangles": [
+        41563,
+        20777,
+        8304
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "char_atelier_server": {
+      "bytes": 915736,
+      "lodTriangles": [
+        38892,
+        19444,
+        7975
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "color 1024x1024"
+      ],
+      "animations": [
+        "Idle",
+        "Sitting",
+        "Walk",
+        "Wave",
+        "Working"
+      ]
+    },
+    "coat_rack": {
+      "bytes": 71740,
+      "lodTriangles": [
+        408,
+        204,
+        146
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "cookie": {
+      "bytes": 23432,
+      "lodTriangles": [
+        1200,
+        808,
+        244
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [],
+      "animations": []
+    },
+    "crate": {
+      "bytes": 138264,
+      "lodTriangles": [
+        3760,
+        1880,
+        750
+      ],
+      "lodLevels": 3,
+      "materials": 1,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "croissant": {
+      "bytes": 30996,
+      "lodTriangles": [
+        1478,
+        788,
+        376
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [],
+      "animations": []
+    },
+    "cupcake": {
+      "bytes": 66952,
+      "lodTriangles": [
+        3520,
+        2214,
+        882
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [],
+      "animations": []
+    },
+    "donut": {
+      "bytes": 33640,
+      "lodTriangles": [
+        1384,
+        868,
+        624
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [],
+      "animations": []
+    },
+    "floor_lamp": {
+      "bytes": 43684,
+      "lodTriangles": [
+        1836,
+        1020,
+        566
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "iceCream": {
+      "bytes": 14608,
+      "lodTriangles": [
+        624,
+        454,
+        202
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [],
+      "animations": []
+    },
+    "lantern": {
+      "bytes": 22648,
+      "lodTriangles": [
+        744,
+        370,
+        312
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [],
+      "animations": []
+    },
+    "latte": {
+      "bytes": 128404,
+      "lodTriangles": [
+        3196,
+        1598,
+        638
+      ],
+      "lodLevels": 3,
+      "materials": 1,
+      "textures": [
+        "normal 512x512",
+        "orm 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "muffin": {
+      "bytes": 38412,
+      "lodTriangles": [
+        1760,
+        1332,
+        548
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [],
+      "animations": []
+    },
+    "mug": {
+      "bytes": 93224,
+      "lodTriangles": [
+        2236,
+        1117,
+        446
+      ],
+      "lodLevels": 3,
+      "materials": 1,
+      "textures": [
+        "normal 512x512",
+        "orm 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "painting": {
+      "bytes": 100044,
+      "lodTriangles": [
+        2488,
+        1244,
+        492
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "pancakes": {
+      "bytes": 25280,
+      "lodTriangles": [
+        956,
+        668,
+        444
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [],
+      "animations": []
+    },
+    "pendant_lamp": {
+      "bytes": 34776,
+      "lodTriangles": [
+        1536,
+        832,
+        408
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "pet_cat": {
+      "bytes": 536064,
+      "lodTriangles": [
+        19704,
+        9852,
+        3920
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "normal 512x512",
+        "color 1024x1024"
+      ],
+      "animations": [
+        "death",
+        "eating",
+        "headbutt",
+        "idle",
+        "idle_2",
+        "idle_2_headlow",
+        "idle_eating",
+        "walk"
+      ]
+    },
+    "pet_dog": {
+      "bytes": 576564,
+      "lodTriangles": [
+        22210,
+        11106,
+        4433
+      ],
+      "lodLevels": 3,
+      "materials": 7,
+      "textures": [
+        "normal 512x512",
+        "color 1024x1024"
+      ],
+      "animations": [
+        "death",
+        "eating",
+        "headbutt",
+        "idle",
+        "idle_2",
+        "idle_2_headlow",
+        "idle_eating",
+        "walk"
+      ]
+    },
+    "plant": {
+      "bytes": 111072,
+      "lodTriangles": [
+        8920,
+        4460,
+        1771
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "plant_cacti": {
+      "bytes": 47704,
+      "lodTriangles": [
+        2176,
+        1288,
+        772
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [],
+      "animations": []
+    },
+    "plant_fern": {
+      "bytes": 240248,
+      "lodTriangles": [
+        17914,
+        8927,
+        4019
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "plant_monstera": {
+      "bytes": 183952,
+      "lodTriangles": [
+        15802,
+        7900,
+        3135
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "plant_pothos": {
+      "bytes": 140700,
+      "lodTriangles": [
+        13328,
+        6942,
+        3036
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "plant_pothos_vine": {
+      "bytes": 155008,
+      "lodTriangles": [
+        17500,
+        8750,
+        3486
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "plant_small": {
+      "bytes": 91964,
+      "lodTriangles": [
+        6832,
+        3712,
+        1836
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "plant_snake": {
+      "bytes": 103368,
+      "lodTriangles": [
+        7992,
+        3996,
+        1594
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "plant_succulent": {
+      "bytes": 176588,
+      "lodTriangles": [
+        18712,
+        9650,
+        8986
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [
+        "normal 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "radio": {
+      "bytes": 94528,
+      "lodTriangles": [
+        1124,
+        576,
+        244
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "sandwich": {
+      "bytes": 8224,
+      "lodTriangles": [
+        40,
+        40,
+        40
+      ],
+      "lodLevels": 1,
+      "materials": 4,
+      "textures": [],
+      "animations": []
+    },
+    "side_table": {
+      "bytes": 59340,
+      "lodTriangles": [
+        1224,
+        843,
+        759
+      ],
+      "lodLevels": 3,
+      "materials": 1,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "sofa": {
+      "bytes": 164304,
+      "lodTriangles": [
+        4226,
+        2432,
+        1754
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "studio_chair": {
+      "bytes": 135580,
+      "lodTriangles": [
+        2828,
+        1817,
+        1264
+      ],
+      "lodLevels": 3,
+      "materials": 2,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512",
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "studio_cup": {
+      "bytes": 112748,
+      "lodTriangles": [
+        2996,
+        1498,
+        598
+      ],
+      "lodLevels": 3,
+      "materials": 1,
+      "textures": [
+        "normal 512x512",
+        "orm 512x512",
+        "color 512x512"
+      ],
+      "animations": []
+    },
+    "studio_espresso": {
+      "bytes": 612540,
+      "lodTriangles": [
+        19300,
+        9649,
+        3936
+      ],
+      "lodLevels": 3,
+      "materials": 1,
+      "textures": [
+        "normal 1024x1024",
+        "orm 512x512",
+        "color 1024x1024"
+      ],
+      "animations": []
+    },
+    "studio_pendant": {
+      "bytes": 33368,
+      "lodTriangles": [
+        1732,
+        960,
+        434
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [],
+      "animations": []
+    },
+    "table_lamp": {
+      "bytes": 44100,
+      "lodTriangles": [
+        1836,
+        1020,
+        566
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "teapot": {
+      "bytes": 91576,
+      "lodTriangles": [
+        2428,
+        1214,
+        504
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "trashcan": {
+      "bytes": 23424,
+      "lodTriangles": [
+        1000,
+        500,
+        398
+      ],
+      "lodLevels": 3,
+      "materials": 1,
+      "textures": [],
+      "animations": []
+    },
+    "tree_park_a": {
+      "bytes": 667288,
+      "lodTriangles": [
+        32212,
+        16106,
+        10292
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "tree_park_b": {
+      "bytes": 667376,
+      "lodTriangles": [
+        32212,
+        16106,
+        10360
+      ],
+      "lodLevels": 3,
+      "materials": 3,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "typewriter": {
+      "bytes": 133064,
+      "lodTriangles": [
+        4564,
+        2336,
+        908
+      ],
+      "lodLevels": 3,
+      "materials": 4,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    },
+    "wall_shelf": {
+      "bytes": 449852,
+      "lodTriangles": [
+        18424,
+        9212,
+        3682
+      ],
+      "lodLevels": 3,
+      "materials": 6,
+      "textures": [
+        "normal 512x512",
+        "color 512x512",
+        "metallicRoughness 512x512"
+      ],
+      "animations": []
+    }
+  }
+}
