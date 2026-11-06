@@ -6,9 +6,7 @@
 //   venues: [{ name, blurb }],
 //   isReady(): boolean,          // a café has been built
 //   currentCafe(): object,       // identity changes on every rebuild
-//   lookBy(dx, dy): void,        // pixel-equivalent look deltas
-//   aimAt(x, y): void,           // move the hover/pick point (client px)
-//   activateAt(x, y): void,      // click-equivalent at a client point
+//   controls,                    // src/controls instance (pointer lock, intent)
 // }
 import css from './ui.css?inline';
 import './loading.js';
@@ -18,8 +16,9 @@ import { getUISettings, onUISettingsChange, motionReduced } from './settings.js'
 import { initTitle, isEntered } from './title.js';
 import { initHud, notify, selectVenue, stepVenue, toggleZen, markActivity } from './hud.js';
 import { initFocus } from './focus.js';
+import { onPanelChange } from './panels.js';
 import { initSettingsMenu, openSettings, closeSettings, isSettingsOpen } from './settingsMenu.js';
-import { initInput } from './input.js';
+import { initInput, getModality } from './input.js';
 
 const style = document.createElement('style');
 style.id = 'vibe-ui-styles';
@@ -49,7 +48,34 @@ export function connectUI(bridge) {
   initHud(bridge);
   initFocus();
   initTitle(bridge);
-  initInput(bridge, {
+  initInput({
     isEntered, isSettingsOpen, openSettings, closeSettings, selectVenue, stepVenue, toggleZen, notify, markActivity,
+  });
+  connectControls(bridge.controls);
+}
+
+// Gameplay input runs only in the café with no pause menu open. Mouse
+// players capture the pointer on entering and on Resume (both are clicks,
+// which browsers require); releasing it any other way pauses.
+function connectControls(controls) {
+  const usesPointerLock = () => ['mouse', 'keyboard'].includes(getModality());
+  controls.setContext({ enabled: false });
+  document.addEventListener('vibe:entered', () => {
+    controls.setContext({ enabled: !isSettingsOpen() });
+    if (usesPointerLock()) controls.requestLock();
+  });
+  document.addEventListener('vibe:settings', (event) => {
+    if (event.detail.open) controls.releaseLock();
+    controls.setContext({ enabled: !event.detail.open && isEntered() });
+  });
+  document.addEventListener('vibe:resume', () => {
+    if (usesPointerLock()) controls.requestLock();
+  });
+  onPanelChange((open) => {
+    if (open) controls.releaseLock();
+    controls.setContext({ menuOpen: Boolean(open) });
+  });
+  controls.onPause(() => {
+    if (isEntered() && !isSettingsOpen()) openSettings();
   });
 }

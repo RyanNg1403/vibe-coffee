@@ -205,7 +205,12 @@
   <div id="joystick" class="joystick ui-layer" aria-hidden="true" hidden>
     <div class="joystick__base"><div class="joystick__knob"></div></div>
   </div>
-  <div id="reticle" class="reticle ui-layer" aria-hidden="true" hidden></div>
+  <div id="reticle" class="reticle ui-layer" aria-hidden="true"><span class="reticle__dot"></span></div>
+  <div id="play-prompt" class="play-prompt ui-layer" role="status">
+    <span class="play-prompt__title"><span class="play-prompt__mouse" aria-hidden="true"></span>
+      <span class="play-prompt__lock">Click to play</span><span class="play-prompt__drag">Drag to look around</span></span>
+    <span class="play-prompt__keys"><kbd>W A S D</kbd> move <kbd>Shift</kbd> sprint <kbd>E</kbd> use <kbd>Esc</kbd> pause</span>
+  </div>
   <div id="veil" class="veil ui-layer" aria-hidden="true"></div>
   <div id="settings" class="settings ui-layer" hidden></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

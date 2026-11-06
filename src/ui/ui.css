@@ -57,8 +57,9 @@ body {
 button, input, output { font: inherit; color: inherit; }
 button { cursor: pointer; }
 .tabular { font-variant-numeric: tabular-nums; }
-#scene { touch-action: none; cursor: grab; }
-#scene:active { cursor: grabbing; }
+#scene { touch-action: none; cursor: pointer; }
+html.pointer-fallback #scene { cursor: grab; }
+html.pointer-fallback #scene:active { cursor: grabbing; }
 
 body::after {
   content: ''; position: fixed; inset: 0; z-index: 3; pointer-events: none;
@@ -420,12 +421,65 @@ html.scene-fade #scene { opacity: 0; }
   html:not(.reduce-motion) #scene { transition: opacity 260ms var(--ease-out), transform 2.6s var(--ease-out); }
 }
 
-/* gamepad reticle */
-html:not(.entered) .reticle, html.hud-zen .reticle { display: none; }
+/* crosshair: shown while the mouse is captured or a controller is in use */
 .reticle {
-  position: fixed; z-index: 4; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%;
-  border: 2px solid rgba(255, 244, 228, 0.9); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); pointer-events: none;
+  position: fixed; z-index: 4; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; display: none;
 }
+html.entered.pointer-locked .reticle, html.entered.input-gamepad .reticle { display: block; }
+html.hud-zen .reticle, html.settings-open .reticle { display: none !important; }
+.reticle__dot {
+  position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(255, 246, 232, 0.95); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.reticle::before {
+  content: ''; position: absolute; left: -13px; top: -13px; width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--accent-hi); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 0 14px rgba(243, 192, 132, 0.45);
+  opacity: 0; transform: scale(0.5); transition: opacity var(--t-fast), transform var(--t-med) var(--ease-spring);
+}
+.reticle[data-target]::before { opacity: 1; transform: none; }
+.reticle[data-target='taken']::before { border-color: var(--danger); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3); }
+.reticle__label {
+  position: absolute; left: 0; top: 22px; transform: translateX(-50%); white-space: nowrap;
+  padding: 3px 10px; border-radius: var(--r-pill); font-size: 0.76rem; font-weight: 600; letter-spacing: 0.02em;
+  background: rgba(16, 10, 6, 0.72); border: 1px solid var(--line); color: var(--text);
+  opacity: 0; transition: opacity var(--t-fast);
+}
+.reticle[data-target] .reticle__label { opacity: 1; }
+.reticle[data-target='taken'] .reticle__label { color: var(--danger); }
+.reticle[data-target='sit'] .reticle__label::before, .reticle[data-target='use'] .reticle__label::before {
+  content: 'E'; display: inline-grid; place-items: center; min-width: 1.35em; height: 1.35em; margin-right: 6px;
+  border-radius: 5px; border: 1px solid var(--line-strong); font-size: 0.66rem; color: var(--text-2);
+}
+html.input-gamepad .reticle[data-target] .reticle__label::before { content: 'A'; border-radius: 50%; }
+
+/* click-to-play: the mouse is free (just entered, after Esc, or a panel closed) */
+.play-prompt {
+  position: fixed; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: none; flex-direction: column; align-items: center; gap: 10px; padding: 16px 22px;
+  border-radius: var(--r-lg); pointer-events: none; text-align: center;
+  background: rgba(16, 10, 6, 0.62); border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  animation: prompt-in 420ms var(--ease-out) both;
+}
+html.entered:is(.input-mouse, .input-keyboard):not(.pointer-locked):not(.settings-open):not(.panel-open):not(.hud-zen) .play-prompt { display: flex; }
+@keyframes prompt-in { from { opacity: 0; transform: translate(-50%, -46%); } }
+.play-prompt__title { display: inline-flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 600; }
+.play-prompt__mouse {
+  width: 18px; height: 26px; border-radius: 9px; border: 2px solid var(--accent-hi); position: relative;
+}
+.play-prompt__mouse::after {
+  content: ''; position: absolute; left: 50%; top: 4px; width: 2px; height: 6px; margin-left: -1px; border-radius: 1px;
+  background: var(--accent-hi); animation: wheel 1.6s ease-in-out infinite;
+}
+@keyframes wheel { 50% { transform: translateY(4px); opacity: 0.4; } }
+.play-prompt__drag { display: none; }
+html.pointer-fallback .play-prompt__drag { display: inline; }
+html.pointer-fallback .play-prompt__lock { display: none; }
+.play-prompt__keys { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-2); }
+.play-prompt__keys kbd { margin-left: 6px; }
+.play-prompt__keys kbd:first-child { margin-left: 0; }
+html.pointer-locked #scene { cursor: none; }
+html.entered:is(.input-mouse, .input-keyboard):not(.pointer-locked):not(.settings-open):not(.panel-open) .hint { opacity: 0; }
 
 /* touch joystick */
 .joystick {
@@ -558,6 +612,9 @@ html.focus-locked #timer-pop { opacity: 0.5; pointer-events: none; }
 }
 .settings__title { margin: 0; font: italic 400 1.5rem/1.1 var(--font-display); }
 .settings__close { --icon: var(--i-close); }
+.settings__actions { display: flex; align-items: center; gap: 8px; }
+.settings__resume { min-height: 40px; padding: 0 14px; }
+html:not(.entered) .settings__resume { display: none; }
 .settings__tabs { display: grid; align-content: start; gap: 4px; padding: 14px 10px; border-right: 1px solid var(--line); }
 .tab {
   display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 14px; border-radius: var(--r-md);
@@ -646,6 +703,9 @@ html.focus-locked #timer-pop { opacity: 0.5; pointer-events: none; }
 @media (max-width: 380px) {
   .dock-btn { width: 40px; height: 40px; }
   .timer-pill__ring { display: none; }
+}
+@media (max-height: 680px) {
+  .title__footer { display: none; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
   .title__content { top: 50%; bottom: auto; transform: translateY(-50%); gap: 14px; }

@@ -1,10 +1,9 @@
-// Input layer: modality detection, keyboard shortcuts, gamepad and the
-// touch joystick. Movement is delivered as the same key events the app
-// already understands, so walking behaviour stays owned by the app.
-import { $, $$, root, focusables, setInputValue } from './dom.js';
+// Interface input: modality detection, keyboard shortcuts and controller
+// buttons for menus and HUD actions. Movement, look and interaction are
+// produced by src/controls as a per-frame intent.
+import { $, root, focusables, setInputValue } from './dom.js';
 import { isPanelOpen, closePanel, togglePanel } from './panels.js';
 
-let app = null;
 let modality = 'mouse';
 const modalityListeners = new Set();
 
@@ -16,25 +15,8 @@ function setModality(next) {
   modality = next;
   root.classList.remove('input-mouse', 'input-touch', 'input-gamepad', 'input-keyboard');
   root.classList.add(`input-${next}`);
-  $('#reticle').hidden = next !== 'gamepad';
   syncJoystick();
   modalityListeners.forEach((fn) => fn(next));
-}
-
-// ---------- synthetic movement keys ----------
-const held = new Set();
-function pressKey(code, down) {
-  if (down === held.has(code)) return;
-  if (down) held.add(code); else held.delete(code);
-  const event = new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code.replace('Key', '').toLowerCase(), bubbles: true });
-  event.vibeSynthetic = true;
-  window.dispatchEvent(event);
-}
-function setMoveVector(x, y, threshold = 0.35) {
-  pressKey('KeyW', y < -threshold);
-  pressKey('KeyS', y > threshold);
-  pressKey('KeyA', x < -threshold);
-  pressKey('KeyD', x > threshold);
 }
 
 // ---------- keyboard ----------
@@ -43,8 +25,7 @@ const isTyping = (el) => el && (el.isContentEditable || ['INPUT', 'SELECT', 'TEX
 const inMenu = (el) => Boolean(el?.closest?.('#settings, .popover, #overlay'));
 
 function onKeyDown(event, hooks) {
-  if (event.vibeSynthetic || event.defaultPrevented || event.repeat) return;
-  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
   const target = document.activeElement;
   if (event.key === 'Escape') {
     if (hooks.isSettingsOpen()) return; // the dialog closes itself
@@ -53,7 +34,7 @@ function onKeyDown(event, hooks) {
     event.preventDefault();
     return;
   }
-  if (isTyping(target) || hooks.isSettingsOpen()) return;
+  if (event.defaultPrevented || isTyping(target) || hooks.isSettingsOpen()) return;
 
   if (!hooks.isEntered()) {
     if (event.key === 'Enter' && !target?.closest?.('button')) { $('#enter-btn').click(); event.preventDefault(); }
@@ -68,7 +49,6 @@ function onKeyDown(event, hooks) {
     case 'KeyT': click('#timer-btn'); break;
     case 'KeyO': click('#order-btn'); break;
     case 'KeyL': click('#laptop-btn'); break;
-    case 'KeyE': click('#walk-btn'); break;
     case 'KeyV': togglePanel('ambience-pop'); break;
     case 'KeyF': click('#fullscreen-btn'); break;
     case 'Slash': if (event.shiftKey) hooks.openSettings('controls'); break;
@@ -78,58 +58,21 @@ function onKeyDown(event, hooks) {
 }
 
 // Arrow keys on sliders, tabs and menu items belong to those controls; stop
-// them reaching the app's window-level walk listener (bubble phase).
+// them reaching the window-level movement listener (bubble phase).
 function shieldMenuKeys(event) {
-  if (event.vibeSynthetic || !MOVE_CODES.has(event.code)) return;
+  if (!MOVE_CODES.has(event.code)) return;
   if (inMenu(event.target) || isTyping(event.target) || root.classList.contains('settings-open')) event.stopPropagation();
 }
 
-// ---------- touch joystick ----------
-let joystickPointer = null;
+// The on-screen stick itself is driven by src/controls; this only decides
+// when it is shown.
 function syncJoystick() {
-  const stick = $('#joystick');
-  stick.hidden = !(modality === 'touch' && root.classList.contains('entered'));
+  $('#joystick').hidden = !(modality === 'touch' && root.classList.contains('entered'));
 }
 
-function initJoystick() {
-  const stick = $('#joystick');
-  const base = $('.joystick__base', stick);
-  const move = (event) => {
-    const rect = base.getBoundingClientRect();
-    const radius = rect.width / 2;
-    let dx = event.clientX - (rect.left + radius);
-    let dy = event.clientY - (rect.top + radius);
-    const length = Math.hypot(dx, dy);
-    const max = radius * 0.62;
-    if (length > max) { dx = (dx / length) * max; dy = (dy / length) * max; }
-    stick.style.setProperty('--jx', `${dx}px`);
-    stick.style.setProperty('--jy', `${dy}px`);
-    setMoveVector(dx / max, dy / max, 0.32);
-  };
-  const end = () => {
-    joystickPointer = null;
-    stick.classList.remove('active');
-    stick.style.setProperty('--jx', '0px');
-    stick.style.setProperty('--jy', '0px');
-    setMoveVector(0, 0);
-  };
-  stick.addEventListener('pointerdown', (event) => {
-    joystickPointer = event.pointerId;
-    stick.setPointerCapture(event.pointerId);
-    stick.classList.add('active');
-    move(event);
-    event.preventDefault();
-  });
-  stick.addEventListener('pointermove', (event) => { if (event.pointerId === joystickPointer) move(event); });
-  stick.addEventListener('pointerup', end);
-  stick.addEventListener('pointercancel', end);
-  document.addEventListener('vibe:entered', syncJoystick);
-}
-
-// ---------- gamepad ----------
+// ---------- gamepad: menus and HUD buttons ----------
 const pads = { polling: false, last: new Map(), repeatAt: 0 };
-const BUTTON = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
-const dead = (v, d) => (Math.abs(v) < d ? 0 : (v - Math.sign(v) * d) / (1 - d));
+const BUTTON = { A: 0, B: 1, LB: 4, RB: 5, X: 2, Y: 3, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 
 function menuContext(hooks) {
   if (hooks.isSettingsOpen()) return $('#settings');
@@ -144,8 +87,8 @@ function moveFocus(container, direction) {
   const current = items.indexOf(document.activeElement);
   if (current >= 0 && document.activeElement.type === 'range' && (direction === 'left' || direction === 'right')) {
     const input = document.activeElement;
-    const step = Number(input.step) || 0.05;
-    const next = Math.min(Number(input.max), Math.max(Number(input.min), Number(input.value) + (direction === 'right' ? step * (step < 1 ? 5 : 1) : -step * (step < 1 ? 5 : 1))));
+    const step = (Number(input.step) || 0.05) * (Number(input.step) < 1 ? 5 : 1);
+    const next = Math.min(Number(input.max), Math.max(Number(input.min), Number(input.value) + (direction === 'right' ? step : -step)));
     setInputValue(input, next);
     return;
   }
@@ -156,10 +99,8 @@ function moveFocus(container, direction) {
 
 function pollGamepads(hooks, now) {
   const list = [...(navigator.getGamepads?.() ?? [])].filter(Boolean);
-  if (!list.length) { pads.polling = false; setMoveVector(0, 0); return; }
+  if (!list.length) { pads.polling = false; return; }
   requestAnimationFrame((t) => pollGamepads(hooks, t));
-  const dt = Math.min(0.05, (now - (pads.lastTime ?? now)) / 1000);
-  pads.lastTime = now;
 
   for (const pad of list) {
     const previous = pads.last.get(pad.index) ?? [];
@@ -167,14 +108,12 @@ function pollGamepads(hooks, now) {
     const edge = (i) => pressed[i] && !previous[i];
     pads.last.set(pad.index, pressed);
     const [lx = 0, ly = 0, rx = 0, ry = 0] = pad.axes;
-    const active = pressed.some(Boolean) || [lx, ly, rx, ry].some((v) => Math.abs(v) > 0.3);
-    if (active) {
+    if (pressed.some(Boolean) || [lx, ly, rx, ry].some((v) => Math.abs(v) > 0.3)) {
       setModality('gamepad');
       hooks.markActivity();
     }
     const menu = menuContext(hooks);
     if (menu) {
-      setMoveVector(0, 0);
       const dir = edge(BUTTON.UP) || ly < -0.6 ? 'up' : edge(BUTTON.DOWN) || ly > 0.6 ? 'down'
         : edge(BUTTON.LEFT) || lx < -0.6 ? 'left' : edge(BUTTON.RIGHT) || lx > 0.6 ? 'right' : null;
       const isEdge = [BUTTON.UP, BUTTON.DOWN, BUTTON.LEFT, BUTTON.RIGHT].some(edge);
@@ -197,16 +136,7 @@ function pollGamepads(hooks, now) {
       }
       continue;
     }
-
-    setMoveVector(lx, ly);
-    const lookX = dead(rx, 0.14);
-    const lookY = dead(ry, 0.14);
-    if (lookX || lookY) {
-      const speed = 2.6 * dt;
-      app.lookBy(Math.sign(lookX) * lookX ** 2 * speed * 312, Math.sign(lookY) * lookY ** 2 * speed * 220);
-      app.aimAt(window.innerWidth / 2, window.innerHeight / 2);
-    }
-    if (edge(BUTTON.A)) app.activateAt(window.innerWidth / 2, window.innerHeight / 2);
+    // In the café: sticks, A (interact) and sprint belong to src/controls.
     if (edge(BUTTON.B) && $('#walk-btn').dataset.mode === 'seated') $('#walk-btn').click();
     if (edge(BUTTON.X)) $('#order-btn').click();
     if (edge(BUTTON.Y)) $('#laptop-btn').click();
@@ -223,7 +153,6 @@ function initGamepad(hooks) {
   const start = () => {
     if (pads.polling) return;
     pads.polling = true;
-    pads.lastTime = undefined;
     requestAnimationFrame((t) => pollGamepads(hooks, t));
   };
   window.addEventListener('gamepadconnected', (event) => {
@@ -234,8 +163,7 @@ function initGamepad(hooks) {
   if ([...(navigator.getGamepads?.() ?? [])].some(Boolean)) start();
 }
 
-export function initInput(bridge, hooks) {
-  app = bridge;
+export function initInput(hooks) {
   root.classList.add('input-mouse');
   window.addEventListener('pointerdown', (event) => {
     setModality(event.pointerType === 'touch' ? 'touch' : 'mouse');
@@ -244,12 +172,11 @@ export function initInput(bridge, hooks) {
     if (event.pointerType === 'mouse' && modality === 'gamepad' && (Math.abs(event.movementX) + Math.abs(event.movementY)) > 4) setModality('mouse');
   }, { passive: true });
   window.addEventListener('keydown', (event) => {
-    if (!event.vibeSynthetic && modality === 'gamepad') setModality('keyboard');
+    if (modality === 'gamepad' || modality === 'touch') setModality('keyboard');
     onKeyDown(event, hooks);
   });
   document.addEventListener('keydown', shieldMenuKeys);
-  window.addEventListener('blur', () => setMoveVector(0, 0));
   if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches) setModality('touch');
-  initJoystick();
+  document.addEventListener('vibe:entered', syncJoystick);
   initGamepad(hooks);
 }

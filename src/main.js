@@ -1,5 +1,7 @@
 import { connectUI } from './ui/index.js';
 import { lookSettings, motionReduced, breakMinutes } from './ui/settings.js';
+import { createControls } from './controls/index.js';
+import { clampPitch } from './controls/intent.js';
 import { initQualityTier, onQualityTierChange, qualityTierConfig } from './qualityTier.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -221,7 +223,9 @@ let walkY = 0;
 let navigator = null;
 let walkBob = 0;
 let lastPlayerStep = 0;
-const keys = new Set();
+const controls = createControls({ canvas, settings: lookSettings });
+const WALK_SPEED = 2.0;
+const SPRINT_MULTIPLIER = 1.75;
 const frameScheduler = new AdaptiveFrameScheduler();
 const markInteraction = () => frameScheduler.markInteraction(performance.now());
 window.addEventListener('pointerdown', markInteraction, { passive: true });
@@ -245,7 +249,6 @@ const viewEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 let pointerDirty = true;
 let hoveredSeat = -1;
 let hoveredWorld = null;
-let canvasCursor = '';
 // clickable world objects (player laptop, pets, ...) — empty by default, so
 // seat picking behaves exactly as before until something registers
 const interactions = new WorldInteractions();
@@ -973,66 +976,23 @@ function resolveCollisions(p) {
   }
 }
 
-const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-window.addEventListener('keydown', (e) => {
-  if (!MOVE_KEYS.includes(e.code)) return;
-  e.preventDefault();
-  keys.add(e.code);
-  if (mode === 'seated') standUp();
-});
-window.addEventListener('keyup', (e) => keys.delete(e.code));
-window.addEventListener('blur', () => keys.clear());
+// ---------- input: first-person controls (src/controls) ----------
+// Devices produce one movement intent per rendered frame; the frame loop
+// applies it below. The raycast pointer stays on the crosshair (screen
+// centre) except while resolving a touch tap at its own point.
 
-// ---------- input: drag to look, click chair to move ----------
-
-let dragging = false;
-let dragMoved = 0;
-let lastX = 0, lastY = 0;
-
-canvas.addEventListener('pointerdown', (e) => {
-  dragging = true;
-  dragMoved = 0;
-  lastX = e.clientX; lastY = e.clientY;
-  canvas.setPointerCapture(e.pointerId);
-});
-
-canvas.addEventListener('pointermove', (e) => {
-  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  pointerDirty = true;
-  if (!dragging) return;
-  const dx = e.clientX - lastX, dy = e.clientY - lastY;
-  dragMoved += Math.abs(dx) + Math.abs(dy);
-  lastX = e.clientX; lastY = e.clientY;
-  lookBy(dx, dy);
-});
-
-// dx/dy are pointer-pixel equivalents; the gamepad's right stick uses this too
-function lookBy(dx, dy) {
-  if (tween.active) return;
-  const look = lookSettings();
-  view.yaw -= dx * 0.0032 * look.sensitivity;
-  view.pitch = THREE.MathUtils.clamp(view.pitch - dy * 0.0028 * look.sensitivity * (look.invertY ? -1 : 1), -1.1, 1.15);
-  applyView();
-}
-
-function aimAt(clientX, clientY) {
-  pointer.x = (clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+function aimAtCentre() {
+  pointer.set(0, 0);
   pointerDirty = true;
 }
 
-canvas.addEventListener('pointerup', (e) => {
-  dragging = false;
-  if (dragMoved > 6 || tween.active) return;
-  activateAt(e.clientX, e.clientY);
-});
-
-// treat as a click at a screen point: a world object or a seat
-function activateAt(clientX, clientY) {
+// interact at a point in normalised device coordinates (0,0 = crosshair):
+// a world object or a seat
+function activateAt(ndcX, ndcY) {
   if (tween.active || !cafe) return;
-  aimAt(clientX, clientY);
+  pointer.set(ndcX, ndcY);
   const seatHit = pickSeat(); // also points the raycaster at the pointer
+  aimAtCentre();
   // a registered world object (laptop, pet) owns the click only when it is
   // the nearer target; otherwise chairs keep their existing behaviour
   const worldHit = interactions.pick(raycaster);
@@ -1478,7 +1438,7 @@ function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2)
 
 function frame(now = performance.now()) {
   requestAnimationFrame(frame);
-  const activelyMoving = tween.active || dragging || keys.size > 0;
+  const activelyMoving = tween.active || controls.isActive();
   if (!frameScheduler.shouldRender(now, {
     moving: activelyMoving,
     visible: !document.hidden,
@@ -1487,6 +1447,16 @@ function frame(now = performance.now()) {
   const dt = Math.min(rawDt, 0.05);              // camera/interaction step
   elapsed += rawDt;
   updateAdaptiveQuality(rawDt, frameScheduler.targetFps);
+
+  // first-person input: one movement intent per rendered frame
+  const intent = controls.frame(dt);
+  if (!tween.active && (intent.look.yaw || intent.look.pitch)) {
+    view.yaw += intent.look.yaw;
+    view.pitch = clampPitch(view.pitch + intent.look.pitch);
+    applyView();
+  }
+  if (intent.interact) activateAt(intent.interact.x, intent.interact.y);
+  if (mode === 'seated' && !tween.active && (intent.move.x || intent.move.z)) standUp();
 
   // Run room life in stable 30 Hz steps, but cap catch-up work after a paused
   // or throttled tab so returning to the café cannot trigger a long CPU spike.
@@ -1526,16 +1496,14 @@ function frame(now = performance.now()) {
     // first-person stroll
     walkForward.set(-Math.sin(view.yaw), 0, -Math.cos(view.yaw));
     walkRight.set(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
-    walkMove.set(0, 0, 0);
-    if (keys.has('KeyW') || keys.has('ArrowUp')) walkMove.add(walkForward);
-    if (keys.has('KeyS') || keys.has('ArrowDown')) walkMove.sub(walkForward);
-    if (keys.has('KeyD') || keys.has('ArrowRight')) walkMove.add(walkRight);
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) walkMove.sub(walkRight);
-    const moving = walkMove.lengthSq() > 0;
+    walkMove.set(0, 0, 0)
+      .addScaledVector(walkForward, intent.move.z)
+      .addScaledVector(walkRight, intent.move.x);
+    const moving = walkMove.lengthSq() > 1e-4;
     if (moving) {
       cameraMoved = true;
-      walkMove.normalize();
-      walkProposed.copy(walkPos).addScaledVector(walkMove, dt * 2.0);
+      const speed = WALK_SPEED * (intent.sprint ? SPRINT_MULTIPLIER : 1);
+      walkProposed.copy(walkPos).addScaledVector(walkMove, dt * speed);
       resolveCollisions(walkProposed);
       crowd?.resolvePlayerCollision?.(walkProposed, 0.3, walkY);
       // A person can push the player toward a table edge; resolve the room once
@@ -1545,7 +1513,7 @@ function frame(now = performance.now()) {
       // off every surface of the current floor is rejected (or slid along an
       // axis), never dropped to another floor's height.
       commitWalkMove(walkProposed);
-      walkBob += dt * 8;
+      walkBob += dt * 8 * (intent.sprint ? 1.35 : 1);
       // your own footsteps
       const stepNow = Math.floor(walkBob / Math.PI);
       if (stepNow !== lastPlayerStep) {
@@ -1573,7 +1541,7 @@ function frame(now = performance.now()) {
   }
 
   // hover highlight
-  if (cafe && !tween.active && !dragging) {
+  if (cafe && !tween.active) {
     if (pointerDirty || cameraMoved) {
       const seatHit = pickSeat();
       hoveredSeat = seatHit.index;
@@ -1586,29 +1554,22 @@ function frame(now = performance.now()) {
     }
     if (hoveredWorld) {
       ring.visible = false;
-      if (canvasCursor !== 'pointer') {
-        canvas.style.cursor = 'pointer';
-        canvasCursor = 'pointer';
-      }
+      controls.setAimTarget('use');
     } else if (hoveredSeat >= 0 && hoveredSeat !== seatIndex) {
       const seat = cafe.seats[hoveredSeat];
+      const taken = crowd.isSeatTaken(hoveredSeat);
       ring.position.set(seat.pos.x, seat.pos.y + 0.72, seat.pos.z);
       ring.visible = true;
-      ring.material.color.set(crowd.isSeatTaken(hoveredSeat) ? 0xd06050 : 0xffe2a8);
+      ring.material.color.set(taken ? 0xd06050 : 0xffe2a8);
       ring.material.opacity = 0.6 + Math.sin(elapsed * 5) * 0.25;
-      if (canvasCursor !== 'pointer') {
-        canvas.style.cursor = 'pointer';
-        canvasCursor = 'pointer';
-      }
+      controls.setAimTarget(taken ? 'taken' : 'sit');
     } else {
       ring.visible = false;
-      if (canvasCursor !== 'grab') {
-        canvas.style.cursor = 'grab';
-        canvasCursor = 'grab';
-      }
+      controls.setAimTarget(null);
     }
   } else {
     ring.visible = false;
+    controls.setAimTarget(null);
     if (hoveredWorld) {
       hoveredWorld = null;
       interactions.hover(null);
@@ -1692,9 +1653,7 @@ connectUI({
   venues: THEMES.map((theme) => ({ name: theme.name, blurb: theme.blurb })),
   isReady: () => Boolean(cafe),
   currentCafe: () => cafe,
-  lookBy,
-  aimAt,
-  activateAt,
+  controls,
 });
 
 // tiny debug handle for automated tests: place the camera, inspect audio
@@ -1724,6 +1683,8 @@ window.__vibe = {
   get crowd() { return crowd; },
   get pets() { return pets; },
   get interactions() { return interactions; },
+  get controls() { return controls; },
+  get view() { return { yaw: view.yaw, pitch: view.pitch }; },
   metrics() {
     let decodedAudioBytes = 0;
     let instancedMeshes = 0;

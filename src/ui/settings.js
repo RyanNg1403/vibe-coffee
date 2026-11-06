@@ -15,6 +15,7 @@ export const DEFAULT_UI_SETTINGS = Object.freeze({
   showHints: true,
   lookSensitivity: 1,
   invertY: false,
+  lookSmoothing: false,
   breakMinutes: 5,
   focusHideHud: true,
 });
@@ -41,6 +42,7 @@ export function sanitizeUISettings(raw = {}) {
     showHints: bool(source.showHints, d.showHints),
     lookSensitivity: Math.round(clamp(source.lookSensitivity, 0.25, 2.5, d.lookSensitivity) * 100) / 100,
     invertY: bool(source.invertY, d.invertY),
+    lookSmoothing: bool(source.lookSmoothing, d.lookSmoothing),
     breakMinutes: nearest(source.breakMinutes, BREAK_MINUTES, d.breakMinutes),
     focusHideHud: bool(source.focusHideHud, d.focusHideHud),
   };
@@ -99,7 +101,7 @@ export function motionReduced(settings = current) {
 }
 
 export function lookSettings() {
-  return { sensitivity: current.lookSensitivity, invertY: current.invertY };
+  return { sensitivity: current.lookSensitivity, invertY: current.invertY, smoothing: current.lookSmoothing };
 }
 
 export function breakMinutes() {

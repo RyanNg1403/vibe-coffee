@@ -37,7 +37,10 @@ function template() {
   <div class="settings__dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
     <header class="settings__head">
       <h2 id="settings-title" class="settings__title">Settings</h2>
-      <button class="icon-btn settings__close" id="settings-close" aria-label="Close settings">close</button>
+      <div class="settings__actions">
+        <button class="btn btn--primary settings__resume" id="settings-resume"><span>Resume</span><kbd>Esc</kbd></button>
+        <button class="icon-btn settings__close" id="settings-close" aria-label="Close settings">close</button>
+      </div>
     </header>
     <div class="settings__tabs" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
       ${TABS.map((t) => `<button class="tab" role="tab" id="tab-${t.id}" aria-controls="panel-${t.id}" aria-selected="false" tabindex="-1">${iconSvg(t.icon)}<span>${t.label}</span></button>`).join('')}
@@ -76,20 +79,21 @@ function template() {
             <output for="set-look" class="mixer__value tabular" id="set-look-value">${s.lookSensitivity.toFixed(2)}×</output>
           </div>
           ${row('set-invert', 'Invert vertical look', sw('set-invert', 'set-invert-label', s.invertY))}
+          ${row('set-smoothing', 'Mouse smoothing', sw('set-smoothing', 'set-smoothing-label', s.lookSmoothing), 'Spreads each mouse movement over a few frames. Off gives raw, one-to-one aim.')}
         </div>
         <div class="settings__section">
           <span class="field__label">Keyboard &amp; mouse</span>
           ${keymap([
-            ['Look around', ['Drag']], ['Walk', ['W', 'A', 'S', 'D']], ['Sit', ['Click chair']],
-            ['Stand up / sit', ['E']], ['Order a drink', ['O']], ['Laptop', ['L']], ['Ambience', ['V']],
+            ['Capture the mouse', ['Click']], ['Look around', ['Mouse']], ['Walk', ['W', 'A', 'S', 'D']], ['Sprint', ['Shift']],
+            ['Sit / use what the crosshair is on', ['Click', 'E']], ['Order a drink', ['O']], ['Laptop', ['L']], ['Ambience', ['V']],
             ['Start / pause focus', ['T']], ['Mute', ['M']], ['Switch café', ['1', '–', '4']],
-            ['Full screen', ['F']], ['Hide interface', ['H']], ['Menu', ['Esc']],
+            ['Full screen', ['F']], ['Hide interface', ['H']], ['Release mouse / pause', ['Esc']],
           ])}
         </div>
         <div class="settings__section">
           <span class="field__label">Controller</span>
           ${keymap([
-            ['Walk / look', ['L', 'R']], ['Sit or use what is under the dot', ['A']], ['Stand up', ['B']],
+            ['Walk / look', ['L', 'R']], ['Sprint', ['LT', 'L3']], ['Sit or use what is under the dot', ['A']], ['Stand up', ['B']],
             ['Order', ['X']], ['Laptop', ['Y']], ['Previous / next café', ['LB', 'RB']],
             ['Ambience / focus panels', ['D-pad ↑', '↓']], ['Hide interface', ['View']], ['Menu', ['Menu']],
           ])}
@@ -97,7 +101,7 @@ function template() {
         </div>
         <div class="settings__section">
           <span class="field__label">Touch</span>
-          ${keymap([['Look around', ['Drag']], ['Walk', ['Left stick']], ['Sit', ['Tap chair']]])}
+          ${keymap([['Look around', ['Drag']], ['Walk (push fully to sprint)', ['Left stick']], ['Sit / use', ['Tap']]])}
         </div>
       </section>
 
@@ -161,6 +165,10 @@ function syncMirrors() {
 
 function wire() {
   $('#settings-close').addEventListener('click', () => closeSettings());
+  $('#settings-resume').addEventListener('click', () => {
+    closeSettings();
+    document.dispatchEvent(new CustomEvent('vibe:resume'));
+  });
   dialog.addEventListener('click', (event) => { if (event.target === dialog) closeSettings(); });
 
   const tablist = $('.settings__tabs', dialog);
@@ -205,7 +213,7 @@ function wire() {
     syncRangeFill(look);
   });
   const toggles = {
-    'set-invert': 'invertY', 'set-contrast': 'highContrast', 'set-autohide': 'hudAutoHide', 'set-hints': 'showHints',
+    'set-invert': 'invertY', 'set-smoothing': 'lookSmoothing', 'set-contrast': 'highContrast', 'set-autohide': 'hudAutoHide', 'set-hints': 'showHints',
   };
   for (const [id, key] of Object.entries(toggles)) {
     $(`#${id}`).addEventListener('click', () => updateUISettings({ [key]: !getUISettings()[key] }));
@@ -230,7 +238,7 @@ function wire() {
 
 function syncSettings(s) {
   if (!dialog) return;
-  const toggles = { 'set-invert': s.invertY, 'set-contrast': s.highContrast, 'set-autohide': s.hudAutoHide, 'set-hints': s.showHints };
+  const toggles = { 'set-invert': s.invertY, 'set-smoothing': s.lookSmoothing, 'set-contrast': s.highContrast, 'set-autohide': s.hudAutoHide, 'set-hints': s.showHints };
   for (const [id, on] of Object.entries(toggles)) $(`#${id}`).setAttribute('aria-pressed', String(on));
   $$('#set-motion [data-value]').forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.value === s.reducedMotion)));
   $$('#set-text [data-value]').forEach((c) => c.setAttribute('aria-pressed', String(Number(c.dataset.value) === s.textScale)));
@@ -254,6 +262,7 @@ export function openSettings(tab = activeTab) {
   selectTab(tab);
   releaseTrap = trapFocus(dialog);
   $(`#tab-${tab}`).focus();
+  document.dispatchEvent(new CustomEvent('vibe:settings', { detail: { open: true } }));
 }
 
 export function closeSettings() {
@@ -265,6 +274,7 @@ export function closeSettings() {
   releaseTrap = null;
   if (returnFocus && document.contains(returnFocus) && returnFocus !== document.body) returnFocus.focus();
   returnFocus = null;
+  document.dispatchEvent(new CustomEvent('vibe:settings', { detail: { open: false } }));
 }
 
 export function toggleSettings() {

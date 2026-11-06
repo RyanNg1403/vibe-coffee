@@ -175,10 +175,10 @@ function initAmbience() {
 // ---------- contextual hints ----------
 const HINTS = {
   mouse: [
-    ['Drag', 'look around'], ['W A S D', 'walk'], ['Click a chair', 'sit'], ['Esc', 'menu'], ['H', 'hide interface'],
+    ['Mouse', 'look'], ['W A S D', 'move'], ['Shift', 'sprint'], ['Click / E', 'sit · use'], ['Esc', 'pause'],
   ],
-  touch: [['Drag', 'look around'], ['Stick', 'walk'], ['Tap a chair', 'sit']],
-  gamepad: [['L', 'walk'], ['R', 'look'], ['A', 'sit / use'], ['X', 'order'], ['Y', 'laptop'], ['☰', 'menu']],
+  touch: [['Drag', 'look around'], ['Stick', 'walk'], ['Tap', 'sit · use']],
+  gamepad: [['L', 'walk'], ['R', 'look'], ['LT', 'sprint'], ['A', 'sit / use'], ['X', 'order'], ['☰', 'menu']],
 };
 let hintTimer = null;
 const hintsShown = new Set();
