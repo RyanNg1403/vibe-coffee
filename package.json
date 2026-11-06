@@ -6,26 +6,28 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node tools/compress-textures.mjs",
     "artifact": "node tools/make-artifact.mjs",
     "audit:motion": "node tools/motion-audit.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
     "perf:baseline": "node tools/perf-baseline.mjs",
+    "perf:bench": "node tools/perf-bench.mjs",
     "preview": "vite preview",
     "test": "node --test",
     "audit:decor": "node tools/decor-audit.mjs",
     "audit:layout": "node tools/layout-audit.mjs"
   },
   "dependencies": {
-    "three": "^0.166.1"
+    "meshoptimizer": "^0.22.0",
+    "three": "^0.166.1",
+    "three-mesh-bvh": "^0.8.3"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.4.1",
     "@gltf-transform/extensions": "^4.4.1",
     "@gltf-transform/functions": "^4.4.1",
     "draco3dgltf": "^1.5.7",
-    "meshoptimizer": "^0.22.0",
     "music-metadata": "^11.13.0",
     "vite": "^8.1.4"
   }
