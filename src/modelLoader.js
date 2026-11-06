@@ -101,7 +101,10 @@ export function configureModelBudget({ textureMaxSize = Infinity, anisotropy = 8
 // uploaded: block-compressed chains drop their top mip levels (each halves
 // the edge and quarters the bytes); decoded images are resized once.
 export async function capTextureSize(texture) {
-  const max = budget.textureMaxSize;
+  // KTX2 transcodes to RGBA8 on GPUs without a supported block format (8x
+  // the bytes of ETC1S-class data), so those get half the edge.
+  const fallback = texture.isCompressedTexture && texture.format === THREE.RGBAFormat;
+  const max = budget.textureMaxSize / (fallback ? 2 : 1);
   if (!Number.isFinite(max)) return;
   if (texture.isCompressedTexture) {
     const mips = texture.mipmaps ?? [];

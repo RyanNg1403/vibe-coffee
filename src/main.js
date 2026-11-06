@@ -10,7 +10,10 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-import { THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink, setShadowCasterMinRadius } from './cafe.js';
+import {
+  THEMES, ROOM, buildCafe, resolveEnvironment, makeDrink, setShadowCasterMinRadius, setSurfaceTextureMaxSize,
+  releaseSurfaceTextures,
+} from './cafe.js';
 import { createNavigator, pointInPolygon, surfaceHeightAt } from './cafe/levelNavigation.js';
 import {
   placeFootprintForSeat, pullInsideShape, footprintSupported,
@@ -78,6 +81,7 @@ const device = detectDeviceProfile({ gl: renderer.getContext(), defaultTier: SEE
 const tierSettings = device.settings;
 configureModelBudget({ textureMaxSize: tierSettings.textureMaxSize, anisotropy: tierSettings.anisotropy });
 setShadowCasterMinRadius(tierSettings.smallShadowCasterRadius);
+setSurfaceTextureMaxSize(tierSettings.surfaceTextureMaxSize);
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
 // Auto stays at CSS-native resolution (lower on phones). On Retina screens,
 // 1.5x creates 2.25x as many half-float pixels across every composer target
@@ -517,7 +521,8 @@ async function streamCast(token, theme, models) {
 // least-recently-used first until the rest fit `budgetMB`.
 let castKeys = new Set();
 let lastEviction = null;
-function trimModelLibrary(budgetMB) {
+function trimModelLibrary(budgetMB, { surfaceMaps = tierSettings.releaseSurfaceMaps } = {}) {
+  if (surfaceMaps && cafe) releaseSurfaceTextures(scene);
   const inScene = new Set();
   scene.traverse((object) => {
     if (object.geometry) inScene.add(perf.lod.sourceGeometry(object.geometry));
@@ -1465,7 +1470,7 @@ const memoryGovernor = new MemoryGovernor({
     };
   },
   trim: (reason) => {
-    trimModelLibrary(0);
+    trimModelLibrary(0, { surfaceMaps: true });
     if (effectLevel === 0) releaseEffectTargets();
     perf.lod.releaseIdleWorker();
     releaseIdleTranscoders();
