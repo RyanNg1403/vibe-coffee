@@ -228,7 +228,7 @@ function initGamepad(hooks) {
   };
   window.addEventListener('gamepadconnected', (event) => {
     start();
-    hooks.notify(`Controller connected · ${event.gamepad.id.split('(')[0].trim() || 'gamepad'}`);
+    hooks.notify(`Controller connected · ${event.gamepad?.id?.split('(')[0].trim() || 'gamepad'}`);
   });
   window.addEventListener('gamepaddisconnected', () => hooks.notify('Controller disconnected'));
   if ([...(navigator.getGamepads?.() ?? [])].some(Boolean)) start();

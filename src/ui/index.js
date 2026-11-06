@@ -36,6 +36,9 @@ onUISettingsChange((settings) => applyDocumentSettings(settings));
 if (typeof matchMedia === 'function') {
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => applyDocumentSettings());
 }
+// Audit tooling captures page screenshots right after entering; keep the
+// canvas at its true framing for automated sessions.
+if (navigator.webdriver) root.classList.add('automation');
 root.classList.add('ui-ready');
 
 let connected = false;
