@@ -8,17 +8,10 @@
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, extname, join, relative, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-
-// Fetched by main.js as soon as it runs; preloading starts the download in
-// parallel with the JavaScript instead of after it.
-const CRITICAL_PRELOADS = ['environment/courtyard.hdr'];
-// Bundle files the worker precaches at install. Other bundle output (WASM,
-// workers' binaries, images) is content-hashed too but only cached when used.
-const PRECACHE = new Set(['.html', '.js', '.css']);
 
 // The service worker computes the same digest to verify downloads.
 export const revision = (data) => createHash('sha256').update(data).digest('hex').slice(0, 16);
@@ -33,8 +26,8 @@ function walk(dir) {
 // `preprocess` steps rewrite a public/ folder for the deployed build only,
 // e.g. `{ dir: 'models', run: (input, output) => … }`. Each run gets a fresh
 // empty output folder; files it writes replace their public/ counterparts in
-// dist/ (same names), and the service worker revisions describe those bytes.
-// Files it does not write ship unchanged.
+// dist/ (same names) or ship as new files, and the service worker revisions
+// describe those bytes. Files it does not write ship unchanged.
 export function pagesDeploy({ preprocess = [] } = {}) {
   let disabled = false;
   let base = '/';
@@ -72,9 +65,9 @@ export function pagesDeploy({ preprocess = [] } = {}) {
           replacements.set(`${step.dir}/${relative(output, file).split(sep).join('/')}`, file);
         }
       }
-      for (const file of walk(publicDir).sort()) {
-        const rel = relative(publicDir, file).split(sep).join('/');
-        const src = replacements.get(rel) ?? file;
+      const sources = new Map(walk(publicDir).map((file) => [relative(publicDir, file).split(sep).join('/'), file]));
+      for (const [rel, file] of replacements) sources.set(rel, file);
+      for (const [rel, src] of [...sources].sort(([a], [b]) => a.localeCompare(b))) {
         publicFiles.push({ rel, src, revision: revision(readFileSync(src)) });
       }
       if (replacements.size) this.info(`preprocessed ${replacements.size} public files`);
@@ -86,15 +79,9 @@ export function pagesDeploy({ preprocess = [] } = {}) {
 
     transformIndexHtml() {
       if (disabled) return [];
-      const known = new Set(publicFiles.map((file) => file.rel));
-      const preloads = CRITICAL_PRELOADS.filter((rel) => known.has(rel)).map((rel) => ({
-        tag: 'link',
-        attrs: { rel: 'preload', href: base + rel, as: 'fetch', crossorigin: '' },
-        injectTo: 'head',
-      }));
       const register = readFileSync(join(HERE, 'sw-register.js'), 'utf8')
         .replaceAll('__VIBE_BASE__', JSON.stringify(base));
-      return [...preloads, { tag: 'script', children: register, injectTo: 'body' }];
+      return [{ tag: 'script', children: register, injectTo: 'body' }];
     },
 
     writeBundle(_options, bundle) {
@@ -113,10 +100,25 @@ export function pagesDeploy({ preprocess = [] } = {}) {
           fileName: item.fileName,
           revision: revision(item.type === 'chunk' ? item.code : item.source),
         }));
+      // Precache only what the page itself loads before it runs: index.html,
+      // the entry chunk, its static imports and their CSS. Install then reads
+      // them from the HTTP cache instead of competing with the first frame.
+      // Lazy chunks, workers and WASM are content-hashed and cached on use.
+      const items = new Map(Object.values(bundle).map((item) => [item.fileName, item]));
+      const critical = new Set(['index.html']);
+      const visit = (fileName) => {
+        if (critical.has(fileName)) return;
+        critical.add(fileName);
+        const item = items.get(fileName);
+        if (item?.type !== 'chunk') return;
+        item.imports.forEach(visit);
+        item.viteMetadata?.importedCss?.forEach((css) => critical.add(css));
+      };
+      Object.values(bundle).filter((item) => item.type === 'chunk' && item.isEntry).forEach((item) => visit(item.fileName));
       const manifest = {
         base,
-        shell: build.filter((item) => PRECACHE.has(extname(item.fileName))).map((item) => item.fileName).sort(),
-        immutable: build.filter((item) => !PRECACHE.has(extname(item.fileName))).map((item) => item.fileName).sort(),
+        shell: build.filter((item) => critical.has(item.fileName)).map((item) => item.fileName).sort(),
+        immutable: build.filter((item) => !critical.has(item.fileName)).map((item) => item.fileName).sort(),
         files: Object.fromEntries(publicFiles.map((file) => [file.rel, file.revision])),
       };
       manifest.version = revision(JSON.stringify([

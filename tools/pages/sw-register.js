@@ -17,7 +17,14 @@
   // it fetched so the worker can cache it from the HTTP cache (still fresh).
   performance.setResourceTimingBufferSize(1000);
   const scope = new URL(base, location.href).href;
-  addEventListener('load', () => {
+  // Register once the page is idle after load, so installing the worker never
+  // competes with the first café frame. The worker only precaches the shell
+  // and caches other files as the page requests them.
+  const whenIdle = (task) => ('requestIdleCallback' in window
+    ? requestIdleCallback(task, { timeout: 8000 })
+    : setTimeout(task, 3000));
+  addEventListener('load', () => setTimeout(() => whenIdle(() => {
+    performance.mark('vibe-sw-register');
     navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch((error) => {
       console.warn('[sw] registration failed:', error.message);
     });
@@ -36,5 +43,5 @@
         if (pending.length && !timer) timer = setTimeout(flush, 1500);
       }).observe({ type: 'resource', buffered: true });
     });
-  });
+  }), 2000));
 })();

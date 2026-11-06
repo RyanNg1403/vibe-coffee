@@ -30,13 +30,14 @@ base path from the Pages settings.
    worker revisions describe it. If a later step changes a file in `dist/`,
    `npm run pages:size` fails, because the worker would never cache it.
 4. **Stay inside the download budgets.** CI enforces three:
-   - **30 MB downloaded before the first café frame** (decimal MB of response
-     bodies, measured in headless Chrome by `npm run pages:smoke`). This is the
-     measured 27.5 MB with startup waiting only for the opening venue, plus
-     about 9 % headroom. Override it with `BUDGET_FIRST_FRAME_MB`.
+   - **9 MB downloaded before the first café frame** (decimal MB of response
+     bodies, measured in headless Chrome by `npm run pages:smoke`). The room
+     renders first at about 6.5 MB; the cast, the other venues and the sky
+     stream in afterwards. Override it with `BUDGET_FIRST_FRAME_MB`.
    - **400 KB** for the initial code (HTML, entry script, modulepreloads and
      CSS, gzip). Lazy-load heavy code with `import()`.
-   - **2.5 MB** for the initial code plus `<link rel="preload">` assets.
+   - **1 MB** for the initial code plus any `<link rel="preload">` assets.
+     Don't preload anything the first frame doesn't need.
 5. **No SharedArrayBuffer or threaded WASM.** Pages cannot send COOP/COEP
    headers, so the page is never cross-origin isolated. For Rapier, use
    `@dimforge/rapier3d-compat` (single-threaded, WASM embedded) behind a
@@ -56,11 +57,15 @@ base path from the Pages settings.
 - Vite emits content-hashed JS/CSS chunks. Three.js has its own chunk, so it
   stays cached when only app code changes.
 - `tools/pages/vite-plugin.mjs` records a SHA-256 revision for every
-  `public/` file, preloads the HDR environment, and writes `sw.js`,
-  `404.html` and `.nojekyll`.
+  `public/` file (after preprocess steps such as KTX2 have run), and writes
+  `sw.js`, `404.html` and `.nojekyll`.
 - `sw.js` works like this:
-  - It precaches index.html and the bundle's JS/CSS for each deploy, and
-    caches other Vite-hashed files (WASM) on first use.
+  - It registers only when the page is idle after `load`, and precaches just
+    the shell: index.html, the entry chunk, its static imports and its CSS.
+    The page has already downloaded all of these. Lazy chunks, workers and
+    WASM are cached on first use. Models and audio are cached only when the
+    page requests them, so the worker never downloads anything ahead of the
+    first frame.
   - It serves fixed-name `public/` files from its cache only while the stored
     copy's revision matches the current deploy, with HTTP Range support for
     music.

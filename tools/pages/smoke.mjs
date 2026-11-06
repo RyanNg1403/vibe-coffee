@@ -20,9 +20,9 @@ const args = new Map(process.argv.slice(2).flatMap((arg, i, all) => arg.startsWi
 const OUT = resolve(args.get('out') ?? '.pages-smoke');
 const PORT = Number(args.get('port') ?? 4321);
 const DEBUG_PORT = PORT + 1;
-// 27.5 MB measured before the first café frame once startup only waits for
-// the opening venue, plus ~9 % headroom.
-const BUDGET_FIRST_FRAME_MB = Number(process.env.BUDGET_FIRST_FRAME_MB ?? 30);
+// 6.5 MB measured before the first café frame once the room renders first
+// and the cast, other venues and sky stream in afterwards; ~38 % headroom.
+const BUDGET_FIRST_FRAME_MB = Number(process.env.BUDGET_FIRST_FRAME_MB ?? 9);
 const WATCHDOG_MS = Number(process.env.SMOKE_TIMEOUT_MS ?? 15 * 60 * 1000);
 const VIEWPORT = { width: 1280, height: 720 };
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -269,6 +269,7 @@ try {
   await shot('02-first-visit-inside');
   phase.serviceWorker = await until(() => cdp.evaluate(
     'navigator.serviceWorker.ready.then((r) => r.active?.state === "activated" && Boolean(navigator.serviceWorker.controller))'), 'service worker', 60000);
+  phase.swRegisteredMs = await cdp.evaluate('Math.round(performance.getEntriesByName("vibe-sw-register")[0]?.startTime ?? -1)');
   // Wait for the worker to backfill the first visit's downloads.
   let previous = -1;
   phase.cachedAssets = await until(async () => {
