@@ -337,6 +337,11 @@ export class ModelView {
   [Symbol.iterator]() { return this.entries(); }
 }
 
+// The resident library (key -> entry), for memory accounting.
+export function residentModels() {
+  return library?.models ?? new Map();
+}
+
 // Every streamable cast model in the manifest, and whether it is resident.
 export function castCatalog() {
   return Object.keys(MODEL_MANIFEST).filter((key) => isCastModel(key) && !CAST_EXCLUSIONS.has(key))

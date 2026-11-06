@@ -21,7 +21,10 @@ import { PetSystem } from './pets.js';
 import { CafeAudio } from './audio.js';
 import {
   loadModelLibrary, loadModels, streamBackgroundModels, castCatalog, isCastModel, ModelView, cloneModel,
+  residentModels,
 } from './modelLoader.js';
+import { trackGpuMemory } from './perf/gpuMemory.js';
+import { memoryReport } from './perf/memoryReport.js';
 import { planCast } from './perf/castPlan.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
@@ -63,6 +66,7 @@ const canvas = document.getElementById('scene');
 // antialiasing on the (fullscreen-quad-only) default framebuffer duplicates
 // work without improving geometry edges.
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
+const gpuMemory = trackGpuMemory(renderer.getContext());
 const DEVICE_PIXEL_RATIO = window.devicePixelRatio || 1;
 // Auto stays at CSS-native resolution. On Retina screens, 1.5x creates 2.25x
 // as many half-float pixels across every composer target for little visible
@@ -1855,6 +1859,19 @@ window.__vibe = {
       perf: perf.metrics(),
     };
   },
+  memoryReport() {
+    const models = residentModels();
+    const templates = [...models.values()].map((entry) => entry.template);
+    let cast = 0;
+    for (const [key] of models) if (isCastModel(key)) cast += 1;
+    return memoryReport({
+      gpu: gpuMemory,
+      roots: [scene, ...templates],
+      audio: audio.buffers,
+      library: { models: models.size, cast },
+    });
+  },
+  gpuAllocations(limit = 20) { return gpuMemory.largest(limit); },
   place(x, z, yaw, pitch = 0, levelId = null) {
     standUp();
     if (levelId) walkLevelId = levelId;
