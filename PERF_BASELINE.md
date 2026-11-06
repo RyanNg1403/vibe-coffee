@@ -76,6 +76,7 @@ starts the ambience sound library.
 | | Before (PR head `9fadba1`) | After |
 | --- | --- | --- |
 | Bytes at first café frame (PR #23 probe) | 24.98 MB (characters 14.95, pets 1.04, other models 8.44, code 0.62) | **6.07 MB** (models 5.46, code 0.62) |
+| ...with normal maps also KTX2 (UASTC, commit `854c5c4`) | | **6.51 MB** (models 5.89, code 0.62) |
 | 10 Mbit/s with click: first café frame | 28.3 s, 31.3 MB (crowd already in) | **11.7 s**, 10.95 MB (room; sounds load alongside) |
 | 10 Mbit/s with click: crowd visible | 28.3 s (same frame) | 26.8 s, fading in nearest-first |
 | Character models downloaded for Golden Hour | 20 | 15 (the café's peak population needs no more) |
