@@ -82,6 +82,24 @@ starts the ambience sound library.
 | Character models downloaded for Golden Hour | 20 | 15 (the café's peak population needs no more) |
 | Bytes once the crowd is in (PR #23 probe) | 26.8 MB | 17.9 MB; 23.1 MB after idle background streaming |
 
+Ambience audio on "step inside" (same 10 Mbit/s click probe, measured at
+the exact first café frame, two runs each):
+
+| | Before (`dd0a349`) | After |
+| --- | --- | --- |
+| First café frame, 10 Mbit/s, click at once | 9.7 s, 10.2 MB (3.7 MB of it audio) | **7.0 s, 6.6 MB** (no ambience requested before it) |
+| PR #23 probe (no click) | 6.51 MB | 6.51 MB |
+
+The click still starts audio inside the user gesture. The synthesized beds
+(room tone, murmur, vinyl) play immediately and cost no bytes, but the
+recorded library now waits for the room's first frame (`audio.libraryGate`,
+released by `main.js`). It then loads the six bed recordings first (~1.5 MB;
+they replace the synth stand-ins as one mix) and the one-shots after.
+Trade-off: after the first frame, ambience shares bandwidth with the cast, so
+the crowd starts fading in a few seconds later at 10 Mbit/s (single runs:
+25.0 s before, 28.5 s after). Streaming long beds through media elements
+(less decoded PCM in RAM) is left to the memory/mobile follow-up.
+
 How:
 
 - The first café frame needs only the room. Patrons, staff and the dog

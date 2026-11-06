@@ -210,6 +210,10 @@ composer.setSize(W0, H0);
 updateFxaaResolution(W0, H0);
 
 const audio = new CafeAudio();
+// Streaming visits hold the recorded ambience until the room has drawn, so
+// "step inside" never puts megabytes of audio in front of the first frame.
+let releaseAudioLibrary = () => {};
+if (STREAM_CAST) audio.libraryGate = new Promise((resolve) => { releaseAudioLibrary = resolve; });
 
 // ---------- state ----------
 
@@ -442,6 +446,7 @@ function spawnCrowd(theme, cast, playerSeat = -1) {
 // frame; the crowd then fades in nearest-first around the seated player.
 async function streamCast(token, theme, models) {
   await perf.whenRendered();
+  releaseAudioLibrary();
   if (!photographicEnvironment && !environmentRequested) {
     environmentRequested = true;
     startDaylightEnvironment();

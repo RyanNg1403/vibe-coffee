@@ -14,6 +14,9 @@ import { loadSoundLibrary, loadSoundAsset } from './soundLoader.js';
 import { SOUND_MANIFEST } from './soundManifest.js';
 import { MUSIC_MANIFEST } from './musicManifest.js';
 
+// Recordings the looping beds are built from; they stream before one-shots.
+const BED_KEYS = new Set(['chatter', 'chatter2', 'chatter_busy', 'chatter_quiet', 'traffic_day', 'traffic_night']);
+
 const MIDI_A4 = 69;
 const freq = (midi) => 440 * Math.pow(2, (midi - MIDI_A4) / 12);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -211,6 +214,9 @@ export class CafeAudio {
     this.occupancy = 0;
     this.capacity = 1;
     this.buffers = new Map(); // recorded assets (loaded async; synth covers gaps)
+    // Recorded downloads wait for this (the app resolves it once the room has
+    // drawn its first frame); the synth beds play from the click meanwhile.
+    this.libraryGate = null;
     this.activeOneShotSources = 0; // live non-looping recorded sources, for runtime audits
     this._oneShotGroups = new Map(); // bounded high-frequency effects, e.g. crowd footsteps
     this.activePetVoices = 0;      // live pet voice sources (spontaneous ones cap at 1)
@@ -312,14 +318,20 @@ export class CafeAudio {
     this._startMusic();
 
     // recorded assets stream in behind the synth and take over the beds
-    loadSoundLibrary(ctx, SOUND_MANIFEST).then((buffers) => {
-      // lazily decoded entries (the active rain level) survive the swap
-      for (const [key, entry] of this.buffers) {
-        if (!buffers.has(key)) buffers.set(key, entry);
-      }
-      this.buffers = buffers;
-      this._applyRecordedBeds();
-    });
+    Promise.resolve(this.libraryGate).then(() => this._loadRecordedLibrary(ctx));
+  }
+
+  // Beds first (they replace the synth stand-ins as one mix), then one-shots,
+  // which are looked up by key whenever an event fires.
+  async _loadRecordedLibrary(ctx) {
+    const entries = Object.entries(SOUND_MANIFEST);
+    const beds = Object.fromEntries(entries.filter(([key]) => BED_KEYS.has(key)));
+    const others = Object.fromEntries(entries.filter(([key]) => !BED_KEYS.has(key)));
+    // merging keeps lazily decoded entries (the active rain level)
+    const merge = (buffers) => { for (const [key, entry] of buffers) this.buffers.set(key, entry); };
+    merge(await loadSoundLibrary(ctx, beds));
+    this._applyRecordedBeds();
+    merge(await loadSoundLibrary(ctx, others));
   }
 
   // ---------- recorded-asset helpers ----------
