@@ -335,8 +335,6 @@ async function loadTheme(index, { place } = {}) {
   navigator = createNavigator(cafe.blueprint);
   walkLevelId = 'ground';
   walkY = 0;
-  resetMemoryAuditRandom(index + 16); // TEMP for A/B measurement
-
   // Re-seed between construction and crowd spawn: decor edits change how many
   // random draws a build consumes, and without this every decor PR would
   // reshuffle the seeded audit crowd and make renderer counts incomparable.

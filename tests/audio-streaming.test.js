@@ -20,7 +20,14 @@ function fakeCtx() {
     sources: [],
     createGain: () => ({ gain: fakeParam(1), connect(next) { return next; }, disconnect() {} }),
     createBufferSource: () => {
-      const src = { playbackRate: fakeParam(1), connect() {}, disconnect() {}, start(when, offset) { src.started = { when, offset }; }, stop() {} };
+      const src = {
+        playbackRate: fakeParam(1),
+        buffer: null,
+        connect() {},
+        disconnect() {},
+        start(when, offset) { src.started = { when, offset }; },
+        stop() { src.stopped = true; },
+      };
       ctx.sources.push(src);
       return src;
     },
@@ -121,6 +128,27 @@ test('a refused element falls back to a decoded buffer loop into the same gain',
   assert.equal(src.loop, true);
   assert.equal(src.loopStart, 0.25);
   assert.equal(src.loopEnd, 10.65);
+});
+
+test('dispose of a fallback loop stops the source and clears its buffer', async () => {
+  const ctx = fakeCtx();
+  const buffer = { duration: 30 };
+  const loop = new StreamedLoop(ctx, fakePool({ refuse: true }), source(), {
+    out: {}, fallback: async () => buffer,
+  });
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    assert.equal(await loop.ready, true);
+  } finally {
+    console.warn = warn;
+  }
+  const [src] = ctx.sources;
+  assert.equal(src.buffer, buffer);
+  loop.dispose();
+  assert.equal(src.stopped, true);
+  assert.equal(src.buffer, null);
+  assert.equal(loop.bufferSource, null);
 });
 
 test('a stream source is revoked only once released and unused', () => {
