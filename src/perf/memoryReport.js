@@ -51,12 +51,15 @@ export function cpuResourceBytes(roots) {
   return { geometryBytes, imageBytes: imageTotal, geometries: geometries.size, textures: textures.size };
 }
 
+// Decoded PCM, plus compressed bytes kept for media-element streaming.
 export function audioBytes(buffers) {
-  let bytes = 0;
-  for (const { buffer } of buffers?.values?.() ?? []) {
-    if (buffer) bytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+  let decoded = 0;
+  let streamed = 0;
+  for (const { buffer, stream } of buffers?.values?.() ?? []) {
+    if (buffer) decoded += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+    if (stream?.url) streamed += stream.bytes;
   }
-  return bytes;
+  return { decoded, streamed };
 }
 
 export function jsHeap() {
@@ -73,8 +76,8 @@ export function memoryReport({ gpu, roots = [], audio = null, library = null } =
   const heap = jsHeap();
   const cpu = cpuResourceBytes(roots);
   const gpuSnapshot = gpu?.snapshot() ?? null;
-  const audioTotal = audioBytes(audio);
-  const estimate = (heap?.used ?? 0) + cpu.imageBytes + audioTotal + (gpuSnapshot?.total ?? 0);
+  const audioTotals = audioBytes(audio);
+  const estimate = (heap?.used ?? 0) + cpu.imageBytes + audioTotals.decoded + audioTotals.streamed + (gpuSnapshot?.total ?? 0);
   return {
     heapMB: toMB(heap?.used),
     heapLimitMB: toMB(heap?.limit),
@@ -92,7 +95,8 @@ export function memoryReport({ gpu, roots = [], audio = null, library = null } =
       geometries: cpu.geometries,
       textures: cpu.textures,
     },
-    audioMB: toMB(audioTotal),
+    audioMB: toMB(audioTotals.decoded),
+    audioStreamedMB: toMB(audioTotals.streamed),
     library,
     estimateMB: toMB(estimate),
   };

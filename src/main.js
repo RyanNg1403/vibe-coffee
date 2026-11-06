@@ -1803,8 +1803,10 @@ window.__vibe = {
         }
       }
     });
-    for (const { buffer } of audio.buffers.values()) {
-      decodedAudioBytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+    let streamedAudioBytes = 0;
+    for (const { buffer, stream } of audio.buffers.values()) {
+      if (buffer) decodedAudioBytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+      if (stream) streamedAudioBytes += stream.bytes;
     }
     return {
       theme: cafe?.theme.id ?? currentTheme.id,
@@ -1822,6 +1824,9 @@ window.__vibe = {
       bloomScale: 0.5,
       heapBytes: performance.memory?.usedJSHeapSize ?? null,
       decodedAudioBytes,
+      streamedAudioBytes,
+      streamedLoops: Object.keys(audio.chatterBeds).length + Object.keys(audio.trafficBeds).length
+        + (audio.rainNodes?.recordedSources.length ?? 0),
       outsidePedestrians: crowd?.outside?.walkers?.length ?? 0,
       indoorPatrons: crowd?.npcs?.length ?? 0,
       mobileActors: (crowd?.outside?.walkers?.length ?? 0) + (crowd?.npcs?.length ?? 0),
