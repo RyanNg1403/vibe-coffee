@@ -278,8 +278,14 @@ export class StreamedLoop {
     if (this.stopped) return;
     this.stopped = true;
     this._releaseDecks();
-    try { this.bufferSource?.stop(); } catch { /* already stopped */ }
-    this.bufferSource?.disconnect();
+    const src = this.bufferSource;
+    if (src) {
+      try { src.stop(); } catch { /* already stopped */ }
+      src.disconnect();
+      // A suspended context never renders the stop, so the node stays a
+      // pending activity and would pin the decoded bed until it resumes.
+      try { src.buffer = null; } catch { /* buffer is not detachable here */ }
+    }
     this.bufferSource = null;
     this.gain.disconnect();
     this.source.unretain();
