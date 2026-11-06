@@ -6,6 +6,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { cloneModel } from './modelLoader.js';
 import { TEXTURE_MANIFEST } from './textureManifest.js';
+import { assetUrl } from './assetUrl.js';
 import { clockAngles } from './clock.js';
 import { GREENERY } from './decor/decorManifest.js';
 import { buildServiceUpgrades, menuBoardTexture } from './decor/serviceCounter.js';
@@ -1024,7 +1025,7 @@ const _texCache = new Map();
 function surfTex(name, { srgb = false, rx = 1, ry = 1 } = {}) {
   const key = `${name}|${srgb}|${rx}|${ry}`;
   if (_texCache.has(key)) return _texCache.get(key);
-  const t = _texLoader.load(TEXTURE_MANIFEST[name] ?? '/textures/' + name);
+  const t = _texLoader.load(assetUrl(TEXTURE_MANIFEST[name] ?? '/textures/' + name));
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(rx, ry);
   t.anisotropy = 8;

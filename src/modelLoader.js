@@ -11,6 +11,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODEL_MANIFEST } from './modelManifest.js';
+import { assetUrl } from './assetUrl.js';
 
 // This asset's exaggerated head/hair proportions and seated silhouette clash
 // with the established café cast. Keep the source in the repository for
@@ -156,7 +157,7 @@ export function loadModelLibrary() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const dracoLoader = new DRACOLoader();
-  dracoLoader.setDecoderPath('/draco/');
+  dracoLoader.setDecoderPath(assetUrl('/draco/'));
   loader.setDRACOLoader(dracoLoader);
   const models = new Map();
   const sharedTextures = new Map();
@@ -167,7 +168,7 @@ export function loadModelLibrary() {
       if (def.url.startsWith('data:')) {
         gltf = await loader.parseAsync(dataUriToArrayBuffer(def.url), '');
       } else {
-        const res = await fetch(def.url);
+        const res = await fetch(assetUrl(def.url));
         if (!res.ok) throw new Error(`http ${res.status}`);
         gltf = await loader.parseAsync(await res.arrayBuffer(), '');
       }

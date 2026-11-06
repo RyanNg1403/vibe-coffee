@@ -6,6 +6,8 @@
 // loudness-analyzed on load and given an auto gain that brings it to a
 // common RMS target (peak-limited so nothing clips).
 
+import { assetUrl } from './assetUrl.js';
+
 function analyze(buffer) {
   let sum = 0, peak = 0;
   const stride = Math.max(1, Math.floor(buffer.length / 200000)); // sample large files
@@ -68,7 +70,7 @@ export async function loadSoundAsset(ctx, key, def) {
   if (def.url.startsWith('data:')) {
     ab = dataUriToArrayBuffer(def.url);
   } else {
-    const res = await fetch(def.url);
+    const res = await fetch(assetUrl(def.url));
     if (!res.ok) throw new Error(`http ${res.status}`);
     ab = await res.arrayBuffer();
   }

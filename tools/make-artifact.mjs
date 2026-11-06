@@ -152,6 +152,7 @@ for (const id of uniqueTracks) {
 
 await build({
   root,
+  mode: 'artifact',
   publicDir: false,
   build: { outDir: buildDir, emptyOutDir: true, minify: true },
   plugins: [{

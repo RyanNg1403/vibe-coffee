@@ -1,0 +1,89 @@
+name: GitHub Pages
+
+# Builds, tests and size-checks every push and pull request; deploys main.
+# One-time repository setting: Settings → Pages → Build and deployment →
+# Source: GitHub Actions. See DEPLOYMENT.md for the hosting constraints.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  # Never cancel a production deployment midway; superseded PR runs can go.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pages: read
+    env:
+      DEPLOY: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      # Reads the served path from the Pages settings: /<repo> for a project
+      # site, empty for a custom domain or a <owner>.github.io repository.
+      - name: Resolve Pages base path
+        id: pages
+        if: env.DEPLOY == 'true'
+        uses: actions/configure-pages@v6
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_BASE: ${{ env.DEPLOY == 'true' && format('{0}/', steps.pages.outputs.base_path) || format('/{0}/', github.event.repository.name) }}
+
+      - name: Size report and initial-load budget
+        run: npm run pages:size
+
+      - name: Headless Chrome smoke test (served like Pages)
+        run: npm run pages:smoke
+
+      - name: Upload smoke screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pages-smoke
+          path: .pages-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload Pages artifact
+        if: env.DEPLOY == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/
+          include-hidden-files: true
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

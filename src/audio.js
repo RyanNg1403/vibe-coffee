@@ -13,6 +13,7 @@
 import { loadSoundLibrary, loadSoundAsset } from './soundLoader.js';
 import { SOUND_MANIFEST } from './soundManifest.js';
 import { MUSIC_MANIFEST } from './musicManifest.js';
+import { assetUrl } from './assetUrl.js';
 
 const MIDI_A4 = 69;
 const freq = (midi) => 440 * Math.pow(2, (midi - MIDI_A4) / 12);
@@ -1730,7 +1731,7 @@ export class CafeAudio {
 
     next.mix = 0;
     this._applyRecordedVolumes();
-    next.el.src = track.url;
+    next.el.src = assetUrl(track.url);
     try {
       await next.el.play();
     } catch (error) {
