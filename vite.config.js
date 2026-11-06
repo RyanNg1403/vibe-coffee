@@ -43,12 +43,14 @@ export default defineConfig(({ command, mode, isPreview }) => {
     optimizeDeps: { entries: ['index.html'] },
     build: {
       // Three.js changes far less often than the app, so its own hashed chunk
-      // stays cached (HTTP and service worker) across most deploys.
+      // stays cached (HTTP and service worker) across most deploys. Core
+      // only: examples (loaders, passes) stay with the code that imports
+      // them, so lazily imported ones remain lazy.
       chunkSizeWarningLimit: 800,
       rolldownOptions: {
         output: {
           codeSplitting: artifact ? false : {
-            groups: [{ name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ }],
+            groups: [{ name: 'three', test: /[\\/]node_modules[\\/]three[\\/](build|src)[\\/]/ }],
           },
         },
       },

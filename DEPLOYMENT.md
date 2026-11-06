@@ -23,19 +23,29 @@ base path from the Pages settings.
    service worker caches them forever. Other `public/` folders keep their names
    (for example `draco/`, whose decoder files are requested by name).
    Modules and assets imported from `src/` are hashed by Vite automatically.
-3. **Lazy-load heavy code** with `import()`. The initial code (HTML, entry
-   script, modulepreloads and CSS, gzip) has a **400 KB** budget, and the
-   initial download including `<link rel="preload">` assets has a **2.5 MB**
-   budget. `npm run pages:size` fails CI when either is exceeded.
-4. **No SharedArrayBuffer or threaded WASM.** Pages cannot send COOP/COEP
+3. **Transform public assets before hashing, never after the build.** A
+   build-time asset step (for example the KTX2 texture step) belongs in
+   `pagesDeploy({ preprocess })` in `vite.config.js`. Each run reads
+   `public/<dir>` and writes to a fresh temporary folder, and the plugin hashes
+   what it writes. A step that rewrites `dist/models/<name>.glb` afterwards
+   produces files nothing requests, and `npm run pages:size` fails on them.
+4. **Stay inside the download budgets.** CI enforces three:
+   - **30 MB downloaded before the first café frame** (decimal MB of response
+     bodies, measured in headless Chrome by `npm run pages:smoke`). This is the
+     measured 27.5 MB with startup waiting only for the opening venue, plus
+     about 9 % headroom. Override it with `BUDGET_FIRST_FRAME_MB`.
+   - **400 KB** for the initial code (HTML, entry script, modulepreloads and
+     CSS, gzip). Lazy-load heavy code with `import()`.
+   - **2.5 MB** for the initial code plus `<link rel="preload">` assets.
+5. **No SharedArrayBuffer or threaded WASM.** Pages cannot send COOP/COEP
    headers, so the page is never cross-origin isolated. For Rapier, use
    `@dimforge/rapier3d-compat` (single-threaded, WASM embedded) behind a
    dynamic `import()`, or the non-compat build with its `.wasm` loaded via
    `new URL('…/rapier_wasm3d_bg.wasm', import.meta.url)` so Vite hashes it.
-5. **Stay within the Pages limits:** under 100 MB per file (GitHub warns above
+6. **Stay within the Pages limits:** under 100 MB per file (GitHub warns above
    50 MB), under 1 GB per site, and no Git LFS, because Pages serves the LFS
    pointer file instead of the content. The size report enforces all three.
-6. **Don't rely on server features.** There are no custom headers, redirects or
+7. **Don't rely on server features.** There are no custom headers, redirects or
    rewrites. Every response gets `Cache-Control: max-age=600` and text types are
    gzip-compressed (never brotli), so don't ship pre-compressed `.br` or `.gz`
    files. There are no client-side routes: unknown paths get `404.html`, which
@@ -54,6 +64,11 @@ base path from the Pages settings.
   without the network. On the first visit the page reports what it downloaded
   so the worker can cache those files from the still-fresh HTTP cache. Add
   `?no-sw` to a URL to unregister the worker while debugging.
+- CI installs ffmpeg and KTX-Software (`toktx`), pinned by version and SHA-256
+  in the workflow and cached between runs. It also caches `.texture-cache`, so
+  only changed textures are re-encoded. Without these tools a build quietly
+  keeps the original JPEG textures, so the workflow fails early if either tool
+  is missing. To get KTX2 locally, put `toktx` 4.4.x and ffmpeg on `PATH`.
 - `tools/make-artifact.mjs` builds with `--mode artifact`, which uses the root
   base and no chunk splitting, asset hashing or service worker.
 

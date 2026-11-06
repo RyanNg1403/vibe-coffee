@@ -204,6 +204,7 @@ try {
     if (!phase || !requests.has(requestId)) return;
     phase.lastActivity = Date.now();
     if (response.fromServiceWorker) phase.fromServiceWorker += 1;
+    else if (phase.name !== 'first-visit') (phase.notFromServiceWorker ??= []).push(response.url);
     if (response.status >= 400 && !phase.expectNotFound) phase.httpErrors.push(`${response.status} ${response.url}`);
   });
   cdp.on('Network.loadingFinished', ({ requestId, encodedDataLength }) => {
