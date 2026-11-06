@@ -3,6 +3,7 @@
 // produced by src/controls as a per-frame intent.
 import { $, root, focusables, setInputValue } from './dom.js';
 import { isPanelOpen, closePanel, togglePanel } from './panels.js';
+import { startButton } from './title.js';
 
 let modality = 'mouse';
 const modalityListeners = new Set();
@@ -37,7 +38,8 @@ function onKeyDown(event, hooks) {
   if (event.defaultPrevented || isTyping(target) || hooks.isSettingsOpen()) return;
 
   if (!hooks.isEntered()) {
-    if (event.key === 'Enter' && !target?.closest?.('button')) { $('#enter-btn').click(); event.preventDefault(); }
+    if (event.key === 'Enter' && !target?.closest?.('button')) { startButton().click(); event.preventDefault(); }
+    else if (event.code === 'KeyN' && !$('#continue-btn')?.hidden) $('#enter-btn').click();
     else if (event.code === 'KeyF') $('#title-focus').click();
     else if (/^Digit[1-4]$/.test(event.code)) hooks.selectVenue(Number(event.code.slice(5)) - 1);
     return;

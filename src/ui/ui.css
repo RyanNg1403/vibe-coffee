@@ -235,6 +235,16 @@ html.ui-loaded .venue-picker { display: grid; gap: 12px; }
 html.ui-loaded .title__menu > *, html.ui-loaded .venue-picker { animation: rise var(--t-slow) var(--ease-out) both; }
 html.ui-loaded .title__menu > :nth-child(2) { animation-delay: 60ms; }
 html.ui-loaded .title__menu > :nth-child(3) { animation-delay: 120ms; }
+html.ui-loaded .title__menu > :nth-child(4) { animation-delay: 180ms; }
+.btn[hidden] { display: none; }
+.btn--resume { min-height: 64px; padding-block: 10px; }
+.btn__stack { display: grid; gap: 3px; min-width: 0; }
+.btn__meta {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.8rem; font-weight: 600; letter-spacing: 0; opacity: 0.85;
+}
+.btn__meta--soft { font-weight: 500; opacity: 0.7; white-space: normal; }
+.btn__meta:empty { display: none; }
 html.ui-loaded .venue-picker { animation-delay: 180ms; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .title__menu .btn--ghost { justify-self: start; }

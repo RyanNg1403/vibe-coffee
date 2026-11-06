@@ -1,11 +1,9 @@
 // Interface, accessibility and control settings. Kept apart from the café
 // preferences (src/preferences.js) so either can evolve without migrating
 // the other; both are conveniences that fall back to defaults silently.
-
+import { STORAGE_KEYS, readJSON, writeJSON } from '../storage/index.js';
 import { isMusicStation, DEFAULT_MUSIC_STATION } from '../musicStations.js';
 import { sanitizeYouTubeRef } from './youtube.js';
-
-const STORAGE_KEY = 'vibe-coffee.ui.v1';
 
 export const TEXT_SCALES = Object.freeze([1, 1.12, 1.25, 1.4]);
 export const BREAK_MINUTES = Object.freeze([5, 10, 15]);
@@ -57,21 +55,14 @@ export function sanitizeUISettings(raw = {}) {
   };
 }
 
-export function loadUISettings(storage = globalThis.localStorage) {
-  try {
-    return sanitizeUISettings(JSON.parse(storage?.getItem(STORAGE_KEY) ?? '{}'));
-  } catch {
-    return { ...DEFAULT_UI_SETTINGS };
-  }
+export function loadUISettings(storage) {
+  return sanitizeUISettings(readJSON(STORAGE_KEYS.ui, storage) ?? {});
 }
 
-export function saveUISettings(settings, storage = globalThis.localStorage) {
-  try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(sanitizeUISettings(settings)));
-  } catch {
-    // Storage may be unavailable (private mode, quota). Settings still apply
-    // for this visit.
-  }
+// Storage may be unavailable (private mode, quota). Settings still apply for
+// this visit.
+export function saveUISettings(settings, storage) {
+  return writeJSON(STORAGE_KEYS.ui, sanitizeUISettings(settings), storage);
 }
 
 let current = loadUISettings();

@@ -1,8 +1,9 @@
 import { connectUI } from './ui/index.js';
-import { lookSettings, motionReduced, breakMinutes } from './ui/settings.js';
+import { lookSettings, motionReduced, breakMinutes, getUISettings, updateUISettings, onUISettingsChange } from './ui/settings.js';
+import { adoptFocusStats, getFocusStats, noteRestoredFocus } from './ui/focus.js';
 import { createControls } from './controls/index.js';
 import { clampPitch } from './controls/intent.js';
-import { initQualityTier, onQualityTierChange, qualityTierConfig } from './qualityTier.js';
+import { initQualityTier, onQualityTierChange, qualityTierConfig, setQualityTier } from './qualityTier.js';
 import * as THREE from 'three';
 import { createRenderingSystem } from './rendering/renderingSystem.js';
 import { TIER_NAMES, resolveTierName, tierConfig, tierIndex } from './rendering/qualityTiers.js';
@@ -32,6 +33,10 @@ import { ThermalGovernor, frameCaps, watchBatterySaver } from './perf/framePacin
 import { releaseIdleTranscoders } from './perf/textureCompression.js';
 import { planCast } from './perf/castPlan.js';
 import { loadPreferences, savePreferences } from './preferences.js';
+import { STORAGE_KEYS, readJSON, requestPersistentStorage } from './storage/index.js';
+import { createCheckpointStore } from './storage/checkpointStore.js';
+import { createAutosave } from './storage/autosave.js';
+import { describeCheckpoint, formatClock, resumeFocus } from './storage/checkpoint.js';
 import { laptopCupOffset, clearanceSlots } from './tableClearance.js';
 import { AdaptiveFrameScheduler } from './frameScheduler.js';
 import { WorldInteractions } from './interactions/worldInteractions.js';
@@ -53,6 +58,24 @@ const STREAM_CAST = !SEEDED_AUDIT_MODE;
 // rewrites a large attribute every 0.5 s (string churn, style invalidation),
 // so only audit and ?perf sessions do it; tools read window.__vibe.metrics().
 const METRICS_ATTRIBUTE = SEEDED_AUDIT_MODE || auditParams.has('perf');
+
+// Session checkpoints (src/storage). Reading starts now so the first café
+// built can be the one the visitor left. Audits stay deterministic: they
+// neither restore nor save.
+const hadStoredPreferences = readJSON(STORAGE_KEYS.preferences) != null;
+const hadStoredUISettings = readJSON(STORAGE_KEYS.ui) != null;
+const checkpointStore = createCheckpointStore();
+const checkpointLoad = SEEDED_AUDIT_MODE
+  ? Promise.resolve(null)
+  : checkpointStore.load().catch((error) => {
+    console.warn('[checkpoint] could not be read:', error);
+    return null;
+  });
+const autosave = createAutosave({
+  capture: captureCheckpoint,
+  store: checkpointStore,
+  onResult: reportCheckpointSave,
+});
 function resetMemoryAuditRandom(themeIndex) {
   if (!SEEDED_AUDIT_MODE) return;
   // Make every rebuild of a location contain the same patrons and procedural
@@ -215,6 +238,7 @@ function sitAt(index, instant = false) {
   if (crowd) crowd.setPlayerSeat(index);
   seatIndex = index;
   mode = 'seated';
+  autosave.touch('seat');
   updateWalkBtn();
   placePlayerLaptop(); // your MacBook follows you to the new table
   placePlayerCup(); // keep an existing order grounded at the current table
@@ -276,7 +300,9 @@ function activeTheme(index = currentThemeIndex) {
   if (index === currentThemeIndex) return currentTheme;
   return resolveEnvironment(base, envTime, envSky);
 }
-async function loadTheme(index) {
+// `place` may position the player in the new room (returns true when it
+// did); otherwise they take the best free seat.
+async function loadTheme(index, { place } = {}) {
   currentThemeIndex = index;
   lastSceneChangeAt = performance.now();
   const baseTheme = THEMES[index];
@@ -336,11 +362,14 @@ async function loadTheme(index) {
   audio.setTypingSpots([]);
   audio.setTheme(theme);
 
-  const s = defaultSeat();
-  crowd?.setPlayerSeat(s);
-  sitAt(s, true);
+  if (!place?.()) {
+    const s = defaultSeat();
+    crowd?.setPlayerSeat(s);
+    sitAt(s, true);
+  }
   pointerDirty = true;
   renderer.shadowMap.needsUpdate = true;
+  autosave.touch('cafe');
   perf.sceneChanged({ models });
   if (STREAM_CAST) streamCast(token, theme, models);
 
@@ -865,6 +894,7 @@ function standUp() {
   resolveCollisions(walkPos);
   walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z)
     ?? (seat ? seat.pos.y - (seat.isBar ? 0.15 : 0) : walkY);
+  autosave.touch('stand');
   updateWalkBtn();
 }
 
@@ -1131,8 +1161,8 @@ document.addEventListener('fullscreenchange', syncFullscreenButton);
 document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
 syncFullscreenButton();
 
-function persistPreferences() {
-  savePreferences({
+function currentPreferences() {
+  return {
     musicVolume: Number(musicVolume.value),
     ambienceVolume: Number(ambienceVolume.value),
     voicesVolume: Number(voicesVolume.value),
@@ -1147,9 +1177,14 @@ function persistPreferences() {
     laptopOn,
     focusMinutes,
     frameCap: userFrameCap,
-  });
+  };
+}
+function persistPreferences() {
+  savePreferences(currentPreferences());
+  autosave.touch('preferences');
 }
 window.addEventListener('cafe-track-change', (e) => {
+  autosave.touch('music');
   if (!trackStyle) return;
   if (e.detail.recorded) {
     trackStyle.textContent = `${e.detail.title} — ${e.detail.artist}`;
@@ -1410,18 +1445,22 @@ function renderTimer() {
     lastTimerBreak = timerBreak;
   }
 }
+function renderTimerButton() {
+  timerBtn.textContent = timerRunning ? '❚❚' : '▶';
+  timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
+}
 timerBtn.addEventListener('click', () => {
   timerRunning = !timerRunning;
   if (!timerRunning) audio.stopPlayerTyping();
-  timerBtn.textContent = timerRunning ? '❚❚' : '▶';
-  timerBtn.setAttribute('aria-label', timerRunning ? 'Pause focus timer' : 'Start focus timer');
+  renderTimerButton();
+  autosave.touch('focus');
 });
 document.getElementById('timer-reset').addEventListener('click', () => {
   timerRunning = false; timerBreak = false; timerLeft = focusMinutes * 60;
   audio.stopPlayerTyping();
-  timerBtn.textContent = '▶';
-  timerBtn.setAttribute('aria-label', 'Start focus timer');
+  renderTimerButton();
   renderTimer();
+  autosave.touch('focus');
 });
 document.getElementById('timer-minus').addEventListener('click', () => {
   setFocusMinutes(focusMinutes - (focusMinutes > 5 ? 5 : 1));
@@ -1437,7 +1476,7 @@ renderTimer();
 
 // enter overlay — also unlocks the AudioContext
 const overlay = document.getElementById('overlay');
-document.getElementById('enter-btn').addEventListener('click', () => {
+function enterCafe() {
   overlay.classList.add('hidden');
   overlay.setAttribute('aria-hidden', 'true');
   audio.start(activeTheme());
@@ -1448,7 +1487,233 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   audio.setRainIntensity(Number(rainSlider.value));
   audio.setMusicOn(musicToggle.classList.contains('on'));
   audio.setMuted(masterMuted);
+}
+
+// ---------- session checkpoints: Continue / New session ----------
+// The title offers Continue when a checkpoint exists. Its café, time and
+// weather are already the ones built behind the title, with the player in
+// their saved spot, so Continue only has to resume the timer and music.
+
+let sessionStarted = false;
+let offeredCheckpoint = null;
+let restoredMusic = null;
+let saveProblemShown = false;
+let playerWasMoving = false;
+
+const cafeIndexOf = (checkpoint) => {
+  const byId = THEMES.findIndex((theme) => theme.id === checkpoint.cafeId);
+  return byId >= 0 ? byId : THREE.MathUtils.clamp(checkpoint.preferences.cafeIndex, 0, THEMES.length - 1);
+};
+
+function captureCheckpoint() {
+  let player = null;
+  // While a different room is being built, the old position means nothing.
+  if (cafe && cafe.theme === currentTheme) {
+    const look = { yaw: view.yaw, pitch: view.pitch };
+    if (mode === 'seated' && seatIndex >= 0) {
+      const { pos, levelId } = cafe.seats[seatIndex];
+      player = {
+        mode: 'seated', seat: { index: seatIndex, x: pos.x, y: pos.y, z: pos.z },
+        x: pos.x, y: pos.y, z: pos.z, levelId: levelId ?? 'ground', ...look,
+      };
+    } else if (mode === 'walking') {
+      player = { mode: 'walking', x: walkPos.x, y: walkY, z: walkPos.z, levelId: walkLevelId, ...look };
+    }
+  }
+  const music = audio.started ? audio.musicState() : null;
+  if (music) restoredMusic = null;
+  return {
+    savedAt: Date.now(),
+    cafeId: THEMES[currentThemeIndex].id,
+    preferences: currentPreferences(),
+    settings: getUISettings(),
+    stats: getFocusStats(),
+    player,
+    focus: { running: timerRunning, onBreak: timerBreak, remaining: timerLeft },
+    music: music ?? restoredMusic,
+  };
+}
+
+function reportCheckpointSave(result) {
+  if (!result || result.ok || saveProblemShown) return;
+  saveProblemShown = true;
+  toast(result.reason === 'quota'
+    ? 'storage is full, so this device can’t keep your spot for now'
+    : 'this browser isn’t keeping site data, so your spot won’t be saved');
+}
+
+// A saved seat is matched by position as well as index, so a layout change
+// between deploys never seats the player somewhere unexpected.
+function savedSeatIndex(saved) {
+  if (!saved || !cafe) return -1;
+  const near = (seat) => seat
+    && Math.hypot(seat.pos.x - saved.x, seat.pos.z - saved.z) < 0.35
+    && Math.abs(seat.pos.y - saved.y) < 0.5;
+  return near(cafe.seats[saved.index]) ? saved.index : cafe.seats.findIndex(near);
+}
+
+function restorePlayer(player) {
+  if (!cafe || !player) return false;
+  tween.active = false;
+  const index = player.mode === 'seated' ? savedSeatIndex(player.seat) : -1;
+  // a patron who sat down in the freshly built room gives the seat back
+  const seated = index >= 0 && (!crowd?.isSeatTaken(index) || crowd.evictSeat(index));
+  if (seated) {
+    crowd?.setPlayerSeat(index);
+    sitAt(index, true);
+  } else {
+    standUp();
+    mode = 'walking';
+    seatIndex = -1;
+    crowd?.setPlayerSeat(-1);
+    const onLevel = navigator?.resolveHeight(player.levelId, player.x, player.z) != null;
+    walkLevelId = onLevel ? player.levelId : 'ground';
+    // Patrons are respawned on every visit; the saved spot is honoured even
+    // if one stands there now (they step around the player).
+    walkPos.set(player.x, 0, player.z);
+    resolveCollisions(walkPos);
+    walkY = navigator?.resolveHeight(walkLevelId, walkPos.x, walkPos.z) ?? 0;
+    camera.position.set(walkPos.x, walkY + STAND_EYE, walkPos.z);
+    placePlayerLaptop();
+    updateWalkBtn();
+  }
+  view.yaw = player.yaw;
+  view.pitch = clampPitch(player.pitch);
+  applyView();
+  return true;
+}
+
+function restoreFocusState(focus, savedAt) {
+  const resumed = resumeFocus(focus, savedAt, Date.now());
+  if (resumed.remaining <= 0) Object.assign(resumed, { running: false, onBreak: false, remaining: focusMinutes * 60 });
+  noteRestoredFocus(resumed);
+  timerRunning = resumed.running;
+  timerBreak = resumed.onBreak;
+  timerLeft = resumed.remaining;
+  renderTimerButton();
+  renderTimer();
+  if (resumed.interrupted) {
+    toast(`your ${resumed.onBreak ? 'break' : 'focus session'} is paused at ${formatClock(resumed.remaining)}, press play to carry on`);
+  }
+}
+
+// Only used to recover values a checkpoint holds when this device's
+// preference record is missing (for example after site data was partly
+// cleared). Normal visits already loaded these from src/preferences.js.
+function applyPreferenceValues(p) {
+  musicVolume.value = String(p.musicVolume);
+  ambienceVolume.value = String(p.ambienceVolume);
+  voicesVolume.value = String(p.voicesVolume);
+  petsVolume.value = String(p.petVolume);
+  rainSlider.value = String(p.rainIntensity);
+  renderRainStop();
+  audio.setMusicVolume(p.musicVolume);
+  audio.setAmbienceVolume(p.ambienceVolume);
+  audio.setVoicesVolume(p.voicesVolume);
+  audio.setPetVolume(p.petVolume);
+  audio.setRainIntensity(p.rainIntensity);
+  if (musicToggle.classList.contains('on') !== p.musicOn) musicToggle.click();
+  if (masterMuted !== p.muted) {
+    masterMuted = p.muted;
+    audio.setMuted(masterMuted);
+    renderMuteToggle();
+  }
+  setQualityTier(p.qualityMode);
+  if (p.frameCap !== userFrameCap) setFrameCap(p.frameCap);
+  laptopOn = p.laptopOn;
+  document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
+  if (focusMinutes !== p.focusMinutes) setFocusMinutes(p.focusMinutes);
+  persistPreferences();
+}
+
+function startNewSession() {
+  sessionStarted = true;
+  // The room behind the title showed the saved spot; a new session starts
+  // from the best free seat instead.
+  if (offeredCheckpoint && cafe && cafe.theme === currentTheme) {
+    const s = defaultSeat();
+    crowd?.setPlayerSeat(s);
+    sitAt(s, true);
+  }
+  persistPreferences();
+  autosave.enable();
+  autosave.saveNow('new-session');
+}
+
+function resumeSession(checkpoint) {
+  sessionStarted = true;
+  const { preferences: saved } = checkpoint;
+  const index = cafeIndexOf(checkpoint);
+  const sameRoom = index === currentThemeIndex && envTime === saved.envTime && envSky === saved.envSky
+    && cafe && cafe.theme === currentTheme;
+  envTime = saved.envTime;
+  envSky = saved.envSky;
+  renderSkyChips();
+  if (laptopOn !== saved.laptopOn) {
+    laptopOn = saved.laptopOn;
+    document.getElementById('laptop-btn')?.classList.toggle('on', laptopOn);
+  }
+  if (focusMinutes !== saved.focusMinutes) setFocusMinutes(saved.focusMinutes);
+  // Re-applied even in the same room: the visitor may have looked around on
+  // the title screen.
+  if (sameRoom) restorePlayer(checkpoint.player);
+  else loadTheme(index, { place: () => restorePlayer(checkpoint.player) });
+  restoreFocusState(checkpoint.focus, checkpoint.savedAt);
+  restoredMusic = checkpoint.music;
+  audio.queueMusicResume(checkpoint.music);
+  persistPreferences();
+  autosave.enable();
+  autosave.touch('continue');
+  requestPersistentStorage();
+}
+
+document.getElementById('enter-btn').addEventListener('click', () => {
+  if (!sessionStarted) startNewSession();
+  enterCafe();
 });
+document.getElementById('continue-btn')?.addEventListener('click', () => {
+  if (!sessionStarted) {
+    if (offeredCheckpoint) resumeSession(offeredCheckpoint);
+    else startNewSession();
+  }
+  enterCafe();
+});
+onUISettingsChange(() => autosave.touch('settings'));
+document.addEventListener('vibe:focus-block', () => {
+  autosave.touch('focus-block');
+  requestPersistentStorage();
+});
+
+checkpointLoad.then((checkpoint) => {
+  if (!checkpoint || sessionStarted) return;
+  offeredCheckpoint = checkpoint;
+  adoptFocusStats(checkpoint.stats);
+  if (!hadStoredUISettings) updateUISettings(checkpoint.settings);
+  if (!hadStoredPreferences) applyPreferenceValues(checkpoint.preferences);
+});
+
+// Warm the checkpoint's café first: build the room, time and weather the
+// visitor left (with them in their spot) instead of a default room that
+// Continue would have to tear down, and fetch their music track meanwhile.
+// The model library starts downloading while the checkpoint is read.
+async function bootCafe() {
+  loadModelLibrary(THEMES[preferences.cafeIndex].id, { streamCast: STREAM_CAST }).catch(() => {});
+  const checkpoint = await Promise.race([
+    checkpointLoad,
+    new Promise((resolve) => setTimeout(resolve, 1500, null)),
+  ]);
+  if (!checkpoint) {
+    await loadTheme(preferences.cafeIndex);
+    return;
+  }
+  envTime = checkpoint.preferences.envTime;
+  envSky = checkpoint.preferences.envSky;
+  renderSkyChips();
+  audio.prefetchMusic(checkpoint.music);
+  await loadTheme(cafeIndexOf(checkpoint), {
+    place: () => !sessionStarted && restorePlayer(checkpoint.player),
+  });
+}
 
 function applyRenderPixelRatio(nextRatio) {
   const clamped = THREE.MathUtils.clamp(nextRatio, MIN_PIXEL_RATIO, MAX_PIXEL_RATIO);
@@ -1565,6 +1830,8 @@ function frame(now = performance.now()) {
       .addScaledVector(walkForward, intent.move.z)
       .addScaledVector(walkRight, intent.move.x);
     const moving = walkMove.lengthSq() > 1e-4;
+    if (playerWasMoving && !moving) autosave.touch('moved');
+    playerWasMoving = moving;
     if (moving) {
       cameraMoved = true;
       const speed = WALK_SPEED * (intent.sprint ? SPRINT_MULTIPLIER : 1);
@@ -1657,6 +1924,7 @@ function frame(now = performance.now()) {
       timerLeft = (timerBreak ? breakMinutes() : focusMinutes) * 60;
       if (audio.started) audio.playTimerAlarm();
       toast(timerBreak ? 'Break time — stretch a little 🌿' : 'Back to focus ☕');
+      autosave.touch('focus');
     }
     renderTimer();
   }
@@ -1720,7 +1988,7 @@ function frame(now = performance.now()) {
   }
 }
 
-loadTheme(preferences.cafeIndex);
+bootCafe();
 frame();
 
 connectUI({
@@ -1729,6 +1997,9 @@ connectUI({
   currentCafe: () => cafe,
   controls,
   audio,
+  checkpoint: checkpointLoad.then((checkpoint) => (checkpoint
+    ? describeCheckpoint(checkpoint, { cafeName: THEMES[cafeIndexOf(checkpoint)].name })
+    : null)),
 });
 
 // tiny debug handle for automated tests: place the camera, inspect audio
@@ -1763,6 +2034,16 @@ window.__vibe = {
   get perf() { return perf; },
   get controls() { return controls; },
   get view() { return { yaw: view.yaw, pitch: view.pitch }; },
+  checkpoint: {
+    capture: () => captureCheckpoint(),
+    save: (reason = 'debug') => autosave.saveNow(reason),
+    load: () => checkpointStore.load(),
+    whenRead: () => checkpointLoad.then(Boolean),
+    get backend() { return checkpointStore.backend; },
+    get offered() { return offeredCheckpoint; },
+    get autosaving() { return autosave.enabled; },
+    timer: () => ({ running: timerRunning, onBreak: timerBreak, remaining: timerLeft, minutes: focusMinutes }),
+  },
   metrics() {
     let decodedAudioBytes = 0;
     let instancedMeshes = 0;

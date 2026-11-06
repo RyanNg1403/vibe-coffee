@@ -9,6 +9,7 @@
     "build": "vite build && node tools/compress-textures.mjs",
     "artifact": "node tools/make-artifact.mjs",
     "audit:motion": "node tools/motion-audit.mjs",
+    "audit:resume": "node tools/resume-audit.mjs",
     "audit:memory": "node tools/memory-audit.mjs",
     "audit:mobile": "node tools/memory-mobile-audit.mjs",
     "audit:visual": "node tools/visual-audit.mjs",
